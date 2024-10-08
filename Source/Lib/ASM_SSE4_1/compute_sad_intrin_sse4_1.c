@@ -87,6 +87,62 @@ void svt_ext_sad_calculation_32x32_64x64_sse4_intrin(uint32_t *p_sad16x16, uint3
     }
 }
 
+uint32_t svt_sad_nxm_combined_sse4_1(const uint8_t *src, uint32_t src_stride, const uint8_t *ref, uint32_t ref_stride,
+                                     int32_t height, int32_t width) {
+    // these must match block widths implemented in svt_nxm_sad_kernel_helper_sse4_1
+    // 1, 2, 3 are added for convenience and will be handled by C code
+    static const int available_widths[] = {1, 2, 3, 4, 8, 16, 24, 32, 40, 48, 56, 64};
+    int              i                  = sizeof(available_widths) / sizeof(available_widths[0]);
+    uint32_t         sad                = 0;
+    while (width > 0) {
+        while (--i >= 0) {
+            int w = available_widths[i];
+            if (w <= width) {
+                sad += svt_nxm_sad_kernel_helper_sse4_1(src, src_stride, ref, ref_stride, height, w);
+                width -= w;
+                src += w;
+                ref += w;
+                break;
+            }
+        }
+    }
+    return sad;
+}
+
+void svt_sad_loop_kernel_anyxh_sse4_1(uint8_t  *src, // input parameter, source samples Ptr
+                                      uint32_t  src_stride, // input parameter, source stride
+                                      uint8_t  *ref, // input parameter, reference samples Ptr
+                                      uint32_t  ref_stride, // input parameter, reference stride
+                                      uint32_t  block_height, // input parameter, block height (M)
+                                      uint32_t  block_width, // input parameter, block width (N)
+                                      uint64_t *best_sad, int16_t *x_search_center, int16_t *y_search_center,
+                                      uint32_t src_stride_raw, // input parameter, source stride (no line skipping)
+                                      uint8_t skip_search_line, int16_t search_area_width, int16_t search_area_height) {
+    int16_t   x_search_index;
+    int16_t   y_search_index;
+    const int skip_line_value = (block_width == 16 && block_height <= 16 && skip_search_line) ? 0 : -1;
+
+    for (y_search_index = 0; y_search_index < search_area_height; y_search_index++) {
+        if ((y_search_index & 1) == skip_line_value) {
+            ref += src_stride_raw;
+            continue;
+        }
+        for (x_search_index = 0; x_search_index < search_area_width; x_search_index++) {
+            uint32_t sad = svt_sad_nxm_combined_sse4_1(
+                src, src_stride, ref + x_search_index, ref_stride, block_height, block_width);
+
+            // Update results
+            if (sad < *best_sad) {
+                *best_sad        = sad;
+                *x_search_center = x_search_index;
+                *y_search_center = y_search_index;
+            }
+        }
+
+        ref += src_stride_raw;
+    }
+}
+
 /*******************************************************************************
  * Requirement: width   = 4, 6, 8, 12, 16, 24, 32, 48 or 64 to use SIMD
  * otherwise C version is used
@@ -2007,19 +2063,19 @@ void svt_sad_loop_kernel_sse4_1_intrin(uint8_t  *src, // input parameter, source
         break;
 
     default:
-        svt_sad_loop_kernel_c(src,
-                              src_stride,
-                              ref,
-                              ref_stride,
-                              block_height,
-                              block_width,
-                              best_sad,
-                              x_search_center,
-                              y_search_center,
-                              src_stride_raw,
-                              skip_search_line,
-                              search_area_width,
-                              search_area_height);
+        svt_sad_loop_kernel_anyxh_sse4_1(src,
+                                         src_stride,
+                                         ref,
+                                         ref_stride,
+                                         block_height,
+                                         block_width,
+                                         best_sad,
+                                         x_search_center,
+                                         y_search_center,
+                                         src_stride_raw,
+                                         skip_search_line,
+                                         search_area_width,
+                                         search_area_height);
         return;
     }
 
@@ -3700,25 +3756,6 @@ uint32_t svt_av1_compute128x_m_sad_sse4_1_intrin(const uint8_t *src, // input pa
     return _mm_cvtsi128_si32(sad);
 }
 
-uint32_t svt_nxm_sad_kernel_sub_sampled_helper_sse4_1(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
-                                                      uint32_t ref_stride, uint32_t height, uint32_t width) {
-    uint32_t nxm_sad = 0;
-
-    switch (width) {
-    case 4: nxm_sad = svt_av1_compute4x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
-    case 8: nxm_sad = svt_av1_compute8x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
-    case 16: nxm_sad = svt_av1_compute16x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
-    case 24: nxm_sad = svt_av1_compute24x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
-    case 32: nxm_sad = svt_av1_compute32x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
-    case 48: nxm_sad = svt_av1_compute48x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
-    case 64: nxm_sad = svt_av1_compute64x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
-    case 128: nxm_sad = svt_av1_compute128x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
-    default: nxm_sad = svt_nxm_sad_kernel_helper_c(src, src_stride, ref, ref_stride, height, width);
-    }
-
-    return nxm_sad;
-};
-
 uint32_t svt_nxm_sad_kernel_helper_sse4_1(const uint8_t *src, uint32_t src_stride, const uint8_t *ref,
                                           uint32_t ref_stride, uint32_t height, uint32_t width) {
     uint32_t nxm_sad = 0;
@@ -3733,6 +3770,7 @@ uint32_t svt_nxm_sad_kernel_helper_sse4_1(const uint8_t *src, uint32_t src_strid
     case 48: nxm_sad = svt_av1_compute48x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
     case 56: nxm_sad = svt_av1_compute56x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
     case 64: nxm_sad = svt_av1_compute64x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
+    case 128: nxm_sad = svt_av1_compute128x_m_sad_sse4_1_intrin(src, src_stride, ref, ref_stride, height, width); break;
     default: nxm_sad = svt_nxm_sad_kernel_helper_c(src, src_stride, ref, ref_stride, height, width);
     }
 

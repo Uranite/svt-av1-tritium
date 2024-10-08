@@ -160,254 +160,17 @@ void svt_residual_kernel8bit_neon(uint8_t *input, uint32_t input_stride, uint8_t
     }
 }
 
-static void hadamard8x8_one_pass(int16x8_t *a) {
-    const int16x8_t b0 = vaddq_s16(a[0], a[1]);
-    const int16x8_t b1 = vsubq_s16(a[0], a[1]);
-    const int16x8_t b2 = vaddq_s16(a[2], a[3]);
-    const int16x8_t b3 = vsubq_s16(a[2], a[3]);
-    const int16x8_t b4 = vaddq_s16(a[4], a[5]);
-    const int16x8_t b5 = vsubq_s16(a[4], a[5]);
-    const int16x8_t b6 = vaddq_s16(a[6], a[7]);
-    const int16x8_t b7 = vsubq_s16(a[6], a[7]);
-
-    const int16x8_t c0 = vaddq_s16(b0, b2);
-    const int16x8_t c1 = vaddq_s16(b1, b3);
-    const int16x8_t c2 = vsubq_s16(b0, b2);
-    const int16x8_t c3 = vsubq_s16(b1, b3);
-    const int16x8_t c4 = vaddq_s16(b4, b6);
-    const int16x8_t c5 = vaddq_s16(b5, b7);
-    const int16x8_t c6 = vsubq_s16(b4, b6);
-    const int16x8_t c7 = vsubq_s16(b5, b7);
-
-    a[0] = vaddq_s16(c0, c4);
-    a[1] = vsubq_s16(c2, c6);
-    a[2] = vsubq_s16(c0, c4);
-    a[3] = vaddq_s16(c2, c6);
-    a[4] = vaddq_s16(c3, c7);
-    a[5] = vsubq_s16(c3, c7);
-    a[6] = vsubq_s16(c1, c5);
-    a[7] = vaddq_s16(c1, c5);
-}
-
-void svt_aom_hadamard_8x8_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff) {
-    int16x8_t a[8];
-
-    a[0] = vld1q_s16(src_diff);
-    a[1] = vld1q_s16(src_diff + src_stride);
-    a[2] = vld1q_s16(src_diff + 2 * src_stride);
-    a[3] = vld1q_s16(src_diff + 3 * src_stride);
-    a[4] = vld1q_s16(src_diff + 4 * src_stride);
-    a[5] = vld1q_s16(src_diff + 5 * src_stride);
-    a[6] = vld1q_s16(src_diff + 6 * src_stride);
-    a[7] = vld1q_s16(src_diff + 7 * src_stride);
-
-    hadamard8x8_one_pass(a);
-    transpose_elems_inplace_s16_8x8(a + 0, a + 1, a + 2, a + 3, a + 4, a + 5, a + 6, a + 7);
-    hadamard8x8_one_pass(a);
-
-    store_s16q_to_tran_low(coeff + 0, a[0]);
-    store_s16q_to_tran_low(coeff + 8, a[1]);
-    store_s16q_to_tran_low(coeff + 16, a[2]);
-    store_s16q_to_tran_low(coeff + 24, a[3]);
-    store_s16q_to_tran_low(coeff + 32, a[4]);
-    store_s16q_to_tran_low(coeff + 40, a[5]);
-    store_s16q_to_tran_low(coeff + 48, a[6]);
-    store_s16q_to_tran_low(coeff + 56, a[7]);
-}
-
-void svt_aom_hadamard_16x16_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff) {
-    int idx;
-
-    for (idx = 0; idx < 4; ++idx) {
-        // src_diff: 9 bit, dynamic range [-255, 255]
-        const int16_t *src_ptr = src_diff + (idx >> 1) * 8 * src_stride + (idx & 0x01) * 8;
-        svt_aom_hadamard_8x8_neon(src_ptr, src_stride, coeff + idx * 64);
-    }
-
-    /* Generate 8x4=32 coefficient values in one iteration. With 8 iterations,
-    a total of 256 coefficient values will be generated. */
-    for (idx = 0; idx < 64; idx += 8) {
-        const int16x8_t a0 = load_tran_low_to_s16q(coeff);
-        const int16x8_t a1 = load_tran_low_to_s16q(coeff + 64);
-        const int16x8_t a2 = load_tran_low_to_s16q(coeff + 128);
-        const int16x8_t a3 = load_tran_low_to_s16q(coeff + 192);
-
-        const int16x8_t b0 = vshrq_n_s16(vaddq_s16(a0, a1), 1);
-        const int16x8_t b1 = vshrq_n_s16(vsubq_s16(a0, a1), 1);
-        const int16x8_t b2 = vshrq_n_s16(vaddq_s16(a2, a3), 1);
-        const int16x8_t b3 = vshrq_n_s16(vsubq_s16(a2, a3), 1);
-
-        const int16x8_t c0 = vaddq_s16(b0, b2);
-        const int16x8_t c1 = vaddq_s16(b1, b3);
-        const int16x8_t c2 = vsubq_s16(b0, b2);
-        const int16x8_t c3 = vsubq_s16(b1, b3);
-
-        store_s16q_to_tran_low(coeff + 0, c0);
-        store_s16q_to_tran_low(coeff + 64, c1);
-        store_s16q_to_tran_low(coeff + 128, c2);
-        store_s16q_to_tran_low(coeff + 192, c3);
-        coeff += 8;
-    }
-}
-
-void svt_aom_hadamard_32x32_neon(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff) {
-    int idx;
-    for (idx = 0; idx < 4; ++idx) {
-        // src_diff: 9 bit, dynamic range [-255, 255]
-        const int16_t *src_ptr = src_diff + (idx >> 1) * 16 * src_stride + (idx & 0x01) * 16;
-        svt_aom_hadamard_16x16_neon(src_ptr, src_stride, coeff + idx * 256);
-    }
-
-    for (idx = 0; idx < 256; idx += 8) {
-        const int16x8_t a0 = load_tran_low_to_s16q(coeff);
-        const int16x8_t a1 = load_tran_low_to_s16q(coeff + 256);
-        const int16x8_t a2 = load_tran_low_to_s16q(coeff + 512);
-        const int16x8_t a3 = load_tran_low_to_s16q(coeff + 768);
-
-        const int16x8_t b0 = vshrq_n_s16(vaddq_s16(a0, a1), 2);
-        const int16x8_t b1 = vshrq_n_s16(vsubq_s16(a0, a1), 2);
-        const int16x8_t b2 = vshrq_n_s16(vaddq_s16(a2, a3), 2);
-        const int16x8_t b3 = vshrq_n_s16(vsubq_s16(a2, a3), 2);
-
-        const int16x8_t c0 = vaddq_s16(b0, b2);
-        const int16x8_t c1 = vaddq_s16(b1, b3);
-        const int16x8_t c2 = vsubq_s16(b0, b2);
-        const int16x8_t c3 = vsubq_s16(b1, b3);
-
-        store_s16_to_tran_low(coeff + 0 + 0, vget_low_s16(c0));
-        store_s16_to_tran_low(coeff + 0 + 4, vget_high_s16(c0));
-        store_s16_to_tran_low(coeff + 256 + 0, vget_low_s16(c1));
-        store_s16_to_tran_low(coeff + 256 + 4, vget_high_s16(c1));
-        store_s16_to_tran_low(coeff + 512 + 0, vget_low_s16(c2));
-        store_s16_to_tran_low(coeff + 512 + 4, vget_high_s16(c2));
-        store_s16_to_tran_low(coeff + 768 + 0, vget_low_s16(c3));
-        store_s16_to_tran_low(coeff + 768 + 4, vget_high_s16(c3));
-
-        coeff += 8;
-    }
-}
-
-static INLINE uint32x4_t full_distortion_kernel4_neon_intrin(const uint16_t *const input, const uint16_t *const recon) {
-    const uint16x4_t in      = vld1_u16(input);
-    const uint16x4_t re      = vld1_u16(recon);
-    const uint16x4_t max     = vmax_u16(in, re);
-    const uint16x4_t min     = vmin_u16(in, re);
-    const uint16x4_t diff    = vsub_u16(max, min);
-    const uint32x4_t diff_32 = vmull_u16(diff, diff);
-    return diff_32;
-}
-
-static INLINE uint32x4_t full_distortion_kernel8_neon_intrin(uint16x8_t in, uint16x8_t re) {
-    const uint16x8_t max     = vmaxq_u16(in, re);
-    const uint16x8_t min     = vminq_u16(in, re);
-    const uint16x8_t diff    = vsubq_u16(max, min);
-    const uint32x4_t diff_32 = vpaddq_u32(vmull_u16(vget_low_u16(diff), vget_low_u16(diff)),
-                                          vmull_high_u16(diff, diff));
-    return diff_32;
-}
-
-uint64_t svt_full_distortion_kernel16_bits_neon(uint8_t *input, uint32_t input_offset, uint32_t input_stride,
-                                                uint8_t *recon, int32_t recon_offset, uint32_t recon_stride,
-                                                uint32_t area_width, uint32_t area_height) {
-    const uint32_t leftover    = area_width & 7; // area_width % 8
-    int64x2_t      sum64       = vdupq_n_s64(0);
-    uint16_t      *input_16bit = (uint16_t *)input;
-    uint16_t      *recon_16bit = (uint16_t *)recon;
-    input_16bit += input_offset;
-    recon_16bit += recon_offset;
-
-    const uint32x4_t zero = vdupq_n_u32(0);
-
-    if (leftover) { // (leftover == 4)
-        const uint16_t       *inp     = input_16bit + area_width - leftover;
-        const uint16_t       *rec     = recon_16bit + area_width - leftover;
-        const uint16_t *const inp_end = inp + area_height * input_stride;
-
-        do {
-            const uint32x4_t sum32 = full_distortion_kernel4_neon_intrin(inp, rec);
-            inp += input_stride;
-            rec += recon_stride;
-
-            sum64 = vaddq_s64(sum64,
-                              vaddq_s64(vreinterpretq_s64_u32(vzip1q_u32(sum32, zero)),
-                                        vreinterpretq_s64_u32(vzip2q_u32(sum32, zero))));
-        } while (inp < inp_end);
-    }
-
-    area_width -= leftover; // area width will be now a multiple of 8
-
-    if (area_width) {
-        const uint16_t *inp = input_16bit;
-        const uint16_t *rec = recon_16bit;
-
-        if (area_width == 8) {
-            const uint16_t *const inp_end = inp + area_height * input_stride;
-            do {
-                const uint32x4_t sum32 = full_distortion_kernel8_neon_intrin(vld1q_u16(inp), vld1q_u16(rec));
-                inp += input_stride;
-                rec += recon_stride;
-
-                sum64 = vaddq_s64(sum64,
-                                  vaddq_s64(vreinterpretq_s64_u32(vzip1q_u32(sum32, zero)),
-                                            vreinterpretq_s64_u32(vzip2q_u32(sum32, zero))));
-            } while (inp < inp_end);
-
-        } else if (area_width == 16) {
-            const uint16_t *const inp_end = inp + area_height * input_stride;
-            do {
-                const uint32x4_t sum32 = vaddq_u32(
-                    full_distortion_kernel8_neon_intrin(vld1q_u16(inp), vld1q_u16(rec)),
-                    full_distortion_kernel8_neon_intrin(vld1q_u16(inp + 8), vld1q_u16(rec + 8)));
-                inp += input_stride;
-                rec += recon_stride;
-                sum64 = vaddq_s64(sum64,
-                                  vaddq_s64(vreinterpretq_s64_u32(vzip1q_u32(sum32, zero)),
-                                            vreinterpretq_s64_u32(vzip2q_u32(sum32, zero))));
-            } while (inp < inp_end);
-        } else {
-            for (uint32_t h = 0; h < area_height; h++) {
-                uint32_t w = 0;
-
-                for (; w + 16 < area_width; w += 16) {
-                    const uint32x4_t sum32_0 = full_distortion_kernel8_neon_intrin(vld1q_u16(inp + w),
-                                                                                   vld1q_u16(rec + w));
-                    const uint32x4_t sum32_1 = full_distortion_kernel8_neon_intrin(vld1q_u16(inp + w + 8),
-                                                                                   vld1q_u16(rec + w + 8));
-
-                    sum64 = vaddq_s64(sum64,
-                                      vaddq_s64(vaddq_s64(vreinterpretq_s64_u32(vzip1q_u32(sum32_0, zero)),
-                                                          vreinterpretq_s64_u32(vzip2q_u32(sum32_0, zero))),
-                                                vaddq_s64(vreinterpretq_s64_u32(vzip1q_u32(sum32_1, zero)),
-                                                          vreinterpretq_s64_u32(vzip2q_u32(sum32_1, zero)))));
-                }
-
-                for (; w < area_width; w += 8) {
-                    const uint32x4_t sum32 = full_distortion_kernel8_neon_intrin(vld1q_u16(inp + w),
-                                                                                 vld1q_u16(rec + w));
-                    sum64                  = vaddq_s64(sum64,
-                                      vaddq_s64(vreinterpretq_s64_u32(vzip1q_u32(sum32, zero)),
-                                                vreinterpretq_s64_u32(vzip2q_u32(sum32, zero))));
-                }
-                inp += input_stride;
-                rec += recon_stride;
-            }
-        }
-    }
-
-    return vgetq_lane_s64(sum64, 0) + vgetq_lane_s64(sum64, 1);
-}
-
 void svt_full_distortion_kernel32_bits_neon(int32_t *coeff, uint32_t coeff_stride, int32_t *recon_coeff,
                                             uint32_t recon_coeff_stride, uint64_t distortion_result[DIST_CALC_TOTAL],
                                             uint32_t area_width, uint32_t area_height) {
-    int64x2_t sum1      = vdupq_n_s64(0);
-    int64x2_t sum2      = vdupq_n_s64(0);
-    uint32_t  row_count = area_height;
+    int64x2_t residual_distortion = vdupq_n_s64(0);
+    int64x2_t residual_prediction = vdupq_n_s64(0);
+
     do {
         int32_t *coeff_temp       = coeff;
         int32_t *recon_coeff_temp = recon_coeff;
 
-        uint32_t col_count = area_width / 4;
+        uint32_t col_count = area_width;
         do {
             int32x4_t x0 = vld1q_s32(coeff_temp);
             int32x4_t y0 = vld1q_s32(recon_coeff_temp);
@@ -417,34 +180,25 @@ void svt_full_distortion_kernel32_bits_neon(int32_t *coeff, uint32_t coeff_strid
             int32x2_t y_lo = vget_low_s32(y0);
             int32x2_t y_hi = vget_high_s32(y0);
 
-            sum2 = vmlal_s32(sum2, x_lo, x_lo);
-            sum2 = vmlal_s32(sum2, x_hi, x_hi);
+            residual_prediction = vmlal_s32(residual_prediction, x_lo, x_lo);
+            residual_prediction = vmlal_s32(residual_prediction, x_hi, x_hi);
 
             int32x2_t x_lo_sub = vsub_s32(x_lo, y_lo);
             int32x2_t x_hi_sub = vsub_s32(x_hi, y_hi);
 
-            int64x2_t x_lo_wide = vmull_s32(x_lo_sub, x_lo_sub);
-            int64x2_t x_hi_wide = vmull_s32(x_hi_sub, x_hi_sub);
-
-            sum1 = vaddq_s64(sum1, x_lo_wide);
-            sum1 = vaddq_s64(sum1, x_hi_wide);
+            residual_distortion = vmlal_s32(residual_distortion, x_lo_sub, x_lo_sub);
+            residual_distortion = vmlal_s32(residual_distortion, x_hi_sub, x_hi_sub);
 
             coeff_temp += 4;
             recon_coeff_temp += 4;
-        } while (--col_count);
+            col_count -= 4;
+        } while (col_count != 0);
 
         coeff += coeff_stride;
         recon_coeff += recon_coeff_stride;
-        row_count -= 1;
-    } while (row_count > 0);
+    } while (--area_height != 0);
 
-    int64x2_t tmp  = vcombine_s64(vget_high_s64(sum1), vget_low_s64(sum1));
-    int64x2_t tmp2 = vaddq_s64(sum1, tmp);
-    tmp            = vcombine_s64(vget_high_s64(sum2), vget_low_s64(sum2));
-    int64x2_t tmp3 = vaddq_s64(sum2, tmp);
-    tmp3           = vcombine_s64(vget_low_s64(tmp2), vget_low_s64(tmp3));
-
-    vst1q_s64((int64_t *)distortion_result, tmp3);
+    vst1q_s64((int64_t *)distortion_result, vpaddq_s64(residual_distortion, residual_prediction));
 }
 
 static INLINE void unpack_and_2bcompress_32_neon(uint16_t *in16b_buffer, uint8_t *out8b_buffer, uint8_t *out2b_buffer,

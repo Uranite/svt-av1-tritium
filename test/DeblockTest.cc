@@ -99,19 +99,11 @@ class LoopFilterTest : public ::testing::TestWithParam<TestParamType> {
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void init_buffer_with_value(uint8_t *buf, int length, uint8_t val) {
         for (int i = 0; i < length; ++i)
             buf[i] = val;
-    }
-
-    void init_input_random(Sample *s, Sample *ref_s, ACMRandom *rnd) {
-        for (int i = 0; i < kNumCoeffs; ++i) {
-            s[i] = rnd->Rand16() & mask_;
-            ref_s[i] = s[i];
-        }
     }
 
     virtual void run_lpf(LOOP_PARAM, int bd) {
@@ -120,6 +112,68 @@ class LoopFilterTest : public ::testing::TestWithParam<TestParamType> {
         (void)limit;
         (void)thresh;
         (void)bd;
+    }
+
+    void init_input(Sample *s, Sample *ref_s, ACMRandom *rnd,
+                    const uint8_t limit, const int mask, const int32_t p,
+                    const int i) {
+        uint16_t tmp_s[kNumCoeffs];
+
+        for (int j = 0; j < kNumCoeffs;) {
+            const uint8_t val = rnd->Rand8();
+            if (val & 0x80) {  // 50% chance to choose a new value.
+                tmp_s[j] = rnd->Rand16();
+                j++;
+            } else {  // 50% chance to repeat previous value in row X times.
+                int k = 0;
+                while (k++ < ((val & 0x1f) + 1) && j < kNumCoeffs) {
+                    if (j < 1) {
+                        tmp_s[j] = rnd->Rand16();
+                    } else if (val & 0x20) {  // Increment by a value within the
+                                              // limit.
+                        tmp_s[j] =
+                            static_cast<uint16_t>(tmp_s[j - 1] + (limit - 1));
+                    } else {  // Decrement by a value within the limit.
+                        tmp_s[j] =
+                            static_cast<uint16_t>(tmp_s[j - 1] - (limit - 1));
+                    }
+                    j++;
+                }
+            }
+        }
+
+        for (int j = 0; j < kNumCoeffs;) {
+            const uint8_t val = rnd->Rand8();
+            if (val & 0x80) {
+                j++;
+            } else {  // 50% chance to repeat previous value in column X times.
+                int k = 0;
+                while (k++ < ((val & 0x1f) + 1) && j < kNumCoeffs) {
+                    if (j < 1) {
+                        tmp_s[j] = rnd->Rand16();
+                    } else if (val & 0x20) {  // Increment by a value within the
+                                              // limit.
+                        tmp_s[(j % 32) * 32 + j / 32] = static_cast<uint16_t>(
+                            tmp_s[((j - 1) % 32) * 32 + (j - 1) / 32] +
+                            (limit - 1));
+                    } else {  // Decrement by a value within the limit.
+                        tmp_s[(j % 32) * 32 + j / 32] = static_cast<uint16_t>(
+                            tmp_s[((j - 1) % 32) * 32 + (j - 1) / 32] -
+                            (limit - 1));
+                    }
+                    j++;
+                }
+            }
+        }
+
+        for (int j = 0; j < kNumCoeffs; j++) {
+            if (i % 2) {
+                s[j] = tmp_s[j] & mask;
+            } else {
+                s[j] = tmp_s[p * (j % p) + j / p] & mask;
+            }
+            ref_s[j] = s[j];
+        }
     }
 
     void run_test() {
@@ -148,7 +202,7 @@ class LoopFilterTest : public ::testing::TestWithParam<TestParamType> {
             init_buffer_with_value(thresh, 16, tmp);
 
             // Initial sample data
-            init_input_random(tst_s, ref_s, &rnd);
+            init_input(tst_s, ref_s, &rnd, *limit, mask_, p, i);
 
             // run the filters
             run_lpf(p, blimit, limit, thresh, bit_depth_);
@@ -221,7 +275,6 @@ class HbdLoopFilterTest
         lpf_ref_(start_ref_, p, blimit, limit, thresh, bd);
     }
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HbdLoopFilterTest);
 
 TEST_P(HbdLoopFilterTest, MatchTestRandomData) {
     run_test();
@@ -318,5 +371,45 @@ const LdbLpfTestParam kLoop8Test6[] = {
 
 INSTANTIATE_TEST_SUITE_P(NEON, LbdLoopFilterTest,
                          ::testing::ValuesIn(kLoop8Test6));
+
+const HbdLpfTestParam kHbdLoop8Test6[] = {
+    make_tuple(&svt_aom_highbd_lpf_horizontal_4_neon,
+               &svt_aom_highbd_lpf_horizontal_4_c, 8),
+    make_tuple(&svt_aom_highbd_lpf_horizontal_6_neon,
+               &svt_aom_highbd_lpf_horizontal_6_c, 8),
+    make_tuple(&svt_aom_highbd_lpf_horizontal_8_neon,
+               &svt_aom_highbd_lpf_horizontal_8_c, 8),
+    make_tuple(&svt_aom_highbd_lpf_horizontal_14_neon,
+               &svt_aom_highbd_lpf_horizontal_14_c, 8),
+
+    make_tuple(&svt_aom_highbd_lpf_vertical_4_neon,
+               &svt_aom_highbd_lpf_vertical_4_c, 8),
+    make_tuple(&svt_aom_highbd_lpf_vertical_6_neon,
+               &svt_aom_highbd_lpf_vertical_6_c, 8),
+    make_tuple(&svt_aom_highbd_lpf_vertical_8_neon,
+               &svt_aom_highbd_lpf_vertical_8_c, 8),
+    make_tuple(&svt_aom_highbd_lpf_vertical_14_neon,
+               &svt_aom_highbd_lpf_vertical_14_c, 8),
+
+    make_tuple(&svt_aom_highbd_lpf_horizontal_4_neon,
+               &svt_aom_highbd_lpf_horizontal_4_c, 10),
+    make_tuple(&svt_aom_highbd_lpf_horizontal_6_neon,
+               &svt_aom_highbd_lpf_horizontal_6_c, 10),
+    make_tuple(&svt_aom_highbd_lpf_horizontal_8_neon,
+               &svt_aom_highbd_lpf_horizontal_8_c, 10),
+    make_tuple(&svt_aom_highbd_lpf_horizontal_14_neon,
+               &svt_aom_highbd_lpf_horizontal_14_c, 10),
+
+    make_tuple(&svt_aom_highbd_lpf_vertical_4_neon,
+               &svt_aom_highbd_lpf_vertical_4_c, 10),
+    make_tuple(&svt_aom_highbd_lpf_vertical_6_neon,
+               &svt_aom_highbd_lpf_vertical_6_c, 10),
+    make_tuple(&svt_aom_highbd_lpf_vertical_8_neon,
+               &svt_aom_highbd_lpf_vertical_8_c, 10),
+    make_tuple(&svt_aom_highbd_lpf_vertical_14_neon,
+               &svt_aom_highbd_lpf_vertical_14_c, 10)};
+
+INSTANTIATE_TEST_SUITE_P(NEON, HbdLoopFilterTest,
+                         ::testing::ValuesIn(kHbdLoop8Test6));
 #endif  // ARCH_AARCH64
 }  // namespace

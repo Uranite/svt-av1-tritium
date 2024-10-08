@@ -156,23 +156,23 @@ static const FwdTxfm2dFunc fwd_txfm_2d_N4_sse4_1_func[TX_SIZES_ALL] = {
 static const FwdTxfm2dFunc fwd_txfm_2d_avx512_func[TX_SIZES_ALL] = {
     NULL,
     NULL,
-    av1_fwd_txfm2d_16x16_avx512,
-    av1_fwd_txfm2d_32x32_avx512,
-    av1_fwd_txfm2d_64x64_avx512,
+    svt_av1_fwd_txfm2d_16x16_avx512,
+    svt_av1_fwd_txfm2d_32x32_avx512,
+    svt_av1_fwd_txfm2d_64x64_avx512,
     NULL,
     NULL,
     NULL,
     NULL,
-    av1_fwd_txfm2d_16x32_avx512,
-    av1_fwd_txfm2d_32x16_avx512,
-    av1_fwd_txfm2d_32x64_avx512,
-    av1_fwd_txfm2d_64x32_avx512,
+    svt_av1_fwd_txfm2d_16x32_avx512,
+    svt_av1_fwd_txfm2d_32x16_avx512,
+    svt_av1_fwd_txfm2d_32x64_avx512,
+    svt_av1_fwd_txfm2d_64x32_avx512,
     NULL,
     NULL,
     NULL,
     NULL,
-    av1_fwd_txfm2d_16x64_avx512,
-    av1_fwd_txfm2d_64x16_avx512,
+    svt_av1_fwd_txfm2d_16x64_avx512,
+    svt_av1_fwd_txfm2d_64x16_avx512,
 };
 
 static const FwdTxfm2dFunc fwd_txfm_2d_N2_avx512_func[TX_SIZES_ALL] = {
@@ -223,56 +223,32 @@ static const FwdTxfm2dFunc fwd_txfm_2d_neon_func[TX_SIZES_ALL] = {
 };
 
 static const FwdTxfm2dFunc fwd_txfm_2d_N4_neon_func[TX_SIZES_ALL] = {
-    NULL,
-    NULL,
-    svt_av1_fwd_txfm2d_16x16_N4_neon,
-    svt_av1_fwd_txfm2d_32x32_N4_neon,
-    svt_av1_fwd_txfm2d_64x64_N4_neon,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    svt_av1_fwd_txfm2d_32x8_N4_neon,
-    NULL,
-    NULL,
+    svt_av1_fwd_txfm2d_4x4_N4_neon,   svt_av1_fwd_txfm2d_8x8_N4_neon,
+    svt_av1_fwd_txfm2d_16x16_N4_neon, svt_av1_fwd_txfm2d_32x32_N4_neon,
+    svt_av1_fwd_txfm2d_64x64_N4_neon, svt_av1_fwd_txfm2d_4x8_N4_neon,
+    svt_av1_fwd_txfm2d_8x4_N4_neon,   svt_av1_fwd_txfm2d_8x16_N4_neon,
+    svt_av1_fwd_txfm2d_16x8_N4_neon,  svt_av1_fwd_txfm2d_16x32_N4_neon,
+    svt_av1_fwd_txfm2d_32x16_N4_neon, svt_av1_fwd_txfm2d_32x64_N4_neon,
+    svt_av1_fwd_txfm2d_64x32_N4_neon, svt_av1_fwd_txfm2d_4x16_N4_neon,
+    svt_av1_fwd_txfm2d_16x4_N4_neon,  svt_av1_fwd_txfm2d_8x32_N4_neon,
+    svt_av1_fwd_txfm2d_32x8_N4_neon,  svt_av1_fwd_txfm2d_16x64_N4_neon,
+    svt_av1_fwd_txfm2d_64x16_N4_neon,
+};
+
+static const FwdTxfm2dFunc fwd_txfm_2d_N2_neon_func[TX_SIZES_ALL] = {
+    svt_av1_fwd_txfm2d_4x4_N2_neon,   svt_av1_fwd_txfm2d_8x8_N2_neon,
+    svt_av1_fwd_txfm2d_16x16_N2_neon, svt_av1_fwd_txfm2d_32x32_N2_neon,
+    svt_av1_fwd_txfm2d_64x64_N2_neon, svt_av1_fwd_txfm2d_4x8_N2_neon,
+    svt_av1_fwd_txfm2d_8x4_N2_neon,   svt_av1_fwd_txfm2d_8x16_N2_neon,
+    svt_av1_fwd_txfm2d_16x8_N2_neon,  svt_av1_fwd_txfm2d_16x32_N2_neon,
+    svt_av1_fwd_txfm2d_32x16_N2_neon, svt_av1_fwd_txfm2d_32x64_N2_neon,
+    svt_av1_fwd_txfm2d_64x32_N2_neon, svt_av1_fwd_txfm2d_4x16_N2_neon,
+    svt_av1_fwd_txfm2d_16x4_N2_neon,  svt_av1_fwd_txfm2d_8x32_N2_neon,
+    svt_av1_fwd_txfm2d_32x8_N2_neon,  svt_av1_fwd_txfm2d_16x64_N2_neon,
+    svt_av1_fwd_txfm2d_64x16_N2_neon,
 };
 
 #endif /* ARCH_AARCH64*/
-
-#ifdef ARCH_X86_64
-static const FwdTxfm2dFunc fwd_txfm_2d_N2_c_func[TX_SIZES_ALL] = {
-    svt_aom_transform_two_d_4x4_N2_c,   svt_aom_transform_two_d_8x8_N2_c,
-    svt_aom_transform_two_d_16x16_N2_c, svt_aom_transform_two_d_32x32_N2_c,
-    svt_aom_transform_two_d_64x64_N2_c, svt_av1_fwd_txfm2d_4x8_N2_c,
-    svt_av1_fwd_txfm2d_8x4_N2_c,        svt_av1_fwd_txfm2d_8x16_N2_c,
-    svt_av1_fwd_txfm2d_16x8_N2_c,       svt_av1_fwd_txfm2d_16x32_N2_c,
-    svt_av1_fwd_txfm2d_32x16_N2_c,      svt_av1_fwd_txfm2d_32x64_N2_c,
-    svt_av1_fwd_txfm2d_64x32_N2_c,      svt_av1_fwd_txfm2d_4x16_N2_c,
-    svt_av1_fwd_txfm2d_16x4_N2_c,       svt_av1_fwd_txfm2d_8x32_N2_c,
-    svt_av1_fwd_txfm2d_32x8_N2_c,       svt_av1_fwd_txfm2d_16x64_N2_c,
-    svt_av1_fwd_txfm2d_64x16_N2_c,
-};
-#endif
-
-static const FwdTxfm2dFunc fwd_txfm_2d_N4_c_func[TX_SIZES_ALL] = {
-    svt_aom_transform_two_d_4x4_N4_c,   svt_aom_transform_two_d_8x8_N4_c,
-    svt_aom_transform_two_d_16x16_N4_c, svt_aom_transform_two_d_32x32_N4_c,
-    svt_aom_transform_two_d_64x64_N4_c, svt_av1_fwd_txfm2d_4x8_N4_c,
-    svt_av1_fwd_txfm2d_8x4_N4_c,        svt_av1_fwd_txfm2d_8x16_N4_c,
-    svt_av1_fwd_txfm2d_16x8_N4_c,       svt_av1_fwd_txfm2d_16x32_N4_c,
-    svt_av1_fwd_txfm2d_32x16_N4_c,      svt_av1_fwd_txfm2d_32x64_N4_c,
-    svt_av1_fwd_txfm2d_64x32_N4_c,      svt_av1_fwd_txfm2d_4x16_N4_c,
-    svt_av1_fwd_txfm2d_16x4_N4_c,       svt_av1_fwd_txfm2d_8x32_N4_c,
-    svt_av1_fwd_txfm2d_32x8_N4_c,       svt_av1_fwd_txfm2d_16x64_N4_c,
-    svt_av1_fwd_txfm2d_64x16_N4_c,
-};
 
 /**
  * @brief Unit test for fwd tx 2d avx2 functions:
@@ -320,7 +296,6 @@ class FwdTxfm2dAsmTest : public ::testing::TestWithParam<FwdTxfm2dAsmParam> {
 
     ~FwdTxfm2dAsmTest() {
         delete rnd_;
-        aom_clear_system_state();
     }
 
     void run_match_test() {
@@ -626,5 +601,15 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::Values(N4_SHAPE),
                        ::testing::Values(fwd_txfm_2d_N4_c_func),
                        ::testing::Values(fwd_txfm_2d_N4_neon_func)));
+
+INSTANTIATE_TEST_SUITE_P(
+    N2_NEON, FwdTxfm2dAsmTest,
+    ::testing::Combine(::testing::Range(static_cast<int>(TX_4X4),
+                                        static_cast<int>(TX_SIZES_ALL), 1),
+                       ::testing::Values(static_cast<int>(EB_EIGHT_BIT),
+                                         static_cast<int>(EB_TEN_BIT)),
+                       ::testing::Values(N2_SHAPE),
+                       ::testing::Values(fwd_txfm_2d_N2_c_func),
+                       ::testing::Values(fwd_txfm_2d_N2_neon_func)));
 #endif
 }  // namespace

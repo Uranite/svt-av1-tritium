@@ -125,11 +125,11 @@ elseif(NOT COMPILE_C_ONLY AND HAVE_ARM_PLATFORM)
             # against stderr does not recognise the "invalid feature modifier" error
             # produced by certain versions of GCC, leading to the feature being
             # incorrectly marked as available.
-            set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+            set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
             set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${${flavor}_FLAG}")
             unset(${flavor}_FLAG_SUPPORTED)
             check_c_source_compiles("static void function(void) {} ${C_MAIN}" ${flavor}_FLAG_SUPPORTED)
-            set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+            set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
 
             if(NOT ${flavor}_FLAG_SUPPORTED)
               set(ENABLE_${flavor} 0)
@@ -177,6 +177,8 @@ svfloat32_t func(svfloat32_t a) {
 
     add_definitions(-DARCH_AARCH64=1)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-lax-vector-conversions")
+    # Prevents missmatch between arm and x86 bitstreams
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffp-contract=off")
 endif()
 
 include(GNUInstallDirs)

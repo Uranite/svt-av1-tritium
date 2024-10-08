@@ -71,8 +71,11 @@ class CflPredTest : public ::testing::TestWithParam<FuncType> {
         SVTRandom pred_rnd(bd_ + 3 + 1, true);
         SVTRandom dst_rnd(8, false);
         for (int tx = TX_4X4; tx < TX_SIZES_ALL; ++tx) {
-            const int c_w = tx_size_wide[tx] >> 1;
-            const int c_h = tx_size_high[tx] >> 1;
+            const int c_w = tx_size_wide[tx];
+            const int c_h = tx_size_high[tx];
+            if (c_w > 32 || c_h > 32) {
+                continue;
+            }
             const int c_stride = CFL_BUF_LINE;
             memset(pred_buf_q3, 0, sizeof(pred_buf_q3));
             memset(dst_buf_ref_data_, 0, sizeof(dst_buf_ref_data_));
@@ -177,7 +180,6 @@ class HbdCflPredTest : public CflPredTest<uint16_t, CFL_PRED_HBD> {
         common_init();
     }
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HbdCflPredTest);
 
 TEST_P(HbdCflPredTest, MatchTest) {
     RunAllTest();
@@ -187,6 +189,11 @@ TEST_P(HbdCflPredTest, MatchTest) {
 INSTANTIATE_TEST_SUITE_P(AVX2, HbdCflPredTest,
                          ::testing::Values(svt_cfl_predict_hbd_avx2));
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(NEON, HbdCflPredTest,
+                         ::testing::Values(svt_cfl_predict_hbd_neon));
+#endif  // ARCH_AARCH64
 
 typedef void (*AomUpsampledPredFunc)(MacroBlockD *,
                                      const struct AV1Common *const, int, int,
@@ -205,7 +212,6 @@ class AomUpsampledPredTest
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test() {
@@ -313,19 +319,17 @@ class CflLumaSubsamplingLbdTest
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test() {
         const int block_size = TEST_GET_PARAM(0);
         CflLumaSubsamplingLbdFunc test_impl = TEST_GET_PARAM(1);
         const int width = block_size_wide[block_size];
-        // Output width is defined by CFL_BUF_LINE(32),
-        // it lead to assumption that input width cannot be larger than 64,
-        // otherwise computation will overwrite line "n" by line "n+1"
-        if (width > 64)
-            return;
         const int height = block_size_high[block_size];
+        // CFL prediction only operates on blocks where
+        // max(width, height) <= 32.
+        if (width > 32 || height > 32)
+            return;
         DECLARE_ALIGNED(16, uint8_t, input[MAX_SB_SQUARE]);
         DECLARE_ALIGNED(16, int16_t, output_q3_ref_[MAX_SB_SQUARE]);
         DECLARE_ALIGNED(16, int16_t, output_q3_tst_[MAX_SB_SQUARE]);
@@ -368,6 +372,14 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Values(svt_cfl_luma_subsampling_420_lbd_avx2)));
 #endif
 
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, CflLumaSubsamplingLbdTest,
+    ::testing::Combine(
+        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Values(svt_cfl_luma_subsampling_420_lbd_neon)));
+#endif
+
 typedef void (*CflLumaSubsamplingHbdFunc)(const uint16_t *, int32_t, int16_t *,
                                           int32_t, int32_t);
 typedef ::testing::tuple<BlockSize, CflLumaSubsamplingHbdFunc>
@@ -381,19 +393,17 @@ class CflLumaSubsamplingHbdTest
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test() {
         const int block_size = TEST_GET_PARAM(0);
         CflLumaSubsamplingHbdFunc test_impl = TEST_GET_PARAM(1);
         const int width = block_size_wide[block_size];
-        // Output width is defined by CFL_BUF_LINE(32),
-        // it lead to assumption that input width cannot be larger than 64,
-        // otherwise computation will overwrite line "n" by line "n+1"
-        if (width > 64)
-            return;
         const int height = block_size_high[block_size];
+        // CFL prediction only operates on blocks where
+        // max(width, height) <= 32.
+        if (width > 32 || height > 32)
+            return;
         DECLARE_ALIGNED(16, uint16_t, input[MAX_SB_SQUARE]);
         DECLARE_ALIGNED(16, int16_t, output_q3_ref_[MAX_SB_SQUARE]);
         DECLARE_ALIGNED(16, int16_t, output_q3_tst_[MAX_SB_SQUARE]);
@@ -435,5 +445,13 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
         ::testing::Values(svt_cfl_luma_subsampling_420_hbd_avx2)));
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, CflLumaSubsamplingHbdTest,
+    ::testing::Combine(
+        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Values(svt_cfl_luma_subsampling_420_hbd_neon)));
+#endif  // ARCH_AARCH64
 
 }  // namespace

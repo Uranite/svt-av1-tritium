@@ -544,10 +544,9 @@ static int get_cqp_kf_boost_from_r0(double r0, int frames_to_key, EbInputResolut
         factor = AOMMIN(factor, 10.0);
         factor = AOMMAX(factor, 4.0);
     }
-    const int is_720p_or_smaller = input_resolution <= INPUT_SIZE_720p_RANGE;
-    const int boost              = is_720p_or_smaller ? (int)rint(3 * (75.0 + 17.0 * factor) / r0)
-                                                      : (int)rint(4 * (75.0 + 17.0 * factor) / r0);
-    return boost;
+    // calculate boost based on resolution
+    return input_resolution <= INPUT_SIZE_720p_RANGE ? (int)rint(3 * (75.0 + 17.0 * factor) / r0)
+                                                     : (int)rint(4 * (75.0 + 17.0 * factor) / r0);
 }
 
 double svt_av1_get_gfu_boost_projection_factor(double min_factor, double max_factor, int frame_count) {
@@ -1313,10 +1312,7 @@ void svt_aom_cyclic_refresh_init(PictureParentControlSet *ppcs) {
     SequenceControlSet *scs = ppcs->scs;
     CyclicRefresh      *cr  = &ppcs->cyclic_refresh;
 
-    if ((ppcs->slice_type != I_SLICE) && (ppcs->temporal_layer_index == 0))
-        cr->apply_cyclic_refresh = 1;
-    else
-        cr->apply_cyclic_refresh = 0;
+    cr->apply_cyclic_refresh = ((ppcs->slice_type != I_SLICE) && (ppcs->temporal_layer_index == 0)) ? 1 : 0;
 
     uint16_t sb_cnt     = scs->sb_total_count;
     cr->percent_refresh = 20;
@@ -1335,11 +1331,11 @@ void svt_aom_cyclic_refresh_init(PictureParentControlSet *ppcs) {
     }
     // Use larger delta - qp(increase rate_ratio_qdelta) for first few(~4)
     // periods of the refresh cycle, after a key frame.
-    cr->max_qdelta_perc = 60;
-    if (ppcs->picture_number > (uint64_t)(4 * (1 << scs->max_heirachical_level) * 100 / cr->percent_refresh))
-        cr->rate_ratio_qdelta = 2;
-    else
-        cr->rate_ratio_qdelta = 3;
+    cr->max_qdelta_perc   = 60;
+    cr->rate_ratio_qdelta = (ppcs->picture_number >
+                             (uint64_t)(4 * (1 << scs->max_heirachical_level) * 100 / cr->percent_refresh))
+        ? 2
+        : 3;
     if (ppcs->sc_class1)
         cr->rate_ratio_qdelta += 0.5;
 }
@@ -2287,10 +2283,7 @@ static int rc_pick_q_and_bounds_no_stats_cbr(PictureControlSet *pcs) {
     // Limit Q range for the adaptive loop.
     if (pcs->ppcs->frm_hdr.frame_type == KEY_FRAME && !rc->this_key_frame_forced && pcs->ppcs->frame_offset != 0) {
         int qdelta = 0;
-#ifdef ARCH_X86_64
-        aom_clear_system_state();
-#endif
-        qdelta = svt_av1_compute_qdelta_by_rate(
+        qdelta     = svt_av1_compute_qdelta_by_rate(
             rc, pcs->ppcs->frm_hdr.frame_type, active_worst_quality, 2.0, bit_depth, pcs->ppcs->sc_class1);
         pcs->ppcs->top_index = active_worst_quality + qdelta;
         pcs->ppcs->top_index = AOMMAX(pcs->ppcs->top_index, pcs->ppcs->bottom_index);
@@ -2323,10 +2316,7 @@ static int rc_pick_q_and_bounds_no_stats_cbr(PictureControlSet *pcs) {
             q      = (q + q1) / 2;
         } else if (pcs->slice_type != I_SLICE && pcs->ppcs->temporal_layer_index == 0) {
             int qdelta = 0;
-#ifdef ARCH_X86_64
-            aom_clear_system_state();
-#endif
-            qdelta = svt_av1_compute_qdelta_by_rate(
+            qdelta     = svt_av1_compute_qdelta_by_rate(
                 rc, pcs->ppcs->frm_hdr.frame_type, active_worst_quality, QFACTOR, bit_depth, pcs->ppcs->sc_class1);
             q = q + qdelta;
         }
@@ -2431,9 +2421,6 @@ static void av1_rc_update_rate_correction_factors(PictureParentControlSet *ppcs,
     // Do not update the rate factors for arf overlay frames.
     if (ppcs->is_overlay)
         return;
-
-    // Clear down mmx registers to allow floating point in what follows
-    //aom_clear_system_state();
 
     // Work out how big we would have expected the frame to be at this Q given
     // the current correction factor.
@@ -2968,7 +2955,6 @@ void recode_loop_update_q(PictureParentControlSet *ppcs, int *const loop, int *c
 
     const int min_cr = rc_cfg->min_cr;
     if (min_cr > 0) {
-        //aom_clear_system_state();
         const double compression_ratio = av1_get_compression_ratio(ppcs, ppcs->projected_frame_size >> 3);
         const double target_cr         = min_cr / 100.0;
         if (compression_ratio < target_cr) {

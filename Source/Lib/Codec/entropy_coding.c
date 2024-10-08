@@ -4673,18 +4673,12 @@ int svt_av1_neg_interleave(int x, int ref, int max) {
         return -x + max - 1;
     if (2 * ref < max) {
         if (abs(diff) <= ref) {
-            if (diff > 0)
-                return (diff << 1) - 1;
-            else
-                return ((-diff) << 1);
+            return diff > 0 ? (diff << 1) - 1 : ((-diff) << 1);
         }
         return x;
     } else {
         if (abs(diff) < (max - ref)) {
-            if (diff > 0)
-                return (diff << 1) - 1;
-            else
-                return ((-diff) << 1);
+            return diff > 0 ? (diff << 1) - 1 : ((-diff) << 1);
         }
         return (max - x) - 1;
     }

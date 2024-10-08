@@ -411,8 +411,9 @@ class VarianceTest : public ::testing::TestWithParam<VarianceParam> {
             }
             uint32_t sse_c, sse_asm, var_c, var_asm;
 
-            var_c = func_c_(src_data_, width_, ref_data_, width_, &sse_c);
-            var_asm = func_asm_(src_data_, width_, ref_data_, width_, &sse_asm);
+            var_c = func_c_(src_data_, width_, ref_data_, width_ + 1, &sse_c);
+            var_asm =
+                func_asm_(src_data_, width_, ref_data_, width_ + 1, &sse_asm);
             ASSERT_EQ(sse_c, sse_asm) << "Error at test index: " << i;
             ASSERT_EQ(var_c, var_asm) << "Error at test index: " << i;
         }
@@ -488,6 +489,10 @@ VarianceParam variance_func_sse2[] = {
                   &svt_aom_variance128x128_sse2)};
 
 VarianceParam variance_func_avx2[] = {
+    VarianceParam(8, 4, &svt_aom_variance8x4_c, &svt_aom_variance8x4_avx2),
+    VarianceParam(8, 8, &svt_aom_variance8x8_c, &svt_aom_variance8x8_avx2),
+    VarianceParam(8, 16, &svt_aom_variance8x16_c, &svt_aom_variance8x16_avx2),
+    VarianceParam(8, 32, &svt_aom_variance8x32_c, &svt_aom_variance8x32_avx2),
     VarianceParam(16, 4, &svt_aom_variance16x4_c, &svt_aom_variance16x4_avx2),
     VarianceParam(16, 8, &svt_aom_variance16x8_c, &svt_aom_variance16x8_avx2),
     VarianceParam(16, 16, &svt_aom_variance16x16_c,

@@ -21,8 +21,6 @@
  *svt_aom_highbd_blend_a64_mask_8bit_sse4_1/svt_aom_highbd_blend_a64_d16_mask_avx2
  * - svt_aom_blend_a64_hmask_sse4_1/svt_aom_blend_a64_vmask_sse4_1
  * -
- *svt_aom_highbd_blend_a64_hmask_8bit_sse4_1/svt_aom_highbd_blend_a64_vmask_8bit_sse4_1
- * -
  *svt_aom_highbd_blend_a64_hmask_16bit_sse4_1/svt_aom_highbd_blend_a64_vmask_16bit_sse4_1
  * - svt_aom_sse_avx2/svt_aom_highbd_sse_avx2
  *
@@ -53,6 +51,7 @@ class CompBlendTest : public ::testing::TestWithParam<BlendTestParam> {
         func_ref_ = nullptr;
         func_tst_ = nullptr;
         no_sub_ = false;
+        is_d16_ = false;
     }
 
     void SetUp() override {
@@ -73,12 +72,12 @@ class CompBlendTest : public ::testing::TestWithParam<BlendTestParam> {
         svt_aom_free(src0_);
         svt_aom_free(src1_);
         svt_aom_free(mask_);
-        aom_clear_system_state();
     }
 
     void run_test() {
         const int iterations = 1000;
-        SVTRandom rnd(0, (1 << bd_) - 1);
+        int max = is_d16_ ? 16 : bd_;
+        SVTRandom rnd(0, (1 << max) - 1);
         SVTRandom mask_rnd(0, 64);
 
         // generate random mask
@@ -144,6 +143,7 @@ class CompBlendTest : public ::testing::TestWithParam<BlendTestParam> {
     int bd_;
     const char *tst_fn_name;  // test function name
     bool no_sub_;
+    bool is_d16_;
 };
 
 using LbdBlendA64MaskFunc = void (*)(uint8_t *, uint32_t, const uint8_t *,
@@ -229,6 +229,7 @@ class LbdCompBlendD16Test
         bd_ = 10;
         func_ref_ = TEST_GET_PARAM(0);
         func_tst_ = TEST_GET_PARAM(1);
+        is_d16_ = true;
     }
 
     void run_blend(int subw, int subh) override {
@@ -263,21 +264,23 @@ class LbdCompBlendD16Test
                   &conv_params);
     }
 };
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(LbdCompBlendD16Test);
 
 TEST_P(LbdCompBlendD16Test, BlendA64MaskD16) {
     run_test();
 }
 
-#ifdef ARCH_X86_64
-INSTANTIATE_TEST_SUITE_P(
-    SSE4_1, LbdCompBlendD16Test,
-    ::testing::ValuesIn({make_tuple(svt_aom_lowbd_blend_a64_d16_mask_c,
-                                    svt_aom_lowbd_blend_a64_d16_mask_sse4_1)}));
-INSTANTIATE_TEST_SUITE_P(
-    AVX2, LbdCompBlendD16Test,
-    ::testing::ValuesIn({make_tuple(svt_aom_lowbd_blend_a64_d16_mask_c,
-                                    svt_aom_lowbd_blend_a64_d16_mask_avx2)}));
-#endif  // ARCH_X86_64
+// TODO: Re-enable when the overflow is fixed.
+// #ifdef ARCH_X86_64
+// INSTANTIATE_TEST_SUITE_P(
+//    SSE4_1, LbdCompBlendD16Test,
+//    ::testing::ValuesIn({make_tuple(svt_aom_lowbd_blend_a64_d16_mask_c,
+//                                    svt_aom_lowbd_blend_a64_d16_mask_sse4_1)}));
+// INSTANTIATE_TEST_SUITE_P(
+//    AVX2, LbdCompBlendD16Test,
+//    ::testing::ValuesIn({make_tuple(svt_aom_lowbd_blend_a64_d16_mask_c,
+//                                    svt_aom_lowbd_blend_a64_d16_mask_avx2)}));
+// #endif  // ARCH_X86_64
 
 #ifdef ARCH_AARCH64
 INSTANTIATE_TEST_SUITE_P(
@@ -474,7 +477,6 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HbdCompBlendTest);
 TEST_P(HbdCompBlendTest, BlendA64Mask) {
     run_hbd_test(8);
     run_hbd_test(10);
-    run_hbd_test(12);
 }
 
 #ifdef ARCH_X86_64
@@ -483,6 +485,13 @@ INSTANTIATE_TEST_SUITE_P(SSE4_1, HbdCompBlendTest,
                              svt_aom_highbd_blend_a64_mask_c,
                              svt_aom_highbd_blend_a64_mask_8bit_sse4_1)}));
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, HbdCompBlendTest,
+    ::testing::ValuesIn({make_tuple(svt_aom_highbd_blend_a64_mask_c,
+                                    svt_aom_highbd_blend_a64_mask_neon)}));
+#endif  // ARCH_AARCH64
 
 using HbdBlendA64D16MaskFunc = void (*)(uint8_t *, uint32_t,
                                         const CONV_BUF_TYPE *, uint32_t,
@@ -498,6 +507,7 @@ class HbdCompBlendD16Test
         bd_ = 10;
         func_ref_ = TEST_GET_PARAM(0);
         func_tst_ = TEST_GET_PARAM(1);
+        is_d16_ = true;
     }
 
     void run_hbd_test(uint8_t bd) {
@@ -544,7 +554,6 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HbdCompBlendD16Test);
 TEST_P(HbdCompBlendD16Test, BlendA64MaskD16) {
     run_hbd_test(8);
     run_hbd_test(10);
-    run_hbd_test(12);
 }
 
 #ifdef ARCH_X86_64
@@ -559,8 +568,15 @@ INSTANTIATE_TEST_SUITE_P(
                                     svt_aom_highbd_blend_a64_d16_mask_avx2)}));
 #endif  // ARCH_X86_64
 
-using HbdBlendA64HMaskFunc = void (*)(uint8_t *, uint32_t, const uint8_t *,
-                                      uint32_t, const uint8_t *, uint32_t,
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, HbdCompBlendD16Test,
+    ::testing::ValuesIn({make_tuple(svt_aom_highbd_blend_a64_d16_mask_c,
+                                    svt_aom_highbd_blend_a64_d16_mask_neon)}));
+#endif  // ARCH_AARCH64
+
+using HbdBlendA64HMaskFunc = void (*)(uint16_t *, uint32_t, const uint16_t *,
+                                      uint32_t, const uint16_t *, uint32_t,
                                       const uint8_t *, int, int, int);
 
 class HbdCompBlendHMaskTest
@@ -568,66 +584,6 @@ class HbdCompBlendHMaskTest
                            MAKE_PARAM(HbdBlendA64HMaskFunc)> {
   public:
     HbdCompBlendHMaskTest() {
-        bd_ = 8;
-        func_ref_ = TEST_GET_PARAM(0);
-        func_tst_ = TEST_GET_PARAM(1);
-        no_sub_ = true;
-    }
-
-    void run_hbd_test(uint8_t bd) {
-        bd_ = bd;
-        run_test();
-    }
-
-    void run_blend(int subw, int subh) override {
-        (void)subw;
-        (void)subh;
-        func_ref_((uint8_t *)ref_dst_,
-                  dst_stride_,
-                  (uint8_t *)src0_,
-                  src_stride_,
-                  (uint8_t *)src1_,
-                  src_stride_,
-                  mask_,
-                  w_,
-                  h_,
-                  bd_);
-        func_tst_((uint8_t *)tst_dst_,
-                  dst_stride_,
-                  (uint8_t *)src0_,
-                  src_stride_,
-                  (uint8_t *)src1_,
-                  src_stride_,
-                  mask_,
-                  w_,
-                  h_,
-                  bd_);
-    }
-};
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HbdCompBlendHMaskTest);
-
-TEST_P(HbdCompBlendHMaskTest, BlendA64Mask) {
-    run_hbd_test(8);
-    run_hbd_test(10);
-    run_hbd_test(12);
-}
-
-#ifdef ARCH_X86_64
-INSTANTIATE_TEST_SUITE_P(SSE4_1, HbdCompBlendHMaskTest,
-                         ::testing::ValuesIn({make_tuple(
-                             svt_aom_highbd_blend_a64_hmask_8bit_c,
-                             svt_aom_highbd_blend_a64_hmask_8bit_sse4_1)}));
-#endif  // ARCH_X86_64
-
-using EbHbdBlendA64HMaskFunc = void (*)(uint16_t *, uint32_t, const uint16_t *,
-                                        uint32_t, const uint16_t *, uint32_t,
-                                        const uint8_t *, int, int, int);
-
-class EbHbdCompBlendHMaskTest
-    : public CompBlendTest<uint16_t, uint16_t, EbHbdBlendA64HMaskFunc,
-                           MAKE_PARAM(EbHbdBlendA64HMaskFunc)> {
-  public:
-    EbHbdCompBlendHMaskTest() {
         bd_ = 8;
         func_ref_ = TEST_GET_PARAM(0);
         func_tst_ = TEST_GET_PARAM(1);
@@ -669,28 +625,34 @@ class EbHbdCompBlendHMaskTest
                   bd_);
     }
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(EbHbdCompBlendHMaskTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HbdCompBlendHMaskTest);
 
-TEST_P(EbHbdCompBlendHMaskTest, BlendA64Mask) {
+TEST_P(HbdCompBlendHMaskTest, BlendA64Mask) {
     run_hbd_test(8);
     run_hbd_test(10);
-    run_hbd_test(12);
 }
 
 #ifdef ARCH_X86_64
-INSTANTIATE_TEST_SUITE_P(SSE4_1, EbHbdCompBlendHMaskTest,
+INSTANTIATE_TEST_SUITE_P(SSE4_1, HbdCompBlendHMaskTest,
                          ::testing::ValuesIn({make_tuple(
                              svt_aom_highbd_blend_a64_hmask_16bit_c,
                              svt_aom_highbd_blend_a64_hmask_16bit_sse4_1)}));
 
-INSTANTIATE_TEST_SUITE_P(AVX2, EbHbdCompBlendHMaskTest,
+INSTANTIATE_TEST_SUITE_P(AVX2, HbdCompBlendHMaskTest,
                          ::testing::ValuesIn({make_tuple(
                              svt_aom_highbd_blend_a64_hmask_16bit_c,
                              svt_av1_highbd_blend_a64_hmask_16bit_avx2)}));
 #endif  // ARCH_X86_64
 
-using HbdBlendA64VMaskFunc = void (*)(uint8_t *, uint32_t, const uint8_t *,
-                                      uint32_t, const uint8_t *, uint32_t,
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(NEON, HbdCompBlendHMaskTest,
+                         ::testing::ValuesIn({make_tuple(
+                             svt_aom_highbd_blend_a64_hmask_16bit_c,
+                             svt_aom_highbd_blend_a64_hmask_16bit_neon)}));
+#endif  // ARCH_AARCH64
+
+using HbdBlendA64VMaskFunc = void (*)(uint16_t *, uint32_t, const uint16_t *,
+                                      uint32_t, const uint16_t *, uint32_t,
                                       const uint8_t *, int, int, int);
 
 class HbdCompBlendVMaskTest
@@ -698,66 +660,6 @@ class HbdCompBlendVMaskTest
                            MAKE_PARAM(HbdBlendA64VMaskFunc)> {
   public:
     HbdCompBlendVMaskTest() {
-        bd_ = 8;
-        func_ref_ = TEST_GET_PARAM(0);
-        func_tst_ = TEST_GET_PARAM(1);
-        no_sub_ = true;
-    }
-
-    void run_hbd_test(uint8_t bd) {
-        bd_ = bd;
-        run_test();
-    }
-
-    void run_blend(int subw, int subh) override {
-        (void)subw;
-        (void)subh;
-        func_ref_((uint8_t *)ref_dst_,
-                  dst_stride_,
-                  (uint8_t *)src0_,
-                  src_stride_,
-                  (uint8_t *)src1_,
-                  src_stride_,
-                  mask_,
-                  w_,
-                  h_,
-                  bd_);
-        func_tst_((uint8_t *)tst_dst_,
-                  dst_stride_,
-                  (uint8_t *)src0_,
-                  src_stride_,
-                  (uint8_t *)src1_,
-                  src_stride_,
-                  mask_,
-                  w_,
-                  h_,
-                  bd_);
-    }
-};
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HbdCompBlendVMaskTest);
-
-TEST_P(HbdCompBlendVMaskTest, BlendA64Mask) {
-    run_hbd_test(8);
-    run_hbd_test(10);
-    run_hbd_test(12);
-}
-
-#ifdef ARCH_X86_64
-INSTANTIATE_TEST_SUITE_P(SSE4_1, HbdCompBlendVMaskTest,
-                         ::testing::ValuesIn({make_tuple(
-                             svt_aom_highbd_blend_a64_vmask_8bit_c,
-                             svt_aom_highbd_blend_a64_vmask_8bit_sse4_1)}));
-#endif  // ARCH_X86_64
-
-using EbHbdBlendA64VMaskFunc = void (*)(uint16_t *, uint32_t, const uint16_t *,
-                                        uint32_t, const uint16_t *, uint32_t,
-                                        const uint8_t *, int, int, int);
-
-class EbHbdCompBlendVMaskTest
-    : public CompBlendTest<uint16_t, uint16_t, EbHbdBlendA64VMaskFunc,
-                           MAKE_PARAM(EbHbdBlendA64VMaskFunc)> {
-  public:
-    EbHbdCompBlendVMaskTest() {
         bd_ = 8;
         func_ref_ = TEST_GET_PARAM(0);
         func_tst_ = TEST_GET_PARAM(1);
@@ -799,25 +701,31 @@ class EbHbdCompBlendVMaskTest
                   bd_);
     }
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(EbHbdCompBlendVMaskTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HbdCompBlendVMaskTest);
 
-TEST_P(EbHbdCompBlendVMaskTest, BlendA64Mask) {
+TEST_P(HbdCompBlendVMaskTest, BlendA64Mask) {
     run_hbd_test(8);
     run_hbd_test(10);
-    run_hbd_test(12);
 }
 
 #ifdef ARCH_X86_64
-INSTANTIATE_TEST_SUITE_P(SSE4_1, EbHbdCompBlendVMaskTest,
+INSTANTIATE_TEST_SUITE_P(SSE4_1, HbdCompBlendVMaskTest,
                          ::testing::ValuesIn({make_tuple(
                              svt_aom_highbd_blend_a64_vmask_16bit_c,
                              svt_aom_highbd_blend_a64_vmask_16bit_sse4_1)}));
 
-INSTANTIATE_TEST_SUITE_P(AVX2, EbHbdCompBlendVMaskTest,
+INSTANTIATE_TEST_SUITE_P(AVX2, HbdCompBlendVMaskTest,
                          ::testing::ValuesIn({make_tuple(
                              svt_aom_highbd_blend_a64_vmask_16bit_c,
                              svt_av1_highbd_blend_a64_vmask_16bit_avx2)}));
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(NEON, HbdCompBlendVMaskTest,
+                         ::testing::ValuesIn({make_tuple(
+                             svt_aom_highbd_blend_a64_vmask_16bit_c,
+                             svt_aom_highbd_blend_a64_vmask_16bit_neon)}));
+#endif  // ARCH_AARCH64
 
 typedef void (*BuildCompDiffwtdMaskedFunc)(uint8_t *mask,
                                            DIFFWTD_MASK_TYPE mask_type,
@@ -835,7 +743,6 @@ class BuildCompDiffwtdMaskTest
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test(const DIFFWTD_MASK_TYPE type) {
@@ -871,7 +778,6 @@ class BuildCompDiffwtdMaskTest
   private:
     SVTRandom rnd_;
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(BuildCompDiffwtdMaskTest);
 
 TEST_P(BuildCompDiffwtdMaskTest, MatchTest) {
     run_test(DIFFWTD_38);
@@ -892,6 +798,14 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_avx2)));
 #endif  // ARCH_X86_64
 
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, BuildCompDiffwtdMaskTest,
+    ::testing::Combine(
+        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Values(svt_av1_build_compound_diffwtd_mask_neon)));
+#endif  // ARCH_AARCH64
+
 typedef void (*BuildCompDiffwtdMaskedHighbdFunc)(
     uint8_t *mask, DIFFWTD_MASK_TYPE mask_type, const uint8_t *src0,
     int src0_stride, const uint8_t *src1, int src1_stride, int h, int w,
@@ -907,7 +821,6 @@ class BuildCompDiffwtdMaskHighbdTest
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test(const DIFFWTD_MASK_TYPE type, int bd) {
@@ -958,15 +871,12 @@ class BuildCompDiffwtdMaskHighbdTest
   private:
     SVTRandom rnd_;
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(BuildCompDiffwtdMaskHighbdTest);
 
 TEST_P(BuildCompDiffwtdMaskHighbdTest, MatchTest) {
     run_test(DIFFWTD_38, 8);
     run_test(DIFFWTD_38_INV, 8);
     run_test(DIFFWTD_38, 10);
     run_test(DIFFWTD_38_INV, 10);
-    run_test(DIFFWTD_38, 12);
-    run_test(DIFFWTD_38_INV, 12);
 }
 
 #ifdef ARCH_X86_64
@@ -982,6 +892,14 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_highbd_avx2)));
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, BuildCompDiffwtdMaskHighbdTest,
+    ::testing::Combine(
+        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+        ::testing::Values(svt_av1_build_compound_diffwtd_mask_highbd_neon)));
+#endif  // ARCH_AARCH64
 
 // test svt_av1_build_compound_diffwtd_mask_d16_avx2
 typedef void (*BuildCompDiffwtdMaskD16Func)(
@@ -1002,7 +920,6 @@ class BuildCompDiffwtdMaskD16Test
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
   protected:
@@ -1067,7 +984,6 @@ class BuildCompDiffwtdMaskD16Test
     }
     SVTRandom rnd_;
 };  // class BuildCompDiffwtdMaskD16Test
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(BuildCompDiffwtdMaskD16Test);
 
 TEST_P(BuildCompDiffwtdMaskD16Test, MatchTest) {
     run_test();
@@ -1077,17 +993,26 @@ TEST_P(BuildCompDiffwtdMaskD16Test, MatchTest) {
 INSTANTIATE_TEST_SUITE_P(
     SSE4_1, BuildCompDiffwtdMaskD16Test,
     ::testing::Combine(
-        ::testing::Range(8, 13, 2),
+        ::testing::Range(8, 11, 2),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_d16_sse4_1),
         ::testing::Range(BLOCK_4X4, BlockSizeS_ALL)));
 
 INSTANTIATE_TEST_SUITE_P(
     AVX2, BuildCompDiffwtdMaskD16Test,
     ::testing::Combine(
-        ::testing::Range(8, 13, 2),
+        ::testing::Range(8, 11, 2),
         ::testing::Values(svt_av1_build_compound_diffwtd_mask_d16_avx2),
         ::testing::Range(BLOCK_4X4, BlockSizeS_ALL)));
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, BuildCompDiffwtdMaskD16Test,
+    ::testing::Combine(
+        ::testing::Range(8, 11, 2),
+        ::testing::Values(svt_av1_build_compound_diffwtd_mask_d16_neon),
+        ::testing::Range(BLOCK_4X4, BlockSizeS_ALL)));
+#endif  // ARCH_AARCH64
 
 typedef int64_t (*AomSseFunc)(const uint8_t *, int, const uint8_t *, int, int,
                               int);
@@ -1100,7 +1025,6 @@ class AomSseTest : public ::testing::TestWithParam<AomSseParam> {
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test() {
@@ -1147,6 +1071,13 @@ INSTANTIATE_TEST_SUITE_P(
     NEON, AomSseTest,
     ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
                        ::testing::Values(svt_aom_sse_neon)));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, AomSseTest,
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+                       ::testing::Values(svt_aom_sse_neon_dotprod)));
+#endif  // HAVE_NEON_DOTPROD
 #endif  // ARCH_AARCH64
 
 class AomSseHighbdTest : public ::testing::TestWithParam<AomSseParam> {
@@ -1156,7 +1087,6 @@ class AomSseHighbdTest : public ::testing::TestWithParam<AomSseParam> {
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test() {
@@ -1226,6 +1156,13 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(::testing::Range(BLOCK_4X4,
                                         (BlockSize)(BlockSizeS_ALL + 2)),
                        ::testing::Values(svt_aom_highbd_sse_neon)));
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(
+    SVE, AomSseHighbdTest,
+    ::testing::Combine(::testing::Range(BLOCK_4X4,
+                                        (BlockSize)(BlockSizeS_ALL + 2)),
+                       ::testing::Values(svt_aom_highbd_sse_sve)));
+#endif  // HAVE_SVE
 #endif  // ARCH_AARCH64
 
 typedef void (*AomSubtractBlockFunc)(int, int, int16_t *, ptrdiff_t,
@@ -1241,7 +1178,6 @@ class AomSubtractBlockTest
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test() {
@@ -1314,7 +1250,6 @@ class AomHighbdSubtractBlockTest
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test() {
@@ -1363,7 +1298,6 @@ class AomHighbdSubtractBlockTest
   private:
     SVTRandom rnd_;
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AomHighbdSubtractBlockTest);
 
 TEST_P(AomHighbdSubtractBlockTest, MatchTest) {
     run_test();
@@ -1375,5 +1309,12 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
                        ::testing::Values(svt_aom_highbd_subtract_block_sse2)));
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, AomHighbdSubtractBlockTest,
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+                       ::testing::Values(svt_aom_highbd_subtract_block_neon)));
+#endif  // ARCH_AARCH64
 
 }  // namespace

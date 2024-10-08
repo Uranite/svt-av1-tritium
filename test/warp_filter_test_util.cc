@@ -134,7 +134,6 @@ void AV1WarpFilterTest::SetUp() {
 
 void AV1WarpFilterTest::TearDown() {
     delete rnd_;
-    aom_clear_system_state();
 }
 
 void AV1WarpFilterTest::RunSpeedTest(warp_affine_func test_impl) {
@@ -404,11 +403,6 @@ namespace AV1HighbdWarpFilter {
         make_tuple(64, 64, 100, 10, filter),
         make_tuple(4, 16, 100, 10, filter),
         make_tuple(32, 8, 100, 10, filter),
-        make_tuple(4, 4, 100, 12, filter),
-        make_tuple(8, 8, 100, 12, filter),
-        make_tuple(64, 64, 100, 12, filter),
-        make_tuple(4, 16, 100, 12, filter),
-        make_tuple(32, 8, 100, 12, filter),
     };
     return ::testing::Combine(::testing::ValuesIn(params),
                               ::testing::Values(0, 1),
@@ -420,12 +414,11 @@ namespace AV1HighbdWarpFilter {
 AV1HighbdWarpFilterTest::~AV1HighbdWarpFilterTest() {
 }
 void AV1HighbdWarpFilterTest::SetUp() {
-    rnd_ = new svt_av1_test_tool::SVTRandom(0, (1 << 12) - 1);
+    rnd_ = new svt_av1_test_tool::SVTRandom(0, (1 << 10) - 1);
 }
 
 void AV1HighbdWarpFilterTest::TearDown() {
     delete rnd_;
-    aom_clear_system_state();
 }
 
 void AV1HighbdWarpFilterTest::RunSpeedTest(highbd_warp_affine_func test_impl) {

@@ -501,7 +501,7 @@ static EbErrorType set_cfg_force_key_frames(EbConfig *cfg, const char *token, co
     const char *p = value;
     while (p) {
         const size_t len       = strcspn(p, ",");
-        char        *specifier = (char *)calloc(sizeof(*specifier), len + 1);
+        char        *specifier = (char *)calloc(len + 1, sizeof(*specifier));
         if (!specifier)
             goto err;
         memcpy(specifier, p, len);
@@ -520,7 +520,7 @@ static EbErrorType set_cfg_force_key_frames(EbConfig *cfg, const char *token, co
     if (!fkf.count)
         goto err;
 
-    fkf.frames = (uint64_t *)calloc(sizeof(*fkf.frames), fkf.count);
+    fkf.frames = (uint64_t *)calloc(fkf.count, sizeof(*fkf.frames));
     if (!fkf.frames)
         goto err;
     for (size_t i = 0; i < cfg->forced_keyframes.count; ++i) free(cfg->forced_keyframes.specifiers[i]);
@@ -835,8 +835,12 @@ ConfigEntry config_entry_global_options[] = {
     // Asm Type
     {SINGLE_INPUT,
      ASM_TYPE_TOKEN,
-     "Limit assembly instruction set, only applicable to x86, default is max [c, mmx, sse, sse2, "
-     "sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512, max]",
+#ifdef ARCH_AARCH64
+     "Limit assembly instruction set, default is max [c, neon, crc32, neon_dotprod, neon_i8mm, sve, sve2, max]",
+#else
+     "Limit assembly instruction set, only applicable to x86, default is max [c, mmx, sse, sse2, sse3, ssse3, "
+     "sse4_1, sse4_2, avx, avx2, avx512, max]",
+#endif
      set_cfg_generic_token},
     {SINGLE_INPUT,
      THREAD_MGMNT,

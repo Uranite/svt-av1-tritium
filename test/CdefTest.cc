@@ -100,7 +100,6 @@ class CDEFBlockTest : public ::testing::TestWithParam<cdef_dir_param_t> {
     }
 
     virtual void TearDown() {
-        aom_clear_system_state();
     }
 
     void prepare_data(int level, int bits) {
@@ -445,7 +444,6 @@ class CDEFFindDirTest : public ::testing::TestWithParam<TestFindDirParam> {
     }
 
     virtual void TearDown() {
-        aom_clear_system_state();
     }
 
     void prepare_data(int depth, int bits, int level) {
@@ -560,7 +558,6 @@ class CDEFFindDirDualTest
     }
 
     virtual void TearDown() {
-        aom_clear_system_state();
     }
 
     void prepare_data(int depth, int bits, int level) {
@@ -1165,3 +1162,8 @@ INSTANTIATE_TEST_SUITE_P(AVX512, CDEFSearchOneDualTest,
 #endif
 
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(NEON, CDEFSearchOneDualTest,
+                         ::testing::Values(svt_search_one_dual_neon));
+#endif  // ARCH_AARCH64

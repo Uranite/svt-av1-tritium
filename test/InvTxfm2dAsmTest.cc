@@ -53,7 +53,6 @@ class InvTxfm2dAsmTestBase : public ::testing::Test {
     ~InvTxfm2dAsmTestBase() {
         delete u_bd_rnd_;
         delete s_bd_rnd_;
-        aom_clear_system_state();
     }
 
     void SetUp() override {
@@ -72,7 +71,6 @@ class InvTxfm2dAsmTestBase : public ::testing::Test {
         svt_aom_free(input_);
         svt_aom_free(output_test_);
         svt_aom_free(output_ref_);
-        aom_clear_system_state();
     }
 
   protected:
@@ -307,8 +305,7 @@ INSTANTIATE_TEST_SUITE_P(AVX512, InvTxfm2dAsmSqrTest,
 
 #ifdef ARCH_AARCH64
 static const InvSqrTxfmTestParam inv_txfm_c_neon_func_pairs[10] = {
-    SQR_FUNC_PAIRS(svt_av1_inv_txfm2d_add_4x4, neon, TX_4X4,
-                   dct_adst_combine_imp),
+    SQR_FUNC_PAIRS(svt_av1_inv_txfm2d_add_4x4, neon, TX_4X4, all_txtype_imp),
     SQR_FUNC_PAIRS(svt_av1_inv_txfm2d_add_8x8, neon, TX_8X8, all_txtype_imp),
     SQR_FUNC_PAIRS(svt_av1_inv_txfm2d_add_16x16, neon, TX_16X16,
                    all_txtype_imp),
@@ -531,6 +528,55 @@ INSTANTIATE_TEST_SUITE_P(AVX512, InvTxfm2dAsmType1Test,
 
 #endif  // ARCH_X86_64
 
+#ifdef ARCH_AARCH64
+static const InvRectTxfmType1TestParam rect_type1_ref_funcs_neon[20] = {
+    // clang-format off
+    { svt_av1_inv_txfm2d_add_8x16_c, svt_av1_inv_txfm2d_add_8x16_neon,
+      TX_8X16, 8 },
+    { svt_av1_inv_txfm2d_add_8x16_c, svt_av1_inv_txfm2d_add_8x16_neon,
+      TX_8X16, 10 },
+    { svt_av1_inv_txfm2d_add_8x32_c, svt_av1_inv_txfm2d_add_8x32_neon,
+      TX_8X32, 8 },
+    { svt_av1_inv_txfm2d_add_8x32_c, svt_av1_inv_txfm2d_add_8x32_neon,
+      TX_8X32, 10 },
+    { svt_av1_inv_txfm2d_add_16x8_c, svt_av1_inv_txfm2d_add_16x8_neon,
+      TX_16X8, 8 },
+    { svt_av1_inv_txfm2d_add_16x8_c, svt_av1_inv_txfm2d_add_16x8_neon,
+      TX_16X8, 10 },
+    { svt_av1_inv_txfm2d_add_16x32_c, svt_av1_inv_txfm2d_add_16x32_neon,
+      TX_16X32, 8 },
+    { svt_av1_inv_txfm2d_add_16x32_c, svt_av1_inv_txfm2d_add_16x32_neon,
+      TX_16X32, 10 },
+    { svt_av1_inv_txfm2d_add_16x64_c, svt_av1_inv_txfm2d_add_16x64_neon,
+      TX_16X64, 8 },
+    { svt_av1_inv_txfm2d_add_16x64_c, svt_av1_inv_txfm2d_add_16x64_neon,
+      TX_16X64, 10 },
+    { svt_av1_inv_txfm2d_add_32x8_c, svt_av1_inv_txfm2d_add_32x8_neon,
+      TX_32X8, 8 },
+    { svt_av1_inv_txfm2d_add_32x8_c, svt_av1_inv_txfm2d_add_32x8_neon,
+      TX_32X8, 10 },
+    { svt_av1_inv_txfm2d_add_32x16_c, svt_av1_inv_txfm2d_add_32x16_neon,
+      TX_32X16, 8 },
+    { svt_av1_inv_txfm2d_add_32x16_c, svt_av1_inv_txfm2d_add_32x16_neon,
+      TX_32X16, 10 },
+    { svt_av1_inv_txfm2d_add_32x64_c, svt_av1_inv_txfm2d_add_32x64_neon,
+      TX_32X64, 8 },
+    { svt_av1_inv_txfm2d_add_32x64_c, svt_av1_inv_txfm2d_add_32x64_neon,
+      TX_32X64, 10 },
+    { svt_av1_inv_txfm2d_add_64x16_c, svt_av1_inv_txfm2d_add_64x16_neon,
+      TX_64X16, 8 },
+    { svt_av1_inv_txfm2d_add_64x16_c, svt_av1_inv_txfm2d_add_64x16_neon,
+      TX_64X16, 10 },
+    { svt_av1_inv_txfm2d_add_64x32_c, svt_av1_inv_txfm2d_add_64x32_neon,
+      TX_64X32, 8 },
+    { svt_av1_inv_txfm2d_add_64x32_c, svt_av1_inv_txfm2d_add_64x32_neon,
+      TX_64X32, 10 },
+};
+
+INSTANTIATE_TEST_SUITE_P(NEON, InvTxfm2dAsmType1Test,
+                         ::testing::ValuesIn(rect_type1_ref_funcs_neon));
+#endif // ARCH_AARCH64
+
 using InvRectTxfm2dType2Func = void (*)(const int32_t *input,
                                         uint16_t *output_r, int32_t stride_r,
                                         uint16_t *output_w, int32_t stride_w,
@@ -650,6 +696,32 @@ INSTANTIATE_TEST_SUITE_P(AVX2, InvTxfm2dAsmType2Test,
                          ::testing::ValuesIn(rect_type2_ref_funcs_avx2));
 
 #endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+static const InvRectTxfmType2TestParam rect_type2_ref_funcs_neon[8] = {
+    // clang-format off
+    { svt_av1_inv_txfm2d_add_4x8_c, svt_av1_inv_txfm2d_add_4x8_neon, TX_4X8,
+      8 },
+    { svt_av1_inv_txfm2d_add_4x8_c, svt_av1_inv_txfm2d_add_4x8_neon, TX_4X8,
+      10 },
+    { svt_av1_inv_txfm2d_add_4x16_c, svt_av1_inv_txfm2d_add_4x16_neon, TX_4X16,
+      8 },
+    { svt_av1_inv_txfm2d_add_4x16_c, svt_av1_inv_txfm2d_add_4x16_neon, TX_4X16,
+      10 },
+    { svt_av1_inv_txfm2d_add_8x4_c, svt_av1_inv_txfm2d_add_8x4_neon, TX_8X4,
+      8 },
+    { svt_av1_inv_txfm2d_add_8x4_c, svt_av1_inv_txfm2d_add_8x4_neon, TX_8X4,
+      10 },
+    { svt_av1_inv_txfm2d_add_16x4_c, svt_av1_inv_txfm2d_add_16x4_neon, TX_16X4,
+      8 },
+    { svt_av1_inv_txfm2d_add_16x4_c, svt_av1_inv_txfm2d_add_16x4_neon, TX_16X4,
+      10 },
+    // clang-format on
+};
+
+INSTANTIATE_TEST_SUITE_P(NEON, InvTxfm2dAsmType2Test,
+                         ::testing::ValuesIn(rect_type2_ref_funcs_neon));
+#endif  // ARCH_AARCH64
 
 using LowbdInvTxfm2dAddFunc = void (*)(const TranLow *dqcoeff, uint8_t *dst_r,
                                        int32_t stride_r, uint8_t *dst_w,

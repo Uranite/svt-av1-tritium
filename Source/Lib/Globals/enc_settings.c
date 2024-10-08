@@ -483,11 +483,18 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
 
     if (config->use_cpu_flags & EB_CPU_FLAGS_INVALID) {
+#ifdef ARCH_AARCH64
+        SVT_ERROR(
+            "Instance %u: param '--asm' have invalid value.\n"
+            "Value should be [0 - 6] or [c, neon, crc32, neon_dotprod, neon_i8mm, sve, sve2, max]\n",
+            channel_number + 1);
+#else
         SVT_ERROR(
             "Instance %u: param '--asm' have invalid value.\n"
             "Value should be [0 - 11] or [c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, "
-            "avx2, avx512, max]\n",
+            "avx2, avx512, avx512icl, max]\n",
             channel_number + 1);
+#endif
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1727,7 +1734,6 @@ static EbErrorType str_to_intra_rt(const char *nptr, SvtAv1IntraRefreshType *out
 }
 
 static EbErrorType str_to_asm(const char *nptr, EbCpuFlags *out) {
-    // need to keep in sync with set_asm_type()
     // need to handle numbers in here since the numbers to no match the
     // internal representation
     const struct {
@@ -1757,9 +1763,21 @@ static EbErrorType str_to_asm(const char *nptr, EbCpuFlags *out) {
         {"9", (EB_CPU_FLAGS_AVX2 << 1) - 1},
         {"avx512", (EB_CPU_FLAGS_AVX512VL << 1) - 1},
         {"10", (EB_CPU_FLAGS_AVX512VL << 1) - 1},
+        {"avx512icl", (EB_CPU_FLAGS_AVX512ICL << 1) - 1},
+        {"11", (EB_CPU_FLAGS_AVX512ICL << 1) - 1},
 #elif defined(ARCH_AARCH64)
         {"neon", (EB_CPU_FLAGS_NEON << 1) - 1},
         {"1", (EB_CPU_FLAGS_NEON << 1) - 1},
+        {"crc32", (EB_CPU_FLAGS_ARM_CRC32 << 1) - 1},
+        {"2", (EB_CPU_FLAGS_ARM_CRC32 << 1) - 1},
+        {"neon_dotprod", (EB_CPU_FLAGS_NEON_DOTPROD << 1) - 1},
+        {"3", (EB_CPU_FLAGS_NEON_DOTPROD << 1) - 1},
+        {"neon_i8mm", (EB_CPU_FLAGS_NEON_I8MM << 1) - 1},
+        {"4", (EB_CPU_FLAGS_NEON_I8MM << 1) - 1},
+        {"sve", (EB_CPU_FLAGS_SVE << 1) - 1},
+        {"5", (EB_CPU_FLAGS_SVE << 1) - 1},
+        {"sve2", (EB_CPU_FLAGS_SVE2 << 1) - 1},
+        {"6", (EB_CPU_FLAGS_SVE2 << 1) - 1},
 #endif
         {"max", EB_CPU_FLAGS_ALL},
         {"100", EB_CPU_FLAGS_ALL},

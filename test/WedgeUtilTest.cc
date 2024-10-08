@@ -45,7 +45,6 @@ class WedgeUtilTest : public ::testing::Test {
         svt_aom_free(r0);
         svt_aom_free(r1);
         svt_aom_free(m);
-        aom_clear_system_state();
     }
 
   protected:
@@ -180,6 +179,12 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, WedgeSignFromResidualsTest,
     ::testing::Values(svt_av1_wedge_sign_from_residuals_neon));
+
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(
+    SVE, WedgeSignFromResidualsTest,
+    ::testing::Values(svt_av1_wedge_sign_from_residuals_sve));
+#endif  // HAVE_SVE
 #endif  // ARCH_AARCH64
 
 // test svt_av1_wedge_compute_delta_squares
@@ -229,7 +234,6 @@ class WedgeComputeDeltaSquaresTest
 
     WedgeComputeDeltaSquaresFunc test_func_;
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(WedgeComputeDeltaSquaresTest);
 
 // element-by-element calculate the difference of square
 TEST_P(WedgeComputeDeltaSquaresTest, ComputeDeltaSquareTest) {
@@ -241,6 +245,12 @@ INSTANTIATE_TEST_SUITE_P(
     AVX2, WedgeComputeDeltaSquaresTest,
     ::testing::Values(svt_av1_wedge_compute_delta_squares_avx2));
 #endif  // ARCH_X86_64
+
+#if ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, WedgeComputeDeltaSquaresTest,
+    ::testing::Values(svt_av1_wedge_compute_delta_squares_neon));
+#endif  // ARCH_AARCH64
 
 // test svt_av1_wedge_sse_from_residuals
 using WedgeSseFromResidualsFunc = uint64_t (*)(const int16_t *r1,
@@ -362,6 +372,12 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, WedgeSseFromResidualsTest,
     ::testing::Values(svt_av1_wedge_sse_from_residuals_neon));
+
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(
+    SVE, WedgeSseFromResidualsTest,
+    ::testing::Values(svt_av1_wedge_sse_from_residuals_sve));
+#endif
 #endif  // ARCH_AARCH64
 
 typedef uint64_t (*AomSumSquaresI16Func)(const int16_t *, uint32_t);
@@ -374,7 +390,6 @@ class AomSumSquaresTest : public ::testing::TestWithParam<AomHSumSquaresParam> {
     }
 
     void TearDown() override {
-        aom_clear_system_state();
     }
 
     void run_test() {
@@ -403,7 +418,6 @@ class AomSumSquaresTest : public ::testing::TestWithParam<AomHSumSquaresParam> {
   private:
     SVTRandom rnd_;
 };
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AomSumSquaresTest);
 
 TEST_P(AomSumSquaresTest, MatchTest) {
     run_test();
@@ -415,5 +429,19 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
                        ::testing::Values(svt_aom_sum_squares_i16_sse2)));
 #endif  // ARCH_X86_64
+
+#if ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, AomSumSquaresTest,
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+                       ::testing::Values(svt_aom_sum_squares_i16_neon)));
+
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(
+    SVE, AomSumSquaresTest,
+    ::testing::Combine(::testing::Range(BLOCK_4X4, BlockSizeS_ALL),
+                       ::testing::Values(svt_aom_sum_squares_i16_sve)));
+#endif  // HAVE_SVE
+#endif  // ARCH_AARCH64
 
 }  // namespace

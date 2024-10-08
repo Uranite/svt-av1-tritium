@@ -11,6 +11,7 @@
 */
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "definitions.h"
 #include "me_sb_results.h"
@@ -71,11 +72,11 @@ static void determine_best_references(PictureControlSet *pcs, ModeDecisionContex
     const uint8_t      total_me_cnt = sb_results->total_me_candidate_index[ctx->me_block_offset];
     const MeCandidate *me_results   = &sb_results->me_candidate_array[ctx->me_cand_offset];
 
-    uint32_t is_last_added     = 0;
-    uint32_t is_bwd_added      = 0;
-    uint32_t is_last_bwd_added = 0;
+    uint8_t is_last_added     = 0;
+    uint8_t is_bwd_added      = 0;
+    uint8_t is_last_bwd_added = 0;
 
-    uint32_t ri = 0;
+    uint16_t ri = 0;
     for (uint8_t me_index = 0; me_index < total_me_cnt; ++me_index) {
         const MeCandidate *cand = &me_results[me_index];
         if (cand->direction == 0) {
@@ -1039,12 +1040,12 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer *cand_bf, Pictu
         } else {
             assert(ctx->mds0_ctrls.mds0_dist_type == SAD);
             assert((ctx->blk_geom->bwidth >> 3) < 17);
-            *(cand_bf->fast_cost) = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_y + input_origin_index,
-                                                                   input_pic->stride_y,
-                                                                   pred->buffer_y + cu_origin_index,
-                                                                   pred->stride_y,
-                                                                   ctx->blk_geom->bheight,
-                                                                   ctx->blk_geom->bwidth);
+            *(cand_bf->fast_cost) = svt_nxm_sad_kernel(input_pic->buffer_y + input_origin_index,
+                                                       input_pic->stride_y,
+                                                       pred->buffer_y + cu_origin_index,
+                                                       pred->stride_y,
+                                                       ctx->blk_geom->bheight,
+                                                       ctx->blk_geom->bwidth);
         }
     }
 }
@@ -1085,7 +1086,7 @@ static void fast_loop_core_light_pd1(ModeDecisionCandidateBuffer *cand_bf, Pictu
     } else {
         assert(ctx->mds0_ctrls.mds0_dist_type == SAD);
         assert((ctx->blk_geom->bwidth >> 3) < 17);
-        cand_bf->luma_fast_dist = (uint32_t)(luma_fast_dist = svt_nxm_sad_kernel_sub_sampled(
+        cand_bf->luma_fast_dist = (uint32_t)(luma_fast_dist = svt_nxm_sad_kernel(
                                                  input_pic->buffer_y + loc->input_origin_index,
                                                  input_pic->stride_y,
                                                  pred->buffer_y + loc->blk_origin_index,
@@ -1211,7 +1212,7 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer *cand_bf, PictureCon
                 assert(ctx->mds0_ctrls.mds0_dist_type == SAD);
                 assert((ctx->blk_geom->bwidth >> 3) < 17);
                 if (!ctx->hbd_md) {
-                    cand_bf->luma_fast_dist = luma_fast_dist = svt_nxm_sad_kernel_sub_sampled(
+                    cand_bf->luma_fast_dist = luma_fast_dist = svt_nxm_sad_kernel(
                                                              input_pic->buffer_y + input_origin_index,
                                                              input_pic->stride_y,
                                                              pred->buffer_y + cu_origin_index,
@@ -1272,21 +1273,19 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer *cand_bf, PictureCon
                     assert((ctx->blk_geom->bwidth_uv >> 3) < 17);
 
                     if (!ctx->hbd_md) {
-                        chroma_fast_distortion = svt_nxm_sad_kernel_sub_sampled(
-                            input_pic->buffer_cb + input_cb_origin_in_index,
-                            input_pic->stride_cb,
-                            cand_bf->pred->buffer_cb + cu_chroma_origin_index,
-                            pred->stride_cb,
-                            ctx->blk_geom->bheight_uv,
-                            ctx->blk_geom->bwidth_uv);
+                        chroma_fast_distortion = svt_nxm_sad_kernel(input_pic->buffer_cb + input_cb_origin_in_index,
+                                                                    input_pic->stride_cb,
+                                                                    cand_bf->pred->buffer_cb + cu_chroma_origin_index,
+                                                                    pred->stride_cb,
+                                                                    ctx->blk_geom->bheight_uv,
+                                                                    ctx->blk_geom->bwidth_uv);
 
-                        chroma_fast_distortion += svt_nxm_sad_kernel_sub_sampled(
-                            input_pic->buffer_cr + input_cr_origin_in_index,
-                            input_pic->stride_cr,
-                            cand_bf->pred->buffer_cr + cu_chroma_origin_index,
-                            pred->stride_cr,
-                            ctx->blk_geom->bheight_uv,
-                            ctx->blk_geom->bwidth_uv);
+                        chroma_fast_distortion += svt_nxm_sad_kernel(input_pic->buffer_cr + input_cr_origin_in_index,
+                                                                     input_pic->stride_cr,
+                                                                     cand_bf->pred->buffer_cr + cu_chroma_origin_index,
+                                                                     pred->stride_cr,
+                                                                     ctx->blk_geom->bheight_uv,
+                                                                     ctx->blk_geom->bwidth_uv);
                     } else {
                         chroma_fast_distortion = sad_16b_kernel(
                             ((uint16_t *)input_pic->buffer_cb) + input_cb_origin_in_index,
@@ -1404,7 +1403,7 @@ void fast_loop_core(ModeDecisionCandidateBuffer *cand_bf, PictureControlSet *pcs
         assert(ctx->mds0_ctrls.mds0_dist_type == SAD);
         assert((ctx->blk_geom->bwidth >> 3) < 17);
         if (!ctx->hbd_md) {
-            cand_bf->luma_fast_dist = luma_fast_dist = svt_nxm_sad_kernel_sub_sampled(
+            cand_bf->luma_fast_dist = luma_fast_dist = svt_nxm_sad_kernel(
                                                      input_pic->buffer_y + input_origin_index,
                                                      input_pic->stride_y,
                                                      pred->buffer_y + cu_origin_index,
@@ -1465,21 +1464,19 @@ void fast_loop_core(ModeDecisionCandidateBuffer *cand_bf, PictureControlSet *pcs
             assert((ctx->blk_geom->bwidth_uv >> 3) < 17);
 
             if (!ctx->hbd_md) {
-                chroma_fast_distortion = svt_nxm_sad_kernel_sub_sampled(
-                    input_pic->buffer_cb + input_cb_origin_in_index,
-                    input_pic->stride_cb,
-                    cand_bf->pred->buffer_cb + cu_chroma_origin_index,
-                    pred->stride_cb,
-                    ctx->blk_geom->bheight_uv,
-                    ctx->blk_geom->bwidth_uv);
+                chroma_fast_distortion = svt_nxm_sad_kernel(input_pic->buffer_cb + input_cb_origin_in_index,
+                                                            input_pic->stride_cb,
+                                                            cand_bf->pred->buffer_cb + cu_chroma_origin_index,
+                                                            pred->stride_cb,
+                                                            ctx->blk_geom->bheight_uv,
+                                                            ctx->blk_geom->bwidth_uv);
 
-                chroma_fast_distortion += svt_nxm_sad_kernel_sub_sampled(
-                    input_pic->buffer_cr + input_cr_origin_in_index,
-                    input_pic->stride_cr,
-                    cand_bf->pred->buffer_cr + cu_chroma_origin_index,
-                    pred->stride_cr,
-                    ctx->blk_geom->bheight_uv,
-                    ctx->blk_geom->bwidth_uv);
+                chroma_fast_distortion += svt_nxm_sad_kernel(input_pic->buffer_cr + input_cr_origin_in_index,
+                                                             input_pic->stride_cr,
+                                                             cand_bf->pred->buffer_cr + cu_chroma_origin_index,
+                                                             pred->stride_cr,
+                                                             ctx->blk_geom->bheight_uv,
+                                                             ctx->blk_geom->bwidth_uv);
             } else {
                 chroma_fast_distortion = sad_16b_kernel(((uint16_t *)input_pic->buffer_cb) + input_cb_origin_in_index,
                                                         input_pic->stride_cb,
@@ -1544,9 +1541,9 @@ void svt_aom_set_nics(NicScalingCtrls *scaling_ctrls, uint32_t mds1_count[CAND_C
     }
 
     // minimum nics allowed
-    uint32_t min_mds1_nics = (pic_type < 2 && scaling_ctrls->stage1_scaling_num) ? 2 : 1;
-    uint32_t min_mds2_nics = (pic_type < 2 && scaling_ctrls->stage2_scaling_num) ? 2 : 1;
-    uint32_t min_mds3_nics = (pic_type < 2 && scaling_ctrls->stage3_scaling_num) ? 2 : 1;
+    uint8_t min_mds1_nics = (pic_type < 2 && scaling_ctrls->stage1_scaling_num) ? 2 : 1;
+    uint8_t min_mds2_nics = (pic_type < 2 && scaling_ctrls->stage2_scaling_num) ? 2 : 1;
+    uint8_t min_mds3_nics = (pic_type < 2 && scaling_ctrls->stage3_scaling_num) ? 2 : 1;
 
     // Set the scaling numerators
     uint32_t stage1_num = scaling_ctrls->stage1_scaling_num;
@@ -1976,12 +1973,12 @@ static void md_full_pel_search_large_lbd(MV_COST_PARAMS *mv_cost_params, ModeDec
 
                 assert((ctx->blk_geom->bwidth >> 3) < 17);
 
-                cost = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_y + input_origin_index,
-                                                      input_pic->stride_y,
-                                                      ref_pic->buffer_y + ref_origin_index,
-                                                      ref_pic->stride_y,
-                                                      ctx->blk_geom->bheight,
-                                                      ctx->blk_geom->bwidth);
+                cost = svt_nxm_sad_kernel(input_pic->buffer_y + input_origin_index,
+                                          input_pic->stride_y,
+                                          ref_pic->buffer_y + ref_origin_index,
+                                          ref_pic->stride_y,
+                                          ctx->blk_geom->bheight,
+                                          ctx->blk_geom->bwidth);
 
                 MV best_mv;
                 best_mv.col = mvx + (refinement_pos_x * 8);
@@ -2129,12 +2126,12 @@ static void md_full_pel_search(PictureControlSet *pcs, ModeDecisionContext *ctx,
                                           ctx->blk_geom->bheight,
                                           ctx->blk_geom->bwidth);
                 } else {
-                    cost = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_y + input_origin_index,
-                                                          input_pic->stride_y,
-                                                          ref_pic->buffer_y + ref_origin_index,
-                                                          ref_pic->stride_y,
-                                                          ctx->blk_geom->bheight,
-                                                          ctx->blk_geom->bwidth);
+                    cost = svt_nxm_sad_kernel(input_pic->buffer_y + input_origin_index,
+                                              input_pic->stride_y,
+                                              ref_pic->buffer_y + ref_origin_index,
+                                              ref_pic->stride_y,
+                                              ctx->blk_geom->bheight,
+                                              ctx->blk_geom->bwidth);
                 }
             }
             MV best_mv;
@@ -2983,10 +2980,9 @@ static Bool get_sb_tpl_inter_stats(PictureControlSet *pcs, ModeDecisionContext *
         const int sb_cols = MAX(1, sb_geom->width / tpl_blk_size);
         const int sb_rows = MAX(1, sb_geom->height / tpl_blk_size);
 
-        uint8_t tot_cnt           = 0;
-        uint8_t inter_cnt         = 0;
-        uint8_t max_list0_ref_idx = 0;
-        uint8_t max_list1_ref_idx = 0;
+        uint8_t tot_cnt             = 0;
+        uint8_t inter_cnt           = 0;
+        uint8_t max_list_ref_idx[2] = {0};
 
         // Loop over all blocks in the SB
         for (int i = 0; i < sb_rows; i++) {
@@ -3002,11 +2998,7 @@ static Bool get_sb_tpl_inter_stats(PictureControlSet *pcs, ModeDecisionContext *
                         ? (tpl_src_stats_buffer->best_rf_idx - 4)
                         : tpl_src_stats_buffer->best_rf_idx;
 
-                    if (list_index)
-                        max_list1_ref_idx = MAX(max_list1_ref_idx, ref_pic_index);
-                    else
-                        max_list0_ref_idx = MAX(max_list0_ref_idx, ref_pic_index);
-
+                    max_list_ref_idx[list_index] = MAX(max_list_ref_idx[list_index], ref_pic_index);
                     inter_cnt++;
                 }
 
@@ -3015,8 +3007,8 @@ static Bool get_sb_tpl_inter_stats(PictureControlSet *pcs, ModeDecisionContext *
         }
 
         *sb_inter_selection   = (inter_cnt * 100) / tot_cnt;
-        *sb_max_list0_ref_idx = max_list0_ref_idx;
-        *sb_max_list1_ref_idx = max_list1_ref_idx;
+        *sb_max_list0_ref_idx = max_list_ref_idx[0];
+        *sb_max_list1_ref_idx = max_list_ref_idx[1];
         return 1;
     }
     return 0;
@@ -3599,7 +3591,7 @@ static void av1_cost_calc_cfl(PictureControlSet *pcs, ModeDecisionCandidateBuffe
 static uint64_t md_cfl_rd_pick_alpha(PictureControlSet *pcs, ModeDecisionCandidateBuffer *cand_bf,
                                      ModeDecisionContext *ctx, EbPictureBufferDesc *input_pic,
                                      uint32_t input_cb_origin_in_index, uint32_t blk_chroma_origin_index,
-                                     int32_t *cfl_alpha_idx, int32_t *cfl_alpha_signs) {
+                                     uint8_t *cfl_alpha_idx, uint8_t *cfl_alpha_signs) {
     uint64_t best_rd = MAX_MODE_COST;
     uint64_t full_dist[DIST_TOTAL][DIST_CALC_TOTAL];
     uint64_t coeff_bits;
@@ -3610,58 +3602,64 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet *pcs, ModeDecisionCandida
         (uint64_t)ctx->md_rate_est_ctx->intra_uv_mode_fac_bits[CFL_ALLOWED][cand_bf->cand->pred_mode][UV_CFL_PRED],
         0);
     uint64_t best_rd_uv[CFL_JOINT_SIGNS][CFL_PRED_PLANES];
-    int32_t  best_c[CFL_JOINT_SIGNS][CFL_PRED_PLANES];
+    uint8_t  best_c[CFL_JOINT_SIGNS][CFL_PRED_PLANES];
 
-    for (int32_t plane = 0; plane < CFL_PRED_PLANES; plane++) {
+    for (uint8_t plane = 0; plane < CFL_PRED_PLANES; plane++) {
         coeff_bits                               = 0;
         full_dist[DIST_SSD][DIST_CALC_RESIDUAL]  = 0;
         full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] = 0;
-        for (int32_t joint_sign = 0; joint_sign < CFL_JOINT_SIGNS; joint_sign++) {
+        for (uint8_t joint_sign = 0; joint_sign < CFL_JOINT_SIGNS; joint_sign++) {
             best_rd_uv[joint_sign][plane] = MAX_MODE_COST;
             best_c[joint_sign][plane]     = 0;
         }
+
         // Collect RD stats for an alpha value of zero in this plane.
-        // Skip i == CFL_SIGN_ZERO as (0, 0) is invalid.
-        for (int32_t i = CFL_SIGN_NEG; i < CFL_SIGNS; i++) {
-            const int32_t joint_sign = PLANE_SIGN_TO_JOINT_SIGN(plane, CFL_SIGN_ZERO, i);
-            if (i == CFL_SIGN_NEG) {
-                cand_bf->cand->cfl_alpha_idx   = 0;
-                cand_bf->cand->cfl_alpha_signs = joint_sign;
+        // Skip CFL_SIGN_ZERO as (0, 0) is invalid.
+        // The two remaining signs are CFL_SIGN_NEG and CFL_SIGN_POS
+        // Collect RD stats for CFL_SIGN_NEG
+        const uint8_t joint_sign_neg   = PLANE_SIGN_TO_JOINT_SIGN(plane, CFL_SIGN_ZERO, CFL_SIGN_NEG);
+        cand_bf->cand->cfl_alpha_idx   = 0;
+        cand_bf->cand->cfl_alpha_signs = joint_sign_neg;
+        // Only caculate cfl cost for joint_sign_neg
+        av1_cost_calc_cfl(pcs,
+                          cand_bf,
+                          ctx,
+                          (plane == 0) ? COMPONENT_CHROMA_CB : COMPONENT_CHROMA_CR,
+                          input_pic,
+                          input_cb_origin_in_index,
+                          blk_chroma_origin_index,
+                          full_dist,
+                          &coeff_bits,
+                          0);
+        if (coeff_bits != INT64_MAX) {
+            // Collect RD stats for CFL_SIGN_NEG
+            const int32_t alpha_rate_neg      = ctx->md_rate_est_ctx->cfl_alpha_fac_bits[joint_sign_neg][plane][0];
+            best_rd_uv[joint_sign_neg][plane] = RDCOST(
+                full_lambda, coeff_bits + alpha_rate_neg, full_dist[DIST_SSD][DIST_CALC_RESIDUAL]);
 
-                av1_cost_calc_cfl(pcs,
-                                  cand_bf,
-                                  ctx,
-                                  (plane == 0) ? COMPONENT_CHROMA_CB : COMPONENT_CHROMA_CR,
-                                  input_pic,
-                                  input_cb_origin_in_index,
-                                  blk_chroma_origin_index,
-                                  full_dist,
-                                  &coeff_bits,
-                                  0);
-
-                if (coeff_bits == INT64_MAX)
-                    break;
-            }
-            const int32_t alpha_rate      = ctx->md_rate_est_ctx->cfl_alpha_fac_bits[joint_sign][plane][0];
-            best_rd_uv[joint_sign][plane] = RDCOST(
-                full_lambda, coeff_bits + alpha_rate, full_dist[DIST_SSD][DIST_CALC_RESIDUAL]);
+            // Collect RD stats for CFL_SIGN_POS
+            const uint8_t joint_sign_pos      = PLANE_SIGN_TO_JOINT_SIGN(plane, CFL_SIGN_ZERO, CFL_SIGN_POS);
+            const int32_t alpha_rate_pos      = ctx->md_rate_est_ctx->cfl_alpha_fac_bits[joint_sign_pos][plane][0];
+            best_rd_uv[joint_sign_pos][plane] = RDCOST(
+                full_lambda, coeff_bits + alpha_rate_pos, full_dist[DIST_SSD][DIST_CALC_RESIDUAL]);
         }
     }
 
-    int32_t best_joint_sign = -1;
+    uint8_t best_joint_sign       = 0;
+    bool    best_joint_sign_found = false;
 
-    for (int32_t plane = 0; plane < CFL_PRED_PLANES; plane++) {
-        for (int32_t pn_sign = CFL_SIGN_NEG; pn_sign < CFL_SIGNS; pn_sign++) {
-            int32_t progress = 0;
-            for (int32_t c = 0; c < CFL_ALPHABET_SIZE; c++) {
-                int32_t flag = 0;
+    for (uint8_t plane = 0; plane < CFL_PRED_PLANES; plane++) {
+        for (uint8_t pn_sign = CFL_SIGN_NEG; pn_sign < CFL_SIGNS; pn_sign++) {
+            uint8_t progress = 0;
+            for (uint8_t c = 0; c < CFL_ALPHABET_SIZE; c++) {
+                uint8_t flag = 0;
                 if (c > ctx->cfl_ctrls.itr_th && progress < c)
                     break;
                 coeff_bits                               = 0;
                 full_dist[DIST_SSD][DIST_CALC_RESIDUAL]  = 0;
                 full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] = 0;
-                for (int32_t i = 0; i < CFL_SIGNS; i++) {
-                    const int32_t joint_sign = PLANE_SIGN_TO_JOINT_SIGN(plane, pn_sign, i);
+                for (uint8_t i = 0; i < CFL_SIGNS; i++) {
+                    const uint8_t joint_sign = PLANE_SIGN_TO_JOINT_SIGN(plane, pn_sign, i);
                     if (i == 0) {
                         cand_bf->cand->cfl_alpha_idx   = (c << CFL_ALPHABET_SIZE_LOG2) + c;
                         cand_bf->cand->cfl_alpha_signs = joint_sign;
@@ -3694,8 +3692,9 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet *pcs, ModeDecisionCandida
                     this_rd += mode_rd + best_rd_uv[joint_sign][!plane];
                     if (this_rd >= best_rd)
                         continue;
-                    best_rd         = this_rd;
-                    best_joint_sign = joint_sign;
+                    best_rd               = this_rd;
+                    best_joint_sign       = joint_sign;
+                    best_joint_sign_found = true;
                 }
                 progress += flag;
             }
@@ -3703,13 +3702,12 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet *pcs, ModeDecisionCandida
     }
 
     if (best_rd != MAX_MODE_COST) {
-        int32_t ind = 0;
-        if (best_joint_sign >= 0) {
-            const int32_t u = best_c[best_joint_sign][CFL_PRED_U];
-            const int32_t v = best_c[best_joint_sign][CFL_PRED_V];
+        uint8_t ind = 0;
+        if (best_joint_sign_found) {
+            const uint8_t u = best_c[best_joint_sign][CFL_PRED_U];
+            const uint8_t v = best_c[best_joint_sign][CFL_PRED_V];
             ind             = (u << CFL_ALPHABET_SIZE_LOG2) + v;
-        } else
-            best_joint_sign = 0;
+        }
         *cfl_alpha_idx   = ind;
         *cfl_alpha_signs = best_joint_sign;
     }
@@ -3844,7 +3842,7 @@ static void cfl_prediction(PictureControlSet *pcs, ModeDecisionCandidateBuffer *
     compute_cfl_ac_components(ctx, cand_bf);
 
     // Loop over alphas and find the best CFL params
-    int32_t  cfl_alpha_idx = 0, cfl_alpha_signs = 0;
+    uint8_t  cfl_alpha_idx = 0, cfl_alpha_signs = 0;
     uint64_t cfl_rd = md_cfl_rd_pick_alpha(pcs,
                                            cand_bf,
                                            ctx,
@@ -5901,19 +5899,20 @@ static void full_loop_core_light_pd0(PictureControlSet *pcs, ModeDecisionContext
         ctx->is_subres_safe == (uint8_t)~0 /* only if invalid*/ && ctx->blk_geom->bheight == 64 &&
         ctx->blk_geom->bwidth == 64) {
         uint32_t sad_even, sad_odd;
-        sad_even = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_y + input_origin_index,
-                                                  input_pic->stride_y << 1,
-                                                  cand_bf->pred->buffer_y + blk_origin_index,
-                                                  cand_bf->pred->stride_y << 1,
-                                                  ctx->blk_geom->bheight >> 1,
-                                                  ctx->blk_geom->bwidth);
+        sad_even = svt_nxm_sad_kernel(input_pic->buffer_y + input_origin_index,
+                                      input_pic->stride_y << 1,
+                                      cand_bf->pred->buffer_y + blk_origin_index,
+                                      cand_bf->pred->stride_y << 1,
+                                      ctx->blk_geom->bheight >> 1,
+                                      ctx->blk_geom->bwidth);
 
-        sad_odd       = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_y + input_origin_index + input_pic->stride_y,
-                                                 input_pic->stride_y << 1,
-                                                 cand_bf->pred->buffer_y + blk_origin_index + cand_bf->pred->stride_y,
-                                                 cand_bf->pred->stride_y << 1,
-                                                 ctx->blk_geom->bheight >> 1,
-                                                 ctx->blk_geom->bwidth);
+        sad_odd = svt_nxm_sad_kernel(input_pic->buffer_y + input_origin_index + input_pic->stride_y,
+                                     input_pic->stride_y << 1,
+                                     cand_bf->pred->buffer_y + blk_origin_index + cand_bf->pred->stride_y,
+                                     cand_bf->pred->stride_y << 1,
+                                     ctx->blk_geom->bheight >> 1,
+                                     ctx->blk_geom->bwidth);
+
         int deviation = (int)(((int)MAX(sad_even, 1) - (int)MAX(sad_odd, 1)) * 100) / (int)MAX(sad_odd, 1);
         if (ABS(deviation) <= ctx->subres_ctrls.odd_to_even_deviation_th) {
             ctx->is_subres_safe = 1;
@@ -5993,28 +5992,28 @@ void chroma_complexity_check_pred(ModeDecisionContext *ctx, ModeDecisionCandidat
     shift          = ctx->blk_geom->bheight_uv > 8 ? 2 : ctx->blk_geom->bheight_uv > 4 ? 1 : 0; // no shift for 4x4
 
     if (!ctx->hbd_md) {
-        y_dist = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_y + loc->input_origin_index,
-                                                input_pic->stride_y << shift,
-                                                cand_buffer->pred->buffer_y + loc->blk_origin_index,
-                                                cand_buffer->pred->stride_y << shift,
-                                                ctx->blk_geom->bheight_uv >> shift,
-                                                ctx->blk_geom->bwidth_uv);
+        y_dist = svt_nxm_sad_kernel(input_pic->buffer_y + loc->input_origin_index,
+                                    input_pic->stride_y << shift,
+                                    cand_buffer->pred->buffer_y + loc->blk_origin_index,
+                                    cand_buffer->pred->stride_y << shift,
+                                    ctx->blk_geom->bheight_uv >> shift,
+                                    ctx->blk_geom->bwidth_uv);
         // Only need to check Cb component if not already identified as complex
         if (ctx->chroma_complexity == COMPONENT_LUMA || ctx->chroma_complexity == COMPONENT_CHROMA_CR)
-            cb_dist = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_cb + loc->input_cb_origin_in_index,
-                                                     input_pic->stride_cb << shift,
-                                                     cand_buffer->pred->buffer_cb + loc->blk_chroma_origin_index,
-                                                     cand_buffer->pred->stride_cb << shift,
-                                                     ctx->blk_geom->bheight_uv >> shift,
-                                                     ctx->blk_geom->bwidth_uv);
+            cb_dist = svt_nxm_sad_kernel(input_pic->buffer_cb + loc->input_cb_origin_in_index,
+                                         input_pic->stride_cb << shift,
+                                         cand_buffer->pred->buffer_cb + loc->blk_chroma_origin_index,
+                                         cand_buffer->pred->stride_cb << shift,
+                                         ctx->blk_geom->bheight_uv >> shift,
+                                         ctx->blk_geom->bwidth_uv);
         // Only need to check Cr component if not already identified as complex
         if (ctx->chroma_complexity == COMPONENT_LUMA || ctx->chroma_complexity == COMPONENT_CHROMA_CB)
-            cr_dist = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_cr + loc->input_cb_origin_in_index,
-                                                     input_pic->stride_cr << shift,
-                                                     cand_buffer->pred->buffer_cr + loc->blk_chroma_origin_index,
-                                                     cand_buffer->pred->stride_cr << shift,
-                                                     ctx->blk_geom->bheight_uv >> shift,
-                                                     ctx->blk_geom->bwidth_uv);
+            cr_dist = svt_nxm_sad_kernel(input_pic->buffer_cr + loc->input_cb_origin_in_index,
+                                         input_pic->stride_cr << shift,
+                                         cand_buffer->pred->buffer_cr + loc->blk_chroma_origin_index,
+                                         cand_buffer->pred->stride_cr << shift,
+                                         ctx->blk_geom->bheight_uv >> shift,
+                                         ctx->blk_geom->bwidth_uv);
 
     } else {
         y_dist = sad_16b_kernel(((uint16_t *)input_pic->buffer_y) + loc->input_origin_index,
@@ -6215,26 +6214,26 @@ static COMPONENT_TYPE chroma_complexity_check(PictureControlSet *pcs, ModeDecisi
                                      ctx->blk_geom->bwidth_uv);
         } else {
             // Y dist only computed over UV size so SADs are comparable
-            y_dist = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_y + loc->input_origin_index,
-                                                    input_pic->stride_y << shift,
-                                                    ref_pic->buffer_y + src_y_offset,
-                                                    ref_pic->stride_y << shift,
-                                                    ctx->blk_geom->bheight_uv >> shift,
-                                                    ctx->blk_geom->bwidth_uv);
+            y_dist = svt_nxm_sad_kernel(input_pic->buffer_y + loc->input_origin_index,
+                                        input_pic->stride_y << shift,
+                                        ref_pic->buffer_y + src_y_offset,
+                                        ref_pic->stride_y << shift,
+                                        ctx->blk_geom->bheight_uv >> shift,
+                                        ctx->blk_geom->bwidth_uv);
 
-            cb_dist = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_cb + loc->input_cb_origin_in_index,
-                                                     input_pic->stride_cb << shift,
-                                                     ref_pic->buffer_cb + src_cb_offset,
-                                                     ref_pic->stride_cb << shift,
-                                                     ctx->blk_geom->bheight_uv >> shift,
-                                                     ctx->blk_geom->bwidth_uv);
+            cb_dist = svt_nxm_sad_kernel(input_pic->buffer_cb + loc->input_cb_origin_in_index,
+                                         input_pic->stride_cb << shift,
+                                         ref_pic->buffer_cb + src_cb_offset,
+                                         ref_pic->stride_cb << shift,
+                                         ctx->blk_geom->bheight_uv >> shift,
+                                         ctx->blk_geom->bwidth_uv);
 
-            cr_dist = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_cr + loc->input_cb_origin_in_index,
-                                                     input_pic->stride_cr << shift,
-                                                     ref_pic->buffer_cr + src_cr_offset,
-                                                     ref_pic->stride_cr << shift,
-                                                     ctx->blk_geom->bheight_uv >> shift,
-                                                     ctx->blk_geom->bwidth_uv);
+            cr_dist = svt_nxm_sad_kernel(input_pic->buffer_cr + loc->input_cb_origin_in_index,
+                                         input_pic->stride_cr << shift,
+                                         ref_pic->buffer_cr + src_cr_offset,
+                                         ref_pic->stride_cr << shift,
+                                         ctx->blk_geom->bheight_uv >> shift,
+                                         ctx->blk_geom->bwidth_uv);
         }
         // shift y_dist by to ensure chroma is much higher than luma
         if (ctx->lpd1_tx_ctrls.chroma_detector_level >= 2)
@@ -6676,20 +6675,19 @@ static void full_loop_core(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
         ctx->blk_geom->bwidth == 64) {
         uint32_t sad_even, sad_odd;
         if (!ctx->hbd_md) {
-            sad_even = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_y + input_origin_index,
-                                                      input_pic->stride_y << 1,
-                                                      cand_bf->pred->buffer_y + blk_origin_index,
-                                                      cand_bf->pred->stride_y << 1,
-                                                      ctx->blk_geom->bheight >> 1,
-                                                      ctx->blk_geom->bwidth);
+            sad_even = svt_nxm_sad_kernel(input_pic->buffer_y + input_origin_index,
+                                          input_pic->stride_y << 1,
+                                          cand_bf->pred->buffer_y + blk_origin_index,
+                                          cand_bf->pred->stride_y << 1,
+                                          ctx->blk_geom->bheight >> 1,
+                                          ctx->blk_geom->bwidth);
 
-            sad_odd = svt_nxm_sad_kernel_sub_sampled(
-                input_pic->buffer_y + input_origin_index + input_pic->stride_y,
-                input_pic->stride_y << 1,
-                cand_bf->pred->buffer_y + blk_origin_index + cand_bf->pred->stride_y,
-                cand_bf->pred->stride_y << 1,
-                ctx->blk_geom->bheight >> 1,
-                ctx->blk_geom->bwidth);
+            sad_odd = svt_nxm_sad_kernel(input_pic->buffer_y + input_origin_index + input_pic->stride_y,
+                                         input_pic->stride_y << 1,
+                                         cand_bf->pred->buffer_y + blk_origin_index + cand_bf->pred->stride_y,
+                                         cand_bf->pred->stride_y << 1,
+                                         ctx->blk_geom->bheight >> 1,
+                                         ctx->blk_geom->bwidth);
 
         } else {
             sad_even = sad_16b_kernel(((uint16_t *)input_pic->buffer_y) + input_origin_index,
@@ -7597,19 +7595,19 @@ static void search_best_independent_uv_mode(PictureControlSet *pcs, EbPictureBuf
                                            1);
             }
         } else if (!ctx->hbd_md) {
-            chroma_fast_distortion = svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_cb + input_cb_origin_in_index,
-                                                                    input_pic->stride_cb,
-                                                                    cand_bf->pred->buffer_cb + cu_chroma_origin_index,
-                                                                    cand_bf->pred->stride_cb,
-                                                                    ctx->blk_geom->bheight_uv,
-                                                                    ctx->blk_geom->bwidth_uv);
+            chroma_fast_distortion = svt_nxm_sad_kernel(input_pic->buffer_cb + input_cb_origin_in_index,
+                                                        input_pic->stride_cb,
+                                                        cand_bf->pred->buffer_cb + cu_chroma_origin_index,
+                                                        cand_bf->pred->stride_cb,
+                                                        ctx->blk_geom->bheight_uv,
+                                                        ctx->blk_geom->bwidth_uv);
 
-            chroma_fast_distortion += svt_nxm_sad_kernel_sub_sampled(input_pic->buffer_cr + input_cr_origin_in_index,
-                                                                     input_pic->stride_cr,
-                                                                     cand_bf->pred->buffer_cr + cu_chroma_origin_index,
-                                                                     cand_bf->pred->stride_cr,
-                                                                     ctx->blk_geom->bheight_uv,
-                                                                     ctx->blk_geom->bwidth_uv);
+            chroma_fast_distortion += svt_nxm_sad_kernel(input_pic->buffer_cr + input_cr_origin_in_index,
+                                                         input_pic->stride_cr,
+                                                         cand_bf->pred->buffer_cr + cu_chroma_origin_index,
+                                                         cand_bf->pred->stride_cr,
+                                                         ctx->blk_geom->bheight_uv,
+                                                         ctx->blk_geom->bwidth_uv);
         } else {
             chroma_fast_distortion = sad_16b_kernel(((uint16_t *)input_pic->buffer_cb) + input_cb_origin_in_index,
                                                     input_pic->stride_cb,
@@ -8963,9 +8961,15 @@ static void md_encode_block_light_pd1(PictureControlSet *pcs, ModeDecisionContex
         *(cand_bf->fast_cost)       = 0;
         cand_bf->fast_luma_rate     = 0;
         cand_bf->fast_chroma_rate   = 0;
-        cand_bf->cand->tx_depth     = 0;
-        ctx->use_tx_shortcuts_mds3  = 1;
-        ctx->lpd1_allow_skipping_tx = 1;
+
+        /* If the interpolation filter type is assigned at the picture level, use that value, OW use regular.
+         * NB intra_bc always uses BILINEAR, but IBC is not allowed in LPD1. */
+        cand_bf->cand->interp_filters = (pcs->ppcs->frm_hdr.interpolation_filter == SWITCHABLE)
+            ? 0
+            : av1_broadcast_interp_filter(pcs->ppcs->frm_hdr.interpolation_filter);
+        cand_bf->cand->tx_depth       = 0;
+        ctx->use_tx_shortcuts_mds3    = 1;
+        ctx->lpd1_allow_skipping_tx   = 1;
     }
     // For 10bit content, when recon is not needed, hbd_md can stay =0,
     // and the 8bit prediction is used to produce the residual (with 8bit source).
