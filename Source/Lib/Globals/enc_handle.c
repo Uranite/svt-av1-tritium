@@ -1361,6 +1361,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.variance_octile     = scs->static_config.variance_octile;
         input_data.adaptive_film_grain = scs->static_config.adaptive_film_grain;
         input_data.hbd_mds             = scs->static_config.hbd_mds;
+        input_data.noise_norm_strength = scs->static_config.noise_norm_strength;
         input_data.static_config       = scs->static_config;
         input_data.allintra            = scs->allintra;
         input_data.use_flat_ipp        = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
@@ -4733,6 +4734,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
 
     // Ref-frame management: propagate caller's max-anchors hint (0 = disabled).
     scs->static_config.max_managed_refs = config_struct->max_managed_refs;
+
+    // Noise normalization strength
+    scs->static_config.noise_norm_strength = config_struct->noise_norm_strength;
 
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {

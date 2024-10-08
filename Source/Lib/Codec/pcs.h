@@ -1232,6 +1232,7 @@ typedef struct PictureControlSetInitData {
     bool    adaptive_film_grain;
     bool    use_flat_ipp;
     int     hbd_mds;
+    uint8_t noise_norm_strength;
 } PictureControlSetInitData;
 
 /**************************************
