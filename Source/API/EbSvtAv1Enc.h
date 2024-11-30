@@ -1078,7 +1078,7 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     Bool sharp_tx;
 
-     /**
+    /**
      * @brief High Bit-Depth Mode Decision, used to control the bit-depth of the mode decision path.
      * 0: default behavior
      * 1: full 10-bit MD
@@ -1088,7 +1088,7 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t hbd_mds;
 
-     /**
+    /**
      * @brief Enable complex-hvs, a feature that enables the highest complexity and highest fidelity
      HVS model at the cost of higher CPU time
      * 0: default preset behavior
@@ -1097,21 +1097,23 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t complex_hvs;
     
-    /* @brief Alternative SSIM tuning, enables VQ enhancements and different rdmult calculations
+    /**
+     * @brief Alternative SSIM tuning, enables VQ enhancements and different rdmult calculations
      * 0: disabled, use stock SSIM tuning
      * 1: enabled, use alternative SSIM tuning with VQ enhacnements and different rdmult calculations
      * Default is 0
      */
     Bool alt_ssim_tuning;
 
-    /* @brief Alias for frame_luma_bias to provide parameter parity with v3/mainline implementation
+    /**
+     * @brief Alias for frame_luma_bias to provide parameter parity with v3/mainline implementation
      * Experimental frame-level luma bias to improve quality in dark scenes
      * 0: no bias, stock behavior
      * 1-4: enable low-luma bias, the higher the number the stronger the bias
      * Default is 0 */
     uint8_t luminance_qp_bias;
 
-     /**
+    /**
      * @brief Controls noise detection for CDEF/restoration filtering
      * 0: tune-default behavior
      * 1: on
@@ -1122,8 +1124,16 @@ typedef struct EbSvtAv1EncConfiguration {
      */
      uint8_t filtering_noise_detection;
 
+    /**
+     * @brief Strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention)
+     * 0.00: disable AC bias
+     * 1.00: enable AC bias with a strength of 1.00
+     * Default is 0.00.
+     */
+     double ac_bias;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - 7 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
 
 } EbSvtAv1EncConfiguration;
 

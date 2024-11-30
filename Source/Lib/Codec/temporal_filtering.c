@@ -33,6 +33,8 @@
 #include "svt_log.h"
 #include <limits.h>
 #include "pack_unpack_c.h"
+#include "pic_operators.h"
+#include "ac_bias.h"
 
 #undef _MM_HINT_T2
 #define _MM_HINT_T2 1

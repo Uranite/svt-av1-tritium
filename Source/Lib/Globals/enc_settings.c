@@ -975,6 +975,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
     
+    if (config->ac_bias > 8.0 || config->ac_bias < 0.0) {
+        SVT_ERROR("Instance %u: AC bias strength must be between 0.0 and 8.0\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+
     return return_error;
 }
 
@@ -1150,6 +1155,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->alt_ssim_tuning                   = FALSE;
     config_ptr->luminance_qp_bias                 = 0;
     config_ptr->filtering_noise_detection         = 0;
+    config_ptr->ac_bias                           = 0.0;
     return return_error;
 }
 
@@ -1342,6 +1348,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 break;
             default:
                 break;
+        }
+        
+        if (config->ac_bias) {
+            SVT_INFO("SVT [config]: AC bias strength \t\t\t\t\t\t: %.2f\n", config->ac_bias);
         }
     }
 #ifdef DEBUG_BUFFERS
@@ -2282,6 +2292,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         double     *out;
     } double_opts[] = {
         {"qp-scale-compress-strength", &config_struct->qp_scale_compress_strength},
+        {"ac-bias", &config_struct->ac_bias},
     };
     const size_t double_opts_size = sizeof(double_opts) / sizeof(double_opts[0]);
 
