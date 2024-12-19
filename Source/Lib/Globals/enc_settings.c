@@ -884,8 +884,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->enable_alt_curve > 1) {
-        SVT_ERROR("Instance %u: Enable alt curve must be between 0 and 1\n", channel_number + 1);
+    if (config->variance_boost_curve > 2) {
+        SVT_ERROR("Instance %u: Variance boost curve must be between 0 and 2\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1107,7 +1107,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->enable_variance_boost             = TRUE;
     config_ptr->variance_boost_strength           = 2;
     config_ptr->variance_octile                   = 6;
-    config_ptr->enable_alt_curve                  = FALSE;
+    config_ptr->variance_boost_curve              = 0;
     config_ptr->sharpness                         = 1;
     config_ptr->extended_crf_qindex_offset        = 0;
     config_ptr->qp_scale_compress_strength        = 1;
@@ -1228,11 +1228,11 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                          config->enable_adaptive_quantization,
                          config->enable_variance_boost);
             } else {
-                SVT_INFO("SVT [config]: AQ mode / variance boost strength / octile / curve \t\t: %d / %d / %d / %s\n",
+                SVT_INFO("SVT [config]: AQ mode / variance boost strength / octile / curve \t\t: %d / %d / %d / %d\n",
                          config->enable_adaptive_quantization,
                          config->variance_boost_strength,
                          config->variance_octile,
-                         config->enable_alt_curve ? "alt" : "regular");
+                         config->variance_boost_curve);
             }
         }
 
@@ -2181,6 +2181,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"startup-mg-size", &config_struct->startup_mg_size},
         {"variance-boost-strength", &config_struct->variance_boost_strength},
         {"variance-octile", &config_struct->variance_octile},
+        {"variance-boost-curve", &config_struct->variance_boost_curve},
         {"qp-scale-compress-strength", &config_struct->qp_scale_compress_strength},
         {"frame-luma-bias", &config_struct->frame_luma_bias},
         {"tf-strength", &config_struct->tf_strength},
@@ -2307,7 +2308,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"enable-dg", &config_struct->enable_dg},
         {"gop-constraint-rc", &config_struct->gop_constraint_rc},
         {"enable-variance-boost", &config_struct->enable_variance_boost},
-        {"enable-alt-curve", &config_struct->enable_alt_curve},
         {"max-32-tx-size", &config_struct->max_32_tx_size},
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
     };

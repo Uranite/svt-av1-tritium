@@ -984,12 +984,13 @@ typedef struct EbSvtAv1EncConfiguration {
      *  Default is 6 */
     uint8_t variance_octile;
 
-    /* @brief Enable the use of an alternative curve for variance boost
-     * which emphasizes boosting low-medium contrast regions, at a modest bitrate increase over the regular curve
-     *  0: disable alt curve
-     *  1: enable alt curve (i.e. use regular curve)
-     *  Default is 0 */
-    Bool enable_alt_curve;
+    /* @brief Enable the user to configure which curve variance boost uses.
+     * Curve 1 emphasizes boosting low-medium contrast regions at a modest bitrate increase over the default curve
+     *  0: default curve
+     *  1: low-medium contrast boost curve
+     *  2: still picture curve, tuned for SSIMULACRA2 performance on the CID22 Validation Set
+     *  Default is 0. */
+    uint8_t variance_boost_curve;
 
     /* @brief Affects loopfilter deblock sharpness and rate distortion
      *
@@ -1116,9 +1117,9 @@ typedef struct EbSvtAv1EncConfiguration {
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
 #if CLN_LP_LVLS
-    uint8_t padding[128 - 4 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - sizeof(double)];
+    uint8_t padding[128 - 3 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - sizeof(double)];
 #else
-    uint8_t padding[128 - 4 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(double)];
+    uint8_t padding[128 - 3 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(double)];
 #endif
 
 } EbSvtAv1EncConfiguration;

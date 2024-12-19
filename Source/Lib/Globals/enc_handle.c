@@ -5012,7 +5012,7 @@ static void copy_api_from_app(
     scs->static_config.enable_variance_boost = config_struct->enable_variance_boost;
     scs->static_config.variance_boost_strength = config_struct->variance_boost_strength;
     scs->static_config.variance_octile = config_struct->variance_octile;
-    scs->static_config.enable_alt_curve = config_struct->enable_alt_curve;
+    scs->static_config.variance_boost_curve = config_struct->variance_boost_curve;
 
     // Sharpness
     scs->static_config.sharpness = config_struct->sharpness;
@@ -5065,7 +5065,7 @@ static void copy_api_from_app(
         scs->static_config.sharpness = 7;
         scs->static_config.variance_boost_strength = 3;
         scs->static_config.variance_octile = 5;
-        scs->static_config.enable_alt_curve = 1;
+        scs->static_config.variance_boost_curve = 2;
         scs->static_config.max_32_tx_size = 1;
 
         if (scs->static_config.qp <= 26) {
