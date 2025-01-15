@@ -949,6 +949,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->tx_bias > 3) {
+        SVT_ERROR("Instance %u: TX bias must be between 0 and 3\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+
     if (config->sharp_tx > 1) {
         SVT_ERROR("Instance %u: sharp-tx must be between 0 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
@@ -1129,6 +1134,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->kf_tf_strength                    = 1;
     config_ptr->noise_norm_strength               = 1;
     config_ptr->ac_bias                           = 1.0;
+    config_ptr->tx_bias                           = 0;
     config_ptr->low_q_taper                       = 0;
     config_ptr->sharp_tx                          = 1;
     config_ptr->hbd_mds                           = 0;
@@ -1305,8 +1311,12 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 }
         }
 
-        if (config->ac_bias) {
-            SVT_INFO("SVT [config]: AC bias strength \t\t\t\t\t\t: %.2f\n", config->ac_bias);
+        if (config->ac_bias || config->tx_bias) {
+            SVT_INFO("SVT [config]: AC bias strength / TX bias \t\t\t\t\t: %.2f / %s\n",
+                     config->ac_bias,
+                     config->tx_bias == 1
+                         ? "full"
+                         : (config->tx_bias == 2 ? "size only" : (config->tx_bias == 3 ? "interp. only" : "off")));
         }
 
 		if (config->low_q_taper) {
@@ -2215,6 +2225,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"tf-strength", &config_struct->tf_strength},
         {"kf-tf-strength", &config_struct->kf_tf_strength},
         {"noise-norm-strength", &config_struct->noise_norm_strength},
+        {"tx-bias", &config_struct->tx_bias},
         {"fast-decode", &config_struct->fast_decode},
         {"enable-tf", &config_struct->enable_tf},
         {"hbd-mds", &config_struct->hbd_mds},

@@ -1547,6 +1547,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         input_data.kf_tf_strength = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.kf_tf_strength;
         input_data.noise_norm_strength = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.noise_norm_strength;
         input_data.ac_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.ac_bias;
+        input_data.tx_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.tx_bias;
         input_data.sharp_tx = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.sharp_tx;
         input_data.hbd_mds = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.hbd_mds;
         input_data.complex_hvs = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.complex_hvs;
@@ -4625,6 +4626,9 @@ static void copy_api_from_app(
 
     // AC bias
     scs->static_config.ac_bias = config_struct->ac_bias;
+
+    // TX bias
+    scs->static_config.tx_bias = config_struct->tx_bias;
 
     // Low Q taper
     scs->static_config.low_q_taper = config_struct->low_q_taper;

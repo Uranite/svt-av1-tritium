@@ -114,6 +114,9 @@ Adaptively varies temporal filtering strength based on 64x64 block error. This c
 
 Configures psychovisual rate distortion strength to improve perceived quality by measuring and attempting to preserve the visual energy distribution of high-frequency details and textures. The default is 1.0.
 
+- `--tx-bias` *0 to 3*
+
+Configure psychovisually-oriented pathways that bias towards sharpness and detail retention, at the possible expense of increased blocking and banding. The default is 0.
 
 - `--alt-ssim-tuning` *0 and 1*
 
