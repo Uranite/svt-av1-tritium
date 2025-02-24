@@ -1970,7 +1970,7 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
 #endif
     if (scs->enable_hbd_mode_decision == DEFAULT) {
 
-    if (pcs->scs->static_config.hbd_md == 0) {
+    if (pcs->scs->static_config.hbd_mds == 0) {
         if (enc_mode <= ENC_M2)
             pcs->hbd_md = 1;
         //Empiral testing shows enabling full 10-bit MD greatly increases
@@ -1984,13 +1984,13 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
         else
             pcs->hbd_md = is_islice ? 2 : 0;
 
-    } else if (pcs->scs->static_config.hbd_md == 1){
+    } else if (pcs->scs->static_config.hbd_mds == 1){
         pcs->hbd_md = 1;
 
-    } else if (pcs->scs->static_config.hbd_md == 2) {
+    } else if (pcs->scs->static_config.hbd_mds == 2) {
         pcs->hbd_md = 2;
 
-    } else if (pcs->scs->static_config.hbd_md == 3) {
+    } else if (pcs->scs->static_config.hbd_mds == 3) {
         pcs->hbd_md = 3;
     }
 }
