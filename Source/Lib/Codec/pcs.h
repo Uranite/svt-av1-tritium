@@ -1233,6 +1233,7 @@ typedef struct PictureControlSetInitData {
     uint8_t    noise_norm_strength;
     double     psy_rd;
     Bool    spy_rd;
+    uint8_t sharp_tx;
 } PictureControlSetInitData;
 
 typedef struct Av1Comp {

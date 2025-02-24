@@ -940,7 +940,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
 
     if (config->sharp_tx > 1) {
-        SVT_ERROR("Instance %u: sharp-tx must be between 0 and 1\n", channel_number + 1);
+        SVT_ERROR("Instance %u: sharp-tx must be either 0 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -2188,6 +2188,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"noise-norm-strength", &config_struct->noise_norm_strength},
         {"fast-decode", &config_struct->fast_decode},
         {"enable-tf", &config_struct->enable_tf},
+        {"sharp-tx", &config_struct->sharp_tx},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 
@@ -2308,7 +2309,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"max-32-tx-size", &config_struct->max_32_tx_size},
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
         {"spy-rd", &config_struct->spy_rd},
-        {"sharp-tx", &config_struct->sharp_tx},
         {"hbd-md", &config_struct->hbd_md},
     };
     const size_t bool_opts_size = sizeof(bool_opts) / sizeof(bool_opts[0]);

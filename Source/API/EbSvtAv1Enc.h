@@ -1101,7 +1101,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 1: enabled
      * Default is 1
      */
-     Bool sharp_tx;
+    uint8_t sharp_tx;
 
      /**
      * @brief High Bit-Depth Mode Decision, used to control the bit-depth of the mode decision path.

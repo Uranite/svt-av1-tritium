@@ -1334,7 +1334,7 @@ ConfigEntry config_entry_psy[] = {
      set_cfg_generic_token},
      {SINGLE_INPUT,
      SHARP_TX_TOKEN,
-     "[PSY] Sharp transform optimization, default is 1; best used in combination with psy-rd [0-1]",
+     "[PSY] Sharp transform optimization, default is 1 [0-1]",
      set_cfg_generic_token},
      {SINGLE_INPUT,
      HBD_MD_TOKEN,
