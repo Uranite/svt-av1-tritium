@@ -1117,6 +1117,13 @@ typedef struct EbSvtAv1EncConfiguration {
      * ROI QP offset map block size. Supported values are 16 and 64 pixels.
      */
     uint8_t roi_map_block_size;
+    /* Manually adjust TF strength on keyframes
+     * 0: disable alt-ref TF on keyframes
+     * 1: 10 + (4 - 1) = 13 (4x weaker, HDR default)
+     * 2: 10 + (4 - 2) = 12 (2x weaker)
+     * 3: 10 + (4 - 3) = 11 (mainline default)
+     * 4: 10 + (4 - 4) = 10 (2x stronger) */
+    uint8_t kf_tf_strength;
 
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
@@ -1132,6 +1139,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint8_t) // fast_decode_user_opts
         - sizeof(uint8_t) // roi_map_block_size
         - sizeof(uint8_t) // noise_norm_strength
+        - sizeof(uint8_t) // kf_tf_strength
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
