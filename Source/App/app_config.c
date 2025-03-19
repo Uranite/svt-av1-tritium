@@ -1335,7 +1335,7 @@ ConfigEntry config_entry_psy[] = {
      set_cfg_generic_token},
     {SINGLE_INPUT,
      SPY_RD_TOKEN,
-     "[PSY] Alternative psychovisual rate distortion, default is 0 [0-1]",
+     "[PSY] Alternative psychovisual rate distortion pathways, default is 0 [0-2]; 1 = full, 2 = partial",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      LOW_Q_TAPER_TOKEN,
