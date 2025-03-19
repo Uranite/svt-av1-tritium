@@ -1089,10 +1089,11 @@ typedef struct EbSvtAv1EncConfiguration {
      * @brief Enable spy-rd, an alternate RD metric that biases towards sharpness/detail retention,
      * at the possible expense of increased blocking and banding
      * 0: disabled
-     * 1: enabled
+     * 1: full
+     * 2: partial (interpolation filter tweaks only)
      * Default is 0
      */
-    Bool spy_rd;
+    uint8_t spy_rd;
 
     /**
      * @brief Prevent macroblocks from being boosted to very low q.
