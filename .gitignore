@@ -27,3 +27,5 @@ third_party/aom/lib/*/aom.lib
 third_party/aom/lib/*/*/aom.lib
 third_party/safestringlib/dummy.c
 /offline_ci/
+build.bat
+svt_build
