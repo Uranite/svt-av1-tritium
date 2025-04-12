@@ -1274,7 +1274,7 @@ ConfigEntry config_entry_psy[] = {
      set_cfg_generic_token},
     {SINGLE_INPUT,
      VARIANCE_BOOST_CURVE_TOKEN,
-     "Curve for variance boost, default is 0 [0-2]",
+     "Curve for variance boost, default is 0 [0-3]",
      set_cfg_generic_token},
     // Sharpness
     {SINGLE_INPUT,
