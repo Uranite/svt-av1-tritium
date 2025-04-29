@@ -320,7 +320,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 8 = 8 bit.
      * 10 = 10 bit.
      *
-     * Default is 10 for SVT-AV1-PSY, mainline default is 8. */
+     * Default is 10 for SVT-AV1-HDR, mainline default is 8. */
     uint32_t encoder_bit_depth;
 
     /**
@@ -633,7 +633,7 @@ typedef struct EbSvtAv1EncConfiguration {
     * @brief Determines how much denoising is used.
     * Only applicable when film grain is ON.
     *
-    * 0 is no denoising (default in SVT-AV1-PSY)
+    * 0 is no denoising (default)
     * 1 is full denoising
     *
     * Default is 0. */
@@ -721,7 +721,7 @@ typedef struct EbSvtAv1EncConfiguration {
     /**
      * @brief Tune for a particular metric; 0: VQ, 1: PSNR, 2: SSIM.
      *
-     * Default is 2 (Tune SSIM) for SVT-AV1-PSY. Mainline SVT-AV1 uses 1 (Tune PSNR) as default.
+     * Default is 2 (Tune SSIM) for SVT-AV1-HDR. Mainline SVT-AV1 uses 1 (Tune PSNR) as default.
      */
     uint8_t tune;
 
@@ -886,14 +886,14 @@ typedef struct EbSvtAv1EncConfiguration {
     /**
      * @brief Signal to the library to enable quantisation matrices
      *
-     * Default is true in SVT-AV1-PSY.
+     * Default is true in SVT-AV1-HDR.
      */
     Bool enable_qm;
     /**
      * @brief Min quant matrix flatness. Applicable when enable_qm is true.
      * Min value is 0.
      * Max value is 15.
-     * Default is 0 in SVT-AV1-PSY, mainline default is 8.
+     * Default is 0 in SVT-AV1-HDR, mainline default is 8.
      */
     uint8_t min_qm_level;
     /**
@@ -969,7 +969,7 @@ typedef struct EbSvtAv1EncConfiguration {
     /* Variance boost
      * false = disable variance boost
      * true = enable variance boost
-     * Default is true in SVT-AV1-PSY. */
+     * Default is true in SVT-AV1-HDR. */
     Bool enable_variance_boost;
 
     /* @brief Selects the curve strength to boost low variance regions according to a fast-growing formula
@@ -1041,7 +1041,7 @@ typedef struct EbSvtAv1EncConfiguration {
 
     /* Manually adjust temporal filtering strength
      * 0: 10 + (4 - 0) = 14 (8x weaker)
-     * 1: 10 + (4 - 1) = 13 (4x weaker, PSY default)
+     * 1: 10 + (4 - 1) = 13 (4x weaker, HDR default)
      * 2: 10 + (4 - 2) = 12 (2x weaker)
      * 3: 10 + (4 - 3) = 11 (mainline default)
      * 4: 10 + (4 - 4) = 10 (2x stronger) */
@@ -1049,7 +1049,7 @@ typedef struct EbSvtAv1EncConfiguration {
 
     /* Manually adjust TF strength on keyframes
      * 0: disable TF on keyframes
-     * 1: 10 + (4 - 1) = 13 (4x weaker, PSY default)
+     * 1: 10 + (4 - 1) = 13 (4x weaker, HDR default)
      * 2: 10 + (4 - 2) = 12 (2x weaker)
      * 3: 10 + (4 - 3) = 11 (mainline default)
      * 4: 10 + (4 - 4) = 10 (2x stronger) */
@@ -1132,10 +1132,10 @@ typedef struct EbSvtAv1EncConfiguration {
 EB_API const char *svt_av1_get_version(void);
 
 /**
- * Returns a string containing only the SVT-AV1-PSY micro-release letter
- * @param[out] SVT_AV1_PSY_RELEASE
+ * Returns a string containing only the SVT-AV1-HDR micro-release letter
+ * @param[out] SVT_AV1_HDR_RELEASE
  */
-EB_API const char *svt_psy_get_version(void);
+EB_API const char *svt_hdr_get_version(void);
 
 /**
  * Prints the version header and build information to the file
