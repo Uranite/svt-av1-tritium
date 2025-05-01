@@ -2861,7 +2861,9 @@ static EbErrorType produce_temporally_filtered_pic(
             (input_picture_ptr_central->org_x >> ss_x),
     };
     int decay_control[COLOR_CHANNELS];
-    if ((scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance && centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH) || scs->static_config.tune == 3) {
+    if ((scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level
+        && scs->calculate_variance && centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH)
+        || scs->static_config.tune == 3 || scs->static_config.tune == 0) {
 
         decay_control[C_Y] = 1;
         decay_control[C_U] = 1;
@@ -3463,7 +3465,9 @@ static EbErrorType produce_temporally_filtered_pic_ld(
             (input_picture_ptr_central->org_x >> ss_x),
     };
     int decay_control;
-    if (scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance && centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH) {
+    if ((scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level
+        && scs->calculate_variance && centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH)
+        || scs->static_config.tune == 3 || scs->static_config.tune == 0 ) {
         decay_control = 1;
     }
     else {
