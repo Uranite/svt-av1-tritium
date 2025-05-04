@@ -1344,7 +1344,7 @@ ConfigEntry config_entry_psy[] = {
     //Complex HVS
     {SINGLE_INPUT,
      COMPLEX_HVS_TOKEN,
-     "[PSY] Enable highest complexity HVS model, default is 0 [0-1]",
+     "[PSY] Enable highest complexity HVS model, default is 0 [0: default preset behavior, 1: complex HVS model based on PSNR-HVS]",
      set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
