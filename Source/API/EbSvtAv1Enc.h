@@ -1122,11 +1122,20 @@ typedef struct EbSvtAv1EncConfiguration {
      */
      Bool hbd_md;
 
+     /**
+     * @brief Enable complex-hvs, a feature that enables the highest complexity and highest fidelity
+     HVS model at the cost of higher CPU time
+     * 0: default preset behavior
+     * 1: highest complexity HVS model (SSD-Psy)
+     * Default is 0
+     */
+     uint8_t complex_hvs;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
 #if CLN_LP_LVLS
-    uint8_t padding[128 - 7 * sizeof(Bool) - 11 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 12 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - sizeof(double)];
 #else
-    uint8_t padding[128 - 7 * sizeof(Bool) - 11 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 12 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(double)];
 #endif
 
 } EbSvtAv1EncConfiguration;

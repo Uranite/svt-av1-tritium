@@ -1234,6 +1234,7 @@ typedef struct PictureControlSetInitData {
     double     psy_rd;
     uint8_t    spy_rd;
     Bool    sharp_tx;
+    uint8_t complex_hvs;
 } PictureControlSetInitData;
 
 typedef struct Av1Comp {

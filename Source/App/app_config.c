@@ -228,6 +228,7 @@
 #define LOW_Q_TAPER_TOKEN "--low-q-taper"
 #define SHARP_TX_TOKEN "--sharp-tx"
 #define HBD_MD_TOKEN "--hbd-md"
+#define COMPLEX_HVS_TOKEN "--complex-hvs"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -1345,6 +1346,10 @@ ConfigEntry config_entry_psy[] = {
      HBD_MD_TOKEN,
      "[PSY] High Bit-Depth Mode Decision, default is 0 [0: default preset behavior, 1 = 10-bit, 2 = hybrid 8/10-bit, 3 = 8-bit]",
      set_cfg_generic_token},
+     {SINGLE_INPUT,
+     COMPLEX_HVS_TOKEN,
+     "[PSY] Enable highest complexity HVS model, default is 0 [0-1]",
+     set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1576,6 +1581,9 @@ ConfigEntry config_entry[] = {
 
     // HBD-MD
     {SINGLE_INPUT, HBD_MD_TOKEN, "HBDMD", set_cfg_generic_token},
+
+    // Complex HVS
+    {SINGLE_INPUT, COMPLEX_HVS_TOKEN, "ComplexHVS", set_cfg_generic_token},
 
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
