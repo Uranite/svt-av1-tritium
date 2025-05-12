@@ -1327,7 +1327,7 @@ ConfigEntry config_entry_psy[] = {
      set_cfg_generic_token},
     {SINGLE_INPUT,
      PSY_RD_TOKEN,
-     "[PSY] Psychovisual rate distortion strength, default is 1; high quality mode activated at >=0.6 [0.0-6.0]",
+     "[PSY] Psychovisual rate distortion strength, default is 1.0; high quality mode activated at >=0.6 and <=P6 (P-1 enables complex HVS model) [0.0-8.0]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      SPY_RD_TOKEN,
