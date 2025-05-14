@@ -939,10 +939,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->low_q_taper > 1) {
-        SVT_ERROR("Instance %u: low-q-taper must be between 0 and 1\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
+    // if (config->low_q_taper > 1) {
+    //     SVT_ERROR("Instance %u: low-q-taper must be between 0 and 1\n", channel_number + 1);
+    //     return_error = EB_ErrorBadParameter;
+    // }
 
     if (config->sharp_tx > 1) {
         SVT_ERROR("Instance %u: sharp-tx must be between 0 and 1\n", channel_number + 1);
