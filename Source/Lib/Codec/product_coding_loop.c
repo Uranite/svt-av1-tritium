@@ -9532,8 +9532,10 @@ static void md_encode_block(PictureControlSet *pcs, ModeDecisionContext *ctx, ui
     }
     // 3rd Full-Loop
     ctx->md_stage        = MD_STAGE_3;
-    ctx->tune_ssim_level = (pcs->scs->static_config.tune == 2 && ctx->pd_pass == PD_PASS_1) ? SSIM_LVL_3 : ((pcs->ppcs->scs->static_config.tune == 3
-        || pcs->ppcs->scs->static_config.tune == 4) && ctx->pd_pass == PD_PASS_1) ? SSIM_LVL_1 : SSIM_LVL_0;
+    //This is a big difference compared to mainline
+    //We only set SSIM mode decision (Level 1), since SSIM TX, or level 3, is
+    //just not worth it because of bluriness; tune 2 will be set back to level 1
+    ctx->tune_ssim_level = (pcs->scs->static_config.tune == 2 || pcs->scs->static_config.tune == 3 || pcs->scs->static_config.tune == 4) && (ctx->pd_pass == PD_PASS_1) ? SSIM_LVL_1 : SSIM_LVL_0;
     md_stage_3(pcs,
                ctx,
                input_pic,
