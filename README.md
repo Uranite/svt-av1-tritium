@@ -1,3 +1,13 @@
+This fork is based on the unreleased [SVT-AV1-PSY 2.3.0-C](https://github.com/psy-ex/svt-av1-psy/tree/testing-2.3.0-C), and includes backports of changes and improvements made in 3.x versions of SVT-AV1-PSY and its continuation, [SVT-AV1-PSYEX](https://github.com/BlueSwordM/svt-av1-psyex).
+
+Please note that this fork may not be a 1-to-1 copy of changes made in 3.x, and may include additional features or changes that could potentially change, break, or fix certain behaviour.
+
+The primary branch is [testing-2.3.0-C](https://github.com/5fish/svt-av1-psy/tree/testing-2.3.0-C); other branches may include experiments and may be out of date.
+
+Below is a non-exhaustive list of notable differences between 3.x and this fork:
+- `--frame-luma-bias` has been renamed in 3.x to `--luminance-qp-bias`; this change has not been reflected here.
+- `--hbd-md` has been renamed in 3.x to `--hbd-mds`; this change has not been reflected here.
+
 # SVT-AV1-PSY
 
 SVT-AV1-PSY is the Scalable Video Technology for AV1 (SVT-AV1 Encoder and Decoder) with perceptual enhancements for psychovisually optimal AV1 encoding. The goal is to create the best encoding implementation for perceptual quality with AV1.
@@ -94,7 +104,7 @@ Allows the encoder to accept content with width and/or height as small as 4 pixe
 
 - `--noise-norm-strength` *0 to 4*
 
-In a scenario where a video frame contains areas with fine textures or flat regions, noise normalization helps maintain visual quality by boosting certain AC coefficients. The default value is 0, but it is enabled at strength 3 when using Tune 3.
+In a scenario where a video frame contains areas with fine textures or flat regions, noise normalization helps maintain visual quality by boosting certain AC coefficients. The default value is 1; a recommended value is 3.
 
 - `--kf-tf-strength` *0 to 4*
 
@@ -121,9 +131,15 @@ SVT-AV1-PSY has different defaults than mainline SVT-AV1 in order to provide bet
 - Disable film grain denoising by default, as it often harms visual fidelity. (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/commit/8b39b41df9e07bbcdbd19ea618762c5db3353c03)**)
 - Default to Tune 2 (SSIM) instead of Tune 1 (PSNR), as it reliably outperforms Tune 1 perceptually & throughout trusted metrics.
 - Enable quantization matrices by default.
-- Set minimum QM level to 0 by default.
+- Set minimum QM level to 2 by default for more consistent performance that min QM level 0 doesn't offer.
+- Set minimum chroma QM level to 8 by default to prevent the encoder from picking suboptimal chroma QMs.
 - `--enable-variance-boost` enabled by default.
 - `--keyint -2` (the default) uses a ~10s GOP size instead of ~5s.
+- `--sharpness 1` by default to prioritize encoder sharpness.
+- Sharp transform optimizations (`--sharp-tx 1`) are enabled by default to supercharge svt-av1-psy psy-rd optimizations. It is recommended to disable it if you don't use `--psy-rd`, which is set to 0.5 by default.
+- `--tf-strength 1` by default for much lower alt-ref temporal filtering to decrease blur for cleaner encoding.
+- `--kf-tf-strength 1` controls are available to the user and are set to 1 by default to remove KF artifacts.
+
 
 *We are not in any way affiliated with the Alliance for Open Media or any upstream SVT-AV1 project contributors who have not also contributed here.*
 

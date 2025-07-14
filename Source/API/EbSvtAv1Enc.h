@@ -893,7 +893,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * @brief Min quant matrix flatness. Applicable when enable_qm is true.
      * Min value is 0.
      * Max value is 15.
-     * Default is 0 in SVT-AV1-PSY, mainline default is 8.
+     * Default is 2 in SVT-AV1-PSY, mainline default is 8.
      */
     uint8_t min_qm_level;
     /**
@@ -1073,7 +1073,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * to boost AC coefficients in low-noise blocks.
      * Min value is 0.
      * Max value is 4.
-     * Default is 3.
+     * Default is 1.
      */
     uint8_t noise_norm_strength;
 

@@ -1102,7 +1102,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
 
     // Quant Matrices (QM)
     config_ptr->enable_qm    = 1;
-    config_ptr->min_qm_level = 0;
+    config_ptr->min_qm_level = 2;
     config_ptr->max_qm_level = 15;
     config_ptr->min_chroma_qm_level = 8;
     config_ptr->max_chroma_qm_level = 15;
@@ -1126,7 +1126,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->adaptive_film_grain               = TRUE;
     config_ptr->tf_strength                       = 1;
     config_ptr->kf_tf_strength                    = 1;
-    config_ptr->noise_norm_strength               = 0;
+    config_ptr->noise_norm_strength               = 1;
     config_ptr->psy_rd                            = 0.5;
     config_ptr->spy_rd                            = 0;
     config_ptr->low_q_taper                       = 0;
@@ -1269,10 +1269,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
         switch (config->enable_tf) {
             case 2:
-                if (config->noise_norm_strength < 1 && config->tune == 3) {
-                    SVT_INFO("SVT [config]: Temporal Filtering Strength / Noise Normalization Strength \t: %s / 3\n",
-                            "auto");
-                } else if (config->noise_norm_strength < 1) {
+                if (config->noise_norm_strength < 1) {
                     SVT_INFO("SVT [config]: Temporal Filtering Strength \t\t\t\t\t: %s\n",
                             "auto");
                 } else {
@@ -1290,9 +1287,6 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 } else if (config->enable_tf == 0) {
                     SVT_INFO("SVT [config]: Noise Normalization Strength \t\t\t\t\t: %d\n",
                             config->noise_norm_strength);
-                } else if (config->noise_norm_strength < 1 && config->tune == 3) {
-                    SVT_INFO("SVT [config]: Temporal Filtering Strength / Noise Normalization Strength \t: %d / 3\n",
-                            config->tf_strength);
                 } else if (config->noise_norm_strength < 1) {
                     SVT_INFO("SVT [config]: Temporal Filtering Strength \t\t\t\t\t: %d\n",
                             config->tf_strength);

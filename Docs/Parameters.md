@@ -85,7 +85,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **AdaptiveFilmGrain**            | --adaptive-film-grain       | [0,1]                          | 1           | Allows film grain synthesis to be sourced from different block sizes depending on resolution                  |
 | **TemporalFilteringStrength**    |  --tf-strength              | [0-4]                          | 1           | Manually adjust temporal filtering strength. Higher values = stronger temporal filtering                      |
 | **KeyframeTemporalFilteringStrength** |  --kf-tf-strength      | [0-4]                          | 1           | Manually adjust temporal filtering strength for keyframes. Higher values = stronger temporal filtering        |
-| **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 0           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                   |
+| **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                   |
 
 ## Rate Control Options
 
@@ -134,7 +134,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **MaxSectionPct**                | --maxsection-pct                 | [0-10000]  | 2000        | GOP max bitrate (expressed as a percentage of the target rate)                                                                                       |
 | **GopConstraintRc**              | --gop-constraint-rc              | [0-1]      | 0           | Constrains the rate control to match the target rate for each GoP [0 = OFF, 1 = ON]                                                                  |
 | **EnableQM**                     | --enable-qm                      | [0-1]      | 1           | Enable quantisation matrices                                                                                                                         |
-| **MinQmLevel**                   | --qm-min                         | [0-15]     | 0           | Min quant matrix flatness                                                                                                                            |
+| **MinQmLevel**                   | --qm-min                         | [0-15]     | 2           | Min quant matrix flatness                                                                                                                            |
 | **MaxQmLevel**                   | --qm-max                         | [0-15]     | 15          | Max quant matrix flatness                                                                                                                            |
 | **MinChromaQmLevel**             | --chroma-qm-min                  | [0-15]     | 8           | Min chroma quant matrix flatness                                                                                                                     |
 | **MaxChromaQmLevel**             | --chroma-qm-max                  | [0-15]     | 15          | Max chroma quant matrix flatness                                                                                                                     |
