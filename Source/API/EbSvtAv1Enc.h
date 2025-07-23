@@ -1120,7 +1120,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 3: full 8-bit MD
      * Default is 0
      */
-     Bool hbd_md;
+     uint8_t hbd_md;
 
      /**
      * @brief Enable complex-hvs, a feature that enables the highest complexity and highest fidelity
@@ -1133,9 +1133,9 @@ typedef struct EbSvtAv1EncConfiguration {
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
 #if CLN_LP_LVLS
-    uint8_t padding[128 - 7 * sizeof(Bool) - 11 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 6 * sizeof(Bool) - 12 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
 #else
-    uint8_t padding[128 - 7 * sizeof(Bool) - 11 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 6 * sizeof(Bool) - 12 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
 #endif
 
 } EbSvtAv1EncConfiguration;

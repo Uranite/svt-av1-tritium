@@ -2212,6 +2212,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"fast-decode", &config_struct->fast_decode},
         {"enable-tf", &config_struct->enable_tf},
         {"spy-rd", &config_struct->spy_rd},
+        {"hbd-md", &config_struct->hbd_md},
         {"complex-hvs", &config_struct->complex_hvs},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
@@ -2335,7 +2336,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
         {"low-q-taper", &config_struct->low_q_taper},
         {"sharp-tx", &config_struct->sharp_tx},
-        {"hbd-md", &config_struct->hbd_md},
     };
     const size_t bool_opts_size = sizeof(bool_opts) / sizeof(bool_opts[0]);
 
