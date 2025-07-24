@@ -6,7 +6,6 @@ The primary branch is [testing-2.3.0-C](https://github.com/5fish/svt-av1-psy/tre
 
 Below is a non-exhaustive list of notable differences between 3.x and this fork:
 - `--frame-luma-bias` has been renamed in 3.x to `--luminance-qp-bias`; this change has not been reflected here.
-- `--hbd-md` has been renamed in 3.x to `--hbd-mds`; this change has not been reflected here.
 
 # SVT-AV1-PSY
 

@@ -997,7 +997,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * Max is 7.
      * Default is 1.
      */
-     int8_t sharpness;
+    int8_t sharpness;
 
     /* @brief Q index for extended CRF support
      * Value is internally determined by CRF parameter value
@@ -1110,7 +1110,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 1: enabled
      * Default is 1
      */
-     Bool sharp_tx;
+    Bool sharp_tx;
 
      /**
      * @brief High Bit-Depth Mode Decision, used to control the bit-depth of the mode decision path.
@@ -1120,7 +1120,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 3: full 8-bit MD
      * Default is 0
      */
-     uint8_t hbd_md;
+    uint8_t hbd_mds;
 
      /**
      * @brief Enable complex-hvs, a feature that enables the highest complexity and highest fidelity
@@ -1129,7 +1129,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 1: highest complexity HVS model (SSD-Psy)
      * Default is 0
      */
-     uint8_t complex_hvs;
+    uint8_t complex_hvs;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
 #if CLN_LP_LVLS

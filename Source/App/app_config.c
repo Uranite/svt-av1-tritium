@@ -227,7 +227,7 @@
 #define SPY_RD_TOKEN "--spy-rd"
 #define LOW_Q_TAPER_TOKEN "--low-q-taper"
 #define SHARP_TX_TOKEN "--sharp-tx"
-#define HBD_MD_TOKEN "--hbd-md"
+#define HBD_MDS_TOKEN "--hbd-mds"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
@@ -1343,7 +1343,7 @@ ConfigEntry config_entry_psy[] = {
      "[PSY] Sharp transform optimization, default is 1; best used in combination with psy-rd [0-1]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
-     HBD_MD_TOKEN,
+     HBD_MDS_TOKEN,
      "[PSY] High Bit-Depth Mode Decision, default is 0 [0: default preset behavior, 1 = 10-bit, 2 = hybrid 8/10-bit, 3 = 8-bit]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
@@ -1579,8 +1579,8 @@ ConfigEntry config_entry[] = {
     // Sharp TX
     {SINGLE_INPUT, SHARP_TX_TOKEN, "SharpTX", set_cfg_generic_token},
 
-    // HBD-MD
-    {SINGLE_INPUT, HBD_MD_TOKEN, "HBDMD", set_cfg_generic_token},
+    // HBD-MDS
+    {SINGLE_INPUT, HBD_MDS_TOKEN, "HBDMDS", set_cfg_generic_token},
 
     // Complex HVS
     {SINGLE_INPUT, COMPLEX_HVS_TOKEN, "ComplexHVS", set_cfg_generic_token},
