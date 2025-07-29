@@ -1336,7 +1336,7 @@ ConfigEntry config_entry_psy[] = {
      set_cfg_generic_token},
     {SINGLE_INPUT,
      LOW_Q_TAPER_TOKEN,
-     "Low q taper. If macroblocks are boosted below q11, taper the effect. Default is 0 (off).]",
+     "Low q taper. If macroblocks are boosted below q11, taper the effect. Default is 0 (off).",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      SHARP_TX_TOKEN,

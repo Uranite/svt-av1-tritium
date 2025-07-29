@@ -1,10 +1,10 @@
-This fork is based on the unreleased [SVT-AV1-PSY 2.3.0-C](https://github.com/psy-ex/svt-av1-psy/tree/testing-2.3.0-C), and includes backports of changes and improvements made in 3.x versions of SVT-AV1-PSY and its continuation, [SVT-AV1-PSYEX](https://github.com/BlueSwordM/svt-av1-psyex).
+This fork is based on the unreleased [SVT-AV1-PSY 2.3.0-C](https://github.com/psy-ex/svt-av1-psy/tree/testing-2.3.0-C), and includes backports of changes and improvements made in 3.x versions of SVT-AV1-PSY and its continuations by the original developers, [SVT-AV1-PSYEX](https://github.com/BlueSwordM/svt-av1-psyex) and [SVT-AV1-HDR](https://github.com/juliobbv-p/svt-av1-hdr)* (currently excluding any HDR-specific changes.)
 
 Please note that this fork may not be a 1-to-1 copy of changes made in 3.x, and may include additional features or changes that could potentially change, break, or fix certain behaviour.
 
 The primary branch is [testing-2.3.0-C](https://github.com/5fish/svt-av1-psy/tree/testing-2.3.0-C); other branches may include experiments and may be out of date.
 
-Below is a non-exhaustive list of notable differences between 3.x and this fork:
+Below is a non-exhaustive list of notable surface-level differences between 3.x and this fork:
 - `--frame-luma-bias` has been renamed in 3.x to `--luminance-qp-bias`; this change has not been reflected here.
 
 # SVT-AV1-PSY
@@ -59,7 +59,7 @@ Provides a more versatile and granular way to set CRF. Range has been expanded t
 
 - `--qp-scale-compress-strength` *0.0 to 8.0*
 
-Increases video quality temporal consistency, especially with clips that contain film grain and/or contain fast-moving objects.
+Increases video quality temporal consistency, especially with clips that contain film grain and/or contain fast-moving objects. The default is 1.0.
 
 - `--enable-dlf 2`
 
@@ -115,7 +115,7 @@ Adaptively varies temporal filtering strength based on 64x64 block error. This c
 
 - `--psy-rd` *0.0 to 6.0*
 
-Configures psychovisual rate distortion strength to improve perceived quality by measuring and attempting to preserve the visual energy distribution of high-frequency details and textures. The default is 0.
+Configures psychovisual rate distortion strength to improve perceived quality by measuring and attempting to preserve the visual energy distribution of high-frequency details and textures. The default is 0.5.
 
 - `--spy-rd` *0 to 2*
 
