@@ -1956,6 +1956,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         input_data.sharp_tx = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.sharp_tx;
         input_data.hbd_mds = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.hbd_mds;
         input_data.complex_hvs = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.complex_hvs;
+        input_data.alt_ssim_tuning = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.alt_ssim_tuning;
         input_data.static_config = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config;
 
         EB_NEW(
@@ -3657,21 +3658,10 @@ void tf_controls(SequenceControlSet* scs, uint8_t tf_level) {
 static void derive_vq_params(SequenceControlSet* scs) {
     VqCtrls* vq_ctrl = &scs->vq_ctrls;
 
-    if (scs->static_config.tune == 0) {
+    if (scs->static_config.tune == 0 || scs->static_config.tune == 3 || 
+        (scs->static_config.alt_ssim_tuning && (scs->static_config.tune == 2 || scs->static_config.tune == 4))) {
 
         // Sharpness
-        vq_ctrl->sharpness_ctrls.scene_transition = 1;
-        vq_ctrl->sharpness_ctrls.tf               = 1;
-        vq_ctrl->sharpness_ctrls.unipred_bias     = 1;
-        vq_ctrl->sharpness_ctrls.ifs              = 1;
-        vq_ctrl->sharpness_ctrls.cdef             = 1;
-        vq_ctrl->sharpness_ctrls.restoration      = 1;
-        vq_ctrl->sharpness_ctrls.rdoq             = 1;
-        // Stability
-        vq_ctrl->stability_ctrls.depth_refinement = 1;
-    }
-    else if (scs->static_config.tune == 3) {
-
         vq_ctrl->sharpness_ctrls.scene_transition = 1;
         vq_ctrl->sharpness_ctrls.tf               = 1;
         vq_ctrl->sharpness_ctrls.unipred_bias     = 1;
@@ -4415,6 +4405,11 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->static_config.restricted_motion_vector = FALSE;
         SVT_WARN("Restricted_motion_vector and SB 128x128 not supoorted, setting rmv to false\n");
     }
+    if (scs->static_config.alt_ssim_tuning && scs->static_config.tune == 3) {
+        SVT_WARN("Alternative SSIM tuning has not been tested on tune 3 (Subjective SSIM). Proceed with caution!\n");
+    } else if (scs->static_config.alt_ssim_tuning && (scs->static_config.tune != 2 && scs->static_config.tune != 4)) {
+        SVT_WARN("Alternative SSIM tuning only applies to tunes 2 (SSIM) & 4 (Still Picture). Neither of those tunes are enabled!\n");
+    }
     if (scs->static_config.intra_refresh_type == SVT_AV1_FWDKF_REFRESH && scs->static_config.hierarchical_levels != 4){
         scs->static_config.hierarchical_levels = 4;
         SVT_WARN("Fwd key frame is only supported for hierarchical levels 4 at this point. Hierarchical levels are set to 4\n");
@@ -5058,6 +5053,9 @@ static void copy_api_from_app(
 
     // Complex HVS
     scs->static_config.complex_hvs = config_struct->complex_hvs;
+
+    // Alternative SSIM tuning
+    scs->static_config.alt_ssim_tuning = config_struct->alt_ssim_tuning;
 
     // Override settings for Still Picture tune
     if (scs->static_config.tune == 4) {

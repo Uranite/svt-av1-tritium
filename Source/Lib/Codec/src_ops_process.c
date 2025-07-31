@@ -2115,6 +2115,65 @@ unsigned int svt_aom_get_perpixel_variance(const uint8_t *buf, uint32_t stride, 
     var                            = fn_ptr->vf(buf, stride, AV1_VAR_OFFS, 0, &sse);
     return ROUND_POWER_OF_TWO(var, num_pels_log2_lookup[block_size]);
 }
+void svt_aom_get_mean_and_perpixel_variance(const uint8_t *buf, uint32_t stride, const int block_size,
+                                          uint32_t *perpixel_var, uint32_t *mean) {
+    const int block_w = block_size_wide[block_size];
+    const int block_h = block_size_high[block_size];
+    
+    uint64_t sum = 0;
+    uint64_t sse = 0;
+
+    // First pass: calculate sum
+    for (int r = 0; r < block_h; ++r) {
+        const uint8_t* row = buf + r * stride;
+        for (int c = 0; c < block_w; ++c) {
+            sum += row[c];
+        }
+    }
+    *mean = (uint32_t)ROUND_POWER_OF_TWO(sum, num_pels_log2_lookup[block_size]);
+
+    // Second pass: calculate sum of squared errors
+    for (int r = 0; r < block_h; ++r) {
+        for (int c = 0; c < block_w; ++c) {
+            const int diff = buf[r * stride + c] - *mean;
+            sse += diff * diff;
+        }
+    }
+    
+    *perpixel_var = (uint32_t)ROUND_POWER_OF_TWO(sse, num_pels_log2_lookup[block_size]);
+}
+unsigned int svt_aom_get_perceptual_perpixel_variance(const uint8_t *buf, uint32_t stride, const int block_size) {
+    unsigned int var, mean;
+    
+    // In a real implementation, you would use an optimized AVX2 function
+    // that calculates mean and variance in one go. For this example, we use our helper.
+    // The existing svt_aom_mefn_ptr->vf can't be used as it doesn't expose the mean.
+    svt_aom_get_mean_and_perpixel_variance(buf, stride, block_size, &var, &mean);
+
+    // HVS is most sensitive around mid-grays (e.g., 110-140 for 8-bit video).
+    // We create a weight that is highest in this range and falls off towards black and white.
+    // A simple parabolic function centered at 128 is a good model.
+    // weight = 1.0 - (|mean - 128| / 128)^2
+    // We can use integer arithmetic for speed.
+    int centered_mean = (int)mean - 128;
+    int weight_numerator = 128 * 128 - centered_mean * centered_mean; // (128 - |mean-128|) * (128 + |mean-128|)
+    
+    // Scale the weight to avoid floating point math. e.g., 256 is 1.0x
+    // The final weight will be in [0, 256].
+    int weight = (weight_numerator * 256) / (128 * 128);
+    
+    // Let's invert the weight's effect. We want to increase the variance
+    // value for mid-tones, making the encoder think they are more complex and
+    // deserving of bits. A simple way is to scale by a factor > 1.0.
+    // A better perceptual weight boosts the importance of mid-tones.
+    // Let's define a boost factor, e.g., boosting it by up to 50%, or use another equation (var + var*weight / sqrt(var + 1))
+    //unsigned int perceptual_var = var * (1.0 + weight);
+    unsigned int perceptual_var = var + ((var * weight) / sqrtf(var + 1.));
+
+    //fprintf(stdout, "%.4u\t", perceptual_var);
+
+    return perceptual_var;
+}
 static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
     if (!pcs->scs->static_config.enable_tpl_la) {
         // Tuning rdmult with SSIM requires TPL Motion Estimation data
@@ -2151,7 +2210,7 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
             double    var = 0.0, num_of_var = 0.0;
             const int index = row * num_cols + col;
 
-            if (pcs->scs->static_config.tune == 3) {
+            if (pcs->scs->static_config.tune == 3 || pcs->scs->static_config.alt_ssim_tuning) {
                 const int mi_row = row << 2;
                 const int mi_col = col << 2;
                 const int row_offset_y = row << 2;
@@ -2165,7 +2224,10 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
 
                         const uint8_t *buf3 = y_buffer + row_offset_y_3 * y_stride + col_offset_y_3;
 
-                        var += svt_aom_get_perpixel_variance(buf3, y_stride, BLOCK_4X4);
+                        if (pcs->scs->static_config.alt_ssim_tuning)
+                            var += svt_aom_get_perceptual_perpixel_variance(buf3, y_stride, BLOCK_4X4);
+                        else if (pcs->scs->static_config.tune == 3)
+                            var += svt_aom_get_perpixel_variance(buf3, y_stride, BLOCK_4X4);
                         num_of_var += 0.015625; // Weigh at 1x weight (0.25 of total num_of_var)
                     }
                 }
@@ -2177,14 +2239,20 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
 
                         const uint8_t *buf2 = y_buffer + row_offset_y_2 * y_stride + col_offset_y_2;
 
-                        var += svt_aom_get_perpixel_variance(buf2, y_stride, BLOCK_8X8);
+                        if (pcs->scs->static_config.alt_ssim_tuning)
+                            var += svt_aom_get_perceptual_perpixel_variance(buf2, y_stride, BLOCK_8X8);
+                        else if (pcs->scs->static_config.tune == 3)
+                            var += svt_aom_get_perpixel_variance(buf2, y_stride, BLOCK_8X8);
                         num_of_var += 0.125; // This weight (8x8 block) is 2x more important compared to other num_of_var additions
                                              // (0.5 of total num_of_var)
                     }
                 }
                 const uint8_t *buf = y_buffer + row_offset_y * y_stride + col_offset_y;
 
-                var += svt_aom_get_perpixel_variance(buf, y_stride, BLOCK_16X16);
+                if (pcs->scs->static_config.alt_ssim_tuning)
+                    var += svt_aom_get_perceptual_perpixel_variance(buf, y_stride, BLOCK_16X16);
+                else if (pcs->scs->static_config.tune == 3)
+                    var += svt_aom_get_perpixel_variance(buf, y_stride, BLOCK_16X16);
                 num_of_var += 0.25; // Weigh at 1x weight (0.25 of total num_of_var)
             } else {
                 // Loop through each 8x8 block.
@@ -2217,7 +2285,7 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
             }
         }
     }
-    if (pcs->scs->static_config.tune != 3) {
+    if (pcs->scs->static_config.tune != 3 && !pcs->scs->static_config.alt_ssim_tuning) {
         log_sum = exp(log_sum / (double)(num_rows * num_cols));
         if (do_print) {
             fprintf(stdout, "\nlog_sum %.4f\n", log_sum);
@@ -2246,7 +2314,7 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet *pcs) {
                 }
             }
         }
-    } else { // Do superblock-based adjustment if we're on Tune 3
+    } else { // Do superblock-based adjustment if we're on Tune 3 or using alternative SSIM tuning
         const int sb_size = pcs->scs->seq_header.sb_size;
         const int num_mi_w_sb = mi_size_wide[sb_size];
         const int num_mi_h_sb = mi_size_high[sb_size];

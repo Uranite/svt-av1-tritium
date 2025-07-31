@@ -229,6 +229,7 @@
 #define SHARP_TX_TOKEN "--sharp-tx"
 #define HBD_MDS_TOKEN "--hbd-mds"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
+#define ALT_SSIM_TUNING_TOKEN "--alt-ssim-tuning"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -1350,6 +1351,10 @@ ConfigEntry config_entry_psy[] = {
      COMPLEX_HVS_TOKEN,
      "[PSY] Enable highest complexity HVS model, default is 0 [0-1]",
      set_cfg_generic_token},
+    {SINGLE_INPUT,
+     ALT_SSIM_TUNING_TOKEN, 
+     "[PSY] Alternative SSIM tuning methods for tunes 2 & 4, default is 0 [0-1]",
+     set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1584,6 +1589,9 @@ ConfigEntry config_entry[] = {
 
     // Complex HVS
     {SINGLE_INPUT, COMPLEX_HVS_TOKEN, "ComplexHVS", set_cfg_generic_token},
+
+    // Alternative SSIM tuning
+    {SINGLE_INPUT, ALT_SSIM_TUNING_TOKEN, "AltSSIMTuning", set_cfg_generic_token},
 
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};

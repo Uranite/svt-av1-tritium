@@ -1130,12 +1130,19 @@ typedef struct EbSvtAv1EncConfiguration {
      * Default is 0
      */
     uint8_t complex_hvs;
+    
+    /* @brief Alternative SSIM tuning, enables VQ enhancements and different rdmult calculations
+     * 0: disabled, use stock SSIM tuning
+     * 1: enabled, use alternative SSIM tuning with VQ enhacnements and different rdmult calculations
+     * Default is 0
+     */
+    Bool alt_ssim_tuning;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
 #if CLN_LP_LVLS
-    uint8_t padding[128 - 6 * sizeof(Bool) - 12 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 12 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
 #else
-    uint8_t padding[128 - 6 * sizeof(Bool) - 12 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 12 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
 #endif
 
 } EbSvtAv1EncConfiguration;
