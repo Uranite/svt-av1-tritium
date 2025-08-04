@@ -230,6 +230,7 @@
 #define HBD_MDS_TOKEN "--hbd-mds"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
 #define ALT_SSIM_TUNING_TOKEN "--alt-ssim-tuning"
+#define LUMINANCE_QP_BIAS_TOKEN "--luminance-qp-bias"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -1359,6 +1360,10 @@ ConfigEntry config_entry_psy[] = {
      ALT_SSIM_TUNING_TOKEN, 
      "[PSY] Alternative SSIM tuning methods for tunes 2 & 4, default is 0 [0-1]",
      set_cfg_generic_token},
+    {SINGLE_INPUT,
+     LUMINANCE_QP_BIAS_TOKEN,
+     "[PSY] Adjusts the frame's QP based on the frame's average luma value, default is 0 [0 to 100]",
+     set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1596,6 +1601,9 @@ ConfigEntry config_entry[] = {
 
     // Alternative SSIM tuning
     {SINGLE_INPUT, ALT_SSIM_TUNING_TOKEN, "AltSSIMTuning", set_cfg_generic_token},
+
+    // Luminance QP bias (alias for frame luma bias)
+    {SINGLE_INPUT, LUMINANCE_QP_BIAS_TOKEN, "LuminanceQPBias", set_cfg_generic_token},
 
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};

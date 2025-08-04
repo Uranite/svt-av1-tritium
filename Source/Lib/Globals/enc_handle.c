@@ -1946,7 +1946,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         input_data.variance_octile = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.variance_octile;
         input_data.sharpness = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.sharpness;
         input_data.qp_scale_compress_strength = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.qp_scale_compress_strength;
-        input_data.frame_luma_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.frame_luma_bias;
+        input_data.frame_luma_bias = MAX(enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.frame_luma_bias, enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.luminance_qp_bias);
         input_data.max_32_tx_size = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.max_32_tx_size;
         input_data.adaptive_film_grain = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.adaptive_film_grain;
         input_data.tf_strength = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.tf_strength;
@@ -1958,6 +1958,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         input_data.hbd_mds = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.hbd_mds;
         input_data.complex_hvs = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.complex_hvs;
         input_data.alt_ssim_tuning = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.alt_ssim_tuning;
+        input_data.luminance_qp_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.luminance_qp_bias;
         input_data.static_config = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config;
 
         EB_NEW(
@@ -5020,7 +5021,7 @@ static void copy_api_from_app(
     scs->static_config.qp_scale_compress_strength = config_struct->qp_scale_compress_strength;
 
     // Frame-level luma bias
-    scs->static_config.frame_luma_bias = config_struct->frame_luma_bias;
+    scs->static_config.frame_luma_bias = MAX(config_struct->frame_luma_bias, config_struct->luminance_qp_bias);
 
     // Max 32 TX size
     scs->static_config.max_32_tx_size = config_struct->max_32_tx_size;
@@ -5057,6 +5058,9 @@ static void copy_api_from_app(
 
     // Alternative SSIM tuning
     scs->static_config.alt_ssim_tuning = config_struct->alt_ssim_tuning;
+
+    // Luminance QP bias (alias for frame luma bias)
+    scs->static_config.luminance_qp_bias = config_struct->luminance_qp_bias;
 
     // Override settings for Still Picture tune
     if (scs->static_config.tune == 4) {

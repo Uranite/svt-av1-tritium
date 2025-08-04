@@ -912,8 +912,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             channel_number + 1);
     }
 
+    if (config->luminance_qp_bias > 0) {
+        SVT_INFO("Instance %u: Luminance QP bias specified, mapping to frame low-luma bias. If both parameters are passed, the greater value will be used.\n", channel_number + 1);
+    }
+
     if (config->frame_luma_bias > 100) {
-        SVT_ERROR("Instance %u: Frame-level luma bias value must be between 0 and 100\n", channel_number + 1);
+        SVT_ERROR("Instance %u: Frame low-luma bias value must be between 0 and 100\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1147,6 +1151,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->hbd_mds                           = 0;
     config_ptr->complex_hvs                       = 0;
     config_ptr->alt_ssim_tuning                   = FALSE;
+    config_ptr->luminance_qp_bias                 = 0;
     return return_error;
 }
 
@@ -1280,7 +1285,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         SVT_INFO("SVT [config]: Sharpness / QP scale compress strength / Frame low-luma bias \t: %d / %.2f / %d\n",
                  config->sharpness,
                  config->qp_scale_compress_strength,
-                 config->frame_luma_bias);
+                 config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
 
         switch (config->enable_tf) {
             case 2:
@@ -2229,6 +2234,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"spy-rd", &config_struct->spy_rd},
         {"hbd-mds", &config_struct->hbd_mds},
         {"complex-hvs", &config_struct->complex_hvs},
+        {"luminance-qp-bias", &config_struct->luminance_qp_bias},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 
