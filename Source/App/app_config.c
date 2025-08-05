@@ -1278,7 +1278,7 @@ ConfigEntry config_entry_psy[] = {
      set_cfg_generic_token},
     {SINGLE_INPUT,
      VARIANCE_OCTILE_TOKEN,
-     "Octile for variance boost, default is 6 [1-8]",
+     "Octile for variance boost, default is 5 [1-8]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      ENABLE_ALT_CURVE_TOKEN,
