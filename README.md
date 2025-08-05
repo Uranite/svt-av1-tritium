@@ -5,7 +5,8 @@ Please note that this fork may not be a 1-to-1 copy of changes made in 3.x, and 
 The primary branch is [testing-2.3.0-C](https://github.com/5fish/svt-av1-psy/tree/testing-2.3.0-C); other branches may include experiments and may be out of date.
 
 Below is a non-exhaustive list of notable surface-level differences between 3.x and this fork:
-- `--frame-luma-bias` has been renamed in 3.x to `--luminance-qp-bias`; this change has not been reflected here.
+- ~~`--frame-luma-bias` has been renamed in 3.x to `--luminance-qp-bias`; this change has not been reflected here.~~
+`--luminance-qp-bias` is now accepted as an alias for `--frame-luma-bias` to provide parameter parity.
 
 # SVT-AV1-PSY
 
@@ -123,7 +124,11 @@ Configure psychovisually-oriented pathways that bias towards sharpness and detai
 
 - `--alt-ssim-tuning` *0 and 1*
 
-Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate-distortion calculations by utilizing an alternative per-pixel variance function across 4X4, 8X8, and 16X16 blocks in addition to superblock-level SSIM rate-distortion tuning. Only tested to operate on tunes 2 & 4, usage on tune 3 may cause unexpected behaviour. The default is 0.
+Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate-distortion calculations by utilizing an alternative per-pixel variance function across 4X4, 8X8, and 16X16 blocks in addition to superblock-level SSIM rate-distortion tuning. Only tested to operate on Tune 2 (SSIM) and Tune 4 (Still Picture); usage on Tune 3 (Subjective SSIM) may cause unexpected behaviour. The default is 0.
+
+- `--filtering-noise-detection` *0 to 4*
+
+This setting controls the noise detection algorithm that turns off CDEF/restoration filtering if the noise level is high enough, which is enabled by default when using Tune 0 (VQ) / 3 (Subjective SSIM). 0 follows the tune's default behavior, 1 enables noise detection, 2 disables noise detection (both filters will be active at all times), 3 enables noise detection for CDEF only (restoration will be active at all times), and 4 enables noise detection for restoration only (CDEF will be active at all times). The default is 0.
 
 ### Modified Defaults
 

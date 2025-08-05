@@ -975,6 +975,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: complex-hvs must be between 0 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
+
+    if (config->filtering_noise_detection > 4) {
+        SVT_ERROR("Instance %u: filtering-noise-detection must be between 0 and 4\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
     
     return return_error;
 }
@@ -1152,6 +1157,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->complex_hvs                       = 0;
     config_ptr->alt_ssim_tuning                   = FALSE;
     config_ptr->luminance_qp_bias                 = 0;
+    config_ptr->filtering_noise_detection         = 0;
     return return_error;
 }
 
@@ -1335,6 +1341,25 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 		if (config->low_q_taper) {
             SVT_INFO("SVT [config]: low Q taper \t\t\t\t\t\t\t: %s\n",
                     config->low_q_taper ? "on" : "off");
+        }
+        
+        switch (config->filtering_noise_detection) {
+            case 0:
+                break;
+            case 1:
+                SVT_INFO("SVT [config]: filtering noise detection \t\t\t\t\t: on\n");
+                break;
+            case 2:
+                SVT_INFO("SVT [config]: filtering noise detection \t\t\t\t\t: off\n");
+                break;
+            case 3:
+                SVT_INFO("SVT [config]: filtering noise detection \t\t\t\t\t: on (CDEF only)\n");
+                break;
+            case 4:
+                SVT_INFO("SVT [config]: filtering noise detection \t\t\t\t\t: on (restoration only)\n");
+                break;
+            default:
+                break;
         }
     }
 #ifdef DEBUG_BUFFERS
@@ -2235,6 +2260,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"hbd-mds", &config_struct->hbd_mds},
         {"complex-hvs", &config_struct->complex_hvs},
         {"luminance-qp-bias", &config_struct->luminance_qp_bias},
+        {"filtering-noise-detection", &config_struct->filtering_noise_detection},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 

@@ -3686,6 +3686,30 @@ static void derive_vq_params(SequenceControlSet* scs) {
         // Stability
         vq_ctrl->stability_ctrls.depth_refinement = 0;
     }
+
+    switch (scs->static_config.filtering_noise_detection) {
+        case 0:
+            break;
+        case 1:
+            vq_ctrl->sharpness_ctrls.cdef = 1;
+            vq_ctrl->sharpness_ctrls.restoration = 1;
+            break;
+        case 2:
+            vq_ctrl->sharpness_ctrls.cdef = 0;
+            vq_ctrl->sharpness_ctrls.restoration = 0;
+            break;
+        case 3:
+            vq_ctrl->sharpness_ctrls.cdef = 1;
+            vq_ctrl->sharpness_ctrls.restoration = 0;
+            break;
+        case 4:
+            vq_ctrl->sharpness_ctrls.cdef = 0;
+            vq_ctrl->sharpness_ctrls.restoration = 1;
+            break;
+        default:
+            break;
+    }
+
     // Do not use scene_transition if LD or 1st pass or middle pass
     if (scs->static_config.pred_structure != SVT_AV1_PRED_RANDOM_ACCESS || scs->static_config.pass == ENC_FIRST_PASS)
         vq_ctrl->sharpness_ctrls.scene_transition = 0;
@@ -5061,6 +5085,9 @@ static void copy_api_from_app(
 
     // Luminance QP bias (alias for frame luma bias)
     scs->static_config.luminance_qp_bias = config_struct->luminance_qp_bias;
+    
+    // Filtering noise detection
+    scs->static_config.filtering_noise_detection = config_struct->filtering_noise_detection;
 
     // Override settings for Still Picture tune
     if (scs->static_config.tune == 4) {

@@ -1145,11 +1145,22 @@ typedef struct EbSvtAv1EncConfiguration {
      * Default is 0 */
     uint8_t luminance_qp_bias;
 
+     /**
+     * @brief Controls noise detection for CDEF/restoration filtering
+     * 0: tune-default behavior
+     * 1: on
+     * 2: off
+     * 2: on (CDEF only)
+     * 3: on (restoration only)
+     * Default is 0
+     */
+     uint8_t filtering_noise_detection;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
 #if CLN_LP_LVLS
-    uint8_t padding[128 - 7 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
 #else
-    uint8_t padding[128 - 7 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
 #endif
 
 } EbSvtAv1EncConfiguration;

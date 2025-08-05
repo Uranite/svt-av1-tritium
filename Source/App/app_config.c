@@ -231,6 +231,7 @@
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
 #define ALT_SSIM_TUNING_TOKEN "--alt-ssim-tuning"
 #define LUMINANCE_QP_BIAS_TOKEN "--luminance-qp-bias"
+#define FILTERING_NOISE_DETECTION_TOKEN "--filtering-noise-detection"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -1364,6 +1365,10 @@ ConfigEntry config_entry_psy[] = {
      LUMINANCE_QP_BIAS_TOKEN,
      "[PSY] Adjusts the frame's QP based on the frame's average luma value, default is 0 [0 to 100]",
      set_cfg_generic_token},
+    {SINGLE_INPUT, 
+     FILTERING_NOISE_DETECTION_TOKEN,
+     "[PSY] Control noise detection for CDEF/restoration filtering, default is 0 [0: default tune behavior, 1: on, 2: off, 3: on (CDEF only), 4: on (restoration only)]",
+     set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1604,6 +1609,9 @@ ConfigEntry config_entry[] = {
 
     // Luminance QP bias (alias for frame luma bias)
     {SINGLE_INPUT, LUMINANCE_QP_BIAS_TOKEN, "LuminanceQPBias", set_cfg_generic_token},
+    
+    // Filtering noise detection
+    {SINGLE_INPUT, FILTERING_NOISE_DETECTION_TOKEN, "FilteringNoiseDetection", set_cfg_generic_token},
 
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
