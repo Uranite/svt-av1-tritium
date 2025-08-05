@@ -232,6 +232,7 @@
 #define FILTERING_NOISE_DETECTION_TOKEN "--filtering-noise-detection"
 #define AC_BIAS_TOKEN "--ac-bias"
 #define TX_BIAS_TOKEN "--tx-bias"
+#define CHROMA_GRAIN_TOKEN "--chroma-grain"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -1369,6 +1370,10 @@ ConfigEntry config_entry_psy[] = {
      TX_BIAS_TOKEN,
      "Transform size/type bias type, default is 0 [0-3]; 1 = full, 2, transform size only, 3 = interpolation only",
      set_cfg_generic_token},
+    {SINGLE_INPUT,
+     CHROMA_GRAIN_TOKEN,
+     "[EXP] Control whether chroma grain is applied when using film grain, default is 1 [0-1]",
+     set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1612,6 +1617,9 @@ ConfigEntry config_entry[] = {
 
     // TX bias
     {SINGLE_INPUT, TX_BIAS_TOKEN, "TxBias", set_cfg_generic_token},
+
+    // Chroma grain
+    {SINGLE_INPUT, CHROMA_GRAIN_TOKEN, "ChromaGrain", set_cfg_generic_token},
 
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};

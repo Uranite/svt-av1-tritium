@@ -3101,8 +3101,11 @@ static void write_film_grain_params(PictureParentControlSet *pcs, struct AomWrit
         svt_aom_wb_write_literal(wb, pars->scaling_points_y[i][1], 8);
     }
 
-    if (!pcs->scs->seq_header.color_config.mono_chrome)
+    if (!pcs->scs->seq_header.color_config.mono_chrome) {
+        if (pcs->scs->static_config.chroma_grain == 0)
+            pars->chroma_scaling_from_luma = 0;
         svt_aom_wb_write_bit(wb, pars->chroma_scaling_from_luma);
+    }
     else
         pars->chroma_scaling_from_luma = 0; // for monochrome override to 0
 
@@ -3112,6 +3115,11 @@ static void write_film_grain_params(PictureParentControlSet *pcs, struct AomWrit
         pars->num_cb_points = 0;
         pars->num_cr_points = 0;
     } else {
+        if (pcs->scs->static_config.chroma_grain == 0) {
+            pars->num_cb_points = 0;
+            pars->num_cr_points = 0;
+        }
+        
         svt_aom_wb_write_literal(wb, pars->num_cb_points, 4); // max 10
         for (int32_t i = 0; i < pars->num_cb_points; i++) {
             svt_aom_wb_write_literal(wb, pars->scaling_points_cb[i][0], 8);
