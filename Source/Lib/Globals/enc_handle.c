@@ -4431,10 +4431,8 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->static_config.restricted_motion_vector = FALSE;
         SVT_WARN("Restricted_motion_vector and SB 128x128 not supoorted, setting rmv to false\n");
     }
-    if (scs->static_config.alt_ssim_tuning && scs->static_config.tune == 3) {
-        SVT_WARN("Alternative SSIM tuning has not been tested on tune 3 (Subjective SSIM). Proceed with caution!\n");
-    } else if (scs->static_config.alt_ssim_tuning && (scs->static_config.tune != 2 && scs->static_config.tune != 4)) {
-        SVT_WARN("Alternative SSIM tuning only applies to tunes 2 (SSIM) & 4 (Still Picture). Neither of those tunes are enabled!\n");
+    if (scs->static_config.alt_ssim_tuning && (scs->static_config.tune < 2 || scs->static_config.tune > 4)) {
+        SVT_WARN("Alternative SSIM tuning only applies to Tune 2, 3, and 4. None of these tunes are enabled!\n");
     }
     if (scs->static_config.intra_refresh_type == SVT_AV1_FWDKF_REFRESH && scs->static_config.hierarchical_levels != 4){
         scs->static_config.hierarchical_levels = 4;

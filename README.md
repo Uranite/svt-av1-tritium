@@ -2,7 +2,7 @@ This fork is based on the unreleased [SVT-AV1-PSY 2.3.0-C](https://github.com/ps
 
 Please note that this fork may not be a 1-to-1 copy of changes made in 3.x, and may include additional features or changes that could potentially change, break, or fix certain behaviour.
 
-The primary branch is [testing-2.3.0-C](https://github.com/5fish/svt-av1-psy/tree/testing-2.3.0-C); other branches may include experiments and may be out of date.
+The primary branch is [main](https://github.com/5fish/svt-av1-psy/tree/main); experimental changes and additions will be hosted on [exp](https://github.com/5fish/svt-av1-psy/tree/exp).
 
 Below is a non-exhaustive list of notable surface-level differences between 3.x and this fork:
 - ~~`--frame-luma-bias` has been renamed in 3.x to `--luminance-qp-bias`; this change has not been reflected here.~~
@@ -124,7 +124,7 @@ Configure psychovisually-oriented pathways that bias towards sharpness and detai
 
 - `--alt-ssim-tuning` *0 and 1*
 
-Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate-distortion calculations by utilizing an alternative per-pixel variance function across 4X4, 8X8, and 16X16 blocks in addition to superblock-level SSIM rate-distortion tuning. Only tested to operate on Tune 2 (SSIM) and Tune 4 (Still Picture); usage on Tune 3 (Subjective SSIM) may cause unexpected behaviour. The default is 0.
+Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate-distortion calculations by utilizing an alternative per-pixel variance function across 4X4, 8X8, and 16X16 blocks in addition to superblock-level SSIM rate-distortion tuning. Originally tested to operate on Tune 2 (SSIM) and Tune 4 (Still Picture); usage on Tune 3 (Subjective SSIM) is experimental. The default is 0.
 
 - `--filtering-noise-detection` *0 to 4*
 

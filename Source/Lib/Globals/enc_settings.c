@@ -580,6 +580,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
                 "Instance %u: The Subjective SSIM configuration is considered experimental at this stage. "
                 "Keep in mind for benchmarking analysis that this configuration will likely harm metric performance.\n",
                 channel_number + 1);
+            if (scs->static_config.alt_ssim_tuning)
+                SVT_WARN(
+                "Instance %u: Alternative SSIM tuning has not been tested with Tune 3 (Subjective SSIM). Proceed with caution!\n",
+                channel_number + 1);
         }
     }
 
