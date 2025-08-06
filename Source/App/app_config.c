@@ -233,6 +233,7 @@
 #define AC_BIAS_TOKEN "--ac-bias"
 #define TX_BIAS_TOKEN "--tx-bias"
 #define CHROMA_GRAIN_TOKEN "--chroma-grain"
+#define ALT_TF_DECAY_TOKEN "--alt-tf-decay"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -1374,6 +1375,10 @@ ConfigEntry config_entry_psy[] = {
      CHROMA_GRAIN_TOKEN,
      "[EXP] Control whether chroma grain is applied when using film grain, default is 1 [0-1]",
      set_cfg_generic_token},
+    {SINGLE_INPUT,
+     ALT_TF_DECAY_TOKEN,
+     "[EXP] Apply Tune 0/3 alt-ref TF decay tweak to any tune, default is 0 [0-1]",
+     set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1620,6 +1625,9 @@ ConfigEntry config_entry[] = {
 
     // Chroma grain
     {SINGLE_INPUT, CHROMA_GRAIN_TOKEN, "ChromaGrain", set_cfg_generic_token},
+
+    // Alt TF decay
+    {SINGLE_INPUT, ALT_TF_DECAY_TOKEN, "AltTFDecay", set_cfg_generic_token},
 
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
