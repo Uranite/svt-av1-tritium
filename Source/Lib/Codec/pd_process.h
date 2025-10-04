@@ -129,6 +129,7 @@ typedef struct PictureDecisionContext {
     uint32_t filt_to_unfilt_diff;
     bool     list0_only;
     bool     is_startup_gop;
+    int32_t  frames_since_last_keyframe;
 #if FTR_SFRAME_FLEX
     int32_t  sframe_hier_lvls;
     uint64_t sframe_last_arf;
