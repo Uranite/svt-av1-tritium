@@ -37,6 +37,10 @@
 
 #include "app_output_ivf.h"
 
+#if HAVE_FFMS2
+#include "third_party/ffms2/include/ffms.h"
+#endif
+
 /***************************************
  * Macros
  ***************************************/
@@ -264,6 +268,11 @@ static bool is_forced_keyframe(const EbConfig* app_cfg, uint64_t pts) {
 
 bool process_skip(EbConfig* app_cfg, EbBufferHeaderType* header_ptr) {
     const bool is_16bit = app_cfg->config.encoder_bit_depth > 8;
+    if (app_cfg->use_ffms2) {
+        // not implemented yet
+        app_cfg->need_to_skip = false;
+        return true;
+    }
     for (int64_t i = 0; i < app_cfg->frames_to_be_skipped; i++) {
         read_input(app_cfg, is_16bit, header_ptr);
 
@@ -897,7 +906,15 @@ static void buffered_read_input_frames(EbConfig* app_cfg, uint8_t is_16bit, EbBu
 }
 
 void init_reader(EbConfig* app_cfg) {
-    if (app_cfg->buffered_input != -1) {
+    if (app_cfg->use_ffms2) {
+        if (app_cfg->buffered_input != -1) {
+#if HAVE_FFMS2
+            read_input = ffms2_buffered_read_input_frames;
+        } else {
+            read_input = ffms2_read_input_frames;
+#endif
+        }
+    } else if (app_cfg->buffered_input != -1) {
         read_input = buffered_read_input_frames;
     } else if (app_cfg->mmap.enable) {
         read_input = mmap_read_input_frames;
