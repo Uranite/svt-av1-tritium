@@ -2206,6 +2206,30 @@ static int32_t compute_default_intra_period(SequenceControlSet* scs) {
     return intra_period;
 }
 
+static int32_t compute_default_min_intra_period(SequenceControlSet* scs) {
+    EbSvtAv1EncConfiguration* config = &scs->static_config;
+
+    double  fps           = scs->frame_rate;
+    int32_t mini_gop_size = (1 << (config->hierarchical_levels));
+
+    // If mini_gop_size = 32, pretend that the minigop size is 16 instead
+    // The calculated intra period will result in either one of these outcomes:
+    // - min_intra_period is mod 16: every minigop will be 32 except the very last one (i.e. 16)
+    // - min_intra_period is mod 32: every minigop will be 32 including the very last one
+    if (mini_gop_size == 32) {
+        mini_gop_size = 16;
+    }
+
+    // ~1-sec min-intra
+    int32_t min_intra_period = (((int)(fps + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
+
+    if (config->intra_refresh_type == 1) {
+        min_intra_period -= 1;
+    }
+
+    return min_intra_period;
+}
+
 /*
 Calculates the default LAD value
 */
@@ -4077,10 +4101,6 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         scs->enable_hbd_mode_decision = 0;
     }
 
-    // Throws a warning when scene change is on, as the feature is not optimal and may produce false detections
-    if (scs->static_config.scene_change_detection == 1) {
-        SVT_WARN("Scene Change is not optimal and may produce suboptimal keyframe placements\n");
-    }
     // MRP level
     uint8_t mrp_level;
     if (scs->static_config.rtc) {
@@ -4155,6 +4175,7 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // Padding Offsets
     scs->b64_size                          = 64;
     scs->static_config.intra_period_length = config_struct->intra_period_length;
+    scs->static_config.min_intra_period_length = config_struct->min_intra_period_length;
     scs->static_config.avif                = config_struct->avif;
     scs->allintra                          = (scs->static_config.intra_period_length == 0 || scs->static_config.avif ||
                      scs->static_config.pred_structure == ALL_INTRA);
@@ -4449,6 +4470,13 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     } else if (scs->static_config.multiply_keyint) {
         const double fps = (double)scs->static_config.frame_rate_numerator / scs->static_config.frame_rate_denominator;
         scs->static_config.intra_period_length = (int32_t)(fps * scs->static_config.intra_period_length);
+    }
+    if (scs->static_config.intra_period_length == -1 || scs->allintra) {
+        scs->static_config.min_intra_period_length = 0;
+    } else {
+        if (scs->static_config.min_intra_period_length == -1) {
+            scs->static_config.min_intra_period_length = compute_default_min_intra_period(scs);
+        }
     }
     if (scs->static_config.look_ahead_distance == (uint32_t)~0) {
         scs->static_config.look_ahead_distance = compute_default_look_ahead(&scs->static_config);
