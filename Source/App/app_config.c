@@ -1061,7 +1061,7 @@ ConfigDescription config_entry_psychovisual[] = {
     {COMPLEX_HVS_TOKEN, "Enable highest complexity HVS model, default is 0 [0-1]"},
     // Noise adaptive filtering
     {NOISE_ADAPTIVE_FILTERING_TOKEN,
-     "Control noise detection for CDEF/restoration filtering, default is 2 [0: off, 1: both CDEF and restoration are "
+     "Control noise detection for CDEF/restoration filtering, default is 0 [0: off, 1: both CDEF and restoration are "
      "on 2: default tune behavior, 3: CDEF only, 4: restoration only)]"},
     // Termination
     {NULL, NULL}};

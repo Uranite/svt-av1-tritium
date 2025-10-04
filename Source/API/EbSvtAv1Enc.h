@@ -1098,7 +1098,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 2: default tune behavior
      * 3: noise-adaptive CDEF only
      * 4: noise-adaptive restoration filtering only
-     * Default is 2
+     * Default is 0
      */
      uint8_t noise_adaptive_filtering;
 
