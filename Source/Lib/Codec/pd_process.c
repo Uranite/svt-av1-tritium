@@ -167,7 +167,7 @@ void svt_av1_setup_skip_mode_allowed(PictureParentControlSet* pcs) {
 #define CIRC_INC(val, start, end) (((int)(val + 1) > (int)(end)) ? (start) : (val) + 1)
 #define CIRC_DEC(val, start, end) ((((int)val - 1) < (int)(start)) ? (end) : (val) - 1)
 
-#define FLASH_TH 5
+#define FLASH_TH 7 // worth double-checking on many other / longer sources
 #define FADE_TH 3
 #define SCENE_TH 3000
 #define NUM64x64INPIC(w, h) ((w * h) >> (svt_log2f(BLOCK_SIZE_64) << 1))
@@ -4692,9 +4692,11 @@ static void perform_scene_change_detection(SequenceControlSet* scs, PictureParen
             ctx->transition_detected = scene_transition_detector(ctx, scs, (PictureParentControlSet**)pcs->pd_window);
         }
     }
-
-    pcs->cra_flag = (pcs->scene_change_flag == true) ? true : pcs->cra_flag;
-
+    if (scs->static_config.intra_refresh_type == SVT_AV1_KF_REFRESH) {
+        pcs->idr_flag = (pcs->scene_change_flag == true) ? true : pcs->idr_flag;
+    } else {
+        pcs->cra_flag = (pcs->scene_change_flag == true) ? true : pcs->cra_flag;
+    }
     // Store scene change in context
     ctx->is_scene_change_detected = pcs->scene_change_flag;
 }
@@ -5381,7 +5383,7 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                 pcs->ahd_error = calc_ahd_pd(scs, pcs, ctx);
             }
             // If the relevant frames are available, perform scene change detection
-            if (window_avail == true && queue_entry_ptr->picture_number > 0) {
+            if (window_avail == true && queue_entry_ptr->picture_number > 0 && scs->static_config.scene_change_detection == 1) {
                 perform_scene_change_detection(scs, pcs, ctx);
             }
         }
@@ -5442,6 +5444,14 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                 pcs->idr_flag = false;
             }
         }
+        // Enforce minimum keyframe distance
+        if (scs->static_config.min_intra_period_length > 0 && pcs->picture_number != 0) {
+            if ((pcs->cra_flag || pcs->idr_flag) && (enc_ctx->intra_period_position < (uint32_t)scs->static_config.min_intra_period_length)) {
+                // Too soon to place another keyframe
+                pcs->cra_flag = false;
+                pcs->idr_flag = false;
+            }
+        }
         enc_ctx->pre_assignment_buffer_eos_flag = (pcs->end_of_sequence_flag) ? (uint32_t)true
                                                                               : enc_ctx->pre_assignment_buffer_eos_flag;
 
@@ -5457,10 +5467,7 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
         enc_ctx->pre_assignment_buffer_count += 1;
 
         // Increment the Intra Period Position
-        enc_ctx->intra_period_position = ((enc_ctx->intra_period_position ==
-                                           (uint32_t)scs->static_config.intra_period_length) ||
-                                          (pcs->scene_change_flag == true) ||
-                                          pcs->input_ptr->pic_type == EB_AV1_KEY_PICTURE)
+        enc_ctx->intra_period_position = (pcs->idr_flag == true || pcs->cra_flag == true)
             ? 0
             : enc_ctx->intra_period_position + 1;
 

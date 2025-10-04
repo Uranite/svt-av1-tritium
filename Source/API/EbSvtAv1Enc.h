@@ -1173,6 +1173,16 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool auto_tiling;
 
+    /* The min intra period defines the interval of frames before which a new
+     * Intra refresh can be inserted. It is strongly recommended to set the
+     * value to a multiple of the mini-gop size.
+     *
+     *  0 = no minimum (only relevant when scd=1).
+     * -1 = auto.
+     *
+     * Default is -1. */
+    int32_t min_intra_period_length;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1185,7 +1195,7 @@ typedef struct EbSvtAv1EncConfiguration {
         /* SVT-AV1-HDR additions */
         - (sizeof(uint8_t) * 9) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength, noise_chroma_from_luma
         - sizeof(int8_t)        // noise_size
-        - sizeof(int32_t)       // noise_strength_chroma
+        - (sizeof(int32_t) * 2) // noise_strength_chroma, min_intra_period_length
         - (sizeof(bool) * 4)    // alt_lambda_factors, alt_ssim_tuning, color_range_provided, auto_tiling
         - sizeof(double)        // qp_scale_compress_strength
     ];
