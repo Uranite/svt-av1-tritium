@@ -270,8 +270,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
     if (scs->static_config.scene_change_detection != 0) {
-        if ((config->min_intra_period_length > config->intra_period_length) || (config->intra_period_length < 0 &&
-            config->min_intra_period_length > 0)) {
+        if (config->intra_period_length >= 0 &&
+            config->min_intra_period_length > config->intra_period_length) {
             SVT_ERROR("Instance %u: The minimum intra period must be lower than "
                 "the maximum intra period. \n", channel_number + 1);
             return_error = EB_ErrorBadParameter;
