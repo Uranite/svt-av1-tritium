@@ -1099,11 +1099,18 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool color_range_provided;
 
+    /**
+     * @brief Signal to the library to automatically adjust tiles
+     *
+     * Default is true.
+     */
+    bool auto_tiling;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
     uint8_t padding[128 - sizeof(PredStructure) +
                     sizeof(uint8_t) // pred_strucutre type was changed from uint8_t to PredStructure
                     /* SVT-AV1-HDR additions */
-                    - (sizeof(uint8_t) * 10) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 1) - (sizeof(bool) * 3) -
+                    - (sizeof(uint8_t) * 10) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 1) - (sizeof(bool) * 4) -
                     (sizeof(double))];
     // clang-format on
 } EbSvtAv1EncConfiguration;
