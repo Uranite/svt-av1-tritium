@@ -1102,9 +1102,16 @@ typedef struct EbSvtAv1EncConfiguration {
      */
      uint8_t noise_adaptive_filtering;
 
+     /**
+     * @brief Signal to the library to automatically adjust tiles
+     *
+     * Default is true.
+     */
+     bool auto_tiling;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
     uint8_t padding[128 - (sizeof(uint8_t) * 6)
-        - (sizeof(bool) * 2)
+        - (sizeof(bool) * 3)
         - sizeof(double)
 #if FTR_SFRAME_POSI
         - sizeof(SvtAv1SFramePositions)
