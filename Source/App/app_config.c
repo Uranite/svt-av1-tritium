@@ -1061,7 +1061,7 @@ ConfigDescription config_entry_variance_boost[] = {
     // Alternative SSIM tuning
     {ALT_SSIM_TUNING_TOKEN, "[PSY] Alternative SSIM tuning methods for tunes 2 & 4, default is 0 [0-1]"},
     //Noise adaptive filtering
-    {NOISE_ADAPTIVE_FILTERING_TOKEN, "[PSY] Control noise detection for CDEF/restoration filtering, default is 0 to make tune 0/3 more balanced and less sharp [0: off, 1: both CDEF and restoration noise-adaptive filtering are on and is sharper 2: default tune behavior, 3: noise-adaptive CDEF only, 4: noise-adaptive restoration only)]"},
+    {NOISE_ADAPTIVE_FILTERING_TOKEN, "[PSY] Control noise detection for CDEF/restoration filtering, default is 0 to make tune 0 more balanced and less sharp [0: off, 1: both CDEF and restoration noise-adaptive filtering are on and is sharper 2: default tune behavior, 3: noise-adaptive CDEF only, 4: noise-adaptive restoration only)]"},
     // Termination
     {NULL, NULL}};
 
