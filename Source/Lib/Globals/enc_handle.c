@@ -1540,6 +1540,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         input_data.hbd_mds = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.hbd_mds;
         input_data.tx_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.tx_bias;
         input_data.complex_hvs = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.complex_hvs;
+        input_data.auto_tiling = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.auto_tiling;
         input_data.static_config = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config;
         input_data.allintra = enc_handle_ptr->scs_instance_array[instance_index]->scs->allintra;
         EB_NEW(
@@ -4422,6 +4423,8 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
 
     // MD Parameters
     scs->enable_hbd_mode_decision = config_struct->encoder_bit_depth > 8 ? DEFAULT : 0;
+    // Auto tiling
+    scs->static_config.auto_tiling = config_struct->auto_tiling;
     {
         if (config_struct->tile_rows == DEFAULT && config_struct->tile_columns == DEFAULT) {
 
@@ -4430,6 +4433,9 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
 
         }
         else {
+            if (scs->static_config.auto_tiling) {
+                SVT_WARN("Tiles set manually will be ignored when auto tiling is enabled!\n");
+            }
             if (config_struct->tile_rows == DEFAULT) {
                 scs->static_config.tile_rows = 0;
                 scs->static_config.tile_columns = config_struct->tile_columns;
@@ -4441,6 +4447,24 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
             else {
                 scs->static_config.tile_rows = config_struct->tile_rows;
                 scs->static_config.tile_columns = config_struct->tile_columns;
+            }
+        }
+        if (scs->static_config.auto_tiling) {
+            if (scs->max_input_luma_width >= 3840 && scs->max_input_luma_height >= 2160) {
+                scs->static_config.tile_rows = 0;
+                scs->static_config.tile_columns = 2;
+            }
+            else if (scs->max_input_luma_width >= 2160 && scs->max_input_luma_height >= 3840) {
+                scs->static_config.tile_rows = 2;
+                scs->static_config.tile_columns = 0;
+            }
+            else if (scs->max_input_luma_width >= 1920 && scs->max_input_luma_height >= 1080) {
+                scs->static_config.tile_rows = 0;
+                scs->static_config.tile_columns = 1;
+            }
+            else if (scs->max_input_luma_width >= 1080 && scs->max_input_luma_height >= 1920) {
+                scs->static_config.tile_rows = 1;
+                scs->static_config.tile_columns = 0;
             }
         }
     }
