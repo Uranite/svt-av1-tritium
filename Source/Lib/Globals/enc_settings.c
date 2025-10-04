@@ -1132,7 +1132,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     // Alt-Ref default values
     config_ptr->enable_tf       = 1;
     config_ptr->enable_overlays = false;
-    config_ptr->tune            = 1;
+    config_ptr->tune            = 0;
     // Super-resolution default values
     config_ptr->superres_mode      = SUPERRES_NONE;
     config_ptr->superres_denom     = SCALE_NUMERATOR;
@@ -1208,7 +1208,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->hbd_mds                    = 0;
     config_ptr->tx_bias                    = 0;
     config_ptr->complex_hvs                = 0;
-    config_ptr->noise_adaptive_filtering   = 2;
+    config_ptr->noise_adaptive_filtering   = 0;
     config_ptr->cdef_scaling               = 15;
     return return_error;
 }
