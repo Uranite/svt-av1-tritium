@@ -236,6 +236,16 @@ typedef struct EbSvtAv1EncConfiguration {
      * Default is -2. */
     int32_t intra_period_length;
 
+    /* The min intra period defines the interval of frames before which a new
+     * Intra refresh can be inserted. It is strongly recommended to set the
+     * value to a multiple of the mini-gop size.
+     *
+     *  0 = no minimum (only relevant when scd=1).
+     * -1 = auto.
+     *
+     * Default is -1. */
+    int32_t min_intra_period_length;
+
     /* Random access.
      *
      * 1 = CRA, open GOP.
@@ -1110,7 +1120,7 @@ typedef struct EbSvtAv1EncConfiguration {
     uint8_t padding[128 - sizeof(PredStructure) +
                     sizeof(uint8_t) // pred_strucutre type was changed from uint8_t to PredStructure
                     /* SVT-AV1-HDR additions */
-                    - (sizeof(uint8_t) * 10) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 1) - (sizeof(bool) * 4) -
+                    - (sizeof(uint8_t) * 10) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 2) - (sizeof(bool) * 4) -
                     (sizeof(double))];
     // clang-format on
 } EbSvtAv1EncConfiguration;
