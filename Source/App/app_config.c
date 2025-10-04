@@ -224,6 +224,7 @@
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
 #define ALT_LAMBDA_FACTORS_TOKEN "--alt-lambda-factors"
 #define ALT_SSIM_TUNING_TOKEN "--alt-ssim-tuning"
+#define NOISE_ADAPTIVE_FILTERING_TOKEN "--noise-adaptive-filtering"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -1029,6 +1030,8 @@ ConfigDescription config_entry_variance_boost[] = {
     {ALT_LAMBDA_FACTORS_TOKEN, "[PSY] Use alternative RDO lambda factors (from SVT-AV1 3.0.2), default is 1 [0-1]"},
     // Alternative SSIM tuning
     {ALT_SSIM_TUNING_TOKEN, "[PSY] Alternative SSIM tuning methods for tunes 2 & 4, default is 0 [0-1]"},
+    //Noise adaptive filtering
+    {NOISE_ADAPTIVE_FILTERING_TOKEN, "[PSY] Control noise detection for CDEF/restoration filtering, default is 0 to make tune 0/3 more balanced and less sharp [0: off, 1: both CDEF and restoration noise-adaptive filtering are on and is sharper 2: default tune behavior, 3: noise-adaptive CDEF only, 4: noise-adaptive restoration only)]"},
     // Termination
     {NULL, NULL}};
 
@@ -1267,6 +1270,9 @@ ConfigEntry config_entry[] = {
 
     // Alternative SSIM tuning
     {ALT_SSIM_TUNING_TOKEN, "AltSSIMTuning", set_cfg_generic_token},
+
+    // Noise adaptive filtering
+    {NOISE_ADAPTIVE_FILTERING_TOKEN, "NoiseAdaptiveFiltering", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};
