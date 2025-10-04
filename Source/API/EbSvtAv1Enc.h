@@ -1087,9 +1087,7 @@ typedef struct EbSvtAv1EncConfiguration {
      bool auto_tiling;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - (sizeof(uint8_t) * 10) - (sizeof(double) * 2) - (sizeof(bool) * 4)
-        - sizeof(bool)
-    ];
+    uint8_t padding[128 - (sizeof(uint8_t) * 15) - (sizeof(double) * 2) - (sizeof(bool) * 9)];
 } EbSvtAv1EncConfiguration;
 
 /**
