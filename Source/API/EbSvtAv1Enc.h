@@ -1242,6 +1242,13 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t roi_map_block_size;
 
+    /**
+     * @brief Signal to the library to automatically adjust tiles
+     *
+     * Default is true.
+     */
+    bool auto_tiling;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1271,6 +1278,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(int8_t) // noise_size
         - sizeof(uint8_t) // noise_chroma_from_luma
         - sizeof(int8_t) // enable_qmpsnr
+        - sizeof(bool) // auto_tiling
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
