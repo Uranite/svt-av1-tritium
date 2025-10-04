@@ -646,6 +646,32 @@ add_subdirectory(Source/Lib)
 if(BUILD_APPS)
     add_subdirectory(Source/App)
 endif()
+
+option(USE_FFMS2 "Enable FFMS2 support (Install FFMS2 first)" OFF)
+if(USE_FFMS2)
+    find_path(FFMS2_INCLUDE_DIR
+        NAMES ffms.h
+        PATHS
+            ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ffms2/include
+    )
+
+    find_library(FFMS2_LIBRARY
+        NAMES ffms2 libffms2
+        PATHS
+            ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ffms2/lib
+    )
+
+    if(FFMS2_INCLUDE_DIR AND FFMS2_LIBRARY)
+        message(STATUS "Found FFMS2: ${FFMS2_LIBRARY}")
+        target_include_directories(SvtAv1EncApp PRIVATE ${FFMS2_INCLUDE_DIR})
+        target_link_libraries(SvtAv1EncApp PRIVATE ${FFMS2_LIBRARY})
+        target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=1)
+    else()
+        message(WARNING "FFMS2 not found, building without FFMS2 support")
+        target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=0)
+    endif()
+endif()
+
 if(SVT_AV1_PGO)
     string(REPLACE ";" "::" SVT_AV1_PGO_CUSTOM_VIDEOS "${SVT_AV1_PGO_CUSTOM_VIDEOS}")
 
