@@ -1102,6 +1102,13 @@ typedef struct EbSvtAv1EncConfiguration {
      */
      uint8_t noise_adaptive_filtering;
 
+     /**
+     * @brief Signal to the library to automatically adjust tiles
+     *
+     * Default is true.
+     */
+     bool auto_tiling;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
     uint8_t padding[128 - (sizeof(uint8_t) * 5)
         - (sizeof(bool) * 2)
@@ -1115,7 +1122,7 @@ typedef struct EbSvtAv1EncConfiguration {
 #endif // FTR_SFRAME_QP
         /* SVT-AV1-HDR additions */
         - (sizeof(uint8_t) * 7)
-        - (sizeof(bool) * 2)
+        - (sizeof(bool) * 3)
         - (sizeof(double)) + (sizeof(uint8_t)) // qp_scale_compress_strength uint8_t -> double
     ];
     // clang-format on

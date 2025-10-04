@@ -228,6 +228,7 @@
 #define TX_BIAS_TOKEN "--tx-bias"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
 #define NOISE_ADAPTIVE_FILTERING_TOKEN "--noise-adaptive-filtering"
+#define AUTO_TILING_TOKEN "--auto-tiling"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -901,6 +902,8 @@ ConfigDescription config_entry_intra_refresh[] = {
     {NULL, NULL}};
 
 ConfigDescription config_entry_specific[] = {
+    // Auto tiling
+    {AUTO_TILING_TOKEN, "Auto tiling, default is 1 [0-1]"},
     {TILE_ROW_TOKEN, "Number of tile rows to use, `TileRow == log2(x)`, default changes per resolution but is 1 [0-6]"},
     {TILE_COL_TOKEN,
      "Number of tile columns to use, `TileCol == log2(x)`, default changes per resolution but is 1 [0-4]"},
@@ -1315,6 +1318,9 @@ ConfigEntry config_entry[] = {
 
     // Noise adaptive filtering
     {NOISE_ADAPTIVE_FILTERING_TOKEN, "NoiseAdaptiveFiltering", set_cfg_generic_token},
+
+    // Auto tiling
+    {AUTO_TILING_TOKEN, "AutoTiling", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};
