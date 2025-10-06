@@ -287,8 +287,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->enable_dlf_flag > 2) {
-        SVT_ERROR("Instance %u: Invalid LoopFilterEnable. LoopFilterEnable must be [0 - 2]\n", channel_number + 1);
+    if (config->enable_dlf_flag > 3) {
+        SVT_ERROR("Instance %u: Invalid LoopFilterEnable. LoopFilterEnable must be [0 - 3]\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 

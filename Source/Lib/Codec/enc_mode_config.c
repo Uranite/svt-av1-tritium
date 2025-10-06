@@ -1392,6 +1392,9 @@ static uint8_t get_dlf_level(PictureControlSet *pcs, EncMode enc_mode, uint8_t i
     const uint8_t sc_class1       = pcs->ppcs->sc_class1;
     uint8_t       dlf_level       = 0;
     uint8_t       modulation_mode = 0; // 0: off, 1: only towards bd-rate, 2: both sides; , 3: only towards speed
+    if (pcs->scs->static_config.enable_dlf_flag == 3) {
+        return 1;
+    }
     if (rtc_tune) {
         if (enc_mode <= ENC_M7) {
             dlf_level       = is_base ? 5 : 6;
