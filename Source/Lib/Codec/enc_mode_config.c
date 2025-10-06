@@ -1881,6 +1881,9 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
 
     } else if (pcs->scs->static_config.hbd_mds == 2) {
         pcs->hbd_md = 2;
+
+    } else if (pcs->scs->static_config.hbd_mds == 3) {
+        pcs->hbd_md = 0;
     }
 }
     else
