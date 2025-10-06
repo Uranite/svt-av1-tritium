@@ -1555,6 +1555,10 @@ static uint8_t get_dlf_level_default(PictureControlSet* pcs, EncMode enc_mode, u
     uint8_t       dlf_level       = 0;
     uint8_t       modulation_mode = 0; // 0: off, 1: only towards bd-rate, 2: both sides; , 3: only towards speed
 
+    if (pcs->scs->static_config.enable_dlf_flag == 3) {
+        return 1;
+    }
+
     if (fast_decode <= 1 || resolution <= INPUT_SIZE_360p_RANGE) { // fast-decode 0 && fast-decode 1
         if (enc_mode <= ENC_M2) {
             dlf_level = 1;
