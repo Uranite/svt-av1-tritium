@@ -785,7 +785,6 @@ typedef struct EbSvtAv1EncConfiguration {
 
     // Threads management
 
-#if CLN_LP_LVLS
 #if !SVT_AV1_CHECK_VERSION(3, 0, 0)
     /* logical_processors refers to how much parallelization the encoder will perform
      * by setting the number of threads and pictures that can be handled simultaneously. If
@@ -809,20 +808,6 @@ typedef struct EbSvtAv1EncConfiguration {
      * N: Pin threads to socket's first N processors
      * default 0 */
     uint32_t pin_threads;
-#else
-    /* The number of logical processor which encoder threads run on. If
-     * LogicalProcessors and TargetSocket are not set, threads are managed by
-     * OS thread scheduler. */
-    uint32_t logical_processors;
-
-    /* Unpin the execution .This option does not
-    * set the execution to be pinned to a specific number of cores when set to 1. this allows the execution
-    * of multiple encodes on the CPU without having to pin them to a specific mask
-    * 1: pinned threads
-    * 0: unpinned
-    * default 0 */
-    uint32_t pin_threads;
-#endif
 
     /* Target socket to run on. For dual socket systems, this can specify which
      * socket the encoder runs on.
@@ -1157,11 +1142,7 @@ typedef struct EbSvtAv1EncConfiguration {
      uint8_t filtering_noise_detection;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-#if CLN_LP_LVLS
     uint8_t padding[128 - 7 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
-#else
-    uint8_t padding[128 - 7 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
-#endif
 
 } EbSvtAv1EncConfiguration;
 
