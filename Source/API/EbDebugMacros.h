@@ -35,6 +35,7 @@ extern "C" {
 #endif // __cplusplus
 
 #define FIX_AVX512_ICL_RTCD     1 // Correct avx512icl support detection
+#define FIX_QUEUE_DEADLOCK      1 // Use min-heap instead of queue to manage out-of-order decode orders
 
 //FOR DEBUGGING - Do not remove
 #define OPT_LD_LATENCY2         1 // Latency optimization for low delay - to keep the Macro for backwards testing until 3.0
