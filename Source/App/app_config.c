@@ -1054,7 +1054,7 @@ ConfigDescription config_entry_psychovisual[] = {
     // Keyframe temporal filtering strength
     {KF_TF_STRENGTH_FILTER_TOKEN, "Adjust TF strength on keyframes, default is 1 (4x weaker than mainline) [0-4]"},
     // Alt lambda factors
-    {ALT_LAMBDA_FACTORS_TOKEN, "Use alternative RDO lambda factors (from SVT-AV1 3.0.2), default is 1 [0-1]"},
+    {ALT_LAMBDA_FACTORS_TOKEN, "Use alternative RDO lambda factors (from SVT-AV1 3.0.2), default is 0 [0-1]"},
     //Sharp-tx
     {SHARP_TX_TOKEN, "Sharp transform optimization, default is 1 [0-1]"},
     // Alternative SSIM tuning
