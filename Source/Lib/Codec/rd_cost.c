@@ -1541,17 +1541,38 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
     assert(IMPLIES(is_inter_mode(cand_bf->cand->pred_mode), skip_tx_size_bits == 0));
 
     // Decide if block should be signalled as skip (send no coeffs)
-    if (ctx->blk_skip_decision && cand_bf->block_has_coeff && is_inter_mode(cand_bf->cand->pred_mode)) {
-        const uint64_t non_skip_cost = RDCOST(
-            lambda,
-            (*y_coeff_bits + *cb_coeff_bits + *cr_coeff_bits + non_skip_tx_size_bits +
-             (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][0]),
-            (y_distortion[DIST_SSD][0] + cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0]));
-
-        const uint64_t skip_cost = RDCOST(
-            lambda,
-            ((uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][1]) + skip_tx_size_bits,
-            (y_distortion[DIST_SSD][1] + cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1]));
+    if (ctx->blk_skip_decision && cand_bf->block_has_coeff && is_inter_mode(cand_bf->cand->pred_mode) && !pcs->scs->static_config.skip_taper) {
+        uint64_t non_skip_cost;
+        uint64_t skip_cost;
+        if (!pcs->scs->static_config.chroma_distortion_taper) {
+            non_skip_cost = RDCOST(
+                lambda,
+                (*y_coeff_bits + *cb_coeff_bits + *cr_coeff_bits + non_skip_tx_size_bits +
+                 (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][0]),
+                (y_distortion[DIST_SSD][0] + cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0]));
+            skip_cost = RDCOST(
+                lambda,
+                ((uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][1]) + skip_tx_size_bits,
+                (y_distortion[DIST_SSD][1] + cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1]));
+        } else {
+            non_skip_cost = RDCOST(
+                lambda,
+                (*y_coeff_bits + *cb_coeff_bits + *cr_coeff_bits + non_skip_tx_size_bits +
+                 (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][0]),
+                (y_distortion[DIST_SSD][0] +
+                 AOMMAX(cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0],
+                        (uint64_t)(1.5 * svt_aom_dc_quant_qtx(quantizer_to_qindex[(uint8_t)pcs->scs->static_config.qp] + pcs->scs->static_config.extended_crf_qindex_offset,
+                                                              0,
+                                                              pcs->scs->encoder_bit_depth)))));
+            skip_cost = RDCOST(
+                lambda,
+                ((uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][1]) + skip_tx_size_bits,
+                (y_distortion[DIST_SSD][1] +
+                 AOMMAX(cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1],
+                        (uint64_t)(2.5 * svt_aom_dc_quant_qtx(quantizer_to_qindex[(uint8_t)pcs->scs->static_config.qp] + pcs->scs->static_config.extended_crf_qindex_offset,
+                                                              0,
+                                                              pcs->scs->encoder_bit_depth)))));
+        }
 
         // Update signals to correspond to skip_mode values (no coeffs, etc.)
         if (skip_cost < non_skip_cost) {
@@ -1586,25 +1607,62 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
         coeff_rate = ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][1] + skip_tx_size_bits;
     }
 
-    uint64_t mode_rate            = cand_bf->fast_luma_rate + cand_bf->fast_chroma_rate + coeff_rate;
-    uint64_t mode_distortion      = y_distortion[DIST_SSD][0] + cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0];
-    uint64_t mode_ssim_distortion = update_full_cost_ssim
-        ? y_distortion[DIST_SSIM][0] + cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0]
-        : 0;
-    uint64_t mode_cost            = RDCOST(lambda, mode_rate, mode_distortion);
+    uint64_t mode_rate       = cand_bf->fast_luma_rate + cand_bf->fast_chroma_rate + coeff_rate;
+    uint64_t mode_distortion;
+    uint64_t mode_ssim_distortion;
+    if (!pcs->scs->static_config.chroma_distortion_taper) {
+        mode_distortion      = y_distortion[DIST_SSD][0] + cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0];
+        mode_ssim_distortion = update_full_cost_ssim
+            ? y_distortion[DIST_SSIM][0] + cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0]
+            : 0;
+    } else {
+        // The use of qstep table here is completely arbitrary. It needs
+        // something in the range of a few hundred to a few thousand, and it
+        // needs something that corresponds with quality, and the qstep table
+        // just happenes to fit both of these two points.
+        mode_distortion      = y_distortion[DIST_SSD][0] +
+            AOMMAX(cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0],
+                   (uint64_t)(1.5 * svt_aom_dc_quant_qtx(quantizer_to_qindex[(uint8_t)pcs->scs->static_config.qp] + pcs->scs->static_config.extended_crf_qindex_offset,
+                                                         0,
+                                                         pcs->scs->encoder_bit_depth)));
+        mode_ssim_distortion = update_full_cost_ssim
+            ? y_distortion[DIST_SSIM][0] +
+                AOMMAX(cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0],
+                       (uint64_t)(1.5 * svt_aom_dc_quant_qtx(quantizer_to_qindex[(uint8_t)pcs->scs->static_config.qp] + pcs->scs->static_config.extended_crf_qindex_offset,
+                                                             0,
+                                                             pcs->scs->encoder_bit_depth)))
+            : 0;
+    }
+    uint64_t mode_cost       = RDCOST(lambda, mode_rate, mode_distortion);
 
     // If skip_mode is allowed for this candidate, check cost of skip mode compared to regular cost
-    if (cand_bf->cand->skip_mode_allowed == TRUE) {
+    if (cand_bf->cand->skip_mode_allowed == TRUE && !pcs->scs->static_config.skip_taper) {
         const uint8_t skip_mode_ctx = ctx->skip_mode_ctx;
 
         // Skip mode cost
-        const uint64_t skip_mode_rate       = ctx->md_rate_est_ctx->skip_mode_fac_bits[skip_mode_ctx][1];
-        const uint64_t skip_mode_distortion = y_distortion[DIST_SSD][1] + cb_distortion[DIST_SSD][1] +
-            cr_distortion[DIST_SSD][1];
-        const uint64_t skip_mode_ssim_distortion = update_full_cost_ssim
-            ? y_distortion[DIST_SSIM][1] + cb_distortion[DIST_SSIM][1] + cr_distortion[DIST_SSIM][1]
-            : 0;
-        const uint64_t skip_mode_cost            = RDCOST(lambda, skip_mode_rate, skip_mode_distortion);
+        const uint64_t skip_mode_rate = ctx->md_rate_est_ctx->skip_mode_fac_bits[skip_mode_ctx][1];
+        uint64_t skip_mode_distortion;
+        uint64_t skip_mode_ssim_distortion;
+        if (!pcs->scs->static_config.chroma_distortion_taper) {
+            skip_mode_distortion      = y_distortion[DIST_SSD][1] + cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1];
+            skip_mode_ssim_distortion = update_full_cost_ssim
+                ? y_distortion[DIST_SSIM][1] + cb_distortion[DIST_SSIM][1] + cr_distortion[DIST_SSIM][1]
+                : 0;
+        } else {
+            skip_mode_distortion      = y_distortion[DIST_SSD][1] +
+                AOMMAX(cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1],
+                       (uint64_t)(2.5 * svt_aom_dc_quant_qtx(quantizer_to_qindex[(uint8_t)pcs->scs->static_config.qp] + pcs->scs->static_config.extended_crf_qindex_offset,
+                                                             0,
+                                                             pcs->scs->encoder_bit_depth)));
+            skip_mode_ssim_distortion = update_full_cost_ssim
+                ? y_distortion[DIST_SSIM][1] +
+                    AOMMAX(cb_distortion[DIST_SSIM][1] + cr_distortion[DIST_SSIM][1],
+                           (uint64_t)(2.5 * svt_aom_dc_quant_qtx(quantizer_to_qindex[(uint8_t)pcs->scs->static_config.qp] + pcs->scs->static_config.extended_crf_qindex_offset,
+                                                                 0,
+                                                                 pcs->scs->encoder_bit_depth)))
+                : 0;
+        }
+        const uint64_t skip_mode_cost = RDCOST(lambda, skip_mode_rate, skip_mode_distortion);
 
         cand_bf->cand->skip_mode = FALSE;
         if (skip_mode_cost <= mode_cost) {

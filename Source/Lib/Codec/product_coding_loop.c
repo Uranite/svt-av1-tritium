@@ -6384,6 +6384,9 @@ static void full_loop_core_light_pd1(PictureControlSet *pcs, ModeDecisionContext
     }
     // Update coeff info based on luma TX so that chroma can take advantage of most accurate info
     cand_bf->block_has_coeff        = (cand_bf->y_has_coeff) ? 1 : 0;
+    if (pcs->scs->static_config.skip_taper) {
+        cand_bf->block_has_coeff = TRUE;
+    }
     cand_bf->cnt_nz_coeff           = cand_bf->eob.y[0];
     uint8_t        perform_chroma   = cand_bf->block_has_coeff || !(ctx->lpd1_tx_ctrls.zero_y_coeff_exit);
     COMPONENT_TYPE chroma_component = COMPONENT_CHROMA;
@@ -6447,6 +6450,9 @@ static void full_loop_core_light_pd1(PictureControlSet *pcs, ModeDecisionContext
                                            &cr_coeff_bits);
         cand_bf->block_has_coeff = (cand_bf->y_has_coeff || cand_bf->u_has_coeff || cand_bf->v_has_coeff) ? TRUE
                                                                                                           : FALSE;
+        if (pcs->scs->static_config.skip_taper) {
+            cand_bf->block_has_coeff = TRUE;
+        }
         svt_aom_full_cost(pcs,
                           ctx,
                           cand_bf,
@@ -6731,6 +6737,9 @@ static void full_loop_core(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
             cand_bf, ctx, pcs, start_tx_depth, end_tx_depth, ctx->blk_ptr->qindex, &y_coeff_bits, y_full_distortion);
     // Update coeff info based on luma TX so that chroma can take advantage of most accurate info
     cand_bf->block_has_coeff = (cand_bf->y_has_coeff) ? 1 : 0;
+    if (pcs->scs->static_config.skip_taper) {
+        cand_bf->block_has_coeff = TRUE;
+    }
 
     uint16_t txb_count    = ctx->blk_geom->txb_count[cand_bf->cand->tx_depth];
     cand_bf->cnt_nz_coeff = 0;
@@ -6837,6 +6846,9 @@ static void full_loop_core(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
         }
     }
     cand_bf->block_has_coeff = (cand_bf->y_has_coeff || cand_bf->u_has_coeff || cand_bf->v_has_coeff) ? TRUE : FALSE;
+    if (pcs->scs->static_config.skip_taper) {
+        cand_bf->block_has_coeff = TRUE;
+    }
     svt_aom_full_cost(pcs,
                       ctx,
                       cand_bf,

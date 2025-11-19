@@ -1070,6 +1070,22 @@ typedef struct EbSvtAv1EncConfiguration {
     Bool low_q_taper;
 
     /**
+     * @brief Limit the chroma distortion prediction from dropping too low in full mode decision
+     * Min value is 0.
+     * Max value is 1.
+     * Default is 0.
+     */
+    uint8_t chroma_distortion_taper;
+
+    /**
+     * @brief Completely disable skip mode and skip (as defined in section 6.10.10 and 6.10.11)
+     * Min value is 0.
+     * Max value is 1.
+     * Default is 0.
+     */
+    uint8_t skip_taper;
+
+    /**
      * @brief Enable sharp-tx, a toggle that enables much sharper transforms decisions for higher fidelity ouput,
      at the possible cost of increasing artifacting
      * 0: disabled
@@ -1159,7 +1175,7 @@ typedef struct EbSvtAv1EncConfiguration {
     Bool alt_tf_decay;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - 9 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 9 * sizeof(Bool) - 16 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
 
 } EbSvtAv1EncConfiguration;
 

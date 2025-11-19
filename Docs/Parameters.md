@@ -87,6 +87,8 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **TemporalFilteringStrength**    |  --tf-strength              | [0-4]                          | 1           | Manually adjust temporal filtering strength. Higher values = stronger temporal filtering                      |
 | **KeyframeTemporalFilteringStrength** |  --kf-tf-strength      | [0-4]                          | 1           | Manually adjust temporal filtering strength for keyframes. Higher values = stronger temporal filtering        |
 | **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                   |
+| **ChromaDistortionTaper**        |  --chroma-distortion-taper  | [0-1]                          | 0           | Limit the chroma distortion prediction from dropping too low in full mode decision             |
+| **SkipTaper**                    |  --skip-taper               | [0-1]                          | 0           | Completely disable skip mode and skip (as defined in section 6.10.10 and 6.10.11)             |
 
 ## Rate Control Options
 

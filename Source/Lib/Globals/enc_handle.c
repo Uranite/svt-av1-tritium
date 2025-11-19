@@ -5065,6 +5065,12 @@ static void copy_api_from_app(
     // Low Q taper
     scs->static_config.low_q_taper = config_struct->low_q_taper;
 
+    // Chroma distortion taper
+    scs->static_config.chroma_distortion_taper = config_struct->chroma_distortion_taper;
+
+    // Skip taper
+    scs->static_config.skip_taper = config_struct->skip_taper;
+
     // Sharp TX
     scs->static_config.sharp_tx = config_struct->sharp_tx;
 
