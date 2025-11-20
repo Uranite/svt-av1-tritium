@@ -955,8 +955,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->spy_rd < 0 || config->spy_rd > 2) {
-        SVT_ERROR("Instance %u: spy-rd must be between 0 and 2\n", channel_number + 1);
+    if (config->spy_rd > 1) {
+        SVT_ERROR("Instance %u: spy-rd must be between 0 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1335,13 +1335,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             SVT_INFO("SVT [config]: PSY-RD Strength \t\t\t\t\t\t: %.2f\n",
                     config->psy_rd);
         }
-
-        // 1 is full spy-rd, 2 is partial spy-rd
         if (config->spy_rd) {
-            SVT_INFO("SVT [config]: SPY-RD \t\t\t\t\t\t\t: %s\n",
-        config->spy_rd == 1 ? "oui" : (config->spy_rd == 2 ? "ouais" : "non"));
+            SVT_INFO("SVT [config]: spy-rd \t\t\t\t\t\t\t: %s\n",
+                    config->spy_rd ? "oui" : "non");
         }
-        
 		if (config->low_q_taper) {
             SVT_INFO("SVT [config]: low Q taper \t\t\t\t\t\t\t: %s\n",
                     config->low_q_taper ? "on" : "off");
@@ -2260,7 +2257,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"noise-norm-strength", &config_struct->noise_norm_strength},
         {"fast-decode", &config_struct->fast_decode},
         {"enable-tf", &config_struct->enable_tf},
-        {"spy-rd", &config_struct->spy_rd},
         {"hbd-mds", &config_struct->hbd_mds},
         {"complex-hvs", &config_struct->complex_hvs},
         {"luminance-qp-bias", &config_struct->luminance_qp_bias},
@@ -2385,6 +2381,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"enable-alt-curve", &config_struct->enable_alt_curve},
         {"max-32-tx-size", &config_struct->max_32_tx_size},
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
+        {"spy-rd", &config_struct->spy_rd},
         {"low-q-taper", &config_struct->low_q_taper},
         {"sharp-tx", &config_struct->sharp_tx},
         {"alt-ssim-tuning", &config_struct->alt_ssim_tuning},
