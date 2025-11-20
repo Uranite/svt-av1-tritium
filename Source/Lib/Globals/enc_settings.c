@@ -955,11 +955,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->spy_rd > 1) {
-        SVT_ERROR("Instance %u: spy-rd must be between 0 and 1\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
-
     // if (config->low_q_taper > 1) {
     //     SVT_ERROR("Instance %u: low-q-taper must be between 0 and 1\n", channel_number + 1);
     //     return_error = EB_ErrorBadParameter;
@@ -1154,7 +1149,6 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->kf_tf_strength                    = 1;
     config_ptr->noise_norm_strength               = 1;
     config_ptr->psy_rd                            = 0;
-    config_ptr->spy_rd                            = 0;
     config_ptr->low_q_taper                       = 0;
     config_ptr->sharp_tx                          = 1;
     config_ptr->hbd_mds                           = 0;
@@ -1334,10 +1328,6 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         if (config->psy_rd > 0.0) {
             SVT_INFO("SVT [config]: PSY-RD Strength \t\t\t\t\t\t: %.2f\n",
                     config->psy_rd);
-        }
-        if (config->spy_rd) {
-            SVT_INFO("SVT [config]: spy-rd \t\t\t\t\t\t\t: %s\n",
-                    config->spy_rd ? "oui" : "non");
         }
 		if (config->low_q_taper) {
             SVT_INFO("SVT [config]: low Q taper \t\t\t\t\t\t\t: %s\n",
@@ -2381,7 +2371,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"enable-alt-curve", &config_struct->enable_alt_curve},
         {"max-32-tx-size", &config_struct->max_32_tx_size},
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
-        {"spy-rd", &config_struct->spy_rd},
         {"low-q-taper", &config_struct->low_q_taper},
         {"sharp-tx", &config_struct->sharp_tx},
         {"alt-ssim-tuning", &config_struct->alt_ssim_tuning},

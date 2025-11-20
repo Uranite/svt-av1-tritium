@@ -1232,7 +1232,6 @@ typedef struct PictureControlSetInitData {
     uint8_t kf_tf_strength;
     uint8_t noise_norm_strength;
     double  psy_rd;
-    Bool    spy_rd;
     Bool    sharp_tx;
     uint8_t hbd_mds;
     uint8_t complex_hvs;

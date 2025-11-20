@@ -118,10 +118,6 @@ Adaptively varies temporal filtering strength based on 64x64 block error. This c
 
 Configures psychovisual rate distortion strength to improve perceived quality by measuring and attempting to preserve the visual energy distribution of high-frequency details and textures. The default is 0.
 
-- `--spy-rd` *0 and 1*
-
-Configures a psychovisually-oriented metric that biases towards sharpness and detail retention, at the possible expense of increased blocking and banding. The default is 0.
-
 - `--alt-ssim-tuning` *0 and 1*
 
 Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate-distortion calculations by utilizing an alternative per-pixel variance function across 4X4, 8X8, and 16X16 blocks in addition to superblock-level SSIM rate-distortion tuning. Originally tested to operate on Tune 2 (SSIM) and Tune 4 (Still Picture); usage on Tune 3 (Subjective SSIM) is experimental. The default is 0.
