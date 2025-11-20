@@ -1972,7 +1972,7 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
         //In the future, enable full HBD mode decisions
         //only for psy-rd at P4 and slower,
         //since that's where we see most of the gains
-    if (pcs->scs->static_config.hbd_md == 0) {
+    if (pcs->scs->static_config.hbd_mds == 0) {
         if (enc_mode <= ENC_M4)
             pcs->hbd_md = 1;
         else if (enc_mode <= ENC_M6)
