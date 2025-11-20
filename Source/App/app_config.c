@@ -1335,7 +1335,7 @@ ConfigEntry config_entry_psy[] = {
      set_cfg_generic_token},
     {SINGLE_INPUT,
      PSY_RD_TOKEN,
-     "[PSY] Psychovisual rate distortion strength, default is 0.5 [0.0-6.0]",
+     "[PSY] Psychovisual rate distortion strength, default is 0 [0.0-20.0]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      SPY_RD_TOKEN,
