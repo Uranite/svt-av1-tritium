@@ -944,13 +944,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->psy_rd > 6.0 || config->psy_rd < 0.0) {
-        SVT_ERROR("Instance %u: PSY-RD strength must be between 0.0 and 6.0\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
-
-    if (config->spy_rd < 0 || config->spy_rd > 2) {
-        SVT_ERROR("Instance %u: spy-rd must be between 0 and 2\n", channel_number + 1);
+    if (config->ac_bias > 8.0 || config->ac_bias < 0.0) {
+        SVT_ERROR("Instance %u: AC bias strength must be between 0.0 and 8.0\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -973,7 +968,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: filtering-noise-detection must be between 0 and 4\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    
+
     return return_error;
 }
 
@@ -1133,8 +1128,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->tf_strength                       = 1;
     config_ptr->kf_tf_strength                    = 1;
     config_ptr->noise_norm_strength               = 1;
-    config_ptr->psy_rd                            = 0.5;
-    config_ptr->spy_rd                            = 0;
+    config_ptr->ac_bias                           = 1.0;
     config_ptr->low_q_taper                       = 0;
     config_ptr->sharp_tx                          = 1;
     config_ptr->hbd_mds                           = 0;
@@ -1310,22 +1304,16 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                             config->kf_tf_strength);
                 }
         }
-        if (config->psy_rd > 0.0 && config->tune != 1) {
-            SVT_INFO("SVT [config]: PSY-RD strength \t\t\t\t\t\t: %.2f\n",
-                    config->psy_rd);
+
+        if (config->ac_bias) {
+            SVT_INFO("SVT [config]: AC bias strength \t\t\t\t\t\t: %.2f\n", config->ac_bias);
         }
 
-        // 1 is full spy-rd, 2 is partial spy-rd
-        if (config->spy_rd) {
-            SVT_INFO("SVT [config]: SPY-RD \t\t\t\t\t\t\t: %s\n",
-        config->spy_rd == 1 ? "oui" : (config->spy_rd == 2 ? "ouais" : "non"));
-        }
-        
 		if (config->low_q_taper) {
             SVT_INFO("SVT [config]: low Q taper \t\t\t\t\t\t\t: %s\n",
                     config->low_q_taper ? "on" : "off");
         }
-        
+
         switch (config->filtering_noise_detection) {
             case 0:
                 break;
@@ -2229,7 +2217,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"noise-norm-strength", &config_struct->noise_norm_strength},
         {"fast-decode", &config_struct->fast_decode},
         {"enable-tf", &config_struct->enable_tf},
-        {"spy-rd", &config_struct->spy_rd},
         {"hbd-mds", &config_struct->hbd_mds},
         {"complex-hvs", &config_struct->complex_hvs},
         {"filtering-noise-detection", &config_struct->filtering_noise_detection},
@@ -2273,7 +2260,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         double     *out;
     } double_opts[] = {
         {"qp-scale-compress-strength", &config_struct->qp_scale_compress_strength},
-        {"psy-rd", &config_struct->psy_rd},
+        {"ac-bias", &config_struct->ac_bias},
     };
     const size_t double_opts_size = sizeof(double_opts) / sizeof(double_opts[0]);
 

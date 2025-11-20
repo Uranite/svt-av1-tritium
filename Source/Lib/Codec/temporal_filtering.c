@@ -33,7 +33,8 @@
 #include "svt_log.h"
 #include <limits.h>
 #include "pack_unpack_c.h"
-#include "psy_rd.h"
+#include "pic_operators.h"
+#include "ac_bias.h"
 
 #undef _MM_HINT_T2
 #define _MM_HINT_T2 1
@@ -4024,7 +4025,7 @@ static uint32_t filt_unfilt_dist(
         ? svt_full_distortion_kernel16_bits
         : svt_spatial_full_distortion_kernel;
 
-    uint64_t dist = 0;
+    uint32_t dist = 0;
     for (uint32_t y_b64_idx = 0; y_b64_idx < pic_height_in_b64; ++y_b64_idx) {
         for (uint32_t x_b64_idx = 0; x_b64_idx < pic_width_in_b64; ++x_b64_idx) {
 
@@ -4033,7 +4034,7 @@ static uint32_t filt_unfilt_dist(
 
             uint32_t buffer_index = b64_origin_y * stride_y + b64_origin_x;
 
-            dist += spatial_full_dist_type_fun(
+            dist += (uint32_t)(spatial_full_dist_type_fun(
                 filt,
                 buffer_index,
                 stride_y,
@@ -4041,18 +4042,7 @@ static uint32_t filt_unfilt_dist(
                 buffer_index,
                 stride_y,
                 ppcs->scs->b64_size,
-                ppcs->scs->b64_size);
-            dist += get_svt_psy_full_dist(
-                filt,
-                buffer_index,
-                stride_y,
-                unfil,
-                buffer_index,
-                stride_y,
-                ppcs->scs->b64_size,
-                ppcs->scs->b64_size,
-                (uint8_t)is_highbd,
-                ppcs->scs->static_config.psy_rd);
+                ppcs->scs->b64_size));
 
         }
     }

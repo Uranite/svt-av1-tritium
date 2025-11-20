@@ -220,8 +220,7 @@
 
 #define NOISE_NORM_STRENGTH_TOKEN "--noise-norm-strength"
 
-#define PSY_RD_TOKEN "--psy-rd"
-#define SPY_RD_TOKEN "--spy-rd"
+#define AC_BIAS_TOKEN "--ac-bias"
 #define LOW_Q_TAPER_TOKEN "--low-q-taper"
 #define SHARP_TX_TOKEN "--sharp-tx"
 #define HBD_MDS_TOKEN "--hbd-mds"
@@ -1328,12 +1327,8 @@ ConfigEntry config_entry_psy[] = {
      "[PSY] Noise normalization strength, default is 1 [0-4]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
-     PSY_RD_TOKEN,
-     "[PSY] Psychovisual rate distortion strength, default is 0.5; high quality mode activated at >=0.6 [0.0-6.0]",
-     set_cfg_generic_token},
-    {SINGLE_INPUT,
-     SPY_RD_TOKEN,
-     "[PSY] Alternative psychovisual rate distortion pathways, default is 0 [0-2]; 1 = full, 2 = partial",
+     AC_BIAS_TOKEN,
+     "Strength of AC bias in rate distortion, default is 1.0 [0.0-8.0]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      LOW_Q_TAPER_TOKEN,
@@ -1341,7 +1336,7 @@ ConfigEntry config_entry_psy[] = {
      set_cfg_generic_token},
     {SINGLE_INPUT,
      SHARP_TX_TOKEN,
-     "[PSY] Sharp transform optimization, default is 1; best used in combination with psy-rd [0-1]",
+     "[PSY] Sharp transform optimization, default is 1; best used in combination with AC bias [0-1]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      HBD_MDS_TOKEN,
@@ -1575,11 +1570,8 @@ ConfigEntry config_entry[] = {
     // Noise normalization strength
     {SINGLE_INPUT, NOISE_NORM_STRENGTH_TOKEN, "NoiseNormStrength", set_cfg_generic_token},
 
-    // Psy rd strength
-    {SINGLE_INPUT, PSY_RD_TOKEN, "PsyRd", set_cfg_generic_token},
-
-    // Spy rd
-    {SINGLE_INPUT, SPY_RD_TOKEN, "SpyRd", set_cfg_generic_token},
+    // AC bias strength
+    {SINGLE_INPUT, AC_BIAS_TOKEN, "AcBias", set_cfg_generic_token},
 	
 	// Low q taper
     {SINGLE_INPUT, LOW_Q_TAPER_TOKEN, "LowQTaper", set_cfg_generic_token},

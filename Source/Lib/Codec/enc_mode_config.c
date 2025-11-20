@@ -1969,31 +1969,26 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
     pcs->tune_tpl_for_chroma = 0;
 #endif
     if (scs->enable_hbd_mode_decision == DEFAULT) {
+        if (pcs->scs->static_config.hbd_mds == 0) {
+            if (enc_mode <= ENC_M4)
+                pcs->hbd_md = 1;
+            else if (enc_mode <= ENC_M6)
+                pcs->hbd_md = 2;
+            else if (enc_mode <= ENC_M7)
+                pcs->hbd_md = is_base ? 2 : 0;
+            else
+                pcs->hbd_md = is_islice ? 2 : 0;
 
-    if (pcs->scs->static_config.hbd_mds == 0) {
-        if (enc_mode <= ENC_M2)
+        } else if (pcs->scs->static_config.hbd_mds == 1){
             pcs->hbd_md = 1;
-        //Empiral testing shows enabling full 10-bit MD greatly increases
-        //psy-rd performance once it becomes strong enough (>=0.6)
-        else if (enc_mode <= ENC_M4 && pcs->scs->static_config.psy_rd >= 0.6)
-            pcs->hbd_md = 1;
-        else if (enc_mode <= ENC_M6 && pcs->scs->static_config.psy_rd >= 0.6)
+
+        } else if (pcs->scs->static_config.hbd_mds == 2) {
             pcs->hbd_md = 2;
-        else if (enc_mode <= ENC_M7)
-            pcs->hbd_md = is_base ? 2 : 0;
-        else
-            pcs->hbd_md = is_islice ? 2 : 0;
 
-    } else if (pcs->scs->static_config.hbd_mds == 1){
-        pcs->hbd_md = 1;
-
-    } else if (pcs->scs->static_config.hbd_mds == 2) {
-        pcs->hbd_md = 2;
-
-    } else if (pcs->scs->static_config.hbd_mds == 3) {
-        pcs->hbd_md = 0;
+        } else if (pcs->scs->static_config.hbd_mds == 3) {
+            pcs->hbd_md = 0;
+        }
     }
-}
     else
         pcs->hbd_md = scs->enable_hbd_mode_decision;
 
@@ -7037,11 +7032,6 @@ static void set_mds0_controls(ModeDecisionContext *ctx, uint8_t mds0_level) {
         ctrls->mds0_dist_type               = VAR;
         ctrls->enable_cost_based_early_exit = 1;
         ctrls->mds0_distortion_th           = 0;
-    //Special mds0_level for psy-rd usage
-    case 5:
-        ctrls->mds0_dist_type               = SAD;
-        ctrls->enable_cost_based_early_exit = 0;
-        ctrls->mds0_distortion_th           = 0;
         break;
     default: assert(0); break;
     }
@@ -8827,28 +8817,12 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
         else
             pcs->mds0_level = is_islice ? 2 : 4;
     } else {
-        //Enable SSD mode decision L0 only when psy-rd>=0.6
-        //as the quality benefits of SSD mode decision L0 are dubious
-        //for the computational cost when not using the feature
-        if (pcs->scs->static_config.psy_rd >= 0.6){
-            if (enc_mode <= ENC_MR)
-                pcs->mds0_level = 1;
-            //With P6 and slower when psy-rd is enabled, there are
-            //great benefits to enabling SAD since unlike VAR,
-            //psy-rd can actually modulate SAD for better perceptual quality using mds0_level
-            else if (enc_mode <= ENC_M6)
-                pcs->mds0_level = 5;
-            else
-                pcs->mds0_level = is_islice ? 2 : 4;
-
-        } else {
-        if (enc_mode <= ENC_MRP)
+        if (enc_mode <= ENC_MR)
             pcs->mds0_level = 1;
         else if (enc_mode <= ENC_M6)
              pcs->mds0_level = 2;
         else
             pcs->mds0_level = is_islice ? 2 : 4;
-        }
     }
     /*
        disallow_4x4

@@ -162,8 +162,6 @@ extern "C" {
     RTCD_EXTERN void(*svt_picture_average_kernel)(EbByte src0, uint32_t src0_stride, EbByte src1, uint32_t src1_stride, EbByte dst, uint32_t dst_stride, uint32_t area_width, uint32_t area_height);
     RTCD_EXTERN void(*svt_picture_average_kernel1_line)(EbByte src0, EbByte src1, EbByte dst, uint32_t area_width);
     uint64_t svt_spatial_full_distortion_kernel_c(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
-    uint64_t svt_spatial_psy_distortion_kernel_c(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height, double psy_rd);
-    uint64_t svt_spatial_full_distortion_kernel_facade(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height, bool hbd_md, PredictionMode mode, CompoundType compound_type, uint8_t temporal_layer_index, double psy_rd, uint8_t spy_rd);
     RTCD_EXTERN uint64_t(*svt_spatial_full_distortion_kernel)(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
     uint64_t svt_full_distortion_kernel16_bits_c(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
     RTCD_EXTERN uint64_t(*svt_full_distortion_kernel16_bits)(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
@@ -1081,10 +1079,10 @@ extern "C" {
     void svt_aom_hadamard_8x8_c(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff);
     void svt_aom_hadamard_8x8_sse2(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff);
     RTCD_EXTERN void (*svt_aom_hadamard_8x8)(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff);
-
-
+    void svt_aom_highbd_hadamard_8x8_c(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
+    RTCD_EXTERN void (*svt_aom_highbd_hadamard_8x8)(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
     void svt_aom_hadamard_4x4_c(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff);
-    #define svt_aom_hadamard_4x4 svt_aom_hadamard_4x4_c
+    RTCD_EXTERN void (*svt_aom_hadamard_4x4)(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
 
 #ifdef ARCH_AARCH64
     void svt_av1_build_compound_diffwtd_mask_neon(uint8_t *mask, DIFFWTD_MASK_TYPE mask_type, const uint8_t *src0, int src0_stride, const uint8_t *src1, int src1_stride, int h, int w);
@@ -1214,9 +1212,11 @@ extern "C" {
     void svt_cfl_luma_subsampling_420_lbd_neon(const uint8_t *input, int32_t input_stride, int16_t *output_q3, int32_t width, int32_t height);
     void svt_cfl_luma_subsampling_420_hbd_neon(const uint16_t *input, int32_t input_stride, int16_t *output_q3, int32_t width, int32_t height);
 
+    void svt_aom_hadamard_4x4_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
     void svt_aom_hadamard_8x8_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
     void svt_aom_hadamard_16x16_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
     void svt_aom_hadamard_32x32_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
+    void svt_aom_highbd_hadamard_8x8_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
 
     void svt_aom_subtract_block_neon(int rows, int cols, int16_t *diff, ptrdiff_t diff_stride, const uint8_t *src, ptrdiff_t src_stride, const uint8_t *pred, ptrdiff_t pred_stride);
     void svt_aom_highbd_subtract_block_neon(int rows, int cols, int16_t *diff_ptr, ptrdiff_t diff_stride, const uint8_t *src_ptr, ptrdiff_t src_stride, const uint8_t *pred_ptr, ptrdiff_t pred_stride, int bd);
@@ -2898,6 +2898,9 @@ extern "C" {
     uint32_t Log2f_ASM(uint32_t x);
 
     extern void svt_memcpy_intrin_sse (void  *dst_ptr, void  const *src_ptr, size_t size);
+
+    void svt_aom_hadamard_4x4_sse2(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
+    void svt_aom_highbd_hadamard_8x8_avx2(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
 #endif
 
 

@@ -1049,22 +1049,13 @@ typedef struct EbSvtAv1EncConfiguration {
     uint8_t noise_norm_strength;
 
     /**
-     * @brief Enable psychovisual rate distortion
-     * 0.00: disable PSY-RD
-     * 4.00: enable PSY-RD with a strength of 4.00
-     * Default is 0.50.
+     * @brief Strength of the internal RD metric to bias toward high-frequency error
+     * (helps with texture preservation and film grain retention)
+     * 0.00: disable AC bias
+     * 1.00: enable AC bias with a strength of 1.00
+     * Default is 1.00.
      */
-    double psy_rd;
-
-    /**
-     * @brief Enable spy-rd, an alternate RD metric that biases towards sharpness/detail retention,
-     * at the possible expense of increased blocking and banding
-     * 0: disabled
-     * 1: full
-     * 2: partial (interpolation filter tweaks only)
-     * Default is 0.
-     */
-    uint8_t spy_rd;
+    double ac_bias;
 
     /**
      * @brief Prevent macroblocks from being boosted to very low q.
@@ -1121,7 +1112,7 @@ typedef struct EbSvtAv1EncConfiguration {
     uint8_t filtering_noise_detection;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - 7 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
 
 } EbSvtAv1EncConfiguration;
 

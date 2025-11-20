@@ -9,12 +9,12 @@
 * PATENTS file, you can obtain it at https://www.aomedia.org/license/patent-license.
 */
 
-#include "aom_dsp_rtcd.h"
 #include "picture_operators_c.h"
+#include <stdint.h>
 #include <stdio.h>
 #include "utility.h"
 #include "common_dsp_rtcd.h"
-#include "psy_rd.h"
+#include "ac_bias.h"
 /*********************************
 * Picture Average
 *********************************/
@@ -82,97 +82,6 @@ uint64_t svt_spatial_full_distortion_kernel_c(uint8_t* input, uint32_t input_off
     return spatial_distortion;
 }
 
-uint64_t svt_spatial_psy_distortion_kernel_c(uint8_t* input, uint32_t input_offset, uint32_t input_stride,
-                                              uint8_t* recon, int32_t recon_offset, uint32_t recon_stride,
-                                              uint32_t area_width, uint32_t area_height, double psy_rd) {
-    uint64_t spatial_distortion = 0;
-    uint64_t psy_distortion = 0;
-
-    if (psy_rd > 0.0) {
-        uint64_t ac_distortion = svt_psy_distortion(input + input_offset, input_stride, recon + recon_offset, recon_stride, area_width, area_height);
-        psy_distortion = (uint64_t)(ac_distortion * psy_rd);
-    }
-
-    input += input_offset;
-    recon += recon_offset;
-
-    for (uint32_t row_index = 0; row_index < area_height; ++row_index) {
-        uint32_t column_index = 0;
-        while (column_index < area_width) {
-            spatial_distortion += (int64_t)SQR((int64_t)(input[column_index]) - (recon[column_index]));
-            ++column_index;
-        }
-
-        input += input_stride;
-        recon += recon_stride;
-    }
-
-    spatial_distortion += psy_distortion;
-    return spatial_distortion;
-}
-
-// Facade that wraps the distortion metric formula with "spy-rd" adjustments
-uint64_t svt_spatial_full_distortion_kernel_facade(uint8_t* input, uint32_t input_offset, uint32_t input_stride,
-                                                   uint8_t* recon, int32_t recon_offset, uint32_t recon_stride,
-                                                   uint32_t area_width, uint32_t area_height, bool hbd_md, PredictionMode mode,
-                                                   CompoundType compound_type, uint8_t temporal_layer_index,
-                                                   double psy_rd, uint8_t spy_rd) {
-
-    EbSpatialFullDistType spatial_full_dist_type_fun = hbd_md ? svt_full_distortion_kernel16_bits
-                                                              : svt_spatial_full_distortion_kernel;
-
-    int64_t spatial_distortion = spatial_full_dist_type_fun(
-                        input,
-                        input_offset,
-                        input_stride,
-                        recon,
-                        recon_offset,
-                        recon_stride,
-                        area_width,
-                        area_height);
-    //Only enable intra prediction tweaks when full spy-rd is active
-    if (spy_rd == 1) {
-        if (mode == DC_PRED || mode == SMOOTH_PRED || mode == SMOOTH_V_PRED || mode == SMOOTH_H_PRED) {
-            if (psy_rd == 0.0) {
-                // Medium bias against "visually blurry" intra prediction modes
-                spatial_distortion = (spatial_distortion * 5) / 4;
-            }
-        } else if (mode == H_PRED || mode == V_PRED || mode == PAETH_PRED) {
-            // Mild bias against "visually neutral" intra prediction modes
-            spatial_distortion = (spatial_distortion * 9) / 8;
-        } else if (mode >= COMP_INTER_MODE_START && mode < COMP_INTER_MODE_END) {
-            if (compound_type == COMPOUND_AVERAGE || compound_type == COMPOUND_DISTWTD) {
-                // Medium bias against "visually blurry" compound inter prediction modes
-                spatial_distortion = (spatial_distortion * 5) / 4;
-            } else if (compound_type == COMPOUND_DIFFWTD) {
-                // Mild bias against difference-weighted inter prediction mode
-                spatial_distortion = (spatial_distortion * 9) / 8;
-            }
-        }
-
-        if (mode >= INTRA_MODE_START && mode < INTRA_MODE_END) {
-            if (temporal_layer_index >= 2) {
-                // Increasingly bias against intra prediction modes the deeper the temporal layer
-                uint8_t weights[] = {8, 8, 9, 10, 11, 12};
-
-                spatial_distortion = (spatial_distortion * weights[temporal_layer_index]) / 8;
-            }
-
-            if (area_width == 64 && area_height == 64) {
-                // Strong bias against intra 64x64 blocks, as those often tend to be visually blurry
-                spatial_distortion = (spatial_distortion * 3) / 2;
-            } else if (area_width * area_height <= 32 * 32) {
-                // Very mild large block intra bias to compensate for pred mode rebalancing picking
-                // smaller blocks slightly more often
-                spatial_distortion = (spatial_distortion * 17) / 16;
-            }
-            //printf("Spatial: w %i, h %i\n", area_width, area_height);
-        }
-    }
-
-    return spatial_distortion;
-}
-
 static void hadamard_col4(const int16_t* src_diff, ptrdiff_t src_stride, int16_t* coeff) {
     int16_t b0 = (src_diff[0 * src_stride] + src_diff[1 * src_stride]) >> 1;
     int16_t b1 = (src_diff[0 * src_stride] - src_diff[1 * src_stride]) >> 1;
@@ -191,22 +100,28 @@ void svt_aom_hadamard_4x4_c(const int16_t* src_diff, ptrdiff_t src_stride, int32
     int16_t  buffer2[16];
     int16_t* tmp_buf = &buffer[0];
     for (idx = 0; idx < 4; ++idx) {
-        hadamard_col4(src_diff, src_stride, tmp_buf); // src_diff: 9 bit
-            // dynamic range [-255, 255]
+        // src_diff: 9 bit (8b), 13 bit (HBD)
+        // dynamic range [-255, 255] (8b), [-4095, 4095] (HBD)
+        hadamard_col4(src_diff, src_stride, tmp_buf);
         tmp_buf += 4;
         ++src_diff;
     }
 
     tmp_buf = &buffer[0];
     for (idx = 0; idx < 4; ++idx) {
-        hadamard_col4(tmp_buf, 4, buffer2 + 4 * idx); // tmp_buf: 12 bit
-        // dynamic range [-2040, 2040]
-        // buffer2: 15 bit
-        // dynamic range [-16320, 16320]
+        // tmp_buf: 10 bit (8b), 14 bit (HBD)
+        // dynamic range [-510, 510] (8b), [-8190, 8190] (HBD)
+        // buffer2: 11 bit (8b), 15 bit (HBD)
+        // dynamic range [-1020, 1020] (8b), [-16380, 16380] (HBD)
+        hadamard_col4(tmp_buf, 4, buffer2 + 4 * idx);
+
         ++tmp_buf;
     }
 
-    for (idx = 0; idx < 16; ++idx) coeff[idx] = (int32_t)buffer2[idx];
+    // Extra transpose to match SSE2 behavior(i.e., svt_aom_hadamard_4x4_sse2).
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) { coeff[i * 4 + j] = (int32_t)buffer2[j * 4 + i]; }
+    }
 }
 
 // src_diff: first pass, 9 bit, dynamic range [-255, 255]
@@ -260,6 +175,92 @@ void svt_aom_hadamard_8x8_c(const int16_t* src_diff, ptrdiff_t src_stride, int32
         // dynamic range [-2040, 2040]
         // buffer2: 15 bit
         // dynamic range [-16320, 16320]
+        ++tmp_buf;
+    }
+
+    for (idx = 0; idx < 64; ++idx) coeff[idx] = (int32_t)buffer2[idx];
+}
+
+static void hadamard_highbd_col8_first_pass(const int16_t* src_diff, ptrdiff_t src_stride, int16_t* coeff) {
+    int16_t b0 = src_diff[0 * src_stride] + src_diff[1 * src_stride];
+    int16_t b1 = src_diff[0 * src_stride] - src_diff[1 * src_stride];
+    int16_t b2 = src_diff[2 * src_stride] + src_diff[3 * src_stride];
+    int16_t b3 = src_diff[2 * src_stride] - src_diff[3 * src_stride];
+    int16_t b4 = src_diff[4 * src_stride] + src_diff[5 * src_stride];
+    int16_t b5 = src_diff[4 * src_stride] - src_diff[5 * src_stride];
+    int16_t b6 = src_diff[6 * src_stride] + src_diff[7 * src_stride];
+    int16_t b7 = src_diff[6 * src_stride] - src_diff[7 * src_stride];
+
+    int16_t c0 = b0 + b2;
+    int16_t c1 = b1 + b3;
+    int16_t c2 = b0 - b2;
+    int16_t c3 = b1 - b3;
+    int16_t c4 = b4 + b6;
+    int16_t c5 = b5 + b7;
+    int16_t c6 = b4 - b6;
+    int16_t c7 = b5 - b7;
+
+    coeff[0] = c0 + c4;
+    coeff[7] = c1 + c5;
+    coeff[3] = c2 + c6;
+    coeff[4] = c3 + c7;
+    coeff[2] = c0 - c4;
+    coeff[6] = c1 - c5;
+    coeff[1] = c2 - c6;
+    coeff[5] = c3 - c7;
+}
+
+// src_diff: 16 bit, dynamic range [-32760, 32760]
+// coeff: 19 bit
+static void hadamard_highbd_col8_second_pass(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff) {
+    int32_t b0 = src_diff[0 * src_stride] + src_diff[1 * src_stride];
+    int32_t b1 = src_diff[0 * src_stride] - src_diff[1 * src_stride];
+    int32_t b2 = src_diff[2 * src_stride] + src_diff[3 * src_stride];
+    int32_t b3 = src_diff[2 * src_stride] - src_diff[3 * src_stride];
+    int32_t b4 = src_diff[4 * src_stride] + src_diff[5 * src_stride];
+    int32_t b5 = src_diff[4 * src_stride] - src_diff[5 * src_stride];
+    int32_t b6 = src_diff[6 * src_stride] + src_diff[7 * src_stride];
+    int32_t b7 = src_diff[6 * src_stride] - src_diff[7 * src_stride];
+
+    int32_t c0 = b0 + b2;
+    int32_t c1 = b1 + b3;
+    int32_t c2 = b0 - b2;
+    int32_t c3 = b1 - b3;
+    int32_t c4 = b4 + b6;
+    int32_t c5 = b5 + b7;
+    int32_t c6 = b4 - b6;
+    int32_t c7 = b5 - b7;
+
+    coeff[0] = c0 + c4;
+    coeff[7] = c1 + c5;
+    coeff[3] = c2 + c6;
+    coeff[4] = c3 + c7;
+    coeff[2] = c0 - c4;
+    coeff[6] = c1 - c5;
+    coeff[1] = c2 - c6;
+    coeff[5] = c3 - c7;
+}
+
+// The order of the output coeff of the hadamard is not important. For
+// optimization purposes the final transpose may be skipped.
+void svt_aom_highbd_hadamard_8x8_c(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff) {
+    int      idx;
+    int16_t  buffer[64];
+    int32_t  buffer2[64];
+    int16_t* tmp_buf = &buffer[0];
+    for (idx = 0; idx < 8; ++idx) {
+        // src_diff: 13 bit
+        // buffer: 16 bit, dynamic range [-32760, 32760]
+        hadamard_highbd_col8_first_pass(src_diff, src_stride, tmp_buf);
+        tmp_buf += 8;
+        ++src_diff;
+    }
+
+    tmp_buf = &buffer[0];
+    for (idx = 0; idx < 8; ++idx) {
+        // buffer: 16 bit
+        // buffer2: 19 bit, dynamic range [-262080, 262080]
+        hadamard_highbd_col8_second_pass(tmp_buf, 8, buffer2 + 8 * idx);
         ++tmp_buf;
     }
 
