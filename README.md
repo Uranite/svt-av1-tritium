@@ -114,10 +114,6 @@ Manually adjust temporal filtering strength specifically on keyframes. Each incr
 
 Adaptively varies temporal filtering strength based on 64x64 block error. This can slightly improve visual fidelity in scenes with fast motion or fine detail. Setting this to 2 will override `--tf-strength` and `--kf-tf-strength`, as their values will be automatically determined by the encoder.
 
-- `--psy-rd` *0.0 to 4.0*
-
-Configures psychovisual rate distortion strength to improve perceived quality by measuring and attempting to preserve the visual energy distribution of high-frequency details and textures. The default is 0.
-
 - `--alt-ssim-tuning` *0 and 1*
 
 Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate-distortion calculations by utilizing an alternative per-pixel variance function across 4X4, 8X8, and 16X16 blocks in addition to superblock-level SSIM rate-distortion tuning. Originally tested to operate on Tune 2 (SSIM) and Tune 4 (Still Picture); usage on Tune 3 (Subjective SSIM) is experimental. The default is 0.

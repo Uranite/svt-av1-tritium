@@ -950,11 +950,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->psy_rd > 4.0 || config->psy_rd < 0.0) {
-        SVT_ERROR("Instance %u: PSY-RD strength must be between 0.0 and 4.0\n", channel_number + 1);
-        return_error = EB_ErrorBadParameter;
-    }
-
     // if (config->low_q_taper > 1) {
     //     SVT_ERROR("Instance %u: low-q-taper must be between 0 and 1\n", channel_number + 1);
     //     return_error = EB_ErrorBadParameter;
@@ -1148,7 +1143,6 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->tf_strength                       = 1;
     config_ptr->kf_tf_strength                    = 1;
     config_ptr->noise_norm_strength               = 1;
-    config_ptr->psy_rd                            = 0;
     config_ptr->low_q_taper                       = 0;
     config_ptr->sharp_tx                          = 1;
     config_ptr->hbd_mds                           = 0;
@@ -1324,10 +1318,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                     SVT_INFO("SVT [config]: keyframe temporal filtering strength \t\t\t\t: %d\n",
                             config->kf_tf_strength);
                 }
-        }
-        if (config->psy_rd > 0.0) {
-            SVT_INFO("SVT [config]: PSY-RD Strength \t\t\t\t\t\t: %.2f\n",
-                    config->psy_rd);
+
         }
 		if (config->low_q_taper) {
             SVT_INFO("SVT [config]: low Q taper \t\t\t\t\t\t\t: %s\n",
@@ -2291,7 +2282,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         double     *out;
     } double_opts[] = {
         {"qp-scale-compress-strength", &config_struct->qp_scale_compress_strength},
-        {"psy-rd", &config_struct->psy_rd},
     };
     const size_t double_opts_size = sizeof(double_opts) / sizeof(double_opts[0]);
 

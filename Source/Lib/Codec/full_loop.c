@@ -20,7 +20,7 @@ void     svt_aom_residual_kernel(uint8_t *input, uint32_t input_offset, uint32_t
                                  uint32_t residual_stride, Bool hbd, uint32_t area_width, uint32_t area_height);
 uint64_t svt_spatial_full_distortion_ssim_kernel(uint8_t *input, uint32_t input_offset, uint32_t input_stride,
                                                  uint8_t *recon, int32_t recon_offset, uint32_t recon_stride,
-                                                 uint32_t area_width, uint32_t area_height, bool hbd, double psy_strength);
+                                                 uint32_t area_width, uint32_t area_height, bool hbd);
 
 void svt_aom_quantize_b_c_ii(const TranLow *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr,
                              const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr,
@@ -2221,8 +2221,7 @@ void svt_aom_full_loop_uv(PictureControlSet *pcs, ModeDecisionContext *ctx, Mode
                         cand_bf->pred->stride_cb,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
-                        ctx->hbd_md,
-                        pcs->scs->static_config.psy_rd);
+                        ctx->hbd_md);
 
                     txb_full_distortion[DIST_SSIM][1][DIST_CALC_RESIDUAL] = svt_spatial_full_distortion_ssim_kernel(
                         input_pic->buffer_cb,
@@ -2233,8 +2232,7 @@ void svt_aom_full_loop_uv(PictureControlSet *pcs, ModeDecisionContext *ctx, Mode
                         cand_bf->recon->stride_cb,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
-                        ctx->hbd_md,
-                        pcs->scs->static_config.psy_rd);
+                        ctx->hbd_md);
 
                     txb_full_distortion[DIST_SSIM][1][DIST_CALC_PREDICTION] <<= 4;
                     txb_full_distortion[DIST_SSIM][1][DIST_CALC_RESIDUAL] <<= 4;
@@ -2400,8 +2398,7 @@ void svt_aom_full_loop_uv(PictureControlSet *pcs, ModeDecisionContext *ctx, Mode
                         cand_bf->pred->stride_cr,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
-                        ctx->hbd_md,
-                        pcs->scs->static_config.psy_rd);
+                        ctx->hbd_md);
 
                     txb_full_distortion[DIST_SSIM][2][DIST_CALC_RESIDUAL] = svt_spatial_full_distortion_ssim_kernel(
                         input_pic->buffer_cr,
@@ -2412,8 +2409,7 @@ void svt_aom_full_loop_uv(PictureControlSet *pcs, ModeDecisionContext *ctx, Mode
                         cand_bf->recon->stride_cr,
                         cropped_tx_width_uv,
                         cropped_tx_height_uv,
-                        ctx->hbd_md,
-                        pcs->scs->static_config.psy_rd);
+                        ctx->hbd_md);
 
                     txb_full_distortion[DIST_SSIM][2][DIST_CALC_PREDICTION] <<= 4;
                     txb_full_distortion[DIST_SSIM][2][DIST_CALC_RESIDUAL] <<= 4;

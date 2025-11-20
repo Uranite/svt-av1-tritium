@@ -1063,20 +1063,11 @@ typedef struct EbSvtAv1EncConfiguration {
     uint8_t noise_norm_strength;
 
     /**
-     * @brief Enable psychovisual rate distortion
-     * 0.00: disable PSY-RD
-     * 4.00: enable PSY-RD with a strength of 4.00
-     * Default is 0.50.
-     */
-    double psy_rd;
-
-    /**
      * @brief Prevent macroblocks from being boosted to very low q.
      *
      * Default is 0. 0 = off, 1 = on.
      */
     Bool low_q_taper;
-
 
     /**
      * @brief Enable sharp-tx, a toggle that enables much sharper transforms decisions for higher fidelity ouput,
@@ -1132,7 +1123,7 @@ typedef struct EbSvtAv1EncConfiguration {
      uint8_t filtering_noise_detection;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - 7 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - sizeof(double)];
 
 } EbSvtAv1EncConfiguration;
 
