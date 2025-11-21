@@ -5144,14 +5144,12 @@ uint64_t svt_spatial_full_distortion_ssim_kernel(uint8_t* input, uint32_t input_
         ssim_score = ssim_hbd((uint16_t *)input + input_offset, input_stride,
             (uint16_t *)recon + recon_offset, recon_stride,
             area_width, area_height);
-#if CONFIG_ENABLE_HIGH_BIT_DEPTH
         if (ac_bias) {
             uint64_t ac_distortion = svt_psy_distortion_hbd((uint16_t *)input + input_offset,
                 input_stride, (uint16_t *)recon + recon_offset, recon_stride,
                 area_width, area_height);
             psy_distortion = (uint64_t)(ac_distortion * ac_bias);
         }
-#endif
     }
 
     spatial_distortion = (uint64_t)((1 - ssim_score) * count * 100 * 7 * m);

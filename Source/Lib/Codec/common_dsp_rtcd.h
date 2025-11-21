@@ -1079,10 +1079,8 @@ extern "C" {
     void svt_aom_hadamard_8x8_c(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff);
     void svt_aom_hadamard_8x8_sse2(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff);
     RTCD_EXTERN void (*svt_aom_hadamard_8x8)(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff);
-#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     void svt_aom_highbd_hadamard_8x8_c(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
     RTCD_EXTERN void (*svt_aom_highbd_hadamard_8x8)(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
-#endif
     void svt_aom_hadamard_4x4_c(const int16_t* src_diff, ptrdiff_t src_stride, int32_t* coeff);
     RTCD_EXTERN void (*svt_aom_hadamard_4x4)(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
 
@@ -1218,9 +1216,7 @@ extern "C" {
     void svt_aom_hadamard_8x8_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
     void svt_aom_hadamard_16x16_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
     void svt_aom_hadamard_32x32_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
-#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     void svt_aom_highbd_hadamard_8x8_neon(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
-#endif
 
     void svt_aom_subtract_block_neon(int rows, int cols, int16_t *diff, ptrdiff_t diff_stride, const uint8_t *src, ptrdiff_t src_stride, const uint8_t *pred, ptrdiff_t pred_stride);
     void svt_aom_highbd_subtract_block_neon(int rows, int cols, int16_t *diff_ptr, ptrdiff_t diff_stride, const uint8_t *src_ptr, ptrdiff_t src_stride, const uint8_t *pred_ptr, ptrdiff_t pred_stride, int bd);
@@ -2904,9 +2900,7 @@ extern "C" {
     extern void svt_memcpy_intrin_sse (void  *dst_ptr, void  const *src_ptr, size_t size);
 
     void svt_aom_hadamard_4x4_sse2(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
-#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     void svt_aom_highbd_hadamard_8x8_avx2(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
-#endif
 #endif
 
 

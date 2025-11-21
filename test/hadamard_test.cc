@@ -301,7 +301,6 @@ INSTANTIATE_TEST_SUITE_P(
                       HadamardFuncWithSize(&svt_aom_hadamard_32x32_neon, 32)));
 #endif  // ARCH_AARCH64
 
-#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 class HadamardHighbdTest : public HadamardTestBase<int32_t, HadamardFunc> {
   protected:
     HadamardHighbdTest() : HadamardTestBase(GetParam()) {
@@ -337,7 +336,5 @@ INSTANTIATE_TEST_SUITE_P(NEON, HadamardHighbdTest,
                          ::testing::Values(HadamardFuncWithSize(
                              &svt_aom_highbd_hadamard_8x8_neon, 8)));
 #endif  // ARCH_AARCH64
-
-#endif  // CONFIG_ENABLE_HIGH_BIT_DEPTH
 
 }  // namespace
