@@ -2494,7 +2494,11 @@ static int32_t compute_default_min_intra_period(
     SequenceControlSet       *scs){
     int32_t min_intra_period           = 0;
     EbSvtAv1EncConfiguration   *config = &scs->static_config;
+#if FIX_FPS_CALC
+    double fps                          = scs->frame_rate;
+#else
     double fps                         = (double)scs->frame_rate / (1 << 16);
+#endif
     int32_t mini_gop_size              = (1 << (config->hierarchical_levels));
 
     min_intra_period                   = (((int)(fps + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
