@@ -6,7 +6,9 @@ Before building, please consider **enabling** link-time optimizations (LTO), whi
 ## Windows* Operating Systems (64-bit)
 
 - __Build Requirements__
-  - Visual Studio* 2017 (download [here](https://www.visualstudio.com/vs/older-downloads/)) or 2019 (download [here](https://visualstudio.microsoft.com/downloads/))
+  - [LLVM](https://github.com/llvm/llvm-project/releases)
+  - [Ninja](https://github.com/ninja-build/ninja/releases)
+  - [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/), install "Desktop development with C++", only MSVC and the latest Windows 11 SDK is needed, feel free to unselect other optionals.
   - CMake 3.16 or later (download [here](https://github.com/Kitware/CMake/releases/download/v3.24.2/cmake-3.24.2-windows-x86_64.msi))
   - NASM Assembler version 2.14 or later
     - Download the nasm exe from the following [link](https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip)
@@ -16,8 +18,7 @@ Before building, please consider **enabling** link-time optimizations (LTO), whi
 - __Build Instructions__
   - Build the project by following the steps below
     - cd into `Build\windows`
-    - run `build.bat <2019|2017|2015>` [This will generate the .sln files and build the project]
-    - for LTO build run `build.bat <2019|2017|2015> lto` [This will generate the .sln files and build the project]
+    - run `build.bat clang release static`
 
 - __Binaries Location__
   - Binaries can be found under `<repo dir>/Bin/Release` or `<repo dir>/Bin/Debug`, depending on whether Debug or Release were selected in the build mode.
@@ -25,7 +26,6 @@ Before building, please consider **enabling** link-time optimizations (LTO), whi
 - __Installation__
 
   For the binaries to operate properly on your system, the following conditions have to be met:
-  - On any of the Windows* Operating Systems listed in the OS requirements section, install Visual Studio* 2015/2017/2019
   - Once the installation is complete, copy the binaries to a location making sure that both the sample application `SvtAv1EncApp.exe` and library `SvtAv1Enc.dll` are in the same folder.
   - Open the command prompt window at the chosen location and run the sample application to encode: `SvtAV1EncApp.exe -i [in.yuv] -w [width] -h [height] -b [out.ivf]`
   - Sample application supports reading from pipe. E.g. `ffmpeg -i [input.mp4] -nostdin -f rawvideo -pix_fmt yuv420p - | SvtAv1EncApp.exe -i stdin -n [number_of_frames_to_encode] -w [width] -h [height]`
