@@ -1167,6 +1167,11 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint32_t) * 2 // max intra/inter bitrates
         - sizeof(bool) // enable_intrabc
         - sizeof(uint8_t) // max_managed_refs (ref-frame mgmt)
+        /* SVT-AV1-HDR additions */
+        - (sizeof(uint8_t) * 8) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength
+        - (sizeof(int8_t) * 2)  // noise_strength_chroma, noise_size
+        - (sizeof(bool) * 3)    // alt_lambda_factors, alt_ssim_tuning, color_range_provided
+        - sizeof(double)        // qp_scale_compress_strength
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
