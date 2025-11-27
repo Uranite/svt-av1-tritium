@@ -67,9 +67,6 @@ static INLINE PredictionMode get_uv_mode(UvPredictionMode mode) {
 // CFL pred behaviorally maps to a unipred inter mode better than to DC intra mode,
 // so manually account for that case
 static INLINE PredictionMode get_uv_mode_cfl_aware(UvPredictionMode mode) {
-    if (mode < UV_DC_PRED || mode > UV_CFL_PRED) {
-        return INTRA_INVALID;
-        }
     return mode != UV_CFL_PRED ? get_uv_mode(mode) : NEARESTMV;
 }
 
