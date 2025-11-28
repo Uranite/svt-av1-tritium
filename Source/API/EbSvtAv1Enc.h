@@ -1121,10 +1121,9 @@ typedef struct EbSvtAv1EncConfiguration {
      bool auto_tiling;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - (sizeof(uint8_t) * 6)
-        - (sizeof(bool) * 3)
+    uint8_t padding[128 - (sizeof(uint8_t) * 5)
+        - (sizeof(bool) * 2)
         - sizeof(double)
-        - sizeof(int32_t)
 #if FTR_SFRAME_POSI
         - sizeof(SvtAv1SFramePositions)
 #endif // FTR_SFRAME_POSI
@@ -1133,9 +1132,10 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(int8_t)
 #endif // FTR_SFRAME_QP
         /* SVT-AV1-HDR additions */
-        - (sizeof(uint8_t) * 6)
-        - (sizeof(bool) * 2)
+        - (sizeof(uint8_t) * 7)
+        - (sizeof(bool) * 3)
         - (sizeof(double)) + (sizeof(uint8_t)) // qp_scale_compress_strength uint8_t -> double
+        - sizeof(int32_t)
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
