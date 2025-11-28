@@ -1154,7 +1154,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     // Alt-Ref default values
     config_ptr->enable_tf       = 1;
     config_ptr->enable_overlays = false;
-    config_ptr->tune            = 0;
+    config_ptr->tune            = 1;
     // Super-resolution default values
     config_ptr->superres_mode      = SUPERRES_NONE;
     config_ptr->superres_denom     = SCALE_NUMERATOR;
@@ -1184,8 +1184,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
 
     // Quant Matrices (QM)
     config_ptr->enable_qm           = 1;
-    config_ptr->min_qm_level        = 4;
-    config_ptr->max_qm_level        = 15;
+    config_ptr->min_qm_level        = 6;
+    config_ptr->max_qm_level        = 10;
     config_ptr->min_chroma_qm_level = 8;
     config_ptr->max_chroma_qm_level = 15;
 
@@ -1224,13 +1224,13 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->ac_bias                    = 1.0;
     config_ptr->noise_norm_strength        = 1;
     config_ptr->kf_tf_strength             = 1;
-    config_ptr->alt_lambda_factors         = 0;
+    config_ptr->alt_lambda_factors         = 1;
     config_ptr->sharp_tx                   = 1;
     config_ptr->alt_ssim_tuning            = false;
     config_ptr->hbd_mds                    = 0;
     config_ptr->tx_bias                    = 0;
     config_ptr->complex_hvs                = 0;
-    config_ptr->noise_adaptive_filtering   = 0;
+    config_ptr->noise_adaptive_filtering   = 2;
     config_ptr->cdef_scaling               = 15;
     config_ptr->auto_tiling                = true;
     return return_error;
