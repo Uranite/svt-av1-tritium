@@ -1132,8 +1132,18 @@ typedef struct EbSvtAv1EncConfiguration {
      */
      double ac_bias;
 
+    /**
+     * @brief Transform size/type bias type
+     * 0: disabled
+     * 1: full
+     * 2: transform size only
+     * 3: interpolation filter tweaks only
+     * Default is 0
+     */
+    uint8_t tx_bias;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - 7 * sizeof(Bool) - 13 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 7 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
 
 } EbSvtAv1EncConfiguration;
 

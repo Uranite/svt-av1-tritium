@@ -1958,6 +1958,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         input_data.alt_ssim_tuning = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.alt_ssim_tuning;
         input_data.luminance_qp_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.luminance_qp_bias;
         input_data.ac_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.ac_bias;
+        input_data.tx_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.tx_bias;
         input_data.static_config = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config;
 
         EB_NEW(
@@ -5082,6 +5083,9 @@ static void copy_api_from_app(
     
     // AC bias
     scs->static_config.ac_bias = config_struct->ac_bias;
+    
+    // TX bias
+    scs->static_config.tx_bias = config_struct->tx_bias;
 
     // Override settings for Still Picture tune
     if (scs->static_config.tune == 4) {

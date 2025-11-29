@@ -980,6 +980,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->tx_bias > 3) {
+        SVT_ERROR("Instance %u: TX bias must be between 0 and 3\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+
     return return_error;
 }
 
@@ -1156,6 +1161,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->luminance_qp_bias                 = 0;
     config_ptr->filtering_noise_detection         = 0;
     config_ptr->ac_bias                           = 0.0;
+    config_ptr->tx_bias                           = 0;
     return return_error;
 }
 
@@ -1350,8 +1356,12 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 break;
         }
         
-        if (config->ac_bias) {
-            SVT_INFO("SVT [config]: AC bias strength \t\t\t\t\t\t: %.2f\n", config->ac_bias);
+        if (config->ac_bias || config->tx_bias) {
+            SVT_INFO("SVT [config]: AC bias strength / TX bias \t\t\t\t\t: %.2f / %s\n",
+                     config->ac_bias,
+                     config->tx_bias == 1
+                         ? "full"
+                         : (config->tx_bias == 2 ? "size only" : (config->tx_bias == 3 ? "interp. only" : "off")));
         }
     }
 #ifdef DEBUG_BUFFERS
@@ -2252,6 +2262,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"complex-hvs", &config_struct->complex_hvs},
         {"luminance-qp-bias", &config_struct->luminance_qp_bias},
         {"filtering-noise-detection", &config_struct->filtering_noise_detection},
+        {"tx-bias", &config_struct->tx_bias},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 

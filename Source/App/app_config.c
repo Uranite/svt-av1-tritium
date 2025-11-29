@@ -231,6 +231,7 @@
 #define LUMINANCE_QP_BIAS_TOKEN "--luminance-qp-bias"
 #define FILTERING_NOISE_DETECTION_TOKEN "--filtering-noise-detection"
 #define AC_BIAS_TOKEN "--ac-bias"
+#define TX_BIAS_TOKEN "--tx-bias"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -1364,6 +1365,10 @@ ConfigEntry config_entry_psy[] = {
      AC_BIAS_TOKEN,
      "Strength of AC bias in rate distortion, default is 0.0 [0.0-8.0]",
      set_cfg_generic_token},
+    {SINGLE_INPUT,
+     TX_BIAS_TOKEN,
+     "Transform size/type bias type, default is 0 [0-3]; 1 = full, 2, transform size only, 3 = interpolation only",
+     set_cfg_generic_token},
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
@@ -1604,6 +1609,9 @@ ConfigEntry config_entry[] = {
 
     // AC bias strength
     {SINGLE_INPUT, AC_BIAS_TOKEN, "AcBias", set_cfg_generic_token},
+
+    // TX bias
+    {SINGLE_INPUT, TX_BIAS_TOKEN, "TxBias", set_cfg_generic_token},
 
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};
