@@ -30,3 +30,4 @@ third_party/cpuinfo
 third_party/safestringlib/dummy.c
 /offline_ci/
 third_party/ffms2/lib/ffms2.lib
+/svt_build
