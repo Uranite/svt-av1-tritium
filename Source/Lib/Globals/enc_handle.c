@@ -2470,8 +2470,8 @@ static int32_t compute_default_intra_period(
         mini_gop_size = 16;
     }
 
-    /* Use a 10-sec GOP by default (SVT-AV1-HDR) */
-    intra_period                       = (((int)(fps * 10 + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
+    /* Use a 5-sec GOP by default */
+    intra_period                       = (((int)(fps * 5 + mini_gop_size - 1) / mini_gop_size) * (mini_gop_size));
 
     // Cap intra period to the nearest one that has at least 300 frames that doesn't break the minigop
     // (to avoid gops that are too big and could cause seeking issues with some players)
