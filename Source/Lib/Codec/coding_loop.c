@@ -1190,10 +1190,10 @@ static void perform_intra_coding_loop(PictureControlSet *pcs, SuperBlock *sb_ptr
         }
     } // Transform Loop
     assert(IMPLIES(!ed_ctx->blk_geom->has_uv, blk_ptr->u_has_coeff == 0 && blk_ptr->v_has_coeff == 0));
-    blk_ptr->block_has_coeff = (blk_ptr->y_has_coeff || blk_ptr->u_has_coeff || blk_ptr->v_has_coeff);
-    if (pcs->scs->static_config.skip_taper) {
+    if (!blk_ptr->variance_md_skip_taper_active)
+        blk_ptr->block_has_coeff = (blk_ptr->y_has_coeff || blk_ptr->u_has_coeff || blk_ptr->v_has_coeff);
+    else
         blk_ptr->block_has_coeff = TRUE;
-    }
 }
 #define REFMVS_LIMIT ((1 << 12) - 1)
 
@@ -1536,10 +1536,10 @@ static void perform_inter_coding_loop(SequenceControlSet *scs, PictureControlSet
     } // Transform Loop
 
     assert(IMPLIES(!blk_geom->has_uv, blk_ptr->u_has_coeff == 0 && blk_ptr->v_has_coeff == 0));
-    blk_ptr->block_has_coeff = (blk_ptr->y_has_coeff || blk_ptr->u_has_coeff || blk_ptr->v_has_coeff);
-    if (pcs->scs->static_config.skip_taper) {
+    if (!blk_ptr->variance_md_skip_taper_active)
+        blk_ptr->block_has_coeff = (blk_ptr->y_has_coeff || blk_ptr->u_has_coeff || blk_ptr->v_has_coeff);
+    else
         blk_ptr->block_has_coeff = TRUE;
-    }
 }
 
 /*

@@ -2225,11 +2225,11 @@ static void build_cand_block_array(SequenceControlSet *scs, PictureControlSet *p
         : ctx->disallow_4x4                                                                                   ? 8
                                                                                                               : 4;
     // Safety check: Restrict min sq size so mode decision can always find at least one valid partition scheme
-    min_sq_size = scs->static_config.max_32_tx_size ? MIN(min_sq_size, 32) : min_sq_size;
+    min_sq_size = ctx->max_32_blk_size ? MIN(min_sq_size, 32) : min_sq_size;
 
     while (blk_index < max_block_cnt) {
         const BlockGeom *blk_geom = get_blk_geom_mds(blk_index);
-        int32_t max_sq_size = (blk_geom->sq_size > 32 && scs->static_config.max_32_tx_size) ? 32 : blk_geom->sq_size;
+        int32_t max_sq_size = (blk_geom->sq_size > 32 && ctx->max_32_blk_size) ? 32 : blk_geom->sq_size;
 
         assert(min_sq_size <= max_sq_size);
 
@@ -2619,7 +2619,7 @@ static void perform_pred_depth_refinement(SequenceControlSet *scs, PictureContro
                             update_pred_th_offset(ctx, blk_geom, &s_depth, &e_depth, &th_offset);
                         }
 
-                        if (scs->static_config.max_32_tx_size) {
+                        if (ctx->max_32_blk_size) {
                             // Don't test depths that result in blocks greater than 32x32
                             switch (blk_geom->sq_size) {
                                 case 4:
@@ -3243,6 +3243,13 @@ void *svt_aom_mode_decision_kernel(void *input_ptr) {
         md_ctx->encoder_bit_depth                     = (uint8_t)scs->static_config.encoder_bit_depth;
         md_ctx->corrupted_mv_check                    = (pcs->ppcs->aligned_width >= (1 << (MV_IN_USE_BITS - 3))) ||
             (pcs->ppcs->aligned_height >= (1 << (MV_IN_USE_BITS - 3)));
+        // The use of qstep table here is completely arbitrary. It needs
+        // something in the range of a few hundred to a few thousand, and it
+        // needs something that corresponds with quality, and the qstep table
+        // just happenes to fit both of these two points.
+        md_ctx->variance_md_cost_const                = svt_aom_dc_quant_qtx(quantizer_to_qindex[(uint8_t)scs->static_config.qp] + scs->static_config.extended_crf_qindex_offset,
+                                                                             0,
+                                                                             md_ctx->encoder_bit_depth);
         ed_ctx->tile_group_index = enc_dec_tasks->tile_group_index;
         ed_ctx->coded_sb_count   = 0;
         segments_ptr             = pcs->enc_dec_segment_ctrl[ed_ctx->tile_group_index];
@@ -3361,6 +3368,15 @@ void *svt_aom_mode_decision_kernel(void *input_ptr) {
                         ed_ctx->md_ctx->sb_origin_y = sb_origin_y;
                         mdc_ptr                     = &(ed_ctx->md_ctx->mdc_sb_array);
                         ed_ctx->sb_index            = sb_index;
+
+                        if (scs->static_config.max_32_tx_size)
+                            ed_ctx->md_ctx->max_32_blk_size = true;
+                        else if (scs->static_config.variance_md_bias &&
+                                 pcs->ppcs->variance[ed_ctx->md_ctx->sb_index][ME_TIER_ZERO_PU_64x64] > AOMMAX(4, (scs->static_config.variance_md_bias_thr >> 2) + (scs->static_config.variance_md_bias_thr >> 3)))
+                            ed_ctx->md_ctx->max_32_blk_size = true;
+                        else
+                            ed_ctx->md_ctx->max_32_blk_size = false;
+
                         if (pcs->cdf_ctrl.enabled) {
                             if (scs->pic_based_rate_est &&
                                 scs->enc_dec_segment_row_count_array[pcs->temporal_layer_index] == 1 &&

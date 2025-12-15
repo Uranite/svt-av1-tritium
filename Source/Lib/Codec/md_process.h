@@ -1156,6 +1156,8 @@ typedef struct ModeDecisionContext {
     NicCtrls        nic_ctrls;
     MV              ref_mv;
     uint16_t        sb_index;
+    // `--max-32-tx-size` and `--variance-md-bias`
+    Bool            max_32_blk_size;
     uint64_t        mds0_best_cost;
     uint8_t         mds0_best_class;
     uint32_t        mds0_best_idx;
@@ -1250,6 +1252,9 @@ typedef struct ModeDecisionContext {
     // SSIM_LVL_1: use ssim cost to find best candidate in product_full_mode_decision()
     // SSIM_LVL_2: addition to level 1, also use ssim cost to find best tx type in tx_type_search()
     SsimLevel tune_ssim_level;
+
+    // used in `--variance-md-bias` as well as `--chroma-qmc-bias`
+    uint64_t   variance_md_cost_const;
 } ModeDecisionContext;
 
 typedef void (*EbAv1LambdaAssignFunc)(PictureControlSet *pcs, uint32_t *fast_lambda, uint32_t *full_lambda,

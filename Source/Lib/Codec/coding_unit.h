@@ -268,6 +268,7 @@ typedef struct BlkStruct {
     unsigned prediction_mode_flag : 2;
     // ec; skip coeff only. as defined in section 6.10.11 of the av1 text
     unsigned block_has_coeff : 1;
+    unsigned variance_md_skip_taper_active : 1;
 } BlkStruct;
 typedef struct EcBlkStruct {
     MacroBlockD *av1xd;

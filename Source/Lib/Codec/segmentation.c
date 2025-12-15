@@ -20,7 +20,7 @@
 #endif
 #include "deblocking_filter.h"
 
-static uint16_t get_variance_for_cu(const BlockGeom *blk_geom, uint16_t *variance_ptr) {
+uint16_t get_variance_for_cu(const BlockGeom *blk_geom, uint16_t *variance_ptr) {
     int index0, index1;
     //Assumes max CU size is 64
     switch (blk_geom->bsize) {

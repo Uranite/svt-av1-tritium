@@ -4401,6 +4401,7 @@ void svt_aom_product_full_mode_decision_light_pd1(
     blk_ptr->tx_depth = 0;
     blk_ptr->skip_mode = cand->skip_mode; // note, the skip mode flag is re-checked in the ENCDEC process
     blk_ptr->block_has_coeff = ((cand_bf->block_has_coeff) > 0) ? TRUE : FALSE;
+    blk_ptr->variance_md_skip_taper_active = cand_bf->variance_md_skip_taper_active;
     ctx->blk_ptr->cnt_nz_coeff = cand_bf->cnt_nz_coeff;
 
     // If skip_mode is allowed, and block has no coeffs, use skip_mode
@@ -4704,6 +4705,7 @@ uint32_t svt_aom_product_full_mode_decision(
     blk_ptr->tx_depth = cand->tx_depth;
     blk_ptr->skip_mode = cand->skip_mode; // note, the skip mode flag is re-checked in the ENCDEC process
     blk_ptr->block_has_coeff = ((cand_bf->block_has_coeff) > 0) ? TRUE : FALSE;
+    blk_ptr->variance_md_skip_taper_active = cand_bf->variance_md_skip_taper_active;
     ctx->blk_ptr->cnt_nz_coeff = cand_bf->cnt_nz_coeff;
 
     // If skip_mode is allowed, and block has no coeffs, use skip_mode

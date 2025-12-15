@@ -2784,6 +2784,29 @@ static int32_t avail_past_pictures(PictureParentControlSet**buf, uint32_t buf_si
     return tot_past;
 }
 
+static int32_t get_noise_level_thr(PictureParentControlSet *pcs, PictureDecisionContext *pd_ctx, bool print) {    
+    if (pcs->scs->static_config.noise_level_thr == -1)
+        return VQ_NOISE_LVL_TH;
+    else if (pcs->scs->static_config.noise_level_thr == -2) {
+        if (print) {
+            if (pcs->picture_number == 0) {
+                SVT_INFO("noise-level-thr has been set to print mode\n");
+                SVT_INFO("it will now print the noise level of each frame here\n");
+                SVT_INFO("-------------------------------------------\n");
+                if (pcs->scs->static_config.enable_tf == 0) {
+                    SVT_INFO("the noise adaptive filtering system might not be functional when enable-tf is set to 0\n");
+                    SVT_INFO("-------------------------------------------\n");
+                }
+                SVT_INFO("encoder default noise level thr: %5ld\n", VQ_NOISE_LVL_TH);
+            }
+            SVT_INFO("noise level for frame %2llu: %5ld\n", pcs->picture_number, pd_ctx->last_i_noise_levels_log1p_fp16[0]);
+        }
+
+        return VQ_NOISE_LVL_TH;
+    }
+    else
+        return pcs->scs->static_config.noise_level_thr;
+}
 
 /*
   searches a picture in a given pcs buffer
@@ -3052,7 +3075,7 @@ static EbErrorType derive_tf_window_params(
             noise_levels_log1p_fp16[0] = pd_ctx->last_i_noise_levels_log1p_fp16[0];
         }
     // Set is_noise_level for the tf off case
-    pcs->is_noise_level = (pd_ctx->last_i_noise_levels_log1p_fp16[0] >= VQ_NOISE_LVL_TH);
+    pcs->is_noise_level = (pd_ctx->last_i_noise_levels_log1p_fp16[0] >= get_noise_level_thr(pcs, pd_ctx, false));
     // Adjust the number of filtering frames
     int offset = pcs->tf_ctrls.modulate_pics ? ref_pics_modulation(pcs, noise_levels_log1p_fp16[0]) : 0;
     if (scs->static_config.pred_structure != SVT_AV1_PRED_RANDOM_ACCESS) {
@@ -3433,7 +3456,7 @@ static void mctf_frame(
     else
         pcs->do_tf = FALSE; // set temporal filtering flag OFF for current picture
 
-    pcs->is_noise_level = (pd_ctx->last_i_noise_levels_log1p_fp16[0] >= VQ_NOISE_LVL_TH);
+    pcs->is_noise_level = (pd_ctx->last_i_noise_levels_log1p_fp16[0] >= get_noise_level_thr(pcs, pd_ctx, true));
 
     if (scs->static_config.pred_structure != SVT_AV1_PRED_RANDOM_ACCESS &&
         scs->tf_params_per_type[1].enabled&&

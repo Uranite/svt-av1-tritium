@@ -224,8 +224,17 @@
 #define NOISE_NORM_STRENGTH_TOKEN "--noise-norm-strength"
 
 #define LOW_Q_TAPER_TOKEN "--low-q-taper"
-#define CHROMA_DISTORTION_TAPER_TOKEN "--chroma-distortion-taper"
-#define SKIP_TAPER_TOKEN "--skip-taper"
+#define NOISE_LEVEL_THR_TOKEN "--noise-level-thr"
+#define VARIANCE_MD_BIAS_TOKEN "--variance-md-bias"
+#define VARIANCE_MD_BIAS_THR_TOKEN "--variance-md-bias-thr"
+#define CHROMA_QMC_BIAS_TOKEN "--chroma-qmc-bias"
+#define TEXTURE_PRESERVING_QMC_BIAS_TOKEN "--texture-preserving-qmc-bias"
+#define CDEF_BIAS_TOKEN "--cdef-bias"
+#define CDEF_BIAS_MAX_CDEF_TOKEN "--cdef-bias-max-cdef"
+#define CDEF_BIAS_MIN_CDEF_TOKEN "--cdef-bias-min-cdef"
+#define CDEF_BIAS_MAX_SEC_CDEF_REL_TOKEN "--cdef-bias-max-sec-cdef-rel"
+#define CDEF_BIAS_DAMPING_OFFSET_TOKEN "--cdef-bias-damping-offset"
+#define CDEF_BIAS_MODE_TOKEN "--cdef-bias-mode"
 #define SHARP_TX_TOKEN "--sharp-tx"
 #define HBD_MDS_TOKEN "--hbd-mds"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
@@ -1342,12 +1351,48 @@ ConfigEntry config_entry_psy[] = {
      "Low q taper. If macroblocks are boosted below q11, taper the effect. Default is 0 (off).",
      set_cfg_generic_token},
     {SINGLE_INPUT,
-     CHROMA_DISTORTION_TAPER_TOKEN,
-     "[PSY] Chroma distortion taper, default is 0 [0-1]",
+     NOISE_LEVEL_THR_TOKEN,
+     "[PSY] Noise level thr, default is -1 [-1: default encoder behaviour, -2: print, >0: set]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
-     SKIP_TAPER_TOKEN,
-     "[PSY] Skip taper, default is 0 [0-1]",
+     VARIANCE_MD_BIAS_TOKEN,
+     "[PSY] Variance md bias, default is 0 [0-1]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     VARIANCE_MD_BIAS_THR_TOKEN,
+     "[PSY] Variance md bias threshold, default is 6.5 [0.0-16.0]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     CHROMA_QMC_BIAS_TOKEN,
+     "[PSY] Chroma q, md and CDEF bias, default is 0 [0: disable, 1: full, 2: light]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     TEXTURE_PRESERVING_QMC_BIAS_TOKEN,
+     "[PSY] Texture preserving q, md, and CDEF bias, default is 0 [0-1]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     CDEF_BIAS_TOKEN,
+     "[PSY] Enable CDEF bias, default is 0 [0-1]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     CDEF_BIAS_MAX_CDEF_TOKEN,
+     "[PSY] Max CDEF strength, default is 4,1,2,0",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     CDEF_BIAS_MIN_CDEF_TOKEN,
+     "[PSY] Min CDEF strength, default is 0,0,0,0",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     CDEF_BIAS_MAX_SEC_CDEF_REL_TOKEN,
+     "[PSY] Max CDEF secondary strength relative to the primary strength, default is 1 [-12-4]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     CDEF_BIAS_DAMPING_OFFSET_TOKEN,
+     "[PSY] Offset CDEF damping, default is 1 [-12-4]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     CDEF_BIAS_MODE_TOKEN,
+     "[PSY] CDEF bias mode, default is 1 [0: MSE, 1: SAD + MSE, 2: SAD + SATD]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      SHARP_TX_TOKEN,
@@ -1609,11 +1654,26 @@ ConfigEntry config_entry[] = {
 	// Low q taper
     {SINGLE_INPUT, LOW_Q_TAPER_TOKEN, "LowQTaper", set_cfg_generic_token},
 
-    // Chroma Distortion Taper
-    {SINGLE_INPUT, CHROMA_DISTORTION_TAPER_TOKEN, "ChromaDistortionTaper", set_cfg_generic_token},
+    // Noise level thr
+    {SINGLE_INPUT, NOISE_LEVEL_THR_TOKEN, "NoiseLevelThr", set_cfg_generic_token},
 
-    // Skip Taper
-    {SINGLE_INPUT, SKIP_TAPER_TOKEN, "SkipTaper", set_cfg_generic_token},
+    // Variance MD Bias
+    {SINGLE_INPUT, VARIANCE_MD_BIAS_TOKEN, "VarianceMDBias", set_cfg_generic_token},
+    {SINGLE_INPUT, VARIANCE_MD_BIAS_THR_TOKEN, "VarianceMDBiasThr", set_cfg_generic_token},
+
+    // Chroma QMC Bias
+    {SINGLE_INPUT, CHROMA_QMC_BIAS_TOKEN, "ChromaQMCBias", set_cfg_generic_token},
+
+    // Texture Preserving QMC Bias
+    {SINGLE_INPUT, TEXTURE_PRESERVING_QMC_BIAS_TOKEN, "TexturePreservingQMCBias", set_cfg_generic_token},
+
+    // CDEF Taper
+    {SINGLE_INPUT, CDEF_BIAS_TOKEN, "CDEFBias", set_cfg_generic_token},
+    {SINGLE_INPUT, CDEF_BIAS_MAX_CDEF_TOKEN, "CDEFBiasMaxCDEF", set_cfg_generic_token},
+    {SINGLE_INPUT, CDEF_BIAS_MIN_CDEF_TOKEN, "CDEFBiasMinCDEF", set_cfg_generic_token},
+    {SINGLE_INPUT, CDEF_BIAS_MAX_SEC_CDEF_REL_TOKEN, "CDEFBiasMaxSecCDEFRel", set_cfg_generic_token},
+    {SINGLE_INPUT, CDEF_BIAS_DAMPING_OFFSET_TOKEN, "CDEFBiasDampingOffset", set_cfg_generic_token},
+    {SINGLE_INPUT, CDEF_BIAS_MODE_TOKEN, "CDEFBiasMode", set_cfg_generic_token},
 
     // Sharp TX
     {SINGLE_INPUT, SHARP_TX_TOKEN, "SharpTX", set_cfg_generic_token},

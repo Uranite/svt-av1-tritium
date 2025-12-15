@@ -24,6 +24,14 @@ typedef void (*CdefFilterBlockFunc)(uint8_t *dst8, uint16_t *dst16, int32_t dstr
 
 void copy_cdef_16bit_to_16bit(uint16_t *dst, int32_t dstride, uint16_t *src, CdefList *dlist, int32_t cdef_count,
                               int32_t bsize);
+uint64_t compute_cdef_dist_bias_16bit(uint8_t mode,
+                                      uint16_t *dst, int32_t dstride, uint16_t *src, CdefList *dlist,
+                                      int32_t cdef_count, BlockSize bsize, int32_t coeff_shift, int32_t pli,
+                                      uint8_t subsampling_factor);
+uint64_t compute_cdef_dist_bias_8bit(uint8_t mode,
+                                     uint8_t *dst8, int32_t dstride, uint8_t *src8,
+                                     CdefList *dlist, int32_t cdef_count, BlockSize bsize,
+                                     int32_t coeff_shift, int32_t pli, uint8_t subsampling_factor);
 
 #ifdef __cplusplus
 }

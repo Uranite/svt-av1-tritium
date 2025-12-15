@@ -1070,20 +1070,80 @@ typedef struct EbSvtAv1EncConfiguration {
     Bool low_q_taper;
 
     /**
-     * @brief Limit the chroma distortion prediction from dropping too low in full mode decision
-     * Min value is 0.
-     * Max value is 1.
-     * Default is 0.
+     * @brief Change encoder noise level threshold
+     * -1: default encoder behaviour
+     * -2: print the noise level for each frame
+     *  0 or greater: set the noise level threshold
+     * Default is -1.
      */
-    uint8_t chroma_distortion_taper;
+    int32_t noise_level_thr;
 
     /**
-     * @brief Completely disable skip mode and skip (as defined in section 6.10.10 and 6.10.11)
-     * Min value is 0.
-     * Max value is 1.
+     * @brief Bias prediction mode, skip, and block size based on variance
+     * 0: disabled
+     * 1: enabled
      * Default is 0.
      */
-    uint8_t skip_taper;
+    uint8_t variance_md_bias;
+    /**
+     * @brief Bias prediction mode, skip, and block size based on variance
+     * Calculated from `--variance-md-bias-thr` commandline parameter via `pow(2, "variance-md-bias-thr") - 1`.
+     */
+    uint16_t variance_md_bias_thr;
+
+    /**
+     * @brief Bias chroma Q, limit chroma distortion prediction from dropping too low in full mode decision, and bias chroma distortion prediction in CDEF decision
+     * 0: disabled
+     * 1: full
+     * 2: light
+     * Default is 0.
+     */
+    uint8_t chroma_qmc_bias;
+
+    /**
+     * @brief Aggressively bias smaller block size, prediction mode, and CDEF in aid of texture retention
+     * 0: disabled
+     * 1: enabled
+     * Default is 0.
+     */
+    uint8_t texture_preserving_qmc_bias;
+
+    /**
+     * @brief Enable CDEF bias, which comes with new SAD & SATD based distortion calculation, cdef strength taper, and various other improvements
+     * 0: disabled
+     * 1: enabled
+     * Default is 0
+     */
+    uint8_t cdef_bias;
+    /**
+     * @brief Max CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma
+     * For secondary CDEF strength, the user input is 0, 1, 2, 4 but in this value it is stored as 0, 1, 2, 3
+     */
+    uint8_t cdef_bias_max_cdef[4];
+    /**
+     * @brief Min CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma
+     */
+    uint8_t cdef_bias_min_cdef[4];
+    /**
+     * @brief Secondary CDEF strength of every filtering block should be smaller than or equal to primary CDEF strength plus this value
+     * Min value is -12.
+     * Max value is 4.
+     */
+    int8_t cdef_bias_max_sec_cdef_rel;
+    /**
+     * @brief Use bigger or smaller CDEF damping
+     * Min value is -4.
+     * Max value is 8.
+     */
+    int8_t cdef_bias_damping_offset;
+    /**
+     * @brief Change how each individual CDEF options are evaluated
+     * 0: MSE (Default without cdef-bias)
+     * 1: SAD + MSE
+     * 2: SAD + SATD
+     * Default is 1
+     */
+    uint8_t cdef_bias_mode;
 
     /**
      * @brief Enable sharp-tx, a toggle that enables much sharper transforms decisions for higher fidelity ouput,
@@ -1175,7 +1235,7 @@ typedef struct EbSvtAv1EncConfiguration {
     Bool alt_tf_decay;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - 9 * sizeof(Bool) - 16 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
+    uint8_t padding[128 - 9 * sizeof(Bool) - 27 * sizeof(uint8_t) - 3 * sizeof(int8_t) - 1 * sizeof(uint16_t) - 1 * sizeof(int32_t) - sizeof(uint32_t) - 2 * sizeof(double)];
 
 } EbSvtAv1EncConfiguration;
 

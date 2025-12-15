@@ -19,6 +19,8 @@
 #include "rc_process.h"
 #include "utility.h"
 
+uint16_t get_variance_for_cu(const BlockGeom *blk_geom, uint16_t *variance_ptr);
+
 void svt_aom_apply_segmentation_based_quantization(const BlockGeom *blk_geom, PictureControlSet *pcs,
                                                    SuperBlock *sb_ptr, BlkStruct *blk_ptr);
 

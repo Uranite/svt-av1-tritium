@@ -4332,6 +4332,23 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     // Delay needed for SCD , 1first pass of (2pass and 1pass VBR)
     if (scs->static_config.scene_change_detection || scs->vq_ctrls.sharpness_ctrls.scene_transition || scs->lap_rc)
         scs->scd_delay = MAX(scs->scd_delay, 2);
+    
+    if (scs->static_config.chroma_qmc_bias) {
+        scs->static_config.cdef_bias = 1;
+    }
+    if (scs->static_config.texture_preserving_qmc_bias) {
+        // Explanations in Parameters.md
+        SVT_WARN("Texture preserving qmc bias is limited without fixes on upstream TPL system.\n");
+
+        scs->static_config.variance_octile = AOMMIN(scs->static_config.variance_octile, 3);
+
+        scs->static_config.cdef_bias = 1;
+        scs->static_config.cdef_bias_mode = 0;
+        scs->static_config.cdef_bias_max_cdef[1] = 0;
+        scs->static_config.cdef_bias_max_cdef[3] = 0;
+        scs->static_config.cdef_bias_min_cdef[1] = 0;
+        scs->static_config.cdef_bias_min_cdef[3] = 0;
+    }
 
     // no future minigop is used for lowdelay prediction structure
     if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_P || scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
@@ -4425,9 +4442,19 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     if (scs->static_config.variance_boost_strength >= 4) {
         SVT_WARN("Aggressive variance boost strength used. This is a curve that's only useful under specific situations. Use with caution!\n");
     }
+
     if (scs->static_config.max_32_tx_size && scs->static_config.qp >= 20 && scs->static_config.tune != 4) {
         SVT_WARN("Restricting transform sizes to a max of 32x32 might reduce coding efficiency at low to medium fidelity settings. Use with caution!\n");
     }
+    if (scs->static_config.cdef_level != 0 && scs->static_config.cdef_bias) {
+        if (!(scs->static_config.cdef_level == DEFAULT || scs->static_config.cdef_level == 1) ||
+            scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B ||
+            scs->static_config.enc_mode > ENC_M4)
+            SVT_WARN("CDEF level is set to 1, or full CDEF decision, when cdef-bias is enabled\n");
+        // Always set to 1
+        scs->static_config.cdef_level = 1;
+    }
+
     // scs->static_config.hierarchical_levels = (scs->static_config.rate_control_mode > 1) ? 3 : scs->static_config.hierarchical_levels;
     if (scs->static_config.restricted_motion_vector && scs->super_block_size == 128) {
         scs->static_config.restricted_motion_vector = FALSE;
@@ -5065,11 +5092,26 @@ static void copy_api_from_app(
     // Low Q taper
     scs->static_config.low_q_taper = config_struct->low_q_taper;
 
-    // Chroma distortion taper
-    scs->static_config.chroma_distortion_taper = config_struct->chroma_distortion_taper;
+    // Noise level thr
+    scs->static_config.noise_level_thr = config_struct->noise_level_thr;
 
-    // Skip taper
-    scs->static_config.skip_taper = config_struct->skip_taper;
+    // Variance md bias
+    scs->static_config.variance_md_bias = config_struct->variance_md_bias;
+    scs->static_config.variance_md_bias_thr = config_struct->variance_md_bias_thr;
+
+    // Chroma distortion taper
+    scs->static_config.chroma_qmc_bias = config_struct->chroma_qmc_bias;
+
+    // Texturing preserving md bias
+    scs->static_config.texture_preserving_qmc_bias = config_struct->texture_preserving_qmc_bias;
+
+    // CDEF taper
+    scs->static_config.cdef_bias = config_struct->cdef_bias;
+    memcpy(scs->static_config.cdef_bias_max_cdef, config_struct->cdef_bias_max_cdef, 4 * sizeof(uint8_t));
+    memcpy(scs->static_config.cdef_bias_min_cdef, config_struct->cdef_bias_min_cdef, 4 * sizeof(uint8_t));
+    scs->static_config.cdef_bias_max_sec_cdef_rel = config_struct->cdef_bias_max_sec_cdef_rel;
+    scs->static_config.cdef_bias_damping_offset = config_struct->cdef_bias_damping_offset;
+    scs->static_config.cdef_bias_mode = config_struct->cdef_bias_mode;
 
     // Sharp TX
     scs->static_config.sharp_tx = config_struct->sharp_tx;

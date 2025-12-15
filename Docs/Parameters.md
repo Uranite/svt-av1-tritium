@@ -81,14 +81,54 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **Tune**                         | --tune                      | [0-4]                          | 2           | Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = Subjective SSIM, 4 = Still Picture] |
 | **Sharpness**                    | --sharpness                 | [-7-7]                         | 1           | Bias towards block sharpness in rate-distortion optimization of transform coefficients                        |
 | **FrameLumaBias**                | --frame-luma-bias           | [0-100]                        | 0           | Adjusts frame-level QP based on average luminance across each frame                                           |
-| **Max32TxSize**                  | --max-32-tx-size            | [0,1]                          | 0           | Restricts use of block transform sizes to a maximum of 32x32 pixels (disabled: use max of 64x64 pixels)       |
 | **AltSSIMTuning**                | --alt-ssim-tuning           | [0-1]                          | 0           | Enables the usage of VQ optimizations and an alternative SSIM calculation pathway (Only operates with tunes 2 & 4) |
 | **AdaptiveFilmGrain**            | --adaptive-film-grain       | [0,1]                          | 1           | Allows film grain synthesis to be sourced from different block sizes depending on resolution                  |
-| **TemporalFilteringStrength**    |  --tf-strength              | [0-4]                          | 1           | Manually adjust temporal filtering strength. Higher values = stronger temporal filtering                      |
-| **KeyframeTemporalFilteringStrength** |  --kf-tf-strength      | [0-4]                          | 1           | Manually adjust temporal filtering strength for keyframes. Higher values = stronger temporal filtering        |
-| **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                   |
-| **ChromaDistortionTaper**        |  --chroma-distortion-taper  | [0-1]                          | 0           | Limit the chroma distortion prediction from dropping too low in full mode decision             |
-| **SkipTaper**                    |  --skip-taper               | [0-1]                          | 0           | Completely disable skip mode and skip (as defined in section 6.10.10 and 6.10.11)             |
+| **TemporalFilteringStrength**    | --tf-strength               | [0-4]                          | 1           | Manually adjust temporal filtering strength. Higher values = stronger temporal filtering                      |
+| **KeyframeTemporalFilteringStrength** | --kf-tf-strength       | [0-4]                          | 1           | Manually adjust temporal filtering strength for keyframes. Higher values = stronger temporal filtering        |
+| **NoiseNormStrength**            | --noise-norm-strength       | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                   |
+| **NoiseLevelThr**                | --noise-level-thr           | [-2-`(2^31)-1`]                | -1          | Change encoder noise level threshold. Further explanations can be found below. [-1: default encoder behaviour, -2: print the noise level for each frame, >0: set the noise level threshold]             |
+| **Max32TxSize**                  | --max-32-tx-size            | [0,1]                          | 0           | Restricts use of block transform sizes to a maximum of 32x32 pixels (disabled: use max of 64x64 pixels)      |
+| **VarianceMDBias**               | --variance-md-bias          | [0-1]                          | 0           | Bias prediction mode, transform type, skip, and block size based on variance            |
+| **VarianceMDBiasThr**            | --variance-md-bias-thr      | [0.0-16.0]                     | 6.5         | Threshold for `--variance-md-bias` and `--texture-preserving-qmc-bias`; Variance bigger than this value are treated as strong lineart, while variance smaller than this value are treated as weak lineart and texture             |
+| **ChromaQMCBias**                | --chroma-qmc-bias           | [0-2]                          | 0           | Bias chroma Q, limit chroma distortion prediction from dropping too low in full mode decision, and bias chroma distortion prediction in CDEF decision [0: disabled, 1: full, 2: light]            |
+| **TexturePreservingQMCBias**     | --texture-preserving-qmc-bias | [0-1]                        | 0           | Aggressively bias smaller block size, prediction mode, and CDEF in aid of texture retention. Slightly harmful to lineart             |
+
+## Noise level threshold
+
+SVT-AV1's noise level threshold is conservative, which is inherently a good thing. Tools like CDEF can produce very awkward results in noisy sources, and it's good for the encoder's default behaviour to be conservative.  
+In practice, sometimes this is overly conservative, and people have been talking about using `--filtering-noise-detection`, also known as `--noise-adaptive-filtering` in some forks. However, that parameter universally disabled this protection, which may cause issues when encoding a mixture of clean and noisy materials.  
+Instead, you can use this parameter to control this threshold so that certain feature are available when you need it and still disabled in noisy materials.  
+
+To adjust the noise level, use `--noise-level-thr -2` to run a short test encode. This will print the detected noise level for each frame. You can then set the threshold between the frames you want features to be enabled and frames you want features to be disabled.
+Try not to deviate too much from the default threshold, which is ` 15000` as of late 2025. This noise level detection is connected to various features in mode decision and other parts of the encoder in addition to CDEF and restoration.  
+
+## Variance bias threshold calculation
+
+Variance bias is based on internal `pcs->ppcs->variance` value calculated for each block. Sharp edges such as strong linearts will have high variance, while texture and weak linearts will have small variance.  
+To understand what `pcs->ppcs->variance` is like, you can use `--variance-md-bias` on a completely still scene, and observe in a frame that's not the keyframe, and see which blocks are allowed to skip or not. This should correspond to the the number displayed as `variance md skip taper threshold` in encoder prinout. Only blocks with variance below the `variance md skip taper threshold` printout are allowed to skip.  
+
+The `--variance-md-bias-thr` commandline parameter specify the threshold that will be used in various variance based bias and tapers.  
+Note that this commandline parameter is not raw `pcs->ppcs->variance` value! Use `pow(2, variance-md-bias-thr) - 1` to convert `--variance-md-bias-thr` to `pcs->ppcs->variance` value. As an example, the default `--variance-md-bias-thr` commandline parameter is `6.5`. This is converted to `pcs->ppcs->variance` value via `pow(2, 6.5) - 1`, which is `89.51`, which gets cut off to integer to `89`.  
+Internally this value is converted several times to different thresholds for different bias.  
+In general, anything above `variance_md_bias_thr >> 1`-ish is treated as strong linearts, anything between `variance_md_bias_thr >> 1` and `variance_md_bias_thr >> 3` is the inbetween area, and anything below `variance_md_bias_thr >> 3`-ish is treated as texture.  
+You can search for `static_config.variance_md_bias_thr` variable in the code for how each individual threshold are calculated. Do note that these thresholds are still being tested out in encodes, and we might readjust individual thresholds in the future.  
+
+## Chroma QMC Bias
+
+`--chroma-qmc-bias 1` (full) is aggressive and only recommended if you actually see chroma issues that you want to address, while `--chroma-qmc-bias 2` (light) can be applied in all encodes.  
+
+You should enable CDEF with `--enable-cdef 1` when using `--chroma-qmc-bias`. CDEF is the most effective tool at preventing distortion in weak chroma lineart. These parameters are set for you:
+* `--cdef-bias 1`.  
+
+## Texture Preserving QMC Bias
+
+In addition to internal adjustments, `--texture-preserving-qmc-bias` also sets these parameters for you:  
+* `--variance-octile 3`: You may manually set a lower octile to override this, but you can not set a higher octile.  
+
+You're recommended to disable CDEF with `--enable-cdef 0` when texture preservation is your top priority, but in case you want to still have it enabled to clean up some ringing, it also has a special protective CDEF mode. These parameters are set for you:  
+* `--cdef-bias 1`.  
+* `--cdef-bias-mode 0`: This is required for the protective mode to function.  
+* `--cdef-bias-max-cdef -,0,-,0 --cdef-bias-min-cdef -,0,-,0`: The secondary CDEF filtering is disabled. You may still set primary CDEF filtering to any value you prefer.  
 
 ## Rate Control Options
 
@@ -307,6 +347,12 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 | **ResizeFrameEvents**              | --frame-resz-events    | any string       | None          | Frame scale events, in a list separated by ',', scaling process starts from the given frame number (0 based) with new denominators, only applicable for mode == 4       |
 | **ResizeFrameKfDenoms**            | --frame-resz-kf-denoms | [8-16]           | 8             | Frame scale denominator for key frames in event, in a list separated by ',', only applicable for mode == 4                                                              |
 | **ResizeFrameDenoms**              | --frame-resz-denoms    | [8-16]           | 8             | Frame scale denominator in event, in a list separated by ',', only applicable for mode == 4                                                                             |
+| **CDEFBias**                       | --cdef-bias            | [0-1]            | 0             | Enable CDEF bias, which comes with new SAD & SATD based distortion calculation, cdef strength taper, and various other improvements.                       |
+| **CDEFBiasMaxCDEF**                | --cdef-bias-max-cdef   | any string       | `4,1,2,0`     | Max CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`.               |
+| **CDEFBiasMinCDEF**                | --cdef-bias-min-cdef   | any string       | `0,0,0,0`     | Min CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`.               |
+| **CDEFBiasMaxSecCDEFRel**          | --cdef-bias-max-sec-cdef-rel | [-12-4]    | 1             | Secondary CDEF strength of every filtering block should be smaller than or equal to primary CDEF strength plus this value.                |
+| **CDEFBiasDampingOffset**          | --cdef-bias-damping-offset | [-4-8]       | 0             | Use bigger or smaller CDEF damping. CDEF damping is a CDEF feature (not a `--cdef-bias` feature), normally derived from each frame's `base_q_idx`.                |
+| **CDEFBiasMode**                   | --cdef-bias-mode       | [0-2]            | 1             | Change how each individual CDEF options are evaluated [0: MSE (Default without `--cdef-bias`)), 1: SAD + MSE, 2: SAD + SATD]                |
 
 #### **Super-Resolution**
 

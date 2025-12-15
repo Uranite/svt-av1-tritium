@@ -171,6 +171,56 @@ uint64_t svt_aom_compute_cdef_dist_c(const uint16_t *dst, int32_t dstride, const
     }
     return sum >> 2 * coeff_shift;
 }
+uint64_t compute_cdef_dist_bias_16bit(uint8_t mode,
+                                      uint16_t *dst, int32_t dstride, uint16_t *src, CdefList *dlist,
+                                      int32_t cdef_count, BlockSize bsize, int32_t coeff_shift, int32_t pli,
+                                      uint8_t subsampling_factor) {
+    ASSERT(mode != 0);
+    if (mode && pli == 0) {
+        uint64_t sum = 0;
+        int32_t  bi, bx, by;
+        int32_t  coeffs[64];
+        int32_t  input_energy;
+        int32_t  cdef_energy;
+    
+        ASSERT(bsize == BLOCK_8X8);
+        if (mode == 1) { // SAD + MSE
+            for (bi = 0; bi < cdef_count; bi++) {
+                by = dlist[bi].by;
+                bx = dlist[bi].bx;
+    
+                sum += sad_16b_kernel(&src[bi << (3 + 3)], dstride,
+                                      &dst[(by << 3) * dstride + (bx << 3)], dstride,
+                                      8, 8) >> 5;
+            }
+            sum = (sum >> 1) + (sum >> 2);
+            sum += (svt_compute_cdef_dist_16bit(dst, dstride, src, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor) << (2 * coeff_shift)) >> 2;
+        }
+        else { // mode == 2 // SAD + SATD
+            for (bi = 0; bi < cdef_count; bi++) {
+                by = dlist[bi].by;
+                bx = dlist[bi].bx;
+    
+                svt_aom_highbd_hadamard_8x8((int16_t*)&src[bi << (3 + 3)], dstride, coeffs);
+                input_energy = svt_aom_satd(coeffs, 64);
+    
+                svt_aom_highbd_hadamard_8x8((int16_t*)&dst[(by << 3) * dstride + (bx << 3)], dstride, coeffs);
+                cdef_energy = svt_aom_satd(coeffs, 64);
+    
+                sum += (sad_16b_kernel(&src[bi << (3 + 3)], dstride,
+                                       &dst[(by << 3) * dstride + (bx << 3)], dstride,
+                                       8, 8) >> 5) +
+                       (abs(input_energy - cdef_energy) >> 7);
+            }
+            sum = (sum >> 1) + (sum >> 2);
+        }
+
+        return sum >> (2 * coeff_shift);
+    }
+    else {
+        return svt_compute_cdef_dist_16bit(dst, dstride, src, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor);
+    }
+}
 
 uint64_t svt_aom_compute_cdef_dist_8bit_c(const uint8_t *dst8, int32_t dstride, const uint8_t *src8,
                                           const CdefList *dlist, int32_t cdef_count, BlockSize bsize,
@@ -216,6 +266,76 @@ uint64_t svt_aom_compute_cdef_dist_8bit_c(const uint8_t *dst8, int32_t dstride, 
         }
     }
     return sum >> 2 * coeff_shift;
+}
+uint64_t compute_cdef_dist_bias_8bit(uint8_t mode,
+                                     uint8_t *dst8, int32_t dstride, uint8_t *src8,
+                                     CdefList *dlist, int32_t cdef_count, BlockSize bsize,
+                                     int32_t coeff_shift, int32_t pli, uint8_t subsampling_factor) {
+    ASSERT(mode != 0);
+    if (mode && pli == 0) {
+        uint64_t sum = 0;
+        int32_t  bi, bx, by;
+        uint16_t block_as_16bit[64];
+        uint8_t *bsrc, *bdst;
+        int32_t  coeffs[64];
+        int32_t  input_energy;
+        int32_t  cdef_energy;
+    
+        ASSERT(bsize == BLOCK_8X8);
+        if (mode == 1) { // SAD + MSE
+            for (bi = 0; bi < cdef_count; bi++) {
+                by = dlist[bi].by;
+                bx = dlist[bi].bx;
+    
+                sum += svt_nxm_sad_kernel(&src8[bi << (3 + 3)], dstride,
+                                          &dst8[(by << 3) * dstride + (bx << 3)], dstride,
+                                          8, 8) >> 5;
+            }
+            sum = (sum >> 1) + (sum >> 2);
+            sum += (svt_compute_cdef_dist_8bit(dst8, dstride, src8, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor) << (2 * coeff_shift)) >> 2;
+        }
+        else { // mode == 2 // SAD + SATD
+            for (bi = 0; bi < cdef_count; bi++) {
+                by = dlist[bi].by;
+                bx = dlist[bi].bx;
+
+                bsrc = &src8[bi << (3 + 3)];
+
+                for (int h = 0; h < 8; h++) {
+                    for (int w = 0; w < 8; w++) {
+                        block_as_16bit[h * 8 + w] = bsrc[w];
+                    }
+                    bsrc += dstride;
+                }
+    
+                svt_aom_hadamard_8x8((int16_t*)block_as_16bit, 8, coeffs);
+                input_energy = svt_aom_satd(coeffs, 64);
+
+                bdst = &dst8[(by << 3) * dstride + (bx << 3)];
+
+                for (int h = 0; h < 8; h++) {
+                    for (int w = 0; w < 8; w++) {
+                        block_as_16bit[h * 8 + w] = bdst[w];
+                    }
+                    bdst += dstride;
+                }
+    
+                svt_aom_hadamard_8x8((int16_t*)block_as_16bit, 8, coeffs);
+                cdef_energy = svt_aom_satd(coeffs, 64);
+    
+                sum += (svt_nxm_sad_kernel(&src8[bi << (3 + 3)], dstride,
+                                           &dst8[(by << 3) * dstride + (bx << 3)], dstride,
+                                           8, 8) >> 5) +
+                       (abs(input_energy - cdef_energy) >> 7);
+            }
+            sum = (sum >> 1) + (sum >> 2);
+        }
+    
+        return sum >> (2 * coeff_shift);
+    }
+    else {
+        return svt_compute_cdef_dist_8bit(dst8, dstride, src8, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor);
+    }
 }
 
 int32_t svt_sb_all_skip(PictureControlSet *pcs, const Av1Common *const cm, int32_t mi_row, int32_t mi_col) {
@@ -725,7 +845,7 @@ static uint64_t joint_strength_search_dual(int32_t *best_lev0, int32_t *best_lev
     }
     return best_tot_mse;
 }
-void finish_cdef_search(PictureControlSet *pcs) {
+void finish_cdef_search(PictureControlSet *pcs, SequenceControlSet *scs) {
     struct PictureParentControlSet *ppcs    = pcs->ppcs;
     FrameHeader                    *frm_hdr = &ppcs->frm_hdr;
     Av1Common                      *cm      = ppcs->av1_cm;
@@ -786,7 +906,8 @@ void finish_cdef_search(PictureControlSet *pcs) {
         frm_hdr->cdef_params.cdef_bits = 0;
         ppcs->nb_cdef_strengths        = 1;
         //cdef_pri_damping & cdef_sec_damping consolidated to cdef_damping
-        int32_t pri_damping                      = 3 + (frm_hdr->quantization_params.base_q_idx >> 6);
+        int32_t pri_damping                      = 3 + AOMMAX((frm_hdr->quantization_params.base_q_idx >> 6) +
+                                                              (scs->static_config.cdef_bias ? scs->static_config.cdef_bias_damping_offset : 0), 0);
         frm_hdr->cdef_params.cdef_damping        = pri_damping;
         frm_hdr->cdef_params.cdef_y_strength[0]  = cdef_ctrls->pred_y_f;
         frm_hdr->cdef_params.cdef_uv_strength[0] = cdef_ctrls->pred_uv_f;
@@ -840,9 +961,15 @@ void finish_cdef_search(PictureControlSet *pcs) {
     }
 
     nb_strength_bits = 0;
+    if (scs->static_config.texture_preserving_qmc_bias) {
+        for (i = 0; i < sb_count; i++) {
+            mse[0][i][0] = (61 * mse[0][i][0]) >> 6;
+            mse[1][i][0] = (61 * mse[1][i][0]) >> 6;
+        }
+    }
     // Scale down the cost of the (0,0) filter strength to bias selection towards off.
     // When off, can save the cost of the application.
-    if (cdef_ctrls->zero_fs_cost_bias) {
+    else if (cdef_ctrls->zero_fs_cost_bias) {
         const uint16_t factor = cdef_ctrls->zero_fs_cost_bias;
         for (i = 0; i < sb_count; i++) {
             mse[0][i][0] = (factor * mse[0][i][0]) >> 6;
@@ -857,7 +984,13 @@ void finish_cdef_search(PictureControlSet *pcs) {
         uint64_t tot_mse                      = joint_strength_search_dual(
             best_lev0, best_lev1, nb_strengths, mse, sb_count, start_gi, end_gi);
         /* Count superblock signalling cost. */
-        const int      total_bits = sb_count * i + nb_strengths * CDEF_STRENGTH_BITS * 2;
+        uint8_t biased_i;
+        if (scs->static_config.cdef_bias) {
+            if (ppcs->is_ref) biased_i = AOMMAX(i, 3);
+            else biased_i              = AOMMAX(i, 1);
+        }
+        else biased_i                  = i;
+        const int      total_bits = sb_count * biased_i + nb_strengths * CDEF_STRENGTH_BITS * 2;
         const int      rate_cost  = av1_cost_literal(total_bits);
         const uint64_t dist       = tot_mse * 16;
         tot_mse                   = RDCOST(lambda, rate_cost, dist);
@@ -918,7 +1051,8 @@ void finish_cdef_search(PictureControlSet *pcs) {
         frm_hdr->cdef_params.cdef_uv_strength[i] = filter_map[frm_hdr->cdef_params.cdef_uv_strength[i]];
     }
     //cdef_pri_damping & cdef_sec_damping consolidated to cdef_damping
-    frm_hdr->cdef_params.cdef_damping = 3 + (frm_hdr->quantization_params.base_q_idx >> 6);
+    frm_hdr->cdef_params.cdef_damping = 3 + AOMMAX((frm_hdr->quantization_params.base_q_idx >> 6) +
+                                                   (scs->static_config.cdef_bias ? scs->static_config.cdef_bias_damping_offset : 0), 0);
     free(mse[0]);
     free(mse[1]);
     free(sb_index);

@@ -32,6 +32,7 @@
 #include "av1me.h"
 #include "limits.h"
 #include "ac_bias.h"
+#include "segmentation.h"
 
 #include "pack_unpack_c.h"
 #include "enc_inter_prediction.h"
@@ -4882,6 +4883,39 @@ static void tx_type_search(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
             tx_type_candidate[candidate_num] = tx_type; // tx types which will compute ssim
             ++candidate_num;
 
+            if (pcs->scs->static_config.variance_md_bias) {
+                if (cand_bf->variance_md_mode_bias >= 1) {
+                    switch (tx_type) {
+                        case ADST_DCT: case DCT_ADST:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 1.18; break;
+                        case ADST_ADST:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 1.15; break;
+                        case V_ADST: case H_ADST:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 1.09; break;
+                        case ADST_FLIPADST: case FLIPADST_ADST: case DCT_FLIPADST: case FLIPADST_DCT:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 1.03; break;
+                        case DCT_DCT:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 0.97; break;
+                        default: break;
+                    }
+                }
+                else {
+                    switch (tx_type) {
+                        case ADST_DCT: case DCT_ADST:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 1.15; break;
+                        case ADST_ADST:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 1.10; break;
+                        case V_ADST: case H_ADST:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 1.06; break;
+                        case ADST_FLIPADST: case FLIPADST_ADST: case DCT_FLIPADST: case FLIPADST_DCT:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 1.02; break;
+                        case DCT_DCT:
+                            txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] *= 0.98; break;
+                        default: break;
+                    }
+                }
+            }
+
             uint64_t cost = RDCOST(full_lambda,
                                    y_txb_coeff_bits_txt[tx_type],
                                    txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL]);
@@ -6340,6 +6374,46 @@ static Bool get_perform_tx_flag(PictureControlSet *pcs, ModeDecisionContext *ctx
     }
     return perform_tx;
 }
+// Core for `--variance-md-bias` and `--texture-preserving-qmc-bias`
+static void variance_md_bias_core(PictureControlSet *pcs, ModeDecisionContext *ctx, struct ModeDecisionCandidateBuffer *cand_bf) {
+    const uint16_t variance = get_variance_for_cu(ctx->blk_geom, pcs->ppcs->variance[ctx->sb_index]);
+    const uint16_t main_thr = pcs->scs->static_config.variance_md_bias_thr;
+
+    // Skip taper
+    if (pcs->scs->static_config.variance_md_bias && // Protected.
+        variance >= main_thr >> 1)
+        cand_bf->variance_md_skip_taper_active = true;
+    else
+        cand_bf->variance_md_skip_taper_active = false;
+
+    // Not protected. Must check `if (pcs->scs->static_config.variance_md_bias)`!
+    // This series of else if prevents the issue of variance right shifting to 0
+    if (variance >= main_thr && variance >= 20)
+        cand_bf->variance_md_mode_bias = 2;
+    else if (variance >= main_thr >> 1 && variance >= 16)
+        cand_bf->variance_md_mode_bias = 1;
+    else if (variance >= main_thr >> 2 && variance >= 8)
+        cand_bf->variance_md_mode_bias = 0;
+    else if (variance >= main_thr >> 3)
+        cand_bf->variance_md_mode_bias = -1;
+    else
+        cand_bf->variance_md_mode_bias = -2;
+
+    // Not protected. Must check `if (pcs->scs->static_config.variance_md_bias)`!
+    if (variance >= main_thr >> 3)
+        cand_bf->variance_md_32_blk_size_bias = 2;
+    else if (variance >= main_thr >> 4)
+        cand_bf->variance_md_32_blk_size_bias = 1;
+    else
+        cand_bf->variance_md_32_blk_size_bias = 0;
+
+    // Treat it as not protected. Must check `if (pcs->scs->static_config.texture_preserving_qmc_bias)`!
+    if (pcs->scs->static_config.texture_preserving_qmc_bias == 1 &&
+        variance <= AOMMAX((pcs->scs->static_config.variance_md_bias_thr >> 2) + (pcs->scs->static_config.variance_md_bias_thr >> 3), 22))
+        cand_bf->texture_preserving_qmc_bias = 1;
+    else
+        cand_bf->texture_preserving_qmc_bias = 0;
+}
 /*
    full loop core for light PD1 path
 */
@@ -6353,6 +6427,9 @@ static void full_loop_core_light_pd1(PictureControlSet *pcs, ModeDecisionContext
     uint64_t cb_coeff_bits;
     uint64_t cr_coeff_bits;
     cand->skip_mode            = FALSE;
+
+    variance_md_bias_core(pcs, ctx, cand_bf);
+
     Bool          perform_tx   = get_perform_tx_flag(pcs, ctx, cand_bf, cand);
     const uint8_t recon_needed = do_md_recon(pcs->ppcs, ctx);
 
@@ -6383,10 +6460,10 @@ static void full_loop_core_light_pd1(PictureControlSet *pcs, ModeDecisionContext
             cand_bf->cand->transform_type_uv = DCT_DCT;
     }
     // Update coeff info based on luma TX so that chroma can take advantage of most accurate info
-    cand_bf->block_has_coeff        = (cand_bf->y_has_coeff) ? 1 : 0;
-    if (pcs->scs->static_config.skip_taper) {
-        cand_bf->block_has_coeff = TRUE;
-    }
+    if (!cand_bf->variance_md_skip_taper_active)
+        cand_bf->block_has_coeff    = (cand_bf->y_has_coeff) ? 1 : 0;
+    else
+        cand_bf->block_has_coeff    = TRUE;
     cand_bf->cnt_nz_coeff           = cand_bf->eob.y[0];
     uint8_t        perform_chroma   = cand_bf->block_has_coeff || !(ctx->lpd1_tx_ctrls.zero_y_coeff_exit);
     COMPONENT_TYPE chroma_component = COMPONENT_CHROMA;
@@ -6448,11 +6525,11 @@ static void full_loop_core_light_pd1(PictureControlSet *pcs, ModeDecisionContext
                                            cr_full_distortion[DIST_SSD],
                                            &cb_coeff_bits,
                                            &cr_coeff_bits);
-        cand_bf->block_has_coeff = (cand_bf->y_has_coeff || cand_bf->u_has_coeff || cand_bf->v_has_coeff) ? TRUE
-                                                                                                          : FALSE;
-        if (pcs->scs->static_config.skip_taper) {
+        if (!cand_bf->variance_md_skip_taper_active)
+            cand_bf->block_has_coeff = (cand_bf->y_has_coeff || cand_bf->u_has_coeff || cand_bf->v_has_coeff) ? TRUE
+                                                                                                              : FALSE;
+        else
             cand_bf->block_has_coeff = TRUE;
-        }
         svt_aom_full_cost(pcs,
                           ctx,
                           cand_bf,
@@ -6628,6 +6705,9 @@ static void full_loop_core(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
     cand_bf->full_dist                                 = 0;
     // Set Skip Flag
     cand->skip_mode = FALSE;
+
+    variance_md_bias_core(pcs, ctx, cand_bf);
+
     if (is_inter_mode(cand->pred_mode)) {
         opt_non_translation_motion_mode(pcs, ctx, cand_bf, cand);
         if (ctx->mds_do_inter_pred || cand_bf->valid_pred == 0) {
@@ -6736,10 +6816,10 @@ static void full_loop_core(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
         perform_tx_partitioning(
             cand_bf, ctx, pcs, start_tx_depth, end_tx_depth, ctx->blk_ptr->qindex, &y_coeff_bits, y_full_distortion);
     // Update coeff info based on luma TX so that chroma can take advantage of most accurate info
-    cand_bf->block_has_coeff = (cand_bf->y_has_coeff) ? 1 : 0;
-    if (pcs->scs->static_config.skip_taper) {
+    if (!cand_bf->variance_md_skip_taper_active)
+        cand_bf->block_has_coeff = (cand_bf->y_has_coeff) ? 1 : 0;
+    else
         cand_bf->block_has_coeff = TRUE;
-    }
 
     uint16_t txb_count    = ctx->blk_geom->txb_count[cand_bf->cand->tx_depth];
     cand_bf->cnt_nz_coeff = 0;
@@ -6845,10 +6925,10 @@ static void full_loop_core(PictureControlSet *pcs, ModeDecisionContext *ctx, Mod
             }
         }
     }
-    cand_bf->block_has_coeff = (cand_bf->y_has_coeff || cand_bf->u_has_coeff || cand_bf->v_has_coeff) ? TRUE : FALSE;
-    if (pcs->scs->static_config.skip_taper) {
+    if (!cand_bf->variance_md_skip_taper_active)
+        cand_bf->block_has_coeff = (cand_bf->y_has_coeff || cand_bf->u_has_coeff || cand_bf->v_has_coeff) ? TRUE : FALSE;
+    else
         cand_bf->block_has_coeff = TRUE;
-    }
     svt_aom_full_cost(pcs,
                       ctx,
                       cand_bf,
@@ -7174,6 +7254,7 @@ static void move_blk_data_redund(PictureControlSet *pcs, ModeDecisionContext *ct
     dst->cfl_alpha_signs        = src->cfl_alpha_signs; // Joint sign of alpha Cb and alpha Cr
     dst->prediction_mode_flag   = src->prediction_mode_flag;
     dst->block_has_coeff        = src->block_has_coeff;
+    dst->variance_md_skip_taper_active = src->variance_md_skip_taper_active;
     dst->qindex                 = src->qindex;
     dst->skip_mode              = src->skip_mode;
     dst->tx_depth               = src->tx_depth;
