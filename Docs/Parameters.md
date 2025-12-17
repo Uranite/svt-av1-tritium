@@ -100,7 +100,7 @@ In practice, sometimes this is overly conservative, and people have been talking
 Instead, you can use this parameter to control this threshold so that certain feature are available when you need it and still disabled in noisy materials.  
 
 To adjust the noise level, use `--noise-level-thr -2` to run a short test encode. This will print the detected noise level for each frame. You can then set the threshold between the frames you want features to be enabled and frames you want features to be disabled.
-Try not to deviate too much from the default threshold, which is ` 15000` as of late 2025. This noise level detection is connected to various features in mode decision and other parts of the encoder in addition to CDEF and restoration.  
+Try not to deviate too much from the default threshold, which is `15000` as of late 2025. This noise level detection is connected to various features in mode decision and other parts of the encoder in addition to CDEF and restoration.  
 
 ## Variance bias threshold calculation
 
@@ -122,10 +122,8 @@ You should enable CDEF with `--enable-cdef 1` when using `--chroma-qmc-bias`. CD
 
 ## Texture Preserving QMC Bias
 
-In addition to internal adjustments, `--texture-preserving-qmc-bias` also sets these parameters for you:  
-* `--variance-octile 3`: You may manually set a lower octile to override this, but you can not set a higher octile.  
-
-You're recommended to disable CDEF with `--enable-cdef 0` when texture preservation is your top priority, but in case you want to still have it enabled to clean up some ringing, it also has a special protective CDEF mode. These parameters are set for you:  
+You're recommended to disable CDEF with `--enable-cdef 0` when texture preservation is your top priority, but in case you want to still have it enabled to clean up some ringing, it also has a special protective CDEF mode.  
+In addition to internal adjustments, These parameters are also set for you:  
 * `--cdef-bias 1`.  
 * `--cdef-bias-mode 0`: This is required for the protective mode to function.  
 * `--cdef-bias-max-cdef -,0,-,0 --cdef-bias-min-cdef -,0,-,0`: The secondary CDEF filtering is disabled. You may still set primary CDEF filtering to any value you prefer.  

@@ -4340,8 +4340,6 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         // Explanations in Parameters.md
         SVT_WARN("Texture preserving qmc bias is limited without fixes on upstream TPL system.\n");
 
-        scs->static_config.variance_octile = AOMMIN(scs->static_config.variance_octile, 3);
-
         scs->static_config.cdef_bias = 1;
         scs->static_config.cdef_bias_mode = 0;
         scs->static_config.cdef_bias_max_cdef[1] = 0;
