@@ -235,6 +235,7 @@
 #define CDEF_BIAS_MAX_SEC_CDEF_REL_TOKEN "--cdef-bias-max-sec-cdef-rel"
 #define CDEF_BIAS_DAMPING_OFFSET_TOKEN "--cdef-bias-damping-offset"
 #define CDEF_BIAS_MODE_TOKEN "--cdef-bias-mode"
+#define BALANCING_Q_BIAS_TOKEN "--balancing-q-bias"
 #define SHARP_TX_TOKEN "--sharp-tx"
 #define HBD_MDS_TOKEN "--hbd-mds"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
@@ -1395,6 +1396,10 @@ ConfigEntry config_entry_psy[] = {
      "[PSY] CDEF bias mode, default is 1 [0: MSE, 1: SAD + MSE, 2: SAD + SATD]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
+     BALANCING_Q_BIAS_TOKEN,
+     "[PSY] Balancing Q bias, default is 0 [0-1]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
      SHARP_TX_TOKEN,
      "[PSY] Sharp transform optimization, default is 1; best used in combination with psy-rd [0-1]",
      set_cfg_generic_token},
@@ -1674,6 +1679,9 @@ ConfigEntry config_entry[] = {
     {SINGLE_INPUT, CDEF_BIAS_MAX_SEC_CDEF_REL_TOKEN, "CDEFBiasMaxSecCDEFRel", set_cfg_generic_token},
     {SINGLE_INPUT, CDEF_BIAS_DAMPING_OFFSET_TOKEN, "CDEFBiasDampingOffset", set_cfg_generic_token},
     {SINGLE_INPUT, CDEF_BIAS_MODE_TOKEN, "CDEFBiasMode", set_cfg_generic_token},
+
+    // Balancing Q Bias
+    {SINGLE_INPUT, BALANCING_Q_BIAS_TOKEN, "BalancingQBias", set_cfg_generic_token},
 
     // Sharp TX
     {SINGLE_INPUT, SHARP_TX_TOKEN, "SharpTX", set_cfg_generic_token},

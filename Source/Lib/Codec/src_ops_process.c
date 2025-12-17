@@ -1611,6 +1611,22 @@ void svt_aom_generate_r0beta(PictureParentControlSet *pcs) {
         }
     }
 
+    if (scs->static_config.balancing_q_bias) {
+#if DEBUG_TPL
+        SVT_LOG("%llu / recrf_dist %llu / mc_dep_delta %llu / %.0f.\n",
+                pcs->picture_number,
+                recrf_dist_base_sum,
+                mc_dep_delta_base_sum,
+                (double)mc_dep_delta_base_sum / recrf_dist_base_sum);
+#endif
+        if (mc_dep_delta_base_sum <= recrf_dist_base_sum << 9)
+            mc_dep_delta_base_sum = recrf_dist_base_sum << 9;
+        else
+            mc_dep_delta_base_sum = ((mc_dep_delta_base_sum - (recrf_dist_base_sum << 9)) >> 1) + 
+                                    ((mc_dep_delta_base_sum - (recrf_dist_base_sum << 9)) >> 2) +
+                                    (recrf_dist_base_sum << 9);
+    }
+
     mc_dep_cost_base = (recrf_dist_base_sum << RDDIV_BITS) + mc_dep_delta_base_sum;
     if (mc_dep_cost_base != 0) {
         pcs->r0 = ((double)(recrf_dist_base_sum << (RDDIV_BITS))) / mc_dep_cost_base;
@@ -1662,6 +1678,14 @@ void svt_aom_generate_r0beta(PictureParentControlSet *pcs) {
                     mc_dep_delta_sum += mc_dep_delta;
                 }
             }
+
+            if (scs->static_config.balancing_q_bias) {
+                if (mc_dep_delta_sum <= recrf_dist_sum << 9)
+                    mc_dep_delta_sum = recrf_dist_sum << 9;
+                else
+                    mc_dep_delta_sum = ((mc_dep_delta_sum - (recrf_dist_sum << 9)) >> 1) + (recrf_dist_sum << 9);
+            }
+            
             double beta = 1.0;
             if (recrf_dist_sum > 0) {
                 double rk = ((double)(recrf_dist_sum << (RDDIV_BITS))) /

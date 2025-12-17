@@ -905,13 +905,14 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->qp_scale_compress_strength < 0.0 || config->qp_scale_compress_strength > 8.0) {
+    if ((config->qp_scale_compress_strength < 0.0 || config->qp_scale_compress_strength > 8.0) &&
+        config->qp_scale_compress_strength != DEFAULT) {
         SVT_ERROR("Instance %u: QP scale compress strength must be between 0.0 and 8.0\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
     else if (config->qp_scale_compress_strength > 4.0) {
         SVT_WARN(
-            "Instance %u: Using a high QP Scale Compress Strength is only useful under specific situations. "
+            "Instance %u: Using a high QP scale compress strength is only useful under specific situations. "
             "Use with caution!\n",
             channel_number + 1);
     }
@@ -1015,6 +1016,15 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             return_error = EB_ErrorBadParameter;
         }
     }
+    
+    if (config->balancing_q_bias > 1) {
+        SVT_ERROR("Instance %u: balancing-q-bias must be between 0 and 1\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->balancing_q_bias && !(config->qp_scale_compress_strength == 0.0))
+        SVT_WARN("Instance %u: balancing-q-bias is intended to replace qp-scale-compress-strength and not intended to be used together\n", channel_number + 1);
+    if (config->balancing_q_bias && config->low_q_taper)
+        SVT_WARN("Instance %u: balancing-q-bias is not intended to be used together with low-q-taper\n", channel_number + 1);
 
     if (config->sharp_tx > 1) {
         SVT_ERROR("Instance %u: sharp-tx must be between 0 and 1\n", channel_number + 1);
@@ -1207,7 +1217,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->enable_alt_curve                  = FALSE;
     config_ptr->sharpness                         = 1;
     config_ptr->extended_crf_qindex_offset        = 0;
-    config_ptr->qp_scale_compress_strength        = 1;
+    config_ptr->qp_scale_compress_strength        = DEFAULT;
     config_ptr->frame_luma_bias                   = 0;
     config_ptr->max_32_tx_size                    = FALSE;
     config_ptr->adaptive_film_grain               = TRUE;
@@ -1232,6 +1242,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->cdef_bias_max_sec_cdef_rel        = 1;
     config_ptr->cdef_bias_damping_offset          = 0;
     config_ptr->cdef_bias_mode                    = 1;
+    config_ptr->balancing_q_bias                  = 0;
     config_ptr->sharp_tx                          = 1;
     config_ptr->hbd_mds                           = 0;
     config_ptr->complex_hvs                       = 0;
@@ -1372,10 +1383,15 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             }
         }
 
-        SVT_INFO("SVT [config]: sharpness / QP scale compress strength / frame low-luma bias \t: %d / %.2f / %d\n",
-                 config->sharpness,
-                 config->qp_scale_compress_strength,
-                 config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
+        if (!config->balancing_q_bias)
+            SVT_INFO("SVT [config]: sharpness / QP scale compress strength / frame low-luma bias \t: %d / %.2f / %d\n",
+                     config->sharpness,
+                     config->qp_scale_compress_strength,
+                     config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
+        else
+            SVT_INFO("SVT [config]: sharpness / balancing Q bias / frame low-luma bias \t\t: %d / based / %d\n",
+                     config->sharpness,
+                     config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
 
         switch (config->enable_tf) {
             case 2:
@@ -1452,32 +1468,32 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
 		if (config->variance_md_bias) {
             if (config->max_32_tx_size)
-                SVT_INFO("SVT [config]: variance md bias threshold / maximum transform size \t\t: %d / 32x32\n",
+                SVT_INFO("SVT [config]: variance MD bias threshold / maximum transform size \t\t: %d / 32x32\n",
                          config->variance_md_bias_thr);
             else
-                SVT_INFO("SVT [config]: variance md bias threshold / maximum 32x32 tx size threshold \t: %d / %d\n",
+                SVT_INFO("SVT [config]: variance MD bias threshold / maximum 32x32 TX size threshold \t: %d / %d\n",
                          config->variance_md_bias_thr,
                          AOMMAX(4, (config->variance_md_bias_thr >> 2) + (config->variance_md_bias_thr >> 3)));
             
             if (config->chroma_qmc_bias)
-                SVT_INFO("SVT [config]: variance md skip taper threshold / chroma qmc bias \t\t: %d / %s\n",
+                SVT_INFO("SVT [config]: variance MD skip taper threshold / chroma QMC bias \t\t: %d / %s\n",
                          config->variance_md_bias_thr >> 1,
                          config->chroma_qmc_bias == 1 ? "full" : "light");
             else
-                SVT_INFO("SVT [config]: variance md skip taper threshold \t\t\t\t: %d\n",
+                SVT_INFO("SVT [config]: variance MD skip taper threshold \t\t\t\t: %d\n",
                          config->variance_md_bias_thr >> 1);
 
             if (config->texture_preserving_qmc_bias)
-                SVT_INFO("SVT [config]: texture preserving qmc bias threshold \t\t\t\t: %d\n",
+                SVT_INFO("SVT [config]: texture preserving QMC bias threshold \t\t\t\t: %d\n",
                          AOMMAX((config->variance_md_bias_thr >> 2) + (config->variance_md_bias_thr >> 3), 22));
         }
         else {
             if (config->texture_preserving_qmc_bias)
-                SVT_INFO("SVT [config]: texture preserving qmc bias threshold \t\t\t\t: %d\n",
+                SVT_INFO("SVT [config]: texture preserving QMC bias threshold \t\t\t\t: %d\n",
                          AOMMAX((config->variance_md_bias_thr >> 2) + (config->variance_md_bias_thr >> 3), 22));
 
             if (config->chroma_qmc_bias)
-                SVT_INFO("SVT [config]: chroma qmc bias \t\t\t\t\t\t: %s\n",
+                SVT_INFO("SVT [config]: chroma QMC bias \t\t\t\t\t\t: %s\n",
                          config->chroma_qmc_bias == 1 ? "full" : "light");
         }
         
@@ -2447,6 +2463,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"texture-preserving-qmc-bias", &config_struct->texture_preserving_qmc_bias},
         {"cdef-bias", &config_struct->cdef_bias},
         {"cdef-bias-mode", &config_struct->cdef_bias_mode},
+        {"balancing-q-bias", &config_struct->balancing_q_bias},
         {"fast-decode", &config_struct->fast_decode},
         {"enable-tf", &config_struct->enable_tf},
         {"hbd-mds", &config_struct->hbd_mds},

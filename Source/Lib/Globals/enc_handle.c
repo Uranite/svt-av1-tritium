@@ -4338,7 +4338,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     }
     if (scs->static_config.texture_preserving_qmc_bias) {
         // Explanations in Parameters.md
-        SVT_WARN("Texture preserving qmc bias is limited without fixes on upstream TPL system.\n");
+        scs->static_config.balancing_q_bias = 1;
 
         scs->static_config.cdef_bias = 1;
         scs->static_config.cdef_bias_mode = 0;
@@ -4346,6 +4346,13 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->static_config.cdef_bias_max_cdef[3] = 0;
         scs->static_config.cdef_bias_min_cdef[1] = 0;
         scs->static_config.cdef_bias_min_cdef[3] = 0;
+    }
+
+    if (scs->static_config.qp_scale_compress_strength == DEFAULT) {
+        if (!scs->static_config.balancing_q_bias)
+            scs->static_config.qp_scale_compress_strength = 1.0;
+        else
+            scs->static_config.qp_scale_compress_strength = 0.0;
     }
 
     // no future minigop is used for lowdelay prediction structure
@@ -5110,6 +5117,9 @@ static void copy_api_from_app(
     scs->static_config.cdef_bias_max_sec_cdef_rel = config_struct->cdef_bias_max_sec_cdef_rel;
     scs->static_config.cdef_bias_damping_offset = config_struct->cdef_bias_damping_offset;
     scs->static_config.cdef_bias_mode = config_struct->cdef_bias_mode;
+
+    // Balancing Q bias
+    scs->static_config.balancing_q_bias = config_struct->balancing_q_bias;
 
     // Sharp TX
     scs->static_config.sharp_tx = config_struct->sharp_tx;

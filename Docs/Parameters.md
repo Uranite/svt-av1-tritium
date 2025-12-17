@@ -93,7 +93,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **ChromaQMCBias**                | --chroma-qmc-bias           | [0-2]                          | 0           | Bias chroma Q, limit chroma distortion prediction from dropping too low in full mode decision, and bias chroma distortion prediction in CDEF decision [0: disabled, 1: full, 2: light]            |
 | **TexturePreservingQMCBias**     | --texture-preserving-qmc-bias | [0-1]                        | 0           | Aggressively bias smaller block size, prediction mode, and CDEF in aid of texture retention. Slightly harmful to lineart             |
 
-## Noise level threshold
+### Noise level threshold
 
 SVT-AV1's noise level threshold is conservative, which is inherently a good thing. Tools like CDEF can produce very awkward results in noisy sources, and it's good for the encoder's default behaviour to be conservative.  
 In practice, sometimes this is overly conservative, and people have been talking about using `--filtering-noise-detection`, also known as `--noise-adaptive-filtering` in some forks. However, that parameter universally disabled this protection, which may cause issues when encoding a mixture of clean and noisy materials.  
@@ -102,7 +102,7 @@ Instead, you can use this parameter to control this threshold so that certain fe
 To adjust the noise level, use `--noise-level-thr -2` to run a short test encode. This will print the detected noise level for each frame. You can then set the threshold between the frames you want features to be enabled and frames you want features to be disabled.
 Try not to deviate too much from the default threshold, which is `15000` as of late 2025. This noise level detection is connected to various features in mode decision and other parts of the encoder in addition to CDEF and restoration.  
 
-## Variance bias threshold calculation
+### Variance bias threshold calculation
 
 Variance bias is based on internal `pcs->ppcs->variance` value calculated for each block. Sharp edges such as strong linearts will have high variance, while texture and weak linearts will have small variance.  
 To understand what `pcs->ppcs->variance` is like, you can use `--variance-md-bias` on a completely still scene, and observe in a frame that's not the keyframe, and see which blocks are allowed to skip or not. This should correspond to the the number displayed as `variance md skip taper threshold` in encoder prinout. Only blocks with variance below the `variance md skip taper threshold` printout are allowed to skip.  
@@ -113,17 +113,19 @@ Internally this value is converted several times to different thresholds for dif
 In general, anything above `variance_md_bias_thr >> 1`-ish is treated as strong linearts, anything between `variance_md_bias_thr >> 1` and `variance_md_bias_thr >> 3` is the inbetween area, and anything below `variance_md_bias_thr >> 3`-ish is treated as texture.  
 You can search for `static_config.variance_md_bias_thr` variable in the code for how each individual threshold are calculated. Do note that these thresholds are still being tested out in encodes, and we might readjust individual thresholds in the future.  
 
-## Chroma QMC Bias
+### Chroma QMC Bias
 
 `--chroma-qmc-bias 1` (full) is aggressive and only recommended if you actually see chroma issues that you want to address, while `--chroma-qmc-bias 2` (light) can be applied in all encodes.  
 
 You should enable CDEF with `--enable-cdef 1` when using `--chroma-qmc-bias`. CDEF is the most effective tool at preventing distortion in weak chroma lineart. These parameters are set for you:
 * `--cdef-bias 1`.  
 
-## Texture Preserving QMC Bias
+### Texture Preserving QMC Bias
 
-You're recommended to disable CDEF with `--enable-cdef 0` when texture preservation is your top priority, but in case you want to still have it enabled to clean up some ringing, it also has a special protective CDEF mode.  
-In addition to internal adjustments, These parameters are also set for you:  
+In addition to internal adjustments, `--texture-preserving-qmc-bias` also sets these parameters for you:  
+* `--balancing-q-bias 1`. Please note that `--balancing-q-bias 1` is not intended to be used with `--qp-scale-compress-strength`, so make sure you either don't set `--qp-scale-compress-strength`, or set `--qp-scale-compress-strength` to `0.0`.  
+
+You're recommended to disable CDEF with `--enable-cdef 0` when texture preservation is your top priority, but in case you want to still have it enabled to clean up some ringing, it also has a special protective CDEF mode. These parameters are set for you:  
 * `--cdef-bias 1`.  
 * `--cdef-bias-mode 0`: This is required for the protective mode to function.  
 * `--cdef-bias-max-cdef -,0,-,0 --cdef-bias-min-cdef -,0,-,0`: The secondary CDEF filtering is disabled. You may still set primary CDEF filtering to any value you prefer.  
@@ -150,7 +152,8 @@ In addition to internal adjustments, These parameters are also set for you:
 | **HBDMDS**                       | --hbd-mds                        | [0-3]      | 0           | Activation of high bit depth mode decision (0: default behavior, 1: full 10b MD, 2: hybrid 8/10b MD, 3: full 8b MD)                                  |
 | **COMPLEXHVS**                   | --complex-hvs                    | [0-1]      | 0           | Activation of highest complexity HVS model (0: default behavior, 1: enable highest complexity HVS model)                                             |
 | **LowQTaper**                    | --low-q-taper                    | [0-1]      | 0           | Avoid boosting macroblocks to extremely low q levels.                                                                                                |
-| **QpScaleCompressStrength**      | --qp-scale-compress-strength     | [0.0-8.0]  | 1.0         | Sets the strength the QP scale algorithm compresses values across all temporal layers, which results in more consistent video quality (less quality variation across frames in a mini-gop) [0.0: SVT-AV1 default, 1.0: SVT-AV1-PSY default, 0.0-3.0: recommended range] |
+| **QpScaleCompressStrength**      | --qp-scale-compress-strength     | [0.0-8.0]  | 1.0         | Sets the strength the QP scale algorithm compresses values across all temporal layers, which results in more consistent video quality (less quality variation across frames in a mini-gop) [0.0: SVT-AV1 default, 1.0: SVT-AV1-PSY default, 0.0-3.0: recommended range, 0.0: default when `--balancing-q-bias 1` is selected] |
+| **BalancingQBias**               | --balancing-q-bias               | [0-1]      | 0           | Enable balancing Q bias. Balancing Q bias biases the TPL system on both per frame and per Super Block level for better detail retention.             |
 | **FilteringNoiseDetection**      | --filtering-noise-detection      | [0-4]      | 0           | Controls noise detection which disables CDEF/restoration when noise level is high enough, enabled by default on tunes 0 and 3 [0: default tune behavior, 1: on, 2: off, 3: on (CDEF only), 4: on (restoration only)] |
 | **AcBias**                       | --ac-bias                        | [0.0-8.0]  | 0.0         | Sets the strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention)           |
 | **TxBias**                       | --tx-bias                        | [0-3]      | 0           | Transform size/type bias mode [0: disabled, 1: full, 2: transform size only, 3: interpolation filter only]                                           |
@@ -304,7 +307,7 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 
 | **Configuration file parameter** | **Command line**      | **Range**       | **Default**       | **Description**                                                                                                                                              |
 |----------------------------------|-----------------------|-----------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Keyint**                       | --keyint              | [-2-`(2^31)-1`] | -2                | GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-2: ~10 seconds, -1: "infinite" only for CRF, 0: == -1]                                    |
+| **Keyint**                       | --keyint              | [-2-`(2^31)-1`] | -2                | GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-2: ~10 seconds, -1: "infinite" only for CRF, 0: == -1]                                   |
 | **IntraRefreshType**             | --irefresh-type       | [1-2]           | 2                 | Intra refresh type [1: FWD Frame (Open GOP), 2: KEY Frame (Closed GOP)]                                                                                      |
 | **SceneChangeDetection**         | --scd                 | [0-1]           | 0                 | Scene change detection control                                                                                                                               |
 | **Lookahead**                    | --lookahead           | [-1,0-120]      | -1                | Number of frames in the future to look ahead, beyond minigop, temporal filtering, and rate control [-1: auto]                                                |
@@ -325,7 +328,7 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 | **EnableRestoration**              | --enable-restoration   | [0-1]            | 1             | Enable loop restoration filter                                                                                                                                          |
 | **EnableTPLModel**                 | --enable-tpl-la        | [0-1]            | 1             | Temporal Dependency model control, currently forced on library side, only applicable for CRF/CQP                                                                        |
 | **Mfmv**                           | --enable-mfmv          | [-1-1]           | -1            | Motion Field Motion Vector control [-1: auto]                                                                                                                           |
-| **EnableTF**                       | --enable-tf            | [0-2]            | 1             | Enable ALT-REF (temporally filtered) frames [0: off, 1: on, 2: adaptive]                                                                                                                               |
+| **EnableTF**                       | --enable-tf            | [0-2]            | 1             | Enable ALT-REF (temporally filtered) frames [0: off, 1: on, 2: adaptive]                                                                                                |
 | **EnableOverlays**                 | --enable-overlays      | [0-1]            | 0             | Enable the insertion of overlayer pictures which will be used as an additional reference frame for the base layer picture                                               |
 | **ScreenContentMode**              | --scm                  | [0-2]            | 2             | Set screen content detection level [0: off, 1: on, 2: content adaptive]                                                                                                 |
 | **RestrictedMotionVector**         | --rmv                  | [0-1]            | 0             | Restrict motion vectors from reaching outside the picture boundary                                                                                                      |
@@ -345,12 +348,12 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 | **ResizeFrameEvents**              | --frame-resz-events    | any string       | None          | Frame scale events, in a list separated by ',', scaling process starts from the given frame number (0 based) with new denominators, only applicable for mode == 4       |
 | **ResizeFrameKfDenoms**            | --frame-resz-kf-denoms | [8-16]           | 8             | Frame scale denominator for key frames in event, in a list separated by ',', only applicable for mode == 4                                                              |
 | **ResizeFrameDenoms**              | --frame-resz-denoms    | [8-16]           | 8             | Frame scale denominator in event, in a list separated by ',', only applicable for mode == 4                                                                             |
-| **CDEFBias**                       | --cdef-bias            | [0-1]            | 0             | Enable CDEF bias, which comes with new SAD & SATD based distortion calculation, cdef strength taper, and various other improvements.                       |
-| **CDEFBiasMaxCDEF**                | --cdef-bias-max-cdef   | any string       | `4,1,2,0`     | Max CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`.               |
-| **CDEFBiasMinCDEF**                | --cdef-bias-min-cdef   | any string       | `0,0,0,0`     | Min CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`.               |
-| **CDEFBiasMaxSecCDEFRel**          | --cdef-bias-max-sec-cdef-rel | [-12-4]    | 1             | Secondary CDEF strength of every filtering block should be smaller than or equal to primary CDEF strength plus this value.                |
-| **CDEFBiasDampingOffset**          | --cdef-bias-damping-offset | [-4-8]       | 0             | Use bigger or smaller CDEF damping. CDEF damping is a CDEF feature (not a `--cdef-bias` feature), normally derived from each frame's `base_q_idx`.                |
-| **CDEFBiasMode**                   | --cdef-bias-mode       | [0-2]            | 1             | Change how each individual CDEF options are evaluated [0: MSE (Default without `--cdef-bias`)), 1: SAD + MSE, 2: SAD + SATD]                |
+| **CDEFBias**                       | --cdef-bias            | [0-1]            | 0             | Enable CDEF bias, which comes with new SAD & SATD based distortion calculation, cdef strength taper, and various other improvements.                                    |
+| **CDEFBiasMaxCDEF**                | --cdef-bias-max-cdef   | any string       | `4,1,2,0`     | Max CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`. |
+| **CDEFBiasMinCDEF**                | --cdef-bias-min-cdef   | any string       | `0,0,0,0`     | Min CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`. |
+| **CDEFBiasMaxSecCDEFRel**          | --cdef-bias-max-sec-cdef-rel | [-12-4]    | 1             | Secondary CDEF strength of every filtering block should be smaller than or equal to primary CDEF strength plus this value.                                              |
+| **CDEFBiasDampingOffset**          | --cdef-bias-damping-offset | [-4-8]       | 0             | Use bigger or smaller CDEF damping. CDEF damping is a CDEF feature (not a `--cdef-bias` feature), normally derived from each frame's `base_q_idx`.                      |
+| **CDEFBiasMode**                   | --cdef-bias-mode       | [0-2]            | 1             | Change how each individual CDEF options are evaluated [0: MSE (Default without `--cdef-bias`), 1: SAD + MSE, 2: SAD + SATD]                                             |
 
 #### **Super-Resolution**
 
