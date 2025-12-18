@@ -1021,7 +1021,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: balancing-q-bias must be between 0 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    if (config->balancing_q_bias && !(config->qp_scale_compress_strength == 0.0))
+    if (config->balancing_q_bias && config->qp_scale_compress_strength > 0.0)
         SVT_WARN("Instance %u: balancing-q-bias is intended to replace qp-scale-compress-strength and not intended to be used together\n", channel_number + 1);
     if (config->balancing_q_bias && config->low_q_taper)
         SVT_WARN("Instance %u: balancing-q-bias is not intended to be used together with low-q-taper\n", channel_number + 1);
