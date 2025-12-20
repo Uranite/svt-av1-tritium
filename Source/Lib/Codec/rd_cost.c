@@ -1747,198 +1747,200 @@ static void variance_md_bias_apply(PictureControlSet *pcs, ModeDecisionContext *
             }
         }
 
-        // Bias block size
-        switch (cand_bf->variance_md_mode_bias) {
-            case 2:
-                if (!block_no_coeff) {
-                    switch (ctx->blk_geom->bsize) {
-                        case BLOCK_4X16: case BLOCK_16X4:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, 0); break;
-                        case BLOCK_4X8: case BLOCK_8X4:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -2); break;
-                        case BLOCK_8X32: case BLOCK_32X8:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -3); break;
-                        case BLOCK_4X4:
-                        case BLOCK_8X16: case BLOCK_16X8:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
-                        case BLOCK_16X64: case BLOCK_64X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -5); break;
-                        case BLOCK_16X32: case BLOCK_32X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -6); break;
-                        case BLOCK_8X8: // 8x8 are kind of nice
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -7); break;
-                        case BLOCK_16X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -8); break;
-                        default: break;
+        if (ctx->hbd_md) {
+            // Bias block size
+            switch (cand_bf->variance_md_mode_bias) {
+                case 2:
+                    if (!block_no_coeff) {
+                        switch (ctx->blk_geom->bsize) {
+                            case BLOCK_4X16: case BLOCK_16X4:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, 0); break;
+                            case BLOCK_4X8: case BLOCK_8X4:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -2); break;
+                            case BLOCK_8X32: case BLOCK_32X8:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -3); break;
+                            case BLOCK_4X4:
+                            case BLOCK_8X16: case BLOCK_16X8:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
+                            case BLOCK_16X64: case BLOCK_64X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -5); break;
+                            case BLOCK_16X32: case BLOCK_32X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -6); break;
+                            case BLOCK_8X8: // 8x8 are kind of nice
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -7); break;
+                            case BLOCK_16X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -8); break;
+                            default: break;
+                        }
                     }
-                }
-                else {
-                    switch (ctx->blk_geom->bsize) {
-                        case BLOCK_4X16: case BLOCK_16X4:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, 1); break;
-                        case BLOCK_4X8: case BLOCK_8X4:
-                        case BLOCK_8X32: case BLOCK_32X8:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -2); break;
-                        case BLOCK_4X4:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -3); break;
-                        case BLOCK_8X16: case BLOCK_16X8:
-                        case BLOCK_16X64: case BLOCK_64X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
-                        case BLOCK_8X8:
-                        case BLOCK_16X32: case BLOCK_32X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -6); break;
-                        case BLOCK_16X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -7); break;
-                        default: break;
-                    }
-                }
-                break;
-
-            case 1: case 0:
-                if (!block_no_coeff) {
-                    switch (ctx->blk_geom->bsize) {
-                        case BLOCK_4X16: case BLOCK_16X4:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -2); break;
-                        case BLOCK_4X8: case BLOCK_8X4:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
-                        case BLOCK_8X32: case BLOCK_32X8:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -5); break;
-                        case BLOCK_4X4:
-                        case BLOCK_8X16: case BLOCK_16X8:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -6); break;
-                        case BLOCK_16X64: case BLOCK_64X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -7); break;
-                        case BLOCK_16X32: case BLOCK_32X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -8); break;
-                        case BLOCK_8X8:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -9); break;
-                        case BLOCK_16X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -10); break;
-                        default: break;
-                    }
-                }
-                else {
-                    switch (ctx->blk_geom->bsize) {
-                        case BLOCK_4X16: case BLOCK_16X4:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -1); break;
-                        case BLOCK_4X8: case BLOCK_8X4:
-                        case BLOCK_8X32: case BLOCK_32X8:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
-                        case BLOCK_4X4:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -5); break;
-                        case BLOCK_8X16: case BLOCK_16X8:
-                        case BLOCK_16X64: case BLOCK_64X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -6); break;
-                        case BLOCK_8X8:
-                        case BLOCK_16X32: case BLOCK_32X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -8); break;
-                        case BLOCK_16X16:
-                            variance_md_bias_add_dist(ctx, dist, ssim_dist, -9); break;
-                        default: break;
-                    }
-                }
-                break;
-
-            case -1:
-                if (!block_no_coeff) {
-                    switch (ctx->blk_geom->bsize) {
-                        case BLOCK_4X4:
-                        case BLOCK_4X8: case BLOCK_8X4:
-                            // This has become sub instead of add
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -3); break;
-                            break;
-                        case BLOCK_4X16: case BLOCK_16X4: // Not encouraging elongated shapes
-                        case BLOCK_8X8:
-                        case BLOCK_8X16: case BLOCK_16X8:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -5); break;
-                        case BLOCK_8X32: case BLOCK_32X8:
-                        case BLOCK_16X16:
-                        case BLOCK_16X32: case BLOCK_32X16:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -7); break;
-                        case BLOCK_16X64: case BLOCK_64X16:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -9); break;
-                        default: break;
-                    }
-                }
-                else {
-                    switch (ctx->blk_geom->bsize) {
-                        case BLOCK_4X4:
-                        case BLOCK_4X8: case BLOCK_8X4:
-                            // This has become sub instead of add
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -4); break;
-                        case BLOCK_4X16: case BLOCK_16X4:
-                        case BLOCK_8X8:
-                        case BLOCK_8X16: case BLOCK_16X8:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -6); break;
-                        case BLOCK_8X32: case BLOCK_32X8:
-                        case BLOCK_16X16:
-                        case BLOCK_16X32: case BLOCK_32X16:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -8); break;
-                        case BLOCK_16X64: case BLOCK_64X16:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -10); break;
-                        default: break;
-                    }
-                }
-                break;
-
-            case -2:
-                if (!block_no_coeff) {
-                    switch (ctx->blk_geom->bsize) {
-                        case BLOCK_4X4:
-                        case BLOCK_4X8: case BLOCK_8X4:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -2); break;
-                        case BLOCK_4X16: case BLOCK_16X4:
-                        case BLOCK_8X8:
-                        case BLOCK_8X16: case BLOCK_16X8:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -4); break;
-                        case BLOCK_8X32: case BLOCK_32X8:
-                        case BLOCK_16X16:
-                        case BLOCK_16X32: case BLOCK_32X16:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -6); break;
-                        default: break;
+                    else {
+                        switch (ctx->blk_geom->bsize) {
+                            case BLOCK_4X16: case BLOCK_16X4:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, 1); break;
+                            case BLOCK_4X8: case BLOCK_8X4:
+                            case BLOCK_8X32: case BLOCK_32X8:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -2); break;
+                            case BLOCK_4X4:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -3); break;
+                            case BLOCK_8X16: case BLOCK_16X8:
+                            case BLOCK_16X64: case BLOCK_64X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
+                            case BLOCK_8X8:
+                            case BLOCK_16X32: case BLOCK_32X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -6); break;
+                            case BLOCK_16X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -7); break;
+                            default: break;
+                        }
                     }
                     break;
-                }
-                else {
-                    switch (ctx->blk_geom->bsize) {
-                        case BLOCK_4X4:
-                        case BLOCK_4X8: case BLOCK_8X4:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -3); break;
-                        case BLOCK_4X16: case BLOCK_16X4:
-                        case BLOCK_8X8:
-                        case BLOCK_8X16: case BLOCK_16X8:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -5); break;
-                        case BLOCK_8X32: case BLOCK_32X8:
-                        case BLOCK_16X16:
-                        case BLOCK_16X32: case BLOCK_32X16:
-                            variance_md_bias_sub_dist(ctx, dist, ssim_dist, -7); break;
-                        default: break;
+
+                case 1: case 0:
+                    if (!block_no_coeff) {
+                        switch (ctx->blk_geom->bsize) {
+                            case BLOCK_4X16: case BLOCK_16X4:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -2); break;
+                            case BLOCK_4X8: case BLOCK_8X4:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
+                            case BLOCK_8X32: case BLOCK_32X8:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -5); break;
+                            case BLOCK_4X4:
+                            case BLOCK_8X16: case BLOCK_16X8:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -6); break;
+                            case BLOCK_16X64: case BLOCK_64X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -7); break;
+                            case BLOCK_16X32: case BLOCK_32X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -8); break;
+                            case BLOCK_8X8:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -9); break;
+                            case BLOCK_16X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -10); break;
+                            default: break;
+                        }
+                    }
+                    else {
+                        switch (ctx->blk_geom->bsize) {
+                            case BLOCK_4X16: case BLOCK_16X4:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -1); break;
+                            case BLOCK_4X8: case BLOCK_8X4:
+                            case BLOCK_8X32: case BLOCK_32X8:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
+                            case BLOCK_4X4:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -5); break;
+                            case BLOCK_8X16: case BLOCK_16X8:
+                            case BLOCK_16X64: case BLOCK_64X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -6); break;
+                            case BLOCK_8X8:
+                            case BLOCK_16X32: case BLOCK_32X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -8); break;
+                            case BLOCK_16X16:
+                                variance_md_bias_add_dist(ctx, dist, ssim_dist, -9); break;
+                            default: break;
+                        }
                     }
                     break;
-                }
-        }
 
-        // Bias very big block size
-        if (cand_bf->variance_md_32_blk_size_bias == 2) {
-            switch (ctx->blk_geom->bsize) {
-                case BLOCK_32X64: case BLOCK_64X32: // Mhm?
-                case BLOCK_64X64:
-                    variance_md_bias_add_dist(ctx, dist, ssim_dist, -9); break;
-                case BLOCK_64X128: case BLOCK_128X64:
-                case BLOCK_128X128:
-                    variance_md_bias_add_dist(ctx, dist, ssim_dist, -7); break;
-                default: break;
+                case -1:
+                    if (!block_no_coeff) {
+                        switch (ctx->blk_geom->bsize) {
+                            case BLOCK_4X4:
+                            case BLOCK_4X8: case BLOCK_8X4:
+                                // This has become sub instead of add
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -3); break;
+                                break;
+                            case BLOCK_4X16: case BLOCK_16X4: // Not encouraging elongated shapes
+                            case BLOCK_8X8:
+                            case BLOCK_8X16: case BLOCK_16X8:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -5); break;
+                            case BLOCK_8X32: case BLOCK_32X8:
+                            case BLOCK_16X16:
+                            case BLOCK_16X32: case BLOCK_32X16:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -7); break;
+                            case BLOCK_16X64: case BLOCK_64X16:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -9); break;
+                            default: break;
+                        }
+                    }
+                    else {
+                        switch (ctx->blk_geom->bsize) {
+                            case BLOCK_4X4:
+                            case BLOCK_4X8: case BLOCK_8X4:
+                                // This has become sub instead of add
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -4); break;
+                            case BLOCK_4X16: case BLOCK_16X4:
+                            case BLOCK_8X8:
+                            case BLOCK_8X16: case BLOCK_16X8:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -6); break;
+                            case BLOCK_8X32: case BLOCK_32X8:
+                            case BLOCK_16X16:
+                            case BLOCK_16X32: case BLOCK_32X16:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -8); break;
+                            case BLOCK_16X64: case BLOCK_64X16:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -10); break;
+                            default: break;
+                        }
+                    }
+                    break;
+
+                case -2:
+                    if (!block_no_coeff) {
+                        switch (ctx->blk_geom->bsize) {
+                            case BLOCK_4X4:
+                            case BLOCK_4X8: case BLOCK_8X4:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -2); break;
+                            case BLOCK_4X16: case BLOCK_16X4:
+                            case BLOCK_8X8:
+                            case BLOCK_8X16: case BLOCK_16X8:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -4); break;
+                            case BLOCK_8X32: case BLOCK_32X8:
+                            case BLOCK_16X16:
+                            case BLOCK_16X32: case BLOCK_32X16:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -6); break;
+                            default: break;
+                        }
+                        break;
+                    }
+                    else {
+                        switch (ctx->blk_geom->bsize) {
+                            case BLOCK_4X4:
+                            case BLOCK_4X8: case BLOCK_8X4:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -3); break;
+                            case BLOCK_4X16: case BLOCK_16X4:
+                            case BLOCK_8X8:
+                            case BLOCK_8X16: case BLOCK_16X8:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -5); break;
+                            case BLOCK_8X32: case BLOCK_32X8:
+                            case BLOCK_16X16:
+                            case BLOCK_16X32: case BLOCK_32X16:
+                                variance_md_bias_sub_dist(ctx, dist, ssim_dist, -7); break;
+                            default: break;
+                        }
+                        break;
+                    }
             }
-        }
-        else if (cand_bf->variance_md_32_blk_size_bias == 1) {
-            switch (ctx->blk_geom->bsize) {
-                case BLOCK_32X64: case BLOCK_64X32: // Mhm?
-                case BLOCK_64X64:
-                    variance_md_bias_add_dist(ctx, dist, ssim_dist, -10); break;
-                case BLOCK_64X128: case BLOCK_128X64:
-                case BLOCK_128X128:
-                    variance_md_bias_add_dist(ctx, dist, ssim_dist, -8); break;
-                default: break;
+
+            // Bias very big block size
+            if (cand_bf->variance_md_32_blk_size_bias == 2) {
+                switch (ctx->blk_geom->bsize) {
+                    case BLOCK_32X64: case BLOCK_64X32: // Mhm?
+                    case BLOCK_64X64:
+                        variance_md_bias_add_dist(ctx, dist, ssim_dist, -9); break;
+                    case BLOCK_64X128: case BLOCK_128X64:
+                    case BLOCK_128X128:
+                        variance_md_bias_add_dist(ctx, dist, ssim_dist, -7); break;
+                    default: break;
+                }
+            }
+            else if (cand_bf->variance_md_32_blk_size_bias == 1) {
+                switch (ctx->blk_geom->bsize) {
+                    case BLOCK_32X64: case BLOCK_64X32: // Mhm?
+                    case BLOCK_64X64:
+                        variance_md_bias_add_dist(ctx, dist, ssim_dist, -10); break;
+                    case BLOCK_64X128: case BLOCK_128X64:
+                    case BLOCK_128X128:
+                        variance_md_bias_add_dist(ctx, dist, ssim_dist, -8); break;
+                    default: break;
+                }
             }
         }
     }
@@ -1958,15 +1960,17 @@ static void variance_md_bias_apply(PictureControlSet *pcs, ModeDecisionContext *
             default: break;
         }
 
-        switch (ctx->blk_geom->bsize) {
-            case BLOCK_16X64: case BLOCK_64X16:
-            case BLOCK_32X64: case BLOCK_64X32:
-            case BLOCK_64X64:
-                variance_md_bias_add_dist(ctx, dist, ssim_dist, -5); break;
-            case BLOCK_64X128: case BLOCK_128X64:
-            case BLOCK_128X128:
-                variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
-            default: break;
+        if (ctx->hbd_md) {
+            switch (ctx->blk_geom->bsize) {
+                case BLOCK_16X64: case BLOCK_64X16:
+                case BLOCK_32X64: case BLOCK_64X32:
+                case BLOCK_64X64:
+                    variance_md_bias_add_dist(ctx, dist, ssim_dist, -5); break;
+                case BLOCK_64X128: case BLOCK_128X64:
+                case BLOCK_128X128:
+                    variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
+                default: break;
+            }
         }
     }
 
@@ -1982,16 +1986,18 @@ static void variance_md_bias_apply(PictureControlSet *pcs, ModeDecisionContext *
                 default: break;
             }
 
-            switch (ctx->blk_geom->bsize) {
-                case BLOCK_16X32: case BLOCK_32X16:
-                    variance_md_bias_add_dist_min(ctx, dist, ssim_dist, -5, *dist >> 2); break;
-                case BLOCK_32X64: case BLOCK_64X32: // Mhm?
-                case BLOCK_64X64:
-                    variance_md_bias_add_dist_min(ctx, dist, ssim_dist, -4, *dist << 1); break;
-                case BLOCK_64X128: case BLOCK_128X64:
-                case BLOCK_128X128:
-                    variance_md_bias_add_dist_min(ctx, dist, ssim_dist, -3, *dist << 2); break;
-                default: break;
+            if (ctx->hbd_md) {
+                switch (ctx->blk_geom->bsize) {
+                    case BLOCK_16X32: case BLOCK_32X16:
+                        variance_md_bias_add_dist_min(ctx, dist, ssim_dist, -5, *dist >> 2); break;
+                    case BLOCK_32X64: case BLOCK_64X32: // Mhm?
+                    case BLOCK_64X64:
+                        variance_md_bias_add_dist_min(ctx, dist, ssim_dist, -4, *dist << 1); break;
+                    case BLOCK_64X128: case BLOCK_128X64:
+                    case BLOCK_128X128:
+                        variance_md_bias_add_dist_min(ctx, dist, ssim_dist, -3, *dist << 2); break;
+                    default: break;
+                }
             }
         }
         else {
@@ -2038,7 +2044,7 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
         !cand_bf->variance_md_skip_taper_active) {
         uint64_t non_skip_cost;
         uint64_t skip_cost;
-        if (!(pcs->scs->static_config.chroma_qmc_bias == 1)) {
+        if (!(pcs->scs->static_config.chroma_qmc_bias == 1 && ctx->hbd_md)) {
             non_skip_cost = RDCOST(
                 lambda,
                 (*y_coeff_bits + *cb_coeff_bits + *cr_coeff_bits + non_skip_tx_size_bits +
@@ -2096,7 +2102,7 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
     uint64_t mode_rate       = cand_bf->fast_luma_rate + cand_bf->fast_chroma_rate + coeff_rate;
     uint64_t mode_distortion;
     uint64_t mode_ssim_distortion;
-    if (!(pcs->scs->static_config.chroma_qmc_bias == 1)) {
+    if (!(pcs->scs->static_config.chroma_qmc_bias == 1 && ctx->hbd_md)) {
         mode_distortion      = y_distortion[DIST_SSD][0] + cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0];
         mode_ssim_distortion = update_full_cost_ssim
             ? y_distortion[DIST_SSIM][0] + cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0]
@@ -2118,7 +2124,7 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
         const uint64_t skip_mode_rate = ctx->md_rate_est_ctx->skip_mode_fac_bits[skip_mode_ctx][1];
         uint64_t skip_mode_distortion;
         uint64_t skip_mode_ssim_distortion;
-        if (!(pcs->scs->static_config.chroma_qmc_bias == 1)) {
+        if (!(pcs->scs->static_config.chroma_qmc_bias == 1 && ctx->hbd_md)) {
             skip_mode_distortion      = y_distortion[DIST_SSD][1] + cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1];
             skip_mode_ssim_distortion = update_full_cost_ssim
                 ? y_distortion[DIST_SSIM][1] + cb_distortion[DIST_SSIM][1] + cr_distortion[DIST_SSIM][1]
