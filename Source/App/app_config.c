@@ -236,6 +236,7 @@
 #define CDEF_BIAS_DAMPING_OFFSET_TOKEN "--cdef-bias-damping-offset"
 #define CDEF_BIAS_MODE_TOKEN "--cdef-bias-mode"
 #define BALANCING_Q_BIAS_TOKEN "--balancing-q-bias"
+#define NOISE_LEVEL_Q_BIAS_TOKEN "--noise-level-q-bias"
 #define SHARP_TX_TOKEN "--sharp-tx"
 #define HBD_MDS_TOKEN "--hbd-mds"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
@@ -1400,6 +1401,10 @@ ConfigEntry config_entry_psy[] = {
      "[PSY] Balancing Q bias, default is 0 [0-1]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
+     NOISE_LEVEL_Q_BIAS_TOKEN,
+     "[PSY] Noise level Q bias, default is 0.0 [-0.33-0.5]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
      SHARP_TX_TOKEN,
      "[PSY] Sharp transform optimization, default is 1; best used in combination with psy-rd [0-1]",
      set_cfg_generic_token},
@@ -1682,6 +1687,9 @@ ConfigEntry config_entry[] = {
 
     // Balancing Q Bias
     {SINGLE_INPUT, BALANCING_Q_BIAS_TOKEN, "BalancingQBias", set_cfg_generic_token},
+
+    // Balancing Q Bias
+    {SINGLE_INPUT, NOISE_LEVEL_Q_BIAS_TOKEN, "NoiseLevelQBias", set_cfg_generic_token},
 
     // Sharp TX
     {SINGLE_INPUT, SHARP_TX_TOKEN, "SharpTX", set_cfg_generic_token},

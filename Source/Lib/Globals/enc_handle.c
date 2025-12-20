@@ -5121,6 +5121,9 @@ static void copy_api_from_app(
     // Balancing Q bias
     scs->static_config.balancing_q_bias = config_struct->balancing_q_bias;
 
+    // Noise level Q bias
+    scs->static_config.noise_level_q_bias = config_struct->noise_level_q_bias;
+
     // Sharp TX
     scs->static_config.sharp_tx = config_struct->sharp_tx;
 

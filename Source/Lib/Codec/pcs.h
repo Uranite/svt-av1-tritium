@@ -1133,6 +1133,8 @@ typedef struct PictureParentControlSet {
     uint32_t         tf_tot_horz_blks; // total horizontal motion blocks in TF
     int8_t           tf_motion_direction; // motion direction in TF   -1:invalid   0:horz  1:vert
     int32_t          is_noise_level;
+    int32_t          noise_level;
+    int32_t          noise_level_thr;
     bool             r0_based_qps_qpm;
     uint32_t         dpb_order_hint[REF_FRAMES]; // spec 6.8.2. ref_order_hint[]
     DGDetectorSeg   *dg_detector; // dg detector segments control struct

@@ -3075,7 +3075,9 @@ static EbErrorType derive_tf_window_params(
             noise_levels_log1p_fp16[0] = pd_ctx->last_i_noise_levels_log1p_fp16[0];
         }
     // Set is_noise_level for the tf off case
-    pcs->is_noise_level = (pd_ctx->last_i_noise_levels_log1p_fp16[0] >= get_noise_level_thr(pcs, pd_ctx, false));
+    pcs->noise_level = pd_ctx->last_i_noise_levels_log1p_fp16[0];
+    pcs->noise_level_thr = get_noise_level_thr(pcs, pd_ctx, false);
+    pcs->is_noise_level = pcs->noise_level >= pcs->noise_level_thr;
     // Adjust the number of filtering frames
     int offset = pcs->tf_ctrls.modulate_pics ? ref_pics_modulation(pcs, noise_levels_log1p_fp16[0]) : 0;
     if (scs->static_config.pred_structure != SVT_AV1_PRED_RANDOM_ACCESS) {
@@ -3456,7 +3458,9 @@ static void mctf_frame(
     else
         pcs->do_tf = FALSE; // set temporal filtering flag OFF for current picture
 
-    pcs->is_noise_level = (pd_ctx->last_i_noise_levels_log1p_fp16[0] >= get_noise_level_thr(pcs, pd_ctx, true));
+    pcs->noise_level = pd_ctx->last_i_noise_levels_log1p_fp16[0];
+    pcs->noise_level_thr = get_noise_level_thr(pcs, pd_ctx, true);
+    pcs->is_noise_level = pcs->noise_level >= pcs->noise_level_thr;
 
     if (scs->static_config.pred_structure != SVT_AV1_PRED_RANDOM_ACCESS &&
         scs->tf_params_per_type[1].enabled&&

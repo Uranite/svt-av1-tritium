@@ -772,6 +772,25 @@ static int svt_av1_get_q_index_from_qstep_ratio(int leaf_qindex, double qstep_ra
     }
     return qindex;
 }
+static int noise_level_q_bias_core(PictureControlSet *pcs, SequenceControlSet *scs, int qindex) {
+    const int lower_thr = pcs->ppcs->noise_level_thr + (pcs->ppcs->noise_level_thr >> 4); // 1.0625 (~15938)
+    // upper_thr 2.0625 (~30938)
+
+    if (scs->static_config.noise_level_q_bias && pcs->ppcs->noise_level_thr) {
+        double qstep_ratio = CLIP3(0.0, 1.0, (double)(pcs->ppcs->noise_level - lower_thr) / pcs->ppcs->noise_level_thr);
+        if (scs->static_config.noise_level_q_bias > 0)
+            qstep_ratio = (qstep_ratio - 1.0) * scs->static_config.noise_level_q_bias + 1.0;
+        else // < 0
+            qstep_ratio = qstep_ratio * scs->static_config.noise_level_q_bias + 1.0;
+
+        qindex = svt_av1_get_q_index_from_qstep_ratio(qindex, qstep_ratio, scs->static_config.encoder_bit_depth);
+
+        qindex = CLIP3(quantizer_to_qindex[scs->static_config.min_qp_allowed],
+                       quantizer_to_qindex[scs->static_config.max_qp_allowed],
+                       qindex);
+    }
+    return qindex;
+}
 static const double r0_weight[3] = {0.75 /* I_SLICE */, 0.9 /* BASE */, 1 /* NON-BASE */};
 /******************************************************
  * crf_qindex_calc
@@ -3410,9 +3429,15 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                                     rc->active_worst_quality = scs_qindex;
                                     av1_rc_init(scs);
                                 }
-                                new_qindex = crf_qindex_calc(pcs, rc, rc->active_worst_quality);
-                            } else // if CQP
-                                new_qindex = cqp_qindex_calc(pcs, scs_qindex);
+
+                                new_qindex = noise_level_q_bias_core(pcs, scs, rc->active_worst_quality);
+
+                                new_qindex = crf_qindex_calc(pcs, rc, new_qindex);
+                            } else { // if CQP
+                                new_qindex = noise_level_q_bias_core(pcs, scs, scs_qindex);
+
+                                new_qindex = cqp_qindex_calc(pcs, new_qindex);
+                            }
                             frm_hdr->quantization_params.base_q_idx = (uint8_t)CLIP3(
                                 (int32_t)quantizer_to_qindex[scs->static_config.min_qp_allowed],
                                 (int32_t)quantizer_to_qindex[scs->static_config.max_qp_allowed],

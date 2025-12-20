@@ -1025,6 +1025,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_WARN("Instance %u: balancing-q-bias is intended to replace qp-scale-compress-strength and not intended to be used together\n", channel_number + 1);
     if (config->balancing_q_bias && config->low_q_taper)
         SVT_WARN("Instance %u: balancing-q-bias is not intended to be used together with low-q-taper\n", channel_number + 1);
+        
+    if (config->noise_level_q_bias < -1/3 || config->noise_level_q_bias > 0.5) {
+        SVT_ERROR("Instance %u: noise-level-thr must be between -0.33 and 0.5\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
 
     if (config->sharp_tx > 1) {
         SVT_ERROR("Instance %u: sharp-tx must be between 0 and 1\n", channel_number + 1);
@@ -1243,6 +1248,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->cdef_bias_damping_offset          = 0;
     config_ptr->cdef_bias_mode                    = 1;
     config_ptr->balancing_q_bias                  = 0;
+    config_ptr->noise_level_q_bias                = 0.0;
     config_ptr->sharp_tx                          = 1;
     config_ptr->hbd_mds                           = 0;
     config_ptr->complex_hvs                       = 0;
@@ -2512,6 +2518,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
     } double_opts[] = {
         {"qp-scale-compress-strength", &config_struct->qp_scale_compress_strength},
         {"ac-bias", &config_struct->ac_bias},
+        {"noise-level-q-bias", &config_struct->noise_level_q_bias},
     };
     const size_t double_opts_size = sizeof(double_opts) / sizeof(double_opts[0]);
 
