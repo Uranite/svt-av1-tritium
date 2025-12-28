@@ -1138,7 +1138,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     // Alt-Ref default values
     config_ptr->enable_tf       = 1;
     config_ptr->enable_overlays = false;
-    config_ptr->tune            = 0;
+    config_ptr->tune            = 1;
     // Super-resolution default values
     config_ptr->superres_mode      = SUPERRES_NONE;
     config_ptr->superres_denom     = SCALE_NUMERATOR;
@@ -1190,7 +1190,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->sharpness                         = 1;
     config_ptr->lossless                          = false;
     config_ptr->avif                              = false;
-    config_ptr->qp_scale_compress_strength        = 1;
+    config_ptr->qp_scale_compress_strength        = 0;
 #if FTR_SFRAME_POSI
     config_ptr->sframe_posi.sframe_num   = 0;
     config_ptr->sframe_posi.sframe_posis = NULL;
@@ -1205,16 +1205,16 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->adaptive_film_grain        = true;
     config_ptr->max_tx_size                = 64;
     config_ptr->extended_crf_qindex_offset = 0;
-    config_ptr->ac_bias                    = 1.0;
-    config_ptr->noise_norm_strength        = 1;
+    config_ptr->ac_bias                    = 0.0;
+    config_ptr->noise_norm_strength        = 0;
     config_ptr->kf_tf_strength             = 1;
     config_ptr->alt_lambda_factors         = 0;
-    config_ptr->sharp_tx                   = 1;
+    config_ptr->sharp_tx                   = 0;
     config_ptr->alt_ssim_tuning            = false;
     config_ptr->hbd_mds                    = 0;
     config_ptr->tx_bias                    = 0;
     config_ptr->complex_hvs                = 0;
-    config_ptr->noise_adaptive_filtering   = 0;
+    config_ptr->noise_adaptive_filtering   = 2;
     config_ptr->auto_tiling                = true;
     return return_error;
 }
