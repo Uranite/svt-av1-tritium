@@ -724,6 +724,12 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
                                 heap_pop_min(decode_order_heap, heap_n);
                                 context_ptr->consecutive_dec_order++;
                             }
+#if FIX_PIC_MGR_HANG
+                            // If we update the consecutive_dec_order, then we should check all pictures in the input queue
+                            // to see if they can be started. We do this by rewinding the input_queue_index so that after
+                            // the increment at the end of the loop, it starts right from the head of the queue again.
+                            input_queue_index = (enc_ctx->input_picture_queue_head_index == 0) ? INPUT_QUEUE_MAX_DEPTH - 1 : enc_ctx->input_picture_queue_head_index - 1;
+#endif
                         } else if (entry_ppcs->decode_order > context_ptr->consecutive_dec_order) {
                             // Out-of-order arrival, push directly
                             heap_push(
@@ -736,7 +742,12 @@ void *svt_aom_picture_manager_kernel(void *input_ptr) {
                         // properly updated later.
                         if (entry_ppcs->decode_order == context_ptr->consecutive_dec_order + 1) {
                             context_ptr->consecutive_dec_order++;
-
+#if FIX_PIC_MGR_HANG
+                            // If we update the consecutive_dec_order, then we should check all pictures in the input queue
+                            // to see if they can be started. We do this by rewinding the input_queue_index so that after
+                            // the increment at the end of the loop, it starts right from the head of the queue again.
+                            input_queue_index = (enc_ctx->input_picture_queue_head_index == 0) ? INPUT_QUEUE_MAX_DEPTH - 1 : enc_ctx->input_picture_queue_head_index - 1;
+#endif
                             if (context_ptr->started_pics_dec_order_head_idx !=
                                 context_ptr->started_pics_dec_order_tail_idx) {
                                 for (int idx = context_ptr->started_pics_dec_order_head_idx;
