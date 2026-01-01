@@ -44,11 +44,11 @@ extern uint64_t svt_aom_partition_rate_cost(PictureParentControlSet *pcs, ModeDe
 uint64_t        svt_aom_get_intra_uv_fast_rate(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
                                                ModeDecisionCandidateBuffer *cand_bf, bool use_accurate_cfl);
 uint64_t        svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                        ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion,
-                                        uint64_t chroma_distortion);
+                                        ModeDecisionCandidateBuffer *cand_bf, uint64_t luma_lambda, uint64_t chroma_lambda,
+                                        uint64_t luma_distortion, uint64_t chroma_distortion);
 uint64_t        svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                        ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion,
-                                        uint64_t chroma_distortion);
+                                        ModeDecisionCandidateBuffer *cand_bf, uint64_t luma_lambda, uint64_t chroma_lambda,
+                                        uint64_t luma_distortion, uint64_t chroma_distortion);
 EbErrorType     svt_aom_full_cost_light_pd0(ModeDecisionContext *ctx, struct ModeDecisionCandidateBuffer *cand_bf,
                                             uint64_t *y_distortion, uint64_t lambda, uint64_t *y_coeff_bits);
 void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct ModeDecisionCandidateBuffer *cand_bf,

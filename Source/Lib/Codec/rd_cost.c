@@ -606,8 +606,8 @@ uint64_t svt_aom_get_intra_uv_fast_rate(PictureControlSet *pcs, struct ModeDecis
     return chroma_rate;
 }
 uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                 ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion,
-                                 uint64_t chroma_distortion) {
+                                 ModeDecisionCandidateBuffer *cand_bf, uint64_t luma_lambda, uint64_t chroma_lambda,
+                                 uint64_t luma_distortion, uint64_t chroma_distortion) {
     const BlockGeom       *blk_geom = ctx->blk_geom;
     BlkStruct             *blk_ptr  = ctx->blk_ptr;
     ModeDecisionCandidate *cand     = cand_bf->cand;
@@ -637,7 +637,7 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
         uint64_t chromasad_       = chroma_distortion * (pcs->scs->static_config.tune == 3 ? 4 : 1);
         uint64_t total_distortion = luma_sad + chromasad_;
 
-        return (RDCOST(lambda, rate, total_distortion));
+        return (RDCOST((luma_lambda + chroma_lambda) >> 1, rate, total_distortion));
     } else {
         // Number of bits for each synatax element
         uint64_t       intra_mode_bits_num          = 0;
@@ -648,13 +648,13 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
         const uint8_t  skip_mode_ctx                = ctx->skip_mode_ctx;
         PredictionMode intra_mode                   = (PredictionMode)cand->pred_mode;
         // Luma and chroma rate
-        uint32_t rate;
+        // uint32_t rate;
         uint32_t luma_rate   = 0;
         uint32_t chroma_rate = 0;
         uint64_t luma_sad, chromasad_;
         assert(intra_mode < INTRA_MODES);
         // Luma and chroma distortion
-        uint64_t total_distortion;
+        // uint64_t total_distortion;
         intra_mode_bits_num = pcs->slice_type != I_SLICE
             ? (uint64_t)ctx->md_rate_est_ctx->mb_mode_fac_bits[size_group_lookup[blk_geom->bsize]][intra_mode]
             : ZERO_COST;
@@ -735,12 +735,12 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
         cand_bf->fast_chroma_rate = chroma_rate * (pcs->scs->static_config.tune == 3 ? 4 : 1);
         luma_sad                  = luma_distortion * (pcs->scs->static_config.tune == 3 ? 2 : 1);
         chromasad_                = chroma_distortion * (pcs->scs->static_config.tune == 3 ? 4 : 1);
-        total_distortion          = luma_sad + chromasad_;
+        // total_distortion          = luma_sad + chromasad_;
 
-        rate = luma_rate + chroma_rate;
+        // rate = luma_rate + chroma_rate;
 
         // Assign fast cost
-        return (RDCOST(lambda, rate, total_distortion));
+        return (RDCOST(luma_lambda, luma_rate, luma_sad) + RDCOST(chroma_lambda, chroma_rate, chromasad_));
     }
 }
 static INLINE int svt_aom_has_second_ref(const MbModeInfo *mbmi) { return mbmi->block_mi.ref_frame[1] > INTRA_FRAME; }
@@ -954,8 +954,8 @@ static INLINE uint32_t get_compound_mode_rate(struct ModeDecisionContext *ctx, M
 int             svt_aom_is_interintra_wedge_used(BlockSize bsize);
 static uint64_t av1_inter_fast_cost_light(struct ModeDecisionContext *ctx, BlkStruct *blk_ptr,
                                           ModeDecisionCandidateBuffer *cand_bf, uint64_t luma_distortion,
-                                          uint64_t chroma_distortion, uint64_t lambda, PictureControlSet *pcs,
-                                          CandidateMv *ref_mv_stack) {
+                                          uint64_t chroma_distortion, uint64_t luma_lambda, uint64_t chroma_lambda,
+                                          PictureControlSet *pcs, CandidateMv *ref_mv_stack) {
     ModeDecisionCandidate *cand = cand_bf->cand;
     // NM - fast inter cost estimation
     MdRateEstimationContext *r = ctx->md_rate_est_ctx;
@@ -1119,16 +1119,16 @@ static uint64_t av1_inter_fast_cost_light(struct ModeDecisionContext *ctx, BlkSt
     //    SVT_LOG("svt_aom_inter_fast_cost: Chroma error");
     rate = luma_rate + chroma_rate;
     // Assign fast cost
-    if (cand->skip_mode_allowed) {
+    if (cand->skip_mode_allowed && !cand_bf->variance_md_skip_taper_active) {
         skip_mode_rate = r->skip_mode_fac_bits[skip_mode_ctx][1];
         if (skip_mode_rate < rate)
-            return (RDCOST(lambda, skip_mode_rate, total_distortion));
+            return (RDCOST((luma_lambda + chroma_lambda) >> 1, skip_mode_rate, total_distortion));
     }
-    return (RDCOST(lambda, rate, total_distortion));
+    return (RDCOST(luma_lambda, luma_rate, luma_sad) + RDCOST(chroma_lambda, chroma_rate, chromasad_));
 }
 uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                 ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda, uint64_t luma_distortion,
-                                 uint64_t chroma_distortion) {
+                                 ModeDecisionCandidateBuffer *cand_bf, uint64_t luma_lambda, uint64_t chroma_lambda,
+                                 uint64_t luma_distortion, uint64_t chroma_distortion) {
     const BlockGeom       *blk_geom     = ctx->blk_geom;
     BlkStruct             *blk_ptr      = ctx->blk_ptr;
     ModeDecisionCandidate *cand         = cand_bf->cand;
@@ -1136,7 +1136,7 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
 
     if (ctx->approx_inter_rate)
         return av1_inter_fast_cost_light(
-            ctx, blk_ptr, cand_bf, luma_distortion, chroma_distortion, lambda, pcs, ref_mv_stack);
+            ctx, blk_ptr, cand_bf, luma_distortion, chroma_distortion, luma_lambda, chroma_distortion, pcs, ref_mv_stack);
     FrameHeader *frm_hdr = &pcs->ppcs->frm_hdr;
 
     // Luma rate
@@ -1366,12 +1366,12 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet *pcs, struct ModeDecisionCont
         SVT_ERROR("svt_aom_inter_fast_cost: Chroma error");
     rate = luma_rate + chroma_rate;
     // Assign fast cost
-    if (cand->skip_mode_allowed) {
+    if (cand->skip_mode_allowed && !cand_bf->variance_md_skip_taper_active) {
         skip_mode_rate = ctx->md_rate_est_ctx->skip_mode_fac_bits[skip_mode_ctx][1];
         if (skip_mode_rate < rate)
-            return (RDCOST(lambda, skip_mode_rate, total_distortion));
+            return (RDCOST((luma_lambda + chroma_lambda) >> 1, skip_mode_rate, total_distortion));
     }
-    return (RDCOST(lambda, rate, total_distortion));
+    return (RDCOST(luma_lambda, luma_rate, luma_sad) + RDCOST(chroma_lambda, chroma_rate, chromasad_));
 }
 /*
  */
@@ -1574,46 +1574,6 @@ static INLINE void variance_md_bias_add_dist(ModeDecisionContext *ctx, uint64_t 
             (*mode_ssim_distortion) += variance_md_bias_shift_const(ctx, lshift + 10);
             break;
         case BlockSizeS_ALL: case BLOCK_INVALID: break;
-    }
-}
-static INLINE uint64_t chroma_qmc_bias_min(ModeDecisionContext *ctx, const uint64_t distortion, const int8_t lshift) {
-    switch (ctx->blk_geom->bsize) {
-        case BLOCK_4X4:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift));
-            break;
-        case BLOCK_4X8: case BLOCK_8X4:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 1));
-            break;
-        case BLOCK_4X16: case BLOCK_16X4: case BLOCK_8X8:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 2));
-            break;
-        case BLOCK_8X16: case BLOCK_16X8:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 3));
-            break;
-        case BLOCK_8X32: case BLOCK_32X8: case BLOCK_16X16:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 4));
-            break;
-        case BLOCK_16X32: case BLOCK_32X16:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 5));
-            break;
-        case BLOCK_16X64: case BLOCK_64X16: case BLOCK_32X32:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 6));
-            break;
-        case BLOCK_32X64: case BLOCK_64X32:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 7));
-            break;
-        case BLOCK_64X64:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 8));
-            break;
-        case BLOCK_64X128: case BLOCK_128X64:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 9));
-            break;
-        case BLOCK_128X128:
-            return AOMMAX(distortion, variance_md_bias_shift_const(ctx, lshift + 10));
-            break;
-        case BlockSizeS_ALL: case BLOCK_INVALID:
-            return distortion;
-            break;
     }
 }
 static INLINE void variance_md_bias_add_dist_min(ModeDecisionContext *ctx, uint64_t *mode_distortion, uint64_t *mode_ssim_distortion, const int8_t lshift, const uint64_t min_addition) {
@@ -1970,11 +1930,8 @@ static void variance_md_bias_apply(PictureControlSet *pcs, ModeDecisionContext *
             case NEARESTMV: case NEAREST_NEARESTMV: case NEAREST_NEWMV: case NEW_NEARESTMV:
                 variance_md_bias_mult_dist(dist, ssim_dist, 1.18); break;
             case GLOBALMV: case GLOBAL_GLOBALMV:
-                variance_md_bias_mult_dist(dist, ssim_dist, 1.08); break;
             case NEARMV: case NEAR_NEARMV: case NEAR_NEWMV: case NEW_NEARMV:
                 variance_md_bias_mult_dist(dist, ssim_dist, 1.04); break;
-            case SMOOTH_PRED: case SMOOTH_H_PRED: case SMOOTH_V_PRED:
-                variance_md_bias_mult_dist(dist, ssim_dist, 1.02); break;
             case NEWMV: case NEW_NEWMV:
                 variance_md_bias_mult_dist(dist, ssim_dist, 0.96); break;
             default: break;
@@ -2058,29 +2015,15 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
     // Decide if block should be signalled as skip (send no coeffs)
     if (ctx->blk_skip_decision && cand_bf->block_has_coeff && is_inter_mode(cand_bf->cand->pred_mode) &&
         !cand_bf->variance_md_skip_taper_active) {
-        uint64_t non_skip_cost;
-        uint64_t skip_cost;
-        if (!(pcs->scs->static_config.chroma_qmc_bias == 1)) {
-            non_skip_cost = RDCOST(
-                lambda,
-                (*y_coeff_bits + *cb_coeff_bits + *cr_coeff_bits + non_skip_tx_size_bits +
-                 (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][0]),
-                (y_distortion[DIST_SSD][0] + cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0]));
-            skip_cost = RDCOST(
-                lambda,
-                ((uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][1]) + skip_tx_size_bits,
-                (y_distortion[DIST_SSD][1] + cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1]));
-        } else {
-            non_skip_cost = RDCOST(
-                lambda,
-                (*y_coeff_bits + *cb_coeff_bits + *cr_coeff_bits + non_skip_tx_size_bits +
-                 (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][0]),
-                (y_distortion[DIST_SSD][0] + chroma_qmc_bias_min(ctx, cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0], -3)));
-            skip_cost = RDCOST(
-                lambda,
-                ((uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][1]) + skip_tx_size_bits,
-                (y_distortion[DIST_SSD][1] + chroma_qmc_bias_min(ctx, cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1], -2)));
-        }
+        const uint64_t non_skip_cost = RDCOST(
+            lambda,
+            (*y_coeff_bits + *cb_coeff_bits + *cr_coeff_bits + non_skip_tx_size_bits +
+             (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][0]),
+            (y_distortion[DIST_SSD][0] + cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0]));
+        const uint64_t skip_cost = RDCOST(
+            lambda,
+            ((uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][1]) + skip_tx_size_bits,
+            (y_distortion[DIST_SSD][1] + cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1]));
 
         // Update signals to correspond to skip_mode values (no coeffs, etc.)
         if (skip_cost < non_skip_cost) {
@@ -2115,20 +2058,11 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
         coeff_rate = ctx->md_rate_est_ctx->skip_fac_bits[skip_coeff_ctx][1] + skip_tx_size_bits;
     }
 
-    uint64_t mode_rate       = cand_bf->fast_luma_rate + cand_bf->fast_chroma_rate + coeff_rate;
-    uint64_t mode_distortion;
-    uint64_t mode_ssim_distortion;
-    if (!(pcs->scs->static_config.chroma_qmc_bias == 1)) {
-        mode_distortion      = y_distortion[DIST_SSD][0] + cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0];
-        mode_ssim_distortion = update_full_cost_ssim
-            ? y_distortion[DIST_SSIM][0] + cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0]
-            : 0;
-    } else {
-        mode_distortion      = y_distortion[DIST_SSD][0] + chroma_qmc_bias_min(ctx, cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0], -3);
-        mode_ssim_distortion = update_full_cost_ssim
-            ? y_distortion[DIST_SSIM][0] + chroma_qmc_bias_min(ctx, cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0], -3)
-            : 0;
-    }
+    uint64_t mode_rate            = cand_bf->fast_luma_rate + cand_bf->fast_chroma_rate + coeff_rate;
+    uint64_t mode_distortion      = y_distortion[DIST_SSD][0] + cb_distortion[DIST_SSD][0] + cr_distortion[DIST_SSD][0];
+    uint64_t mode_ssim_distortion = update_full_cost_ssim
+        ? y_distortion[DIST_SSIM][0] + cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0]
+        : 0;
     variance_md_bias_apply(pcs, ctx, cand_bf, &mode_distortion, &mode_ssim_distortion);
     uint64_t mode_cost       = RDCOST(lambda, mode_rate, mode_distortion);
 
@@ -2137,20 +2071,11 @@ void svt_aom_full_cost(PictureControlSet *pcs, ModeDecisionContext *ctx, struct 
         const uint8_t skip_mode_ctx = ctx->skip_mode_ctx;
 
         // Skip mode cost
-        const uint64_t skip_mode_rate = ctx->md_rate_est_ctx->skip_mode_fac_bits[skip_mode_ctx][1];
-        uint64_t skip_mode_distortion;
-        uint64_t skip_mode_ssim_distortion;
-        if (!(pcs->scs->static_config.chroma_qmc_bias == 1)) {
-            skip_mode_distortion      = y_distortion[DIST_SSD][1] + cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1];
-            skip_mode_ssim_distortion = update_full_cost_ssim
-                ? y_distortion[DIST_SSIM][1] + cb_distortion[DIST_SSIM][1] + cr_distortion[DIST_SSIM][1]
-                : 0;
-        } else {
-            skip_mode_distortion      = y_distortion[DIST_SSD][1] + chroma_qmc_bias_min(ctx, cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1], -2);
-            skip_mode_ssim_distortion = update_full_cost_ssim
-                ? y_distortion[DIST_SSIM][1] + chroma_qmc_bias_min(ctx, cb_distortion[DIST_SSIM][1] + cr_distortion[DIST_SSIM][1], -2)
-                : 0;
-        }
+        const uint64_t skip_mode_rate      = ctx->md_rate_est_ctx->skip_mode_fac_bits[skip_mode_ctx][1];
+        uint64_t skip_mode_distortion      = y_distortion[DIST_SSD][1] + cb_distortion[DIST_SSD][1] + cr_distortion[DIST_SSD][1];
+        uint64_t skip_mode_ssim_distortion = update_full_cost_ssim
+            ? y_distortion[DIST_SSIM][1] + cb_distortion[DIST_SSIM][1] + cr_distortion[DIST_SSIM][1]
+            : 0;
         variance_md_bias_apply(pcs, ctx, cand_bf, &skip_mode_distortion, &skip_mode_ssim_distortion);
         const uint64_t skip_mode_cost = RDCOST(lambda, skip_mode_rate, skip_mode_distortion);
 

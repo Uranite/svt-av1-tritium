@@ -90,7 +90,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **Max32TxSize**                  | --max-32-tx-size            | [0,1]                          | 0           | Restricts use of block transform sizes to a maximum of 32x32 pixels (disabled: use max of 64x64 pixels)       |
 | **VarianceMDBias**               | --variance-md-bias          | [0-1]                          | 0           | Bias prediction mode, transform type, skip, and block size based on variance                                  |
 | **VarianceMDBiasThr**            | --variance-md-bias-thr      | [0.0-16.0]                     | 6.5         | Threshold for `--variance-md-bias` and `--texture-preserving-qmc-bias`; Variance bigger than this value are treated as strong lineart, while variance smaller than this value are treated as weak lineart and texture |
-| **ChromaQMCBias**                | --chroma-qmc-bias           | [0-2]                          | 0           | Bias chroma Q, limit chroma distortion prediction from dropping too low in full mode decision, and bias chroma distortion prediction in CDEF decision [0: disabled, 1: full, 2: light] |
+| **ChromaQMCBias**                | --chroma-qmc-bias           | [0-2]                          | 0           | Bias various features for better chroma retention [0: disabled, 1: full, 2: light]                            |
 | **TexturePreservingQMCBias**     | --texture-preserving-qmc-bias | [0-1]                        | 0           | Aggressively bias smaller block size, prediction mode, and CDEF in aid of texture retention. Slightly harmful to lineart |
 
 ### Noise level threshold
@@ -119,6 +119,18 @@ You can search for `static_config.variance_md_bias_thr` variable in the code for
 
 You should enable CDEF with `--enable-cdef 1` when using `--chroma-qmc-bias`. CDEF is the most effective tool at preventing distortion in weak chroma lineart. These parameters are set for you:
 * `--cdef-bias 1`.  
+
+#### Features
+
+| `--chroma-qmc-bias` level | `1` (full) | `2` (light) |
+| :-- | :--: | :--: |
+| [rc] `--startup-mg-size` | ◯ | ✕ |
+| [rc] `chroma_qindex` bias | ◯ | ◯ |
+| [md] chroma complex hvs | ◯ | ◯ |
+| [md] `pred_mode` bias | ◯ | ✕ |
+| [md] `bsize` bias | ◯ | ✕ |
+| [cdef] `--cdef-bias 1` | ◯ | ◯ |
+| [cdef] distortion bias | ◯ | △ |
 
 ### Texture Preserving QMC Bias
 
@@ -150,11 +162,11 @@ You're recommended to disable CDEF with `--enable-cdef 0` when texture preservat
 | **EnableAltCurve**               | --enable-alt-curve               | [0-1]      | 0           | Enable alternative variance boost curve                                                                                                              |
 | **SharpTX**                      | --sharp-tx                       | [0-1]      | 1           | Activation of sharp transform optimizations for higher fidelity encoding (cleaner output with slightly higher chances of artifacting)                |
 | **HBDMDS**                       | --hbd-mds                        | [0-3]      | 0           | Activation of high bit depth mode decision (0: default behavior, 1: full 10b MD, 2: hybrid 8/10b MD, 3: full 8b MD)                                  |
-| **COMPLEXHVS**                   | --complex-hvs                    | [0-1]      | 0           | Activation of highest complexity HVS model (0: default behavior, 1: enable highest complexity HVS model)                                             |
+| **COMPLEXHVS**                   | --complex-hvs                    | [-1-1]     | 0           | Activation of highest complexity HVS model (0: default behavior, 1: enable highest complexity HVS model, -1: disable highest complexity HVS model even at `--preset -1`) |
 | **LowQTaper**                    | --low-q-taper                    | [0-1]      | 0           | Avoid boosting macroblocks to extremely low q levels.                                                                                                |
 | **QpScaleCompressStrength**      | --qp-scale-compress-strength     | [0.0-8.0]  | 1.0         | Sets the strength the QP scale algorithm compresses values across all temporal layers, which results in more consistent video quality (less quality variation across frames in a mini-gop) [0.0: SVT-AV1 default, 1.0: SVT-AV1-PSY default, 0.0-3.0: recommended range, 0.0: default when `--balancing-q-bias 1` is selected] |
 | **BalancingQBias**               | --balancing-q-bias               | [0-1]      | 0           | Enable balancing Q bias. Balancing Q bias biases the TPL system on both per frame and per Super Block level for better detail retention.             |
-| **NoiseLevelQBias**              | --noise-level-q-bias             | [-0.33-0.5] | 0.0        | Boost a frame's base qindex when noise level is below the threshold [0.0: disabled, positive: boost frames with low noise, negative: dampen frames with low noise, -0.13-0.15: recommended range] |
+| **NoiseLevelQBias**              | --noise-level-q-bias             | [-0.33-0.5] | 0.0        | Boost a frame's base qindex when noise level is below the threshold [0.0: disabled, positive: boost frames with low noise, negative: dampen frames with low noise, -0.09-0.10: recommended range] |
 | **FilteringNoiseDetection**      | --filtering-noise-detection      | [0-4]      | 0           | Controls noise detection which disables CDEF/restoration when noise level is high enough, enabled by default on tunes 0 and 3 [0: default tune behavior, 1: on, 2: off, 3: on (CDEF only), 4: on (restoration only)] |
 | **AcBias**                       | --ac-bias                        | [0.0-8.0]  | 0.0         | Sets the strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention)           |
 | **TxBias**                       | --tx-bias                        | [0-3]      | 0           | Transform size/type bias mode [0: disabled, 1: full, 2: transform size only, 3: interpolation filter only]                                           |
@@ -391,7 +403,7 @@ resolution, scaling ratio applys on both horizontally and vertically.
 | 1                | Fixed mode, all frames are encoded at the specified scale of 8/`denom`, thus a `denom` of 8 means no scaling, and 16 means half-scaling |
 | 2                | Random mode, all frames are coded at a random scale, the scaling `denom` can be picked from 8 to 16                         |
 | 3                | Dynamic mode, scale for a frame is determined based on buffer level and average qp in rate control, scaling ratio can be 3/4 or 1/2. This mode can only work in 1-pass CBR low-delay mode |
-| 4                | Random access mode, scaling is controlled by scale events, which determine scaling in a specified scaling `denom` or recover to original resolution                                       |
+| 4                | Random access mode, scaling is controlled by scale events, which determine scaling in a specified scaling `denom` or recover to original resolution |
 
 Example CLI of reference scaling dynamic mode:
 > -i input.yuv -b output.ivf --resize-mode 3 --rc 2 --pred-struct 1 --tbr 1000

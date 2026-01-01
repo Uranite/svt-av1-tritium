@@ -4333,9 +4333,8 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     if (scs->static_config.scene_change_detection || scs->vq_ctrls.sharpness_ctrls.scene_transition || scs->lap_rc)
         scs->scd_delay = MAX(scs->scd_delay, 2);
     
-    if (scs->static_config.chroma_qmc_bias) {
+    if (scs->static_config.chroma_qmc_bias)
         scs->static_config.cdef_bias = 1;
-    }
     if (scs->static_config.texture_preserving_qmc_bias) {
         // Explanations in Parameters.md
         scs->static_config.balancing_q_bias = 1;
@@ -4556,6 +4555,9 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->bot_padding   += 4;
     }
 
+    if (scs->static_config.chroma_qmc_bias == 1 &&
+        scs->static_config.startup_mg_size == 0)
+        scs->static_config.startup_mg_size = CLIP3(2, 4, scs->static_config.hierarchical_levels - 1);
 
     scs->static_config.enable_overlays = (scs->static_config.enable_tf == 0) ||
         (scs->static_config.rate_control_mode != SVT_AV1_RC_MODE_CQP_OR_CRF) ?

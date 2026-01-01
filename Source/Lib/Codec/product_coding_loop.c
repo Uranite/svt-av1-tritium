@@ -1121,6 +1121,7 @@ static void fast_loop_core_light_pd1(ModeDecisionCandidateBuffer *cand_bf, Pictu
             ctx,
             cand_bf,
             fast_lambda,
+            fast_lambda,
             luma_fast_dist,
             0); //chroma_fast_distortion
     }
@@ -1220,7 +1221,7 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer *cand_bf, PictureCon
                 }
             }
             if (ctx->blk_geom->has_uv && ctx->uv_ctrls.uv_mode <= CHROMA_MODE_1 && ctx->mds_skip_uv_pred == FALSE) {
-                if (ctx->mds0_ctrls.mds0_dist_type == SSD) {
+                if (ctx->mds0_ctrls.mds0_dist_type_uv == SSD) {
                     EbSpatialFullDistType spatial_full_dist_type_fun = ctx->hbd_md ? svt_full_distortion_kernel16_bits
                                                                                    : svt_spatial_full_distortion_kernel;
                     chroma_fast_distortion = (uint32_t)spatial_full_dist_type_fun(input_pic->buffer_cb,
@@ -1282,6 +1283,7 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer *cand_bf, PictureCon
                 ctx,
                 cand_bf,
                 (ctx->mds0_ctrls.mds0_dist_type == SSD) ? full_lambda : fast_lambda,
+                (ctx->mds0_ctrls.mds0_dist_type_uv == SSD) ? full_lambda : fast_lambda,
                 luma_fast_dist,
                 chroma_fast_distortion);
             if (simple_translation_cost < *(cand_bf->fast_cost)) {
@@ -1300,6 +1302,46 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer *cand_bf, PictureCon
         }
     }
 }
+// Core for `--variance-md-bias` and `--texture-preserving-qmc-bias`
+static void variance_md_bias_core(PictureControlSet *pcs, ModeDecisionContext *ctx, struct ModeDecisionCandidateBuffer *cand_bf) {
+    const uint16_t variance = get_variance_for_cu(ctx->blk_geom, pcs->ppcs->variance[ctx->sb_index]);
+    const uint16_t main_thr = pcs->scs->static_config.variance_md_bias_thr;
+
+    // Skip taper
+    if (pcs->scs->static_config.variance_md_bias && // Protected.
+        variance >= main_thr >> 1)
+        cand_bf->variance_md_skip_taper_active = true;
+    else
+        cand_bf->variance_md_skip_taper_active = false;
+
+    // Not protected. Must check `if (pcs->scs->static_config.variance_md_bias)`!
+    // This series of else if prevents the issue of variance right shifting to 0
+    if (variance >= main_thr && variance >= 20)
+        cand_bf->variance_md_mode_bias = 2;
+    else if (variance >= main_thr >> 1 && variance >= 16)
+        cand_bf->variance_md_mode_bias = 1;
+    else if (variance >= main_thr >> 2 && variance >= 8)
+        cand_bf->variance_md_mode_bias = 0;
+    else if (variance >= main_thr >> 3)
+        cand_bf->variance_md_mode_bias = -1;
+    else
+        cand_bf->variance_md_mode_bias = -2;
+
+    // Not protected. Must check `if (pcs->scs->static_config.variance_md_bias)`!
+    if (variance >= main_thr >> 3)
+        cand_bf->variance_md_32_blk_size_bias = 2;
+    else if (variance >= main_thr >> 4)
+        cand_bf->variance_md_32_blk_size_bias = 1;
+    else
+        cand_bf->variance_md_32_blk_size_bias = 0;
+
+    // Treat it as not protected. Must check `if (pcs->scs->static_config.texture_preserving_qmc_bias)`!
+    if (pcs->scs->static_config.texture_preserving_qmc_bias == 1 &&
+        variance <= AOMMAX((pcs->scs->static_config.variance_md_bias_thr >> 2) + (pcs->scs->static_config.variance_md_bias_thr >> 3), 22))
+        cand_bf->texture_preserving_qmc_bias = 1;
+    else
+        cand_bf->texture_preserving_qmc_bias = 0;
+}
 void fast_loop_core(ModeDecisionCandidateBuffer *cand_bf, PictureControlSet *pcs, ModeDecisionContext *ctx,
                     EbPictureBufferDesc *input_pic, BlockLocation *loc) {
     const uint32_t input_origin_index       = loc->input_origin_index;
@@ -1315,6 +1357,9 @@ void fast_loop_core(ModeDecisionCandidateBuffer *cand_bf, PictureControlSet *pcs
     ModeDecisionCandidate *cand = cand_bf->cand;
     EbPictureBufferDesc   *pred = cand_bf->pred;
     ctx->pu_itr                 = 0;
+
+    variance_md_bias_core(pcs, ctx, cand_bf);
+
     // Prediction
     ctx->uv_intra_comp_only = FALSE;
     svt_product_prediction_fun_table[is_inter_mode(cand->pred_mode) || cand->use_intrabc](
@@ -1378,7 +1423,7 @@ void fast_loop_core(ModeDecisionCandidateBuffer *cand_bf, PictureControlSet *pcs
         }
     }
     if (ctx->blk_geom->has_uv && ctx->uv_ctrls.uv_mode <= CHROMA_MODE_1 && ctx->mds_skip_uv_pred == FALSE) {
-        if (ctx->mds0_ctrls.mds0_dist_type == SSD) {
+        if (ctx->mds0_ctrls.mds0_dist_type_uv == SSD) {
             EbSpatialFullDistType spatial_full_dist_type_fun = ctx->hbd_md ? svt_full_distortion_kernel16_bits
                                                                            : svt_spatial_full_distortion_kernel;
             chroma_fast_distortion = (uint32_t)spatial_full_dist_type_fun(input_pic->buffer_cb,
@@ -1454,6 +1499,7 @@ void fast_loop_core(ModeDecisionCandidateBuffer *cand_bf, PictureControlSet *pcs
             ctx,
             cand_bf,
             (ctx->mds0_ctrls.mds0_dist_type == SSD) ? full_lambda : fast_lambda,
+            (ctx->mds0_ctrls.mds0_dist_type_uv == SSD) ? full_lambda : fast_lambda,
             luma_fast_dist,
             chroma_fast_distortion);
     }
@@ -6374,46 +6420,6 @@ static Bool get_perform_tx_flag(PictureControlSet *pcs, ModeDecisionContext *ctx
     }
     return perform_tx;
 }
-// Core for `--variance-md-bias` and `--texture-preserving-qmc-bias`
-static void variance_md_bias_core(PictureControlSet *pcs, ModeDecisionContext *ctx, struct ModeDecisionCandidateBuffer *cand_bf) {
-    const uint16_t variance = get_variance_for_cu(ctx->blk_geom, pcs->ppcs->variance[ctx->sb_index]);
-    const uint16_t main_thr = pcs->scs->static_config.variance_md_bias_thr;
-
-    // Skip taper
-    if (pcs->scs->static_config.variance_md_bias && // Protected.
-        variance >= main_thr >> 1)
-        cand_bf->variance_md_skip_taper_active = true;
-    else
-        cand_bf->variance_md_skip_taper_active = false;
-
-    // Not protected. Must check `if (pcs->scs->static_config.variance_md_bias)`!
-    // This series of else if prevents the issue of variance right shifting to 0
-    if (variance >= main_thr && variance >= 20)
-        cand_bf->variance_md_mode_bias = 2;
-    else if (variance >= main_thr >> 1 && variance >= 16)
-        cand_bf->variance_md_mode_bias = 1;
-    else if (variance >= main_thr >> 2 && variance >= 8)
-        cand_bf->variance_md_mode_bias = 0;
-    else if (variance >= main_thr >> 3)
-        cand_bf->variance_md_mode_bias = -1;
-    else
-        cand_bf->variance_md_mode_bias = -2;
-
-    // Not protected. Must check `if (pcs->scs->static_config.variance_md_bias)`!
-    if (variance >= main_thr >> 3)
-        cand_bf->variance_md_32_blk_size_bias = 2;
-    else if (variance >= main_thr >> 4)
-        cand_bf->variance_md_32_blk_size_bias = 1;
-    else
-        cand_bf->variance_md_32_blk_size_bias = 0;
-
-    // Treat it as not protected. Must check `if (pcs->scs->static_config.texture_preserving_qmc_bias)`!
-    if (pcs->scs->static_config.texture_preserving_qmc_bias == 1 &&
-        variance <= AOMMAX((pcs->scs->static_config.variance_md_bias_thr >> 2) + (pcs->scs->static_config.variance_md_bias_thr >> 3), 22))
-        cand_bf->texture_preserving_qmc_bias = 1;
-    else
-        cand_bf->texture_preserving_qmc_bias = 0;
-}
 /*
    full loop core for light PD1 path
 */
@@ -6547,7 +6553,7 @@ static void full_loop_core_light_pd1(PictureControlSet *pcs, ModeDecisionContext
             svt_product_prediction_fun_table_light_pd1[is_inter_mode(cand->pred_mode)](ctx->hbd_md, ctx, pcs, cand_bf);
         }
         cand_bf->u_has_coeff = cand_bf->v_has_coeff = 0;
-        if (cand->skip_mode_allowed)
+        if (cand->skip_mode_allowed && !cand_bf->variance_md_skip_taper_active)
             cand->skip_mode = TRUE;
     }
 }
@@ -7627,7 +7633,7 @@ static void search_best_independent_uv_mode(PictureControlSet *pcs, EbPictureBuf
         cand_bf->cand                        = &ctx->fast_cand_array[uv_mode_count + start_fast_buffer_index];
         svt_product_prediction_fun_table[is_inter_mode(cand_bf->cand->pred_mode)](ctx->hbd_md, ctx, pcs, cand_bf);
         uint32_t chroma_fast_distortion;
-        if (ctx->mds0_ctrls.mds0_dist_type == VAR) {
+        if (ctx->mds0_ctrls.mds0_dist_type_uv == VAR) {
             if (!ctx->hbd_md) {
                 const AomVarianceFnPtr *fn_ptr = &svt_aom_mefn_ptr[ctx->blk_geom->bsize_uv];
                 unsigned int            sse;

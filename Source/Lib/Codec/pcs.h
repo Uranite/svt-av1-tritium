@@ -1235,7 +1235,7 @@ typedef struct PictureControlSetInitData {
     uint8_t noise_norm_strength;
     Bool    sharp_tx;
     uint8_t hbd_mds;
-    uint8_t complex_hvs;
+    int8_t  complex_hvs;
     Bool    alt_ssim_tuning;
     uint8_t luminance_qp_bias;
     double  ac_bias;

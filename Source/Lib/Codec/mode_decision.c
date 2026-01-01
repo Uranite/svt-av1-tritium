@@ -4405,7 +4405,7 @@ void svt_aom_product_full_mode_decision_light_pd1(
     ctx->blk_ptr->cnt_nz_coeff = cand_bf->cnt_nz_coeff;
 
     // If skip_mode is allowed, and block has no coeffs, use skip_mode
-    if (cand->skip_mode_allowed == TRUE) {
+    if (cand->skip_mode_allowed == TRUE && !cand_bf->variance_md_skip_taper_active) {
         blk_ptr->skip_mode |= !blk_ptr->block_has_coeff;
     }
     assert(IMPLIES(pcs->ppcs->frm_hdr.interpolation_filter == SWITCHABLE && blk_ptr->skip_mode, cand->interp_filters == 0));
@@ -4709,7 +4709,7 @@ uint32_t svt_aom_product_full_mode_decision(
     ctx->blk_ptr->cnt_nz_coeff = cand_bf->cnt_nz_coeff;
 
     // If skip_mode is allowed, and block has no coeffs, use skip_mode
-    if (cand->skip_mode_allowed == TRUE) {
+    if (cand->skip_mode_allowed == TRUE && !cand_bf->variance_md_skip_taper_active) {
         blk_ptr->skip_mode |= !blk_ptr->block_has_coeff;
     }
 

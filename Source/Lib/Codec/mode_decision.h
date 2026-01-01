@@ -82,7 +82,7 @@ typedef struct ModeDecisionCandidate {
 typedef EbErrorType (*EbPredictionFunc)(uint8_t hbd_md, struct ModeDecisionContext *ctx, PictureControlSet *pcs,
                                         struct ModeDecisionCandidateBuffer *cand_bf);
 typedef uint64_t (*EbFastCostFunc)(PictureControlSet *pcs, struct ModeDecisionContext *ctx,
-                                   struct ModeDecisionCandidateBuffer *cand_bf, uint64_t lambda,
+                                   struct ModeDecisionCandidateBuffer *cand_bf, uint64_t luma_lambda, uint64_t chroma_lambda,
                                    uint64_t luma_distortion, uint64_t chroma_distortion);
 
 typedef EbErrorType (*EbAv1FullCostFunc)(PictureControlSet *pcs, struct ModeDecisionContext *ctx,

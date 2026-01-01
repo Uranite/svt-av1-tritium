@@ -1041,8 +1041,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    if (config->complex_hvs > 1) {
-        SVT_ERROR("Instance %u: complex-hvs must be between 0 and 1\n", channel_number + 1);
+    if (config->complex_hvs < -1 || config->complex_hvs > 1) {
+        SVT_ERROR("Instance %u: complex-hvs must be between -1 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -2473,7 +2473,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"fast-decode", &config_struct->fast_decode},
         {"enable-tf", &config_struct->enable_tf},
         {"hbd-mds", &config_struct->hbd_mds},
-        {"complex-hvs", &config_struct->complex_hvs},
         {"luminance-qp-bias", &config_struct->luminance_qp_bias},
         {"filtering-noise-detection", &config_struct->filtering_noise_detection},
         {"tx-bias", &config_struct->tx_bias},
@@ -2566,6 +2565,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
     } int8_opts[] = {
         {"preset", &config_struct->enc_mode},
         {"sharpness", &config_struct->sharpness},
+        {"complex-hvs", &config_struct->complex_hvs},
         {"cdef-bias-max-sec-cdef-rel", &config_struct->cdef_bias_max_sec_cdef_rel},
         {"cdef-bias-damping-offset", &config_struct->cdef_bias_damping_offset},
     };

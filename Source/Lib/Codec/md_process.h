@@ -842,6 +842,7 @@ typedef struct TxShortcutCtrls {
 typedef struct Mds0Ctrls {
     // Distortion metric to use MDS0: SSD, VAR, SAD
     uint8_t mds0_dist_type;
+    uint8_t mds0_dist_type_uv; // will only be different if chroma_qmc_bias and obviously only effective in non-light paths
     // Skip cost computation if distortion is mds0_distortion_th % higher than best candidate cost
     // (applies to reg. PD1 only)
     uint8_t enable_cost_based_early_exit;
