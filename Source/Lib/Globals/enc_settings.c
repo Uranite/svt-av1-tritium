@@ -1010,11 +1010,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             SVT_ERROR("Instance %u: cdef-bias-damping-offset must be between -4 and 8\n", channel_number + 1);
             return_error = EB_ErrorBadParameter;
         }
-
-        if (config->cdef_bias_mode > 2) {
-            SVT_ERROR("Instance %u: cdef-bias-mode must be between 0 and 2\n", channel_number + 1);
-            return_error = EB_ErrorBadParameter;
-        }
     }
     
     if (config->balancing_q_bias > 1) {
@@ -1244,9 +1239,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->cdef_bias_min_cdef[1]             = 0;
     config_ptr->cdef_bias_min_cdef[2]             = 0;
     config_ptr->cdef_bias_min_cdef[3]             = 0;
-    config_ptr->cdef_bias_max_sec_cdef_rel        = 1;
+    config_ptr->cdef_bias_max_sec_cdef_rel        = 0;
     config_ptr->cdef_bias_damping_offset          = 0;
-    config_ptr->cdef_bias_mode                    = 1;
     config_ptr->balancing_q_bias                  = 0;
     config_ptr->noise_level_q_bias                = 0.0;
     config_ptr->sharp_tx                          = 1;
@@ -1447,10 +1441,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                                                               "on (restoration only)");
 
         if (config->cdef_level != 0 && config->cdef_bias)
-            SVT_INFO("SVT [config]: CDEF bias mode / CDEF max / min strength \t\t\t: %s / %d,%d %d,%d / %d,%d %d,%d\n",
-                     config->cdef_bias_mode == 0 ? "MSE" :
-                     config->cdef_bias_mode == 1 ? "SAD + MSE" :
-                                                   "SAD + SATD",
+            SVT_INFO("SVT [config]: CDEF bias max / min strength \t\t\t\t\t: %d,%d %d,%d / %d,%d %d,%d\n",
                      config->cdef_bias_max_cdef[0],
                      config->cdef_bias_max_cdef[1],
                      config->cdef_bias_max_cdef[2],
@@ -2468,7 +2459,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"chroma-qmc-bias", &config_struct->chroma_qmc_bias},
         {"texture-preserving-qmc-bias", &config_struct->texture_preserving_qmc_bias},
         {"cdef-bias", &config_struct->cdef_bias},
-        {"cdef-bias-mode", &config_struct->cdef_bias_mode},
         {"balancing-q-bias", &config_struct->balancing_q_bias},
         {"fast-decode", &config_struct->fast_decode},
         {"enable-tf", &config_struct->enable_tf},

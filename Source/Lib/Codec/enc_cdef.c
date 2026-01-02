@@ -171,55 +171,25 @@ uint64_t svt_aom_compute_cdef_dist_c(const uint16_t *dst, int32_t dstride, const
     }
     return sum >> 2 * coeff_shift;
 }
-uint64_t compute_cdef_dist_bias_16bit(uint8_t mode,
-                                      uint16_t *dst, int32_t dstride, uint16_t *src, CdefList *dlist,
-                                      int32_t cdef_count, BlockSize bsize, int32_t coeff_shift, int32_t pli,
-                                      uint8_t subsampling_factor) {
-    ASSERT(mode != 0);
-    if (mode && pli == 0) {
-        uint64_t sum = 0;
-        int32_t  bi, bx, by;
-        int32_t  coeffs[64];
-        int32_t  input_energy;
-        int32_t  cdef_energy;
+uint64_t compute_cdef_dist_sad_mse_16bit(uint16_t *dst, int32_t dstride, uint16_t *src, CdefList *dlist,
+                                         int32_t cdef_count, BlockSize bsize, int32_t coeff_shift, int32_t pli,
+                                         uint8_t subsampling_factor) {
+    int32_t bi, bx, by;
+    uint64_t sad = 0;
+    uint64_t mse;
     
-        ASSERT(bsize == BLOCK_8X8);
-        if (mode == 1) { // SAD + MSE
-            for (bi = 0; bi < cdef_count; bi++) {
-                by = dlist[bi].by;
-                bx = dlist[bi].bx;
-    
-                sum += sad_16b_kernel(&src[bi << (3 + 3)], dstride,
-                                      &dst[(by << 3) * dstride + (bx << 3)], dstride,
-                                      8, 8) >> 5;
-            }
-            sum = (sum >> 1) + (sum >> 2);
-            sum += (svt_compute_cdef_dist_16bit(dst, dstride, src, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor) << (2 * coeff_shift)) >> 2;
-        }
-        else { // mode == 2 // SAD + SATD
-            for (bi = 0; bi < cdef_count; bi++) {
-                by = dlist[bi].by;
-                bx = dlist[bi].bx;
-    
-                svt_aom_highbd_hadamard_8x8((int16_t*)&src[bi << (3 + 3)], dstride, coeffs);
-                input_energy = svt_aom_satd(coeffs, 64);
-    
-                svt_aom_highbd_hadamard_8x8((int16_t*)&dst[(by << 3) * dstride + (bx << 3)], dstride, coeffs);
-                cdef_energy = svt_aom_satd(coeffs, 64);
-    
-                sum += (sad_16b_kernel(&src[bi << (3 + 3)], dstride,
-                                       &dst[(by << 3) * dstride + (bx << 3)], dstride,
-                                       8, 8) >> 5) +
-                       (abs(input_energy - cdef_energy) >> 7);
-            }
-            sum = (sum >> 1) + (sum >> 2);
-        }
+    for (bi = 0; bi < cdef_count; bi++) {
+        by = dlist[bi].by;
+        bx = dlist[bi].bx;
 
-        return sum >> (2 * coeff_shift);
+        sad += sad_16b_kernel(&src[bi << (3 + 3)], 8,
+                              &dst[(by << 3) * dstride + (bx << 3)], dstride,
+                              8, 8);
     }
-    else {
-        return svt_compute_cdef_dist_16bit(dst, dstride, src, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor);
-    }
+    mse = svt_compute_cdef_dist_16bit(dst, dstride, src, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor)
+          << (2 * coeff_shift);
+
+    return ((sad << 2) + (mse >> 1)) >> (2 * coeff_shift);
 }
 
 uint64_t svt_aom_compute_cdef_dist_8bit_c(const uint8_t *dst8, int32_t dstride, const uint8_t *src8,
@@ -267,75 +237,25 @@ uint64_t svt_aom_compute_cdef_dist_8bit_c(const uint8_t *dst8, int32_t dstride, 
     }
     return sum >> 2 * coeff_shift;
 }
-uint64_t compute_cdef_dist_bias_8bit(uint8_t mode,
-                                     uint8_t *dst8, int32_t dstride, uint8_t *src8,
-                                     CdefList *dlist, int32_t cdef_count, BlockSize bsize,
-                                     int32_t coeff_shift, int32_t pli, uint8_t subsampling_factor) {
-    ASSERT(mode != 0);
-    if (mode && pli == 0) {
-        uint64_t sum = 0;
-        int32_t  bi, bx, by;
-        uint16_t block_as_16bit[64];
-        uint8_t *bsrc, *bdst;
-        int32_t  coeffs[64];
-        int32_t  input_energy;
-        int32_t  cdef_energy;
-    
-        ASSERT(bsize == BLOCK_8X8);
-        if (mode == 1) { // SAD + MSE
-            for (bi = 0; bi < cdef_count; bi++) {
-                by = dlist[bi].by;
-                bx = dlist[bi].bx;
-    
-                sum += svt_nxm_sad_kernel(&src8[bi << (3 + 3)], dstride,
-                                          &dst8[(by << 3) * dstride + (bx << 3)], dstride,
-                                          8, 8) >> 5;
-            }
-            sum = (sum >> 1) + (sum >> 2);
-            sum += (svt_compute_cdef_dist_8bit(dst8, dstride, src8, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor) << (2 * coeff_shift)) >> 2;
-        }
-        else { // mode == 2 // SAD + SATD
-            for (bi = 0; bi < cdef_count; bi++) {
-                by = dlist[bi].by;
-                bx = dlist[bi].bx;
+uint64_t compute_cdef_dist_sad_mse_8bit(uint8_t *dst8, int32_t dstride, uint8_t *src8,
+                                        CdefList *dlist, int32_t cdef_count, BlockSize bsize,
+                                        int32_t coeff_shift, int32_t pli, uint8_t subsampling_factor) {
+    int32_t bi, bx, by;
+    uint64_t sad = 0;
+    uint64_t mse;
 
-                bsrc = &src8[bi << (3 + 3)];
+    for (bi = 0; bi < cdef_count; bi++) {
+        by = dlist[bi].by;
+        bx = dlist[bi].bx;
 
-                for (int h = 0; h < 8; h++) {
-                    for (int w = 0; w < 8; w++) {
-                        block_as_16bit[h * 8 + w] = bsrc[w];
-                    }
-                    bsrc += dstride;
-                }
-    
-                svt_aom_hadamard_8x8((int16_t*)block_as_16bit, 8, coeffs);
-                input_energy = svt_aom_satd(coeffs, 64);
-
-                bdst = &dst8[(by << 3) * dstride + (bx << 3)];
-
-                for (int h = 0; h < 8; h++) {
-                    for (int w = 0; w < 8; w++) {
-                        block_as_16bit[h * 8 + w] = bdst[w];
-                    }
-                    bdst += dstride;
-                }
-    
-                svt_aom_hadamard_8x8((int16_t*)block_as_16bit, 8, coeffs);
-                cdef_energy = svt_aom_satd(coeffs, 64);
-    
-                sum += (svt_nxm_sad_kernel(&src8[bi << (3 + 3)], dstride,
-                                           &dst8[(by << 3) * dstride + (bx << 3)], dstride,
-                                           8, 8) >> 5) +
-                       (abs(input_energy - cdef_energy) >> 7);
-            }
-            sum = (sum >> 1) + (sum >> 2);
-        }
-    
-        return sum >> (2 * coeff_shift);
+        sad += svt_nxm_sad_kernel(&src8[bi << (3 + 3)], 8,
+                                  &dst8[(by << 3) * dstride + (bx << 3)], dstride,
+                                  8, 8);
     }
-    else {
-        return svt_compute_cdef_dist_8bit(dst8, dstride, src8, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor);
-    }
+    mse = svt_compute_cdef_dist_8bit(dst8, dstride, src8, dlist, cdef_count, bsize, coeff_shift, pli, subsampling_factor)
+          << (2 * coeff_shift);
+
+    return ((sad << 2) + (mse >> 1)) >> (2 * coeff_shift);
 }
 
 int32_t svt_sb_all_skip(PictureControlSet *pcs, const Av1Common *const cm, int32_t mi_row, int32_t mi_col) {
@@ -963,13 +883,17 @@ void finish_cdef_search(PictureControlSet *pcs, SequenceControlSet *scs) {
     nb_strength_bits = 0;
     if (scs->static_config.texture_preserving_qmc_bias) {
         for (i = 0; i < sb_count; i++) {
-            mse[0][i][0] = (61 * mse[0][i][0]) >> 6;
-            mse[1][i][0] = (61 * mse[1][i][0]) >> 6;
+            // The same rule as compute_cdef_dist_sad_mse in cdef_process.c
+            if (scs->static_config.cdef_bias && // Always true when `--texture-preserving-qmc-bias`
+                pcs->ppcs->frm_hdr.quantization_params.base_q_idx >> 6 == 0)
+                mse[0][i][0] = (63 * mse[0][i][0]) >> 6;
+            else
+                mse[0][i][0] = (62 * mse[0][i][0]) >> 6;
         }
     }
     // Scale down the cost of the (0,0) filter strength to bias selection towards off.
     // When off, can save the cost of the application.
-    else if (cdef_ctrls->zero_fs_cost_bias) {
+    else if (cdef_ctrls->zero_fs_cost_bias) { // `--cdef-bias` forces full CDEF so probably not going to happen
         const uint16_t factor = cdef_ctrls->zero_fs_cost_bias;
         for (i = 0; i < sb_count; i++) {
             mse[0][i][0] = (factor * mse[0][i][0]) >> 6;

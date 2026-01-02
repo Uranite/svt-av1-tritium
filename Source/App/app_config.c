@@ -234,7 +234,6 @@
 #define CDEF_BIAS_MIN_CDEF_TOKEN "--cdef-bias-min-cdef"
 #define CDEF_BIAS_MAX_SEC_CDEF_REL_TOKEN "--cdef-bias-max-sec-cdef-rel"
 #define CDEF_BIAS_DAMPING_OFFSET_TOKEN "--cdef-bias-damping-offset"
-#define CDEF_BIAS_MODE_TOKEN "--cdef-bias-mode"
 #define BALANCING_Q_BIAS_TOKEN "--balancing-q-bias"
 #define NOISE_LEVEL_Q_BIAS_TOKEN "--noise-level-q-bias"
 #define SHARP_TX_TOKEN "--sharp-tx"
@@ -1386,15 +1385,11 @@ ConfigEntry config_entry_psy[] = {
      set_cfg_generic_token},
     {SINGLE_INPUT,
      CDEF_BIAS_MAX_SEC_CDEF_REL_TOKEN,
-     "[PSY] Max CDEF secondary strength relative to the primary strength, default is 1 [-12-4]",
+     "[PSY] Max CDEF secondary strength relative to the primary strength, default is 0 [-12-4]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      CDEF_BIAS_DAMPING_OFFSET_TOKEN,
      "[PSY] Offset CDEF damping, default is 1 [-12-4]",
-     set_cfg_generic_token},
-    {SINGLE_INPUT,
-     CDEF_BIAS_MODE_TOKEN,
-     "[PSY] CDEF bias mode, default is 1 [0: MSE, 1: SAD + MSE, 2: SAD + SATD]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      BALANCING_Q_BIAS_TOKEN,
@@ -1683,7 +1678,6 @@ ConfigEntry config_entry[] = {
     {SINGLE_INPUT, CDEF_BIAS_MIN_CDEF_TOKEN, "CDEFBiasMinCDEF", set_cfg_generic_token},
     {SINGLE_INPUT, CDEF_BIAS_MAX_SEC_CDEF_REL_TOKEN, "CDEFBiasMaxSecCDEFRel", set_cfg_generic_token},
     {SINGLE_INPUT, CDEF_BIAS_DAMPING_OFFSET_TOKEN, "CDEFBiasDampingOffset", set_cfg_generic_token},
-    {SINGLE_INPUT, CDEF_BIAS_MODE_TOKEN, "CDEFBiasMode", set_cfg_generic_token},
 
     // Balancing Q Bias
     {SINGLE_INPUT, BALANCING_Q_BIAS_TOKEN, "BalancingQBias", set_cfg_generic_token},

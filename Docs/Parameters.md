@@ -137,9 +137,8 @@ You should enable CDEF with `--enable-cdef 1` when using `--chroma-qmc-bias`. CD
 In addition to internal adjustments, `--texture-preserving-qmc-bias` also sets these parameters for you:  
 * `--balancing-q-bias 1`. Please note that `--balancing-q-bias 1` is not intended to be used with `--qp-scale-compress-strength`, so make sure you either don't set `--qp-scale-compress-strength`, or set `--qp-scale-compress-strength` to `0.0`.  
 
-You're recommended to disable CDEF with `--enable-cdef 0` when texture preservation is your top priority, but in case you want to still have it enabled to clean up some ringing, it also has a special protective CDEF mode. These parameters are set for you:  
+You're recommended to disable CDEF with `--enable-cdef 0` when texture preservation is your top priority, but in case you want to still have it enabled to clean up some ringing, it also has a special protective CDEF mode. In additional to internal CDEF adjustments, these parameters are set for you:  
 * `--cdef-bias 1`.  
-* `--cdef-bias-mode 0`: This is required for the protective mode to function.  
 * `--cdef-bias-max-cdef -,0,-,0 --cdef-bias-min-cdef -,0,-,0`: The secondary CDEF filtering is disabled. You may still set primary CDEF filtering to any value you prefer.  
 
 ## Rate Control Options
@@ -361,12 +360,11 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 | **ResizeFrameEvents**              | --frame-resz-events    | any string       | None          | Frame scale events, in a list separated by ',', scaling process starts from the given frame number (0 based) with new denominators, only applicable for mode == 4       |
 | **ResizeFrameKfDenoms**            | --frame-resz-kf-denoms | [8-16]           | 8             | Frame scale denominator for key frames in event, in a list separated by ',', only applicable for mode == 4                                                              |
 | **ResizeFrameDenoms**              | --frame-resz-denoms    | [8-16]           | 8             | Frame scale denominator in event, in a list separated by ',', only applicable for mode == 4                                                                             |
-| **CDEFBias**                       | --cdef-bias            | [0-1]            | 0             | Enable CDEF bias, which comes with new SAD & SATD based distortion calculation, cdef strength taper, and various other improvements.                                    |
+| **CDEFBias**                       | --cdef-bias            | [0-1]            | 0             | Enable CDEF bias, which comes with a fix on CDEF signalling bits, SAD & MSE based distortion calculation, CDEF strength taper, and various other improvements.          |
 | **CDEFBiasMaxCDEF**                | --cdef-bias-max-cdef   | any string       | `4,1,2,0`     | Max CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`. |
 | **CDEFBiasMinCDEF**                | --cdef-bias-min-cdef   | any string       | `0,0,0,0`     | Min CDEF strength in the order of primary strength for Y, secondary strength for Y, primary strength for chroma, secondary strength for chroma. Primary strengths can be any value betwen `0` and `15`, and secondary strengths can be either `0`, `1`, `2`, or `4`. |
-| **CDEFBiasMaxSecCDEFRel**          | --cdef-bias-max-sec-cdef-rel | [-12-4]    | 1             | Secondary CDEF strength of every filtering block should be smaller than or equal to primary CDEF strength plus this value.                                              |
+| **CDEFBiasMaxSecCDEFRel**          | --cdef-bias-max-sec-cdef-rel | [-12-4]    | 0             | Secondary CDEF strength of every filtering block should be smaller than or equal to primary CDEF strength plus this value.                                              |
 | **CDEFBiasDampingOffset**          | --cdef-bias-damping-offset | [-4-8]       | 0             | Use bigger or smaller CDEF damping. CDEF damping is a CDEF feature (not a `--cdef-bias` feature), normally derived from each frame's `base_q_idx`.                      |
-| **CDEFBiasMode**                   | --cdef-bias-mode       | [0-2]            | 1             | Change how each individual CDEF options are evaluated [0: MSE (Default without `--cdef-bias`), 1: SAD + MSE, 2: SAD + SATD]                                             |
 
 #### **Super-Resolution**
 
