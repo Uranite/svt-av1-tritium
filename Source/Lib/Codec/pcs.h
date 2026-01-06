@@ -1215,6 +1215,7 @@ typedef struct PictureControlSetInitData {
     bool    adaptive_film_grain;
     uint8_t max_tx_size;
     double  ac_bias;
+    bool    auto_tiling;
 #if TUNE_RTC_RA_PRESETS
     bool use_flat_ipp;
 #endif

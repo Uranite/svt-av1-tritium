@@ -228,6 +228,7 @@
 #define ADAPTIVE_FILM_GRAIN_TOKEN "--adaptive-film-grain"
 #define MAX_TX_SIZE_TOKEN "--max-tx-size"
 #define AC_BIAS_TOKEN "--ac-bias"
+#define AUTO_TILING "--auto-tiling"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -877,6 +878,7 @@ ConfigDescription config_entry_intra_refresh[] = {
     {NULL, NULL}};
 
 ConfigDescription config_entry_specific[] = {
+    {AUTO_TILING, "Auto tiling, default is 1 [0-1]"},
     {TILE_ROW_TOKEN, "Number of tile rows to use, `TileRow == log2(x)`, default changes per resolution but is 1 [0-6]"},
     {TILE_COL_TOKEN,
      "Number of tile columns to use, `TileCol == log2(x)`, default changes per resolution but is 1 [0-4]"},
@@ -1257,6 +1259,9 @@ ConfigEntry config_entry[] = {
 
     // Psy rd strength
     {AC_BIAS_TOKEN, "AcBias", set_cfg_generic_token},
+
+    // Auto Tiling
+    {AUTO_TILING, "AutoTiling", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};
