@@ -2163,8 +2163,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->force_key_frames = 0;
 
     // Quant Matrices (QM)
-    config_ptr->enable_qm           = 0;
-    config_ptr->min_qm_level        = 8;
+    config_ptr->enable_qm           = 1;
+    config_ptr->min_qm_level        = 4;
     config_ptr->max_qm_level        = 15;
     config_ptr->min_chroma_qm_level = 8;
     config_ptr->max_chroma_qm_level = 15;
@@ -2177,13 +2177,13 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->frame_scale_evts.start_frame_nums = NULL;
     config_ptr->enable_roi_map                    = false;
     config_ptr->fgs_table                         = NULL;
-    config_ptr->enable_variance_boost             = false;
+    config_ptr->enable_variance_boost             = true;
     config_ptr->variance_boost_strength           = 2;
     config_ptr->variance_octile                   = 5;
-    config_ptr->tf_strength                       = 3;
+    config_ptr->tf_strength                       = 1;
     config_ptr->variance_boost_curve              = 0;
     config_ptr->luminance_qp_bias                 = 0;
-    config_ptr->sharpness                         = 0;
+    config_ptr->sharpness                         = 1;
     config_ptr->lossless                          = false;
     config_ptr->avif                              = false;
     config_ptr->qp_scale_compress_strength        = 0;
