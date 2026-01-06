@@ -773,7 +773,7 @@ ConfigDescription config_entry_rc[] = {
     {VBR_MAX_SECTION_PCT_TOKEN,
      "GOP max bitrate (expressed as a percentage of the target rate), default is 2000 [0-10000]"},
 #if CONFIG_ENABLE_QUANT_MATRIX
-    {ENABLE_QM_TOKEN, "Enable quantisation matrices, default is 0 [0-1]"},
+    {ENABLE_QM_TOKEN, "Enable quantisation matrices, default is 1 [0-1]"},
     {MIN_QM_LEVEL_TOKEN, "Min quant matrix flatness, default is 8 [0-15]"},
     {MAX_QM_LEVEL_TOKEN, "Max quant matrix flatness, default is 15 [0-15]"},
     {MIN_CHROMA_QM_LEVEL_TOKEN, "Min chroma quant matrix flatness, default is 8 [0-15]"},
@@ -781,11 +781,11 @@ ConfigDescription config_entry_rc[] = {
 #endif
     {ROI_MAP_FILE_TOKEN, "Enable Region Of Interest and specify a picture based QP Offset map file, default is off"},
     // TF Strength
-    {TF_STRENGTH_FILTER_TOKEN, "Adjust temporal filtering strength, default is 3 [0-4]"},
+    {TF_STRENGTH_FILTER_TOKEN, "Adjust temporal filtering strength, default is 1 [0-4]"},
     // Frame-level luminance-based QP bias
     {LUMINANCE_QP_BIAS_TOKEN, "Adjusts a frame's QP based on its average luma value, default is 0 [0-100]"},
     // Sharpness
-    {SHARPNESS_TOKEN, "Bias towards decreased/increased sharpness, default is 0 [-7 to 7]"},
+    {SHARPNESS_TOKEN, "Bias towards decreased/increased sharpness, default is 1 [-7 to 7]"},
     // Termination
     {NULL, NULL}};
 
@@ -850,7 +850,7 @@ ConfigDescription config_entry_specific[] = {
     // --- end: ALTREF_FILTERING_SUPPORT
     {TUNE_TOKEN,
      "Optimize the encoding process for different desired outcomes [0 = VQ, 1 = PSNR, 2 = SSIM, 3 = IQ (Image "
-     "Quality)], 4 = MS_SSIM (MS_SSIM and SSIMULACRA2 optimized mode), default is 1 [0-4]"},
+     "Quality)], 4 = MS_SSIM (MS_SSIM and SSIMULACRA2 optimized mode), default is 0 [0-4]"},
     // MD Parameters
     {SCREEN_CONTENT_TOKEN,
      "Set screen content detection level, default is 2 [0: off, 1: on, 2: content adaptive, 3: content adaptive "
@@ -936,18 +936,18 @@ ConfigDescription config_entry_color_description[] = {
 
 ConfigDescription config_entry_psychovisual[] = {
     // Variance Boost
-    {ENABLE_VARIANCE_BOOST_TOKEN, "Enable Variance Boost, default is 0 [0-1]"},
+    {ENABLE_VARIANCE_BOOST_TOKEN, "Enable Variance Boost, default is 1 [0-1]"},
     {VARIANCE_BOOST_STRENGTH_TOKEN, "Variance Boost strength, default is 2 [1-4]"},
     {VARIANCE_OCTILE_TOKEN, "Octile for Variance Boost, default is 5 [1-8]"},
     {VARIANCE_BOOST_CURVE_TOKEN, "Curve for Variance Boost, default is 0 [0-2]"},
     // QP scale compress
-    {QP_SCALE_COMPRESS_STRENGTH_TOKEN, "QP scale compress strength, default is 0 [0-3]"},
+    {QP_SCALE_COMPRESS_STRENGTH_TOKEN, "QP scale compress strength, default is 1 [0-3]"},
     // Adaptive film grain
     {ADAPTIVE_FILM_GRAIN_TOKEN, "Adapts film grain blocksize based on video resolution, default is 1 [0-1]"},
     // Max TX size
     {MAX_TX_SIZE_TOKEN, "Limits the allowed transform sizes to the specified, default is 64 [32,64]"},
     //AC-Bias
-    {AC_BIAS_TOKEN, "Strength of AC bias in rate distortion, default is 0.0 [0.0-8.0]"},
+    {AC_BIAS_TOKEN, "Strength of AC bias in rate distortion, default is 1.0 [0.0-8.0]"},
     // Termination
     {NULL, NULL}};
 
