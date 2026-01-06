@@ -962,8 +962,14 @@ typedef struct EbSvtAv1EncConfiguration {
      */
      double ac_bias;
 
+    /* @brief Signal to the library to automatically adjust tiles
+     *
+     * Default is true.
+     */
+     bool auto_tiling;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128
+    uint8_t padding[128 - sizeof(bool)
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;

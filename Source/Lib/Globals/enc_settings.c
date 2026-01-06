@@ -999,6 +999,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->max_tx_size                       = 64;
     config_ptr->extended_crf_qindex_offset        = 0;
     config_ptr->ac_bias                           = 1.0;
+    config_ptr->auto_tiling                       = true;
     return return_error;
 }
 
@@ -1063,6 +1064,11 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                  config->pred_structure == LOW_DELAY           ? "low delay"
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
                                                                : "Unknown pred structure");
+        if (config->auto_tiling > 0 || config->tile_columns > 0 || config->tile_rows > 0)
+            SVT_INFO("SVT [config]: auto tiling / columns / rows \t\t\t\t\t: %d / %d / %d\n",
+                     config->auto_tiling,
+                     config->tile_columns,
+                     config->tile_rows);
         SVT_INFO(
             "SVT [config]: gop size / mini-gop size / key-frame type \t\t\t: "
             "%d / %d / %s\n",
@@ -2209,6 +2215,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"avif", &config_struct->avif},
         {"rtc", &config_struct->rtc},
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
+        {"auto-tiling", &config_struct->auto_tiling},
     };
     const size_t bool_opts_size = sizeof(bool_opts) / sizeof(bool_opts[0]);
 
