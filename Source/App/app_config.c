@@ -949,18 +949,18 @@ ConfigDescription config_entry_color_description[] = {
 
 ConfigDescription config_entry_psychovisual[] = {
     // Variance Boost
-    {ENABLE_VARIANCE_BOOST_TOKEN, "Enable Variance Boost, default is 0 [0-1]"},
+    {ENABLE_VARIANCE_BOOST_TOKEN, "Enable Variance Boost, default is 1 [0-1]"},
     {VARIANCE_BOOST_STRENGTH_TOKEN, "Variance Boost strength, default is 2 [1-4]"},
     {VARIANCE_OCTILE_TOKEN, "Octile for Variance Boost, default is 5 [1-8]"},
     {VARIANCE_BOOST_CURVE_TOKEN, "Curve for Variance Boost, default is 0 [0-2]"},
     // QP scale compress
-    {QP_SCALE_COMPRESS_STRENGTH_TOKEN, "QP scale compress strength, default is 0 [0-3]"},
+    {QP_SCALE_COMPRESS_STRENGTH_TOKEN, "QP scale compress strength, default is 1 [0-3]"},
     // Adaptive film grain
     {ADAPTIVE_FILM_GRAIN_TOKEN, "Adapts film grain blocksize based on video resolution, default is 1 [0-1]"},
     // Max TX size
     {MAX_TX_SIZE_TOKEN, "Limits the allowed transform sizes to the specified, default is 64 [32,64]"},
     //AC-Bias
-    {AC_BIAS_TOKEN, "Strength of AC bias in rate distortion, default is 0.0 [0.0-8.0]"},
+    {AC_BIAS_TOKEN, "Strength of AC bias in rate distortion, default is 1.0 [0.0-8.0]"},
     // Termination
     {NULL, NULL}};
 
