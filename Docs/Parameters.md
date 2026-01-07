@@ -135,7 +135,9 @@ You should enable CDEF with `--enable-cdef 1` when using `--chroma-qmc-bias`. CD
 ### Texture Preserving QMC Bias
 
 In addition to internal adjustments, `--texture-preserving-qmc-bias` also sets these parameters for you:  
-* `--balancing-q-bias 1`. Please note that `--balancing-q-bias 1` is not intended to be used with `--qp-scale-compress-strength`, so make sure you either don't set `--qp-scale-compress-strength`, or set `--qp-scale-compress-strength` to `0.0`.  
+* `--balancing-q-bias 1`. Please note that `--balancing-q-bias 1` is not intended to be used with `--qp-scale-compress-strength`, so make sure you either don't set `--qp-scale-compress-strength`, or set `--qp-scale-compress-strength` to `0.0`. If you want to use `--qp-scale-compress-strength` instead, you can disable this by setting `--balancing-q-bias 0` explicitly.
+
+If your texture is static, the default `--balancing-r0-based-layer-offset 0` should work. However, if you want to retain more dynamic details, you can use `balancing-r0-based-layer-offset 1`.  
 
 You're recommended to disable CDEF with `--enable-cdef 0` when texture preservation is your top priority, but in case you want to still have it enabled to clean up some ringing, it also has a special protective CDEF mode. In additional to internal CDEF adjustments, these parameters are set for you:  
 * `--cdef-bias 1`.  
@@ -165,6 +167,7 @@ You're recommended to disable CDEF with `--enable-cdef 0` when texture preservat
 | **LowQTaper**                    | --low-q-taper                    | [0-1]      | 0           | Avoid boosting macroblocks to extremely low q levels.                                                                                                |
 | **QpScaleCompressStrength**      | --qp-scale-compress-strength     | [0.0-8.0]  | 1.0         | Sets the strength the QP scale algorithm compresses values across all temporal layers, which results in more consistent video quality (less quality variation across frames in a mini-gop) [0.0: SVT-AV1 default, 1.0: SVT-AV1-PSY default, 0.0-3.0: recommended range, 0.0: default when `--balancing-q-bias 1` is selected] |
 | **BalancingQBias**               | --balancing-q-bias               | [0-1]      | 0           | Enable balancing Q bias. Balancing Q bias biases the TPL system on both per frame and per Super Block level for better detail retention.             |
+| **BalancingR0BasedLayerOffset**  | --balancing-r0-based-layer-offset | [-2-3]    | 0           | Enable balancing r0-based layer offset. Positive numbers increase the number of frames using r0-based QPS QPM. This affects a wide range of features and can be used without `--balancing-q-bias` |
 | **NoiseLevelQBias**              | --noise-level-q-bias             | [-0.33-0.5] | 0.0        | Boost a frame's base qindex when noise level is below the threshold [0.0: disabled, positive: boost frames with low noise, negative: dampen frames with low noise, -0.09-0.10: recommended range] |
 | **FilteringNoiseDetection**      | --filtering-noise-detection      | [0-4]      | 0           | Controls noise detection which disables CDEF/restoration when noise level is high enough, enabled by default on tunes 0 and 3 [0: default tune behavior, 1: on, 2: off, 3: on (CDEF only), 4: on (restoration only)] |
 | **AcBias**                       | --ac-bias                        | [0.0-8.0]  | 0.0         | Sets the strength of the internal RD metric to bias toward high-frequency error (helps with texture preservation and film grain retention)           |

@@ -4337,7 +4337,8 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->static_config.cdef_bias = 1;
     if (scs->static_config.texture_preserving_qmc_bias) {
         // Explanations in Parameters.md
-        scs->static_config.balancing_q_bias = 1;
+        if (scs->static_config.balancing_q_bias == DEFAULT)
+            scs->static_config.balancing_q_bias = 1;
 
         scs->static_config.cdef_bias = 1;
         scs->static_config.cdef_bias_max_cdef[1] = 0;
@@ -4346,12 +4347,17 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->static_config.cdef_bias_min_cdef[3] = 0;
     }
 
-    if (scs->static_config.qp_scale_compress_strength == DEFAULT) {
-        if (!scs->static_config.balancing_q_bias)
-            scs->static_config.qp_scale_compress_strength = 1.0;
-        else
-            scs->static_config.qp_scale_compress_strength = 0.0;
+    if (scs->static_config.qp_scale_compress_strength == DEFAULT &&
+        scs->static_config.balancing_q_bias == DEFAULT) {
+        scs->static_config.qp_scale_compress_strength = 1.0;
+        scs->static_config.balancing_q_bias = 0;
     }
+    else if (scs->static_config.qp_scale_compress_strength != DEFAULT &&
+             scs->static_config.balancing_q_bias == DEFAULT)
+        scs->static_config.balancing_q_bias = 0;
+    else if (scs->static_config.qp_scale_compress_strength == DEFAULT &&
+             scs->static_config.balancing_q_bias != DEFAULT)
+        scs->static_config.qp_scale_compress_strength = 0.0;
 
     // no future minigop is used for lowdelay prediction structure
     if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_P || scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
@@ -5120,6 +5126,9 @@ static void copy_api_from_app(
 
     // Balancing Q bias
     scs->static_config.balancing_q_bias = config_struct->balancing_q_bias;
+
+    // Balancing r0-based layer bias
+    scs->static_config.balancing_r0_based_layer_offset = config_struct->balancing_r0_based_layer_offset;
 
     // Noise level Q bias
     scs->static_config.noise_level_q_bias = config_struct->noise_level_q_bias;

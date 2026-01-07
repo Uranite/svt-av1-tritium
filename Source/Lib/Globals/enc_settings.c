@@ -1012,7 +1012,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         }
     }
     
-    if (config->balancing_q_bias > 1) {
+    if ((config->balancing_q_bias < 0 || config->balancing_q_bias > 1) &&
+        config->balancing_q_bias != DEFAULT) {
         SVT_ERROR("Instance %u: balancing-q-bias must be between 0 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
@@ -1020,7 +1021,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_WARN("Instance %u: balancing-q-bias is intended to replace qp-scale-compress-strength and not intended to be used together\n", channel_number + 1);
     if (config->balancing_q_bias && config->low_q_taper)
         SVT_WARN("Instance %u: balancing-q-bias is not intended to be used together with low-q-taper\n", channel_number + 1);
-        
+
+    if (config->balancing_r0_based_layer_offset < -2 || config->balancing_r0_based_layer_offset > 3) {
+        SVT_ERROR("Instance %u: balancing-r0-based-layer-offset must be between -2 and 3\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+
     if (config->noise_level_q_bias < -1/3 || config->noise_level_q_bias > 0.5) {
         SVT_ERROR("Instance %u: noise-level-thr must be between -0.33 and 0.5\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
@@ -1241,7 +1247,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->cdef_bias_min_cdef[3]             = 0;
     config_ptr->cdef_bias_max_sec_cdef_rel        = 0;
     config_ptr->cdef_bias_damping_offset          = 0;
-    config_ptr->balancing_q_bias                  = 0;
+    config_ptr->balancing_q_bias                  = DEFAULT;
+    config_ptr->balancing_r0_based_layer_offset   = 0;
     config_ptr->noise_level_q_bias                = 0.0;
     config_ptr->sharp_tx                          = 1;
     config_ptr->hbd_mds                           = 0;
@@ -1327,6 +1334,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "key frame"
                                                                    : "unknown key frame type");
 
+        // Rate control
         switch (config->rate_control_mode) {
         case SVT_AV1_RC_MODE_CQP_OR_CRF:
             if (config->max_bit_rate)
@@ -1357,11 +1365,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
         if (config->rate_control_mode != SVT_AV1_RC_MODE_CBR) {
             if (!config->enable_variance_boost) {
-                SVT_INFO("SVT [config]: AQ mode / variance boost \t\t\t\t\t: %d / %d\n",
-                         config->enable_adaptive_quantization,
-                         config->enable_variance_boost);
+                SVT_INFO("SVT [config]: AQ mode / variance boost \t\t\t\t\t: %d / disabled\n",
+                         config->enable_adaptive_quantization);
             } else {
-                SVT_INFO("SVT [config]: AQ mode / variance boost strength / octile / curve \t\t: %d / %d / %d / %s\n",
+                SVT_INFO("SVT [config]: AQ mode / variance boost - strength / octile / curve \t\t: %d / %d / %d / %s\n",
                          config->enable_adaptive_quantization,
                          config->variance_boost_strength,
                          config->variance_octile,
@@ -1369,87 +1376,47 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
             }
         }
 
-        if (config->film_grain_denoise_strength != 0) {
-            if (config->adaptive_film_grain) {
-                SVT_INFO("SVT [config]: film grain synth / denoising / level / adaptive blocksize \t: %d / %d / %d / true\n",
-                         1,
-                         config->film_grain_denoise_apply,
-                         config->film_grain_denoise_strength);
-            } else {
-                SVT_INFO("SVT [config]: film grain synth / denoising / level / adaptive blocksize \t: %d / %d / %d / false\n",
-                         1,
-                         config->film_grain_denoise_apply,
-                         config->film_grain_denoise_strength);
-            }
+        if (!config->balancing_q_bias) {
+            if (config->low_q_taper)
+                SVT_INFO("SVT [config]: QP scale compress strength / frame low-luma bias / low Q taper : %.2f / %d / on\n",
+                         config->qp_scale_compress_strength,
+                         config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
+            else
+                SVT_INFO("SVT [config]: QP scale compress strength / frame low-luma bias \t\t: %.2f / %d\n",
+                         config->qp_scale_compress_strength,
+                         config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
         }
-
-        if (!config->balancing_q_bias)
-            SVT_INFO("SVT [config]: sharpness / QP scale compress strength / frame low-luma bias \t: %d / %.2f / %d\n",
-                     config->sharpness,
-                     config->qp_scale_compress_strength,
-                     config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
         else
-            SVT_INFO("SVT [config]: sharpness / balancing Q bias / frame low-luma bias \t\t: %d / based / %d\n",
-                     config->sharpness,
+            SVT_INFO("SVT [config]: balancing Q bias / r0-based layer offset / frame low-luma bias : based / %d / %d\n",
+                     config->balancing_r0_based_layer_offset,
                      config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
 
-        switch (config->enable_tf) {
-            case 2:
-                if (config->noise_norm_strength < 1) {
-                    SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t\t: %s\n",
-                            "auto");
-                } else {
-                    SVT_INFO("SVT [config]: temporal filtering strength / noise normalization strength \t: %s / %d\n",
-                            "auto",
-                            config->noise_norm_strength);
-                }
+        // Film grain
+        if (config->film_grain_denoise_strength != 0)
+            SVT_INFO("SVT [config]: film grain synth - level / denoising / adaptive blocksize \t: %d / %s / %s\n",
+                     config->film_grain_denoise_strength,
+                     config->film_grain_denoise_apply ? "denoising" : "0",
+                     config->adaptive_film_grain ? "true" : "false");
+        if (!config->chroma_grain)
+            SVT_INFO("SVT [config]: film grain synth - chroma grain \t\t\t\t: disabled\n");
 
-                SVT_INFO("SVT [config]: keyframe temporal filtering strength \t\t\t\t: %s\n",
-                        "auto");
-                break;
-            default:
-                if (config->enable_tf == 0 && config->noise_norm_strength < 1) {
-                    // don't print anything
-                } else if (config->enable_tf == 0) {
-                    SVT_INFO("SVT [config]: noise normalization strength \t\t\t\t\t: %d\n",
-                            config->noise_norm_strength);
-                } else if (config->noise_norm_strength < 1) {
-                    SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t\t: %d\n",
-                            config->tf_strength);
-                } else {
-                    SVT_INFO("SVT [config]: temporal filtering strength / noise normalization strength \t: %d / %d\n",
-                            config->tf_strength,
-                            config->noise_norm_strength);
-                }
+        // Motion Estimation
+        if (config->enable_tf) {
+            if (config->enable_tf == 2)
+                SVT_INFO("SVT [config]: temporal filtering strength \t\t\t\t\t: auto\n");
+            else // (config->enable_tf == 1)
+                SVT_INFO("SVT [config]: temporal filtering strength - keyframe / non-keyframe \t\t: %d / %d\n",
+                         config->tf_strength,
+                         config->kf_tf_strength);
 
-                if (config->kf_tf_strength > 0 && config->enable_tf == 1) {
-                    SVT_INFO("SVT [config]: keyframe temporal filtering strength \t\t\t\t: %d\n",
-                            config->kf_tf_strength);
-                }
-
-        }
-		if (config->low_q_taper) {
-            SVT_INFO("SVT [config]: low Q taper \t\t\t\t\t\t\t: %s\n",
-                    config->low_q_taper ? "on" : "off");
+            if (config->alt_tf_decay && !(config->tune == 0 || config->tune == 3))
+                SVT_INFO("SVT [config]: alt temporal filtering decay \t\t\t\t\t: enabled\n");
         }
 
-        if (config->filtering_noise_detection)
-            SVT_INFO("SVT [config]: filtering noise detection \t\t\t\t\t: %s\n",
-                     config->filtering_noise_detection == 1 ? "on" :
-                     config->filtering_noise_detection == 2 ? "off" :
-                     config->filtering_noise_detection == 3 ? "on (CDEF only)" :
-                                                              "on (restoration only)");
-
-        if (config->cdef_level != 0 && config->cdef_bias)
-            SVT_INFO("SVT [config]: CDEF bias max / min strength \t\t\t\t\t: %d,%d %d,%d / %d,%d %d,%d\n",
-                     config->cdef_bias_max_cdef[0],
-                     config->cdef_bias_max_cdef[1],
-                     config->cdef_bias_max_cdef[2],
-                     config->cdef_bias_max_cdef[3],
-                     config->cdef_bias_min_cdef[0],
-                     config->cdef_bias_min_cdef[1],
-                     config->cdef_bias_min_cdef[2],
-                     config->cdef_bias_min_cdef[3]);
+        // Mode Decision
+        SVT_INFO("SVT [config]: sharpness / noise normalization strength \t\t\t: %d / %d\n",
+                 config->sharpness,
+                 config->noise_norm_strength);
 
         if (config->tx_bias) {
             SVT_INFO("SVT [config]: AC bias strength / TX bias \t\t\t\t\t: %.2f / %s\n",
@@ -1465,41 +1432,52 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
 		if (config->variance_md_bias) {
             if (config->max_32_tx_size)
-                SVT_INFO("SVT [config]: variance MD bias threshold / maximum transform size \t\t: %d / 32x32\n",
+                SVT_INFO("SVT [config]: variance MD bias - main threshold / maximum transform size \t: %d / 32x32\n",
                          config->variance_md_bias_thr);
             else
-                SVT_INFO("SVT [config]: variance MD bias threshold / maximum 32x32 TX size threshold \t: %d / %d\n",
+                SVT_INFO("SVT [config]: variance MD bias - main threshold / 32x32 TX size threshold \t: %d / %d\n",
                          config->variance_md_bias_thr,
                          AOMMAX(4, (config->variance_md_bias_thr >> 2) + (config->variance_md_bias_thr >> 3)));
-            
-            if (config->chroma_qmc_bias)
-                SVT_INFO("SVT [config]: variance MD skip taper threshold / chroma QMC bias \t\t: %d / %s\n",
-                         config->variance_md_bias_thr >> 1,
-                         config->chroma_qmc_bias == 1 ? "full" : "light");
-            else
-                SVT_INFO("SVT [config]: variance MD skip taper threshold \t\t\t\t: %d\n",
-                         config->variance_md_bias_thr >> 1);
 
-            if (config->texture_preserving_qmc_bias)
-                SVT_INFO("SVT [config]: texture preserving QMC bias threshold \t\t\t\t: %d\n",
-                         AOMMAX((config->variance_md_bias_thr >> 2) + (config->variance_md_bias_thr >> 3), 22));
+        // CDEF
+            if (config->cdef_level != 0 && config->cdef_bias)
+                SVT_INFO("SVT [config]: variance MD bias - skip threshold / CDEF bias - max strength \t: %d / %d,%d %d,%d\n",
+                         config->variance_md_bias_thr >> 1,
+                         config->cdef_bias_max_cdef[0],
+                         config->cdef_bias_max_cdef[1],
+                         config->cdef_bias_max_cdef[2],
+                         config->cdef_bias_max_cdef[3]);
+            else
+                SVT_INFO("SVT [config]: variance MD bias - skip taper threshold \t\t\t: %d\n",
+                         config->variance_md_bias_thr >> 1);
         }
         else {
-            if (config->texture_preserving_qmc_bias)
-                SVT_INFO("SVT [config]: texture preserving QMC bias threshold \t\t\t\t: %d\n",
-                         AOMMAX((config->variance_md_bias_thr >> 2) + (config->variance_md_bias_thr >> 3), 22));
-
-            if (config->chroma_qmc_bias)
-                SVT_INFO("SVT [config]: chroma QMC bias \t\t\t\t\t\t: %s\n",
-                         config->chroma_qmc_bias == 1 ? "full" : "light");
+            if (config->cdef_level != 0 && config->cdef_bias)
+                SVT_INFO("SVT [config]: CDEF bias - max CDEF strength \t\t\t\t\t: %d,%d %d,%d\n",
+                         config->cdef_bias_max_cdef[0],
+                         config->cdef_bias_max_cdef[1],
+                         config->cdef_bias_max_cdef[2],
+                         config->cdef_bias_max_cdef[3]);
         }
-        
-        if (!config->chroma_grain)
-            SVT_INFO("SVT [config]: chroma grain \t\t\t\t\t\t\t: disabled\n");
 
-        if (config->alt_tf_decay)
-            SVT_INFO("SVT [config]: alt TF decay \t\t\t\t\t\t\t: enabled\n");
+        if (config->filtering_noise_detection)
+            SVT_INFO("SVT [config]: filtering noise detection \t\t\t\t\t: %s\n",
+                     config->filtering_noise_detection == 1 ? "on" :
+                     config->filtering_noise_detection == 2 ? "off" :
+                     config->filtering_noise_detection == 3 ? "on (CDEF only)" :
+                                                              "on (restoration only)");
 
+        // QMC
+        if (config->texture_preserving_qmc_bias && config->chroma_qmc_bias)
+            SVT_INFO("SVT [config]: texture preserving QMC bias - threshold / chroma QMC bias \t: %d / %s\n",
+                     AOMMAX((config->variance_md_bias_thr >> 2) + (config->variance_md_bias_thr >> 3), 22),
+                     config->chroma_qmc_bias == 1 ? "full" : "light");
+        else if (config->texture_preserving_qmc_bias)
+            SVT_INFO("SVT [config]: texture preserving QMC bias - threshold \t\t\t: %d\n",
+                     AOMMAX((config->variance_md_bias_thr >> 2) + (config->variance_md_bias_thr >> 3), 22));
+        else if (config->chroma_qmc_bias)
+            SVT_INFO("SVT [config]: chroma QMC bias \t\t\t\t\t\t: %s\n",
+                     config->chroma_qmc_bias == 1 ? "full" : "light");
     }
 #ifdef DEBUG_BUFFERS
     SVT_INFO("SVT [config]: INPUT / OUTPUT \t\t\t\t\t\t\t: %d / %d\n",
@@ -2459,7 +2437,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"chroma-qmc-bias", &config_struct->chroma_qmc_bias},
         {"texture-preserving-qmc-bias", &config_struct->texture_preserving_qmc_bias},
         {"cdef-bias", &config_struct->cdef_bias},
-        {"balancing-q-bias", &config_struct->balancing_q_bias},
         {"fast-decode", &config_struct->fast_decode},
         {"enable-tf", &config_struct->enable_tf},
         {"hbd-mds", &config_struct->hbd_mds},
@@ -2555,6 +2532,8 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
     } int8_opts[] = {
         {"preset", &config_struct->enc_mode},
         {"sharpness", &config_struct->sharpness},
+        {"balancing-q-bias", &config_struct->balancing_q_bias},
+        {"balancing-r0-based-layer-offset", &config_struct->balancing_r0_based_layer_offset},
         {"complex-hvs", &config_struct->complex_hvs},
         {"cdef-bias-max-sec-cdef-rel", &config_struct->cdef_bias_max_sec_cdef_rel},
         {"cdef-bias-damping-offset", &config_struct->cdef_bias_damping_offset},
