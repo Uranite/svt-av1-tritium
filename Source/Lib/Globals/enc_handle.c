@@ -4322,6 +4322,11 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         }
     }
 
+    // Zones
+    scs->static_config.zones        = config_struct->zones;
+    scs->static_config.parsed_zones = config_struct->parsed_zones;
+    scs->static_config.num_zones    = config_struct->num_zones;
+
     // Rate Control
     scs->static_config.scene_change_detection = config_struct->scene_change_detection;
     if (config_struct->lossless && config_struct->rate_control_mode) {
