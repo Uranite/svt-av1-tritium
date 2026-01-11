@@ -1095,7 +1095,7 @@ ConfigDescription config_entry_psychovisual[] = {
      "Control noise detection for CDEF/restoration filtering, default is 0 [0: off, 1: both CDEF and restoration are "
      "on 2: default tune behavior, 3: CDEF only, 4: restoration only)]"},
     {CDEF_SCALING_TOKEN,
-     "Controls scaling of the CDEF strength computation, default is 15 (1x scaling) [1: minimum, 8: ~0.5x, 30: 2x]"},
+     "Controls scaling of the CDEF strength computation, default is 8 (~0.5x scaling) [1: minimum, 8: ~0.5x, 30: 2x]"},
     // Termination
     {NULL, NULL}};
 

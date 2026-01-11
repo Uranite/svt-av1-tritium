@@ -1231,7 +1231,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->tx_bias                    = 0;
     config_ptr->complex_hvs                = 0;
     config_ptr->noise_adaptive_filtering   = 0;
-    config_ptr->cdef_scaling               = 15;
+    config_ptr->cdef_scaling               = 8;
     config_ptr->auto_tiling                = true;
     return return_error;
 }
