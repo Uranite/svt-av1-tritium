@@ -137,6 +137,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **Sharpness**                    | --sharpness                      | [-7-7]     | 1           | Bias towards decreased/increased sharpness                                                                                                           |
 | **KFTemporalFilteringStrength**  | --kf-tf-strength                 | [0-4]      | 1           | Manually adjust alt-ref temporal filtering strengh on keyframes. Higher values = stronger alt-ref temporal filtering                                 |
 | **AltLambdaFactors**             | --alt-lambda-factors             | [0-1]      | 1           | Use alternative RDO lambda factors (from SVT-AV1 3.0.2)                                                                                              |
+| **Zones**                        | --zones                          | any string | Null        | Zones adjust CRF/CQP for given frame ranges. Format: start,end,quality;start,end,quality;... Default is none                                         |
 
 ### **UseFixedQIndexOffsets** and more information
 
