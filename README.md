@@ -65,6 +65,11 @@ Automatically sets tiles appropriate for the source input resolution, which in t
 
 You can now feed the standalone encoder regular video files like MP4s, MKVs, M2TSs and many others without having to rely on piping with FFmpeg or VSPipe. Though you need to compile the encoder with FFMS2 support enabled.
 
+- `--zones`
+
+In CRF/CQP mode, allows setting different quality levels for the specified frame ranges.  
+For example, `--zones 0,100,20;101,200,40` applies a CRF/CQP value of 20 to frames 0-100, a CRF/CQP value of 40 to frames 101-200, while maintaining the original quality level for all other frames.
+
 ### SVT-AV1-HDR
 
 - `PQ-optimized Variance Boost curve`

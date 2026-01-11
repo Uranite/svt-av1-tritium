@@ -1541,6 +1541,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType *svt_enc_component)
         input_data.tx_bias = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.tx_bias;
         input_data.complex_hvs = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.complex_hvs;
         input_data.auto_tiling = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.auto_tiling;
+        input_data.zones = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.parsed_zones;
+        input_data.num_zones = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config.num_zones;
         input_data.static_config = enc_handle_ptr->scs_instance_array[instance_index]->scs->static_config;
         input_data.allintra = enc_handle_ptr->scs_instance_array[instance_index]->scs->allintra;
         EB_NEW(
@@ -4488,6 +4490,11 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
             }
         }
     }
+
+    // Zones
+    scs->static_config.zones = config_struct->zones;
+    scs->static_config.parsed_zones = config_struct->parsed_zones;
+    scs->static_config.num_zones = config_struct->num_zones;
 
     // Rate Control
     scs->static_config.scene_change_detection = config_struct->scene_change_detection;
