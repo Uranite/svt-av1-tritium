@@ -22,7 +22,7 @@
 #define FFMS_H
 
 // Version format: major - minor - micro - bump
-#define FFMS_VERSION ((5 << 24) | (1 << 16) | (0 << 8) | 0)
+#define FFMS_VERSION ((5 << 24) | (1 << 16) | (1 << 8) | 0)
 
 #include <stdint.h>
 #include <stddef.h>
@@ -406,6 +406,8 @@ typedef struct FFMS_VideoProperties {
     unsigned int ContentLightLevelAverage;
     /* Introduced in FFMS_VERSION ((2 << 24) | (31 << 16) | (0 << 8) | 0) */
     int Flip; /* -1 = Vertical flip, 1 = Horizontal flip */
+    /* Introduced in FFMS_VERSION ((5 << 24) | (1 << 16) | (1 << 8) | 0) */
+    int64_t LastEndPTS;
 } FFMS_VideoProperties;
 
 typedef struct FFMS_AudioProperties {
