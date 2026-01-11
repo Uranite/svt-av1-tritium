@@ -153,6 +153,12 @@ typedef struct RateControlContext {
     EbFifo *rate_control_output_results_fifo_ptr;
     EbFifo *picture_decision_results_output_fifo_ptr;
 } RateControlContext;
+
+typedef struct QualityZones {
+    QualityZone *zones;
+    int      num_zones;
+    bool     enabled;
+} QualityZones;
 EbErrorType svt_aom_rate_control_coded_frames_stats_context_ctor(coded_frames_stats_entry *entry_ptr,
                                                                  uint64_t                  picture_number) {
     entry_ptr->picture_number         = picture_number;
@@ -3624,6 +3630,20 @@ static int NOINLINE find_min_ref_qp(PictureControlSet *pcs, RefList k) {
     return (ref_qp < INT_MAX) ? ref_qp : -1;
 }
 
+// Helper function to find the active zone for a given frame
+static void get_zone_quality_for_frame(const QualityZone *zones, int num_zones, uint64_t frame_number, int *base_qp, int *quarter_index) {
+    if (!zones || num_zones == 0) return; // No zone active
+    
+    for (int i = 0; i < num_zones; i++) {
+        if (frame_number >= zones[i].start_frame && 
+            frame_number <= zones[i].end_frame) {
+            *base_qp = zones[i].zone_baseq;
+            *quarter_index = zones[i].zone_qsidx;
+            return;
+        }
+    }
+}
+
 void *svt_aom_rate_control_kernel(void *input_ptr) {
     // Context
     EbThreadContext         *thread_ctx  = (EbThreadContext *)input_ptr;
@@ -3744,6 +3764,9 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                     if (pcs->ppcs->seq_param_changed)
                         rc->active_worst_quality = scs_qindex;
                     frm_hdr->quantization_params.base_q_idx = quantizer_to_qindex[pcs->picture_qp];
+                    int32_t zone_qindex = -1;
+                    int zone_baseq = -1;
+                    int zone_qsidx = -1;
                     if (pcs->ppcs->qp_on_the_fly == true) {
                         pcs->picture_qp                         = clamp_qp(scs, pcs->ppcs->picture_qp);
                         frm_hdr->quantization_params.base_q_idx = scs_qindex;
@@ -3752,15 +3775,35 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                         if (scs->enable_qp_scaling_flag) {
                             // if there are need enough pictures in the LAD/SlidingWindow, the adaptive QP scaling is not used
                             int32_t new_qindex;
+
+                            if (scs->static_config.zones) {
+                                get_zone_quality_for_frame(
+                                    scs->static_config.parsed_zones,
+                                    scs->static_config.num_zones,
+                                    pcs->picture_number,
+                                    &zone_baseq,
+                                    &zone_qsidx);
+
+                                if (zone_baseq >= 0) {
+                                    int32_t effective_quality = clamp_qp(scs, zone_baseq);
+                                    zone_qindex = clamp_qindex(
+                                        scs, quantizer_to_qindex[effective_quality] + zone_qsidx);
+                                } // + scs->static_config.extended_crf_qindex_offset
+                            }
+
                             // if CRF
                             if (pcs->ppcs->tpl_ctrls.enable) {
                                 if (pcs->picture_number == 0) {
                                     rc->active_worst_quality = scs_qindex;
                                     av1_rc_init(scs);
                                 }
+                                rc->active_worst_quality = (zone_qindex >= 0) ? zone_qindex : scs_qindex;
                                 new_qindex = crf_qindex_calc(pcs, rc, rc->active_worst_quality);
-                            } else // if CQP
-                                new_qindex = cqp_qindex_calc(pcs, scs_qindex);
+                            } else {  // if CQP
+                                new_qindex = cqp_qindex_calc(
+                                    pcs,
+                                    (zone_qindex >= 0) ? zone_qindex : scs_qindex);
+                            }
                             frm_hdr->quantization_params.base_q_idx = clamp_qindex(scs, new_qindex);
                         } else {
                             frm_hdr->quantization_params.base_q_idx = clamp_qindex(scs, scs_qindex);
