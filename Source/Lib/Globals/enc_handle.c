@@ -5018,6 +5018,17 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.enable_qmpsnr = config_struct->enable_qmpsnr == -1 ? scs->static_config.tune == TUNE_IQ
                                                                           : config_struct->enable_qmpsnr;
 
+    // Zones
+    if (config_struct->quality_zones && config_struct->num_zones > 0) {
+        EB_NO_THROW_MALLOC(scs->static_config.quality_zones, sizeof(SvtAv1QualityZone) * config_struct->num_zones);
+        memcpy(scs->static_config.quality_zones,
+               config_struct->quality_zones,
+               sizeof(SvtAv1QualityZone) * config_struct->num_zones);
+    } else {
+        scs->static_config.quality_zones = NULL;
+    }
+    scs->static_config.num_zones = config_struct->num_zones;
+
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {
         SVT_WARN(
@@ -5159,6 +5170,12 @@ EB_API EbErrorType svt_av1_enc_set_parameter(EbComponentType*          svt_enc_c
         EB_FREE(config_struct->sframe_posi.sframe_posis);
     }
     memset(&config_struct->sframe_posi, 0, sizeof(SvtAv1SFramePositions));
+
+    if (config_struct->quality_zones) {
+        EB_FREE(config_struct->quality_zones);
+    }
+    config_struct->quality_zones = NULL;
+    config_struct->num_zones     = 0;
 
     return return_error;
 }
