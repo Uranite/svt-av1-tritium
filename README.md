@@ -218,10 +218,16 @@ SVT-AV1-Tritium includes SVT-AV1-HDR's Modified Defaults:
 - `--tf-strength 1` by default for much lower alt-ref temporal filtering to decrease blur for cleaner encoding.
 - `--kf-tf-strength 1` controls are available to the user and are set to 1 by default to remove KF artifacts.
 
-SVT-AV1-Tritium Defaults:
+SVT-AV1-Tritium Defaults (diff-default branch):
 
 - `--scd 1` by default.
 - `--auto-tiling 1` by default.
+- `--alt-lambda-factors 0` by default.
+- `--qm-min 4` by default.
+- `--qm-max 15` by default.
+- `--tune 0` by default.
+- `--noise-adaptive-filtering 0` by default.
+- `--cdef-scaling 8` by default.
 
 ### Other Changes
 
