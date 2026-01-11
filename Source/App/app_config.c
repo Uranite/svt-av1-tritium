@@ -235,6 +235,7 @@
 #define NOISE_ADAPTIVE_FILTERING_TOKEN "--noise-adaptive-filtering"
 #define CDEF_SCALING_TOKEN "--cdef-scaling"
 #define AUTO_TILING_TOKEN "--auto-tiling"
+#define ZONES_TOKEN "--zones"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -568,6 +569,21 @@ err:
     for (size_t i = 0; i < fkf.count; ++i) free(fkf.specifiers[i]);
     free(fkf.specifiers);
     return EB_ErrorBadParameter;
+}
+static EbErrorType set_cfg_quality_zones(EbConfig *cfg, const char *token, const char *value) {
+    (void)token;
+
+    if (!value || strlen(value) == 0) {
+        return svt_av1_enc_parse_parameter(&cfg->config, "zones", "");
+    }
+
+    EbErrorType err = svt_av1_enc_parse_parameter(&cfg->config, "zones", value);
+    if (err != EB_ErrorNone) {
+        fprintf(stderr, "Error: Failed to parse quality zones from config file: %s\n", value);
+        return err;
+    }
+
+    return EB_ErrorNone;
 }
 static EbErrorType set_no_progress(EbConfig *cfg, const char *token, const char *value) {
     (void)token;
@@ -1096,6 +1112,9 @@ ConfigDescription config_entry_psychovisual[] = {
      "on 2: default tune behavior, 3: CDEF only, 4: restoration only)]"},
     {CDEF_SCALING_TOKEN,
      "Controls scaling of the CDEF strength computation, default is 15 (1x scaling) [1: minimum, 8: ~0.5x, 30: 2x]"},
+    // Zones
+    {ZONES_TOKEN,
+     "CRF/CQP zones, format: start,end,quality;start,end,quality;..., default is none",},
     // Termination
     {NULL, NULL}};
 
@@ -1355,6 +1374,9 @@ ConfigEntry config_entry[] = {
 
     // Auto tiling
     {AUTO_TILING_TOKEN, "AutoTiling", set_cfg_generic_token},
+
+    // Zones
+    {ZONES_TOKEN, "Zones", set_cfg_quality_zones},
 
     // Termination
     {NULL, NULL, NULL}};

@@ -21,6 +21,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stddef.h>
 /**
  * @brief SVT-AV1 encoder ABI version
  *
@@ -217,6 +218,14 @@ typedef struct SvtAv1SFramePositions {
     uint8_t  *sframe_qps;
     int8_t   *sframe_qp_offsets;
 } SvtAv1SFramePositions;
+
+
+typedef struct QualityZone {
+    uint64_t start_frame;  // inclusive
+    uint64_t end_frame;    // inclusive
+    int      zone_baseq;   // base CRF/CQP value for this zone
+    int      zone_qsidx;   // base CRF/CQP value for this zone
+} QualityZone;
 
 // Will contain the EbEncApi which will live in the EncHandle class
 // Only modifiable during config-time.
@@ -1127,6 +1136,18 @@ typedef struct EbSvtAv1EncConfiguration {
      */
      bool auto_tiling;
 
+    /* @brief CRF zones configuration string
+     *
+     * Format: "start1,end1,crf1;start2,end2,crf2;..."
+     * Example: "0,100,35;101,200,25"
+     * Default is NULL (no zones).
+     */
+    char* zones;
+    
+    // Internal parsed zones (not exposed to CLI)
+    QualityZone* parsed_zones;
+    uint16_t num_zones;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
     uint8_t padding[128 - (sizeof(uint8_t) * 5)
         - (sizeof(bool) * 2)
@@ -1143,6 +1164,9 @@ typedef struct EbSvtAv1EncConfiguration {
         - (sizeof(bool) * 3)
         - (sizeof(double)) + (sizeof(uint8_t)) // qp_scale_compress_strength uint8_t -> double
         - sizeof(int32_t)
+        - sizeof(char*)
+        - sizeof(QualityZone*)
+        - sizeof(uint16_t)
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
