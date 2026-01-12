@@ -1017,13 +1017,15 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: balancing-q-bias must be between 0 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-    if (config->balancing_q_bias && config->qp_scale_compress_strength > 0.0)
-        SVT_WARN("Instance %u: balancing-q-bias is intended to replace qp-scale-compress-strength and not intended to be used together\n", channel_number + 1);
-    if (config->balancing_q_bias && config->low_q_taper)
-        SVT_WARN("Instance %u: balancing-q-bias is not intended to be used together with low-q-taper\n", channel_number + 1);
 
-    if (config->balancing_r0_based_layer_offset < -2 || config->balancing_r0_based_layer_offset > 3) {
-        SVT_ERROR("Instance %u: balancing-r0-based-layer-offset must be between -2 and 3\n", channel_number + 1);
+    if ((config->balancing_r0_based_layer < -5 || config->balancing_r0_based_layer > 0) &&
+        config->balancing_r0_based_layer != INT8_MAX) {
+        SVT_ERROR("Instance %u: balancing-r0-based-layer must be between -5 and 0\n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+    if ((config->balancing_r0_dampening_layer< -5 || config->balancing_r0_dampening_layer > 1) &&
+        config->balancing_r0_dampening_layer != INT8_MAX) {
+        SVT_ERROR("Instance %u: balancing-r0-dampening-layer must be between -5 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
 
@@ -1248,7 +1250,9 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->cdef_bias_max_sec_cdef_rel        = 0;
     config_ptr->cdef_bias_damping_offset          = 0;
     config_ptr->balancing_q_bias                  = DEFAULT;
-    config_ptr->balancing_r0_based_layer_offset   = 0;
+    config_ptr->balancing_r0_based_layer          = INT8_MAX; // DEFAULT
+    config_ptr->balancing_r0_dampening_layer      = INT8_MAX; // DEFAULT
+    config_ptr->balancing_luminance_q_bias        = UINT8_MAX; // DEFAULT
     config_ptr->noise_level_q_bias                = 0.0;
     config_ptr->sharp_tx                          = 1;
     config_ptr->hbd_mds                           = 0;
@@ -1385,11 +1389,38 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                 SVT_INFO("SVT [config]: QP scale compress strength / frame low-luma bias \t\t: %.2f / %d\n",
                          config->qp_scale_compress_strength,
                          config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
+
+            if (config->balancing_r0_dampening_layer <= config->balancing_r0_based_layer)
+                SVT_INFO("SVT [config]: balancing Q - r0-based layer / r0 dampening layer \t\t: <=%d / >=%d\n",
+                         config->balancing_r0_based_layer,
+                         config->balancing_r0_dampening_layer);
+            else if (config->balancing_r0_based_layer != -3)
+                SVT_INFO("SVT [config]: balancing Q - r0-based layer / r0 dampening \t\t\t: <=%d / no\n",
+                         config->balancing_r0_based_layer);
         }
-        else
-            SVT_INFO("SVT [config]: balancing Q bias / r0-based layer offset / frame low-luma bias : based / %d / %d\n",
-                     config->balancing_r0_based_layer_offset,
-                     config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
+        else { // config->balancing_q_bias
+            if (config->balancing_r0_based_layer == 0)
+                if (config->balancing_r0_dampening_layer > config->balancing_r0_based_layer)
+                    SVT_INFO("SVT [config]: balancing Q - bias / luminance bias / r0-based decision \t: based / %d / full\n",
+                             config->balancing_luminance_q_bias);
+                else
+                    SVT_INFO("SVT [config]: balancing Q - bias / luminance bias / r0 / r0 dampening layer \t: based / %d / full decision / >=%d\n",
+                             config->balancing_luminance_q_bias,
+                             config->balancing_r0_dampening_layer);
+            else {
+                if (config->balancing_r0_dampening_layer > config->balancing_r0_based_layer)
+                    SVT_INFO("SVT [config]: balancing Q - bias / luminance bias / r0-based layer \t\t: based / %d / <=%d\n",
+                             config->balancing_luminance_q_bias,
+                             config->balancing_r0_based_layer);
+                else {
+                    SVT_INFO("SVT [config]: balancing Q - bias / luminance bias \t\t\t\t: based / %d\n",
+                             config->balancing_luminance_q_bias);
+                    SVT_INFO("SVT [config]: balancing Q - r0-based layer / r0 dampening layer \t\t: <=%d / >=%d\n",
+                             config->balancing_r0_based_layer,
+                             config->balancing_r0_dampening_layer);
+                }
+            }
+        }
 
         // Film grain
         if (config->film_grain_denoise_strength != 0)
@@ -2237,7 +2268,23 @@ static EbErrorType str_to_variance_md_bias_thr(const char *nptr, EbSvtAv1EncConf
     if (variance_md_bias_thr < 0 || variance_md_bias_thr > 16)
         return EB_ErrorBadParameter;
 
-    config_struct->variance_md_bias_thr = (uint16_t)(pow(2, variance_md_bias_thr) - 1);
+    config_struct->variance_md_bias_thr = (uint16_t)(pow(2, variance_md_bias_thr)) - 1;
+
+    return EB_ErrorNone;
+}
+
+static EbErrorType str_to_balancing_luminance_q_bias(const char *nptr, EbSvtAv1EncConfiguration *config_struct) {
+    double      balancing_luminance_q_bias;
+    EbErrorType return_error;
+
+    return_error = str_to_double(nptr, &balancing_luminance_q_bias, NULL);
+
+    if (return_error == EB_ErrorBadParameter)
+        return return_error;
+    if (balancing_luminance_q_bias < 0 || balancing_luminance_q_bias > 25.001)
+        return EB_ErrorBadParameter;
+
+    config_struct->balancing_luminance_q_bias = rint(balancing_luminance_q_bias * 10);
 
     return EB_ErrorNone;
 }
@@ -2346,6 +2393,9 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
     // custom value fields
     if (!strcmp(name, "variance-md-bias-thr"))
         return str_to_variance_md_bias_thr(value, config_struct);
+
+    if (!strcmp(name, "balancing-luminance-q-bias"))
+        return str_to_balancing_luminance_q_bias(value, config_struct);
 
     // uint32_t fields
     const struct {
@@ -2533,7 +2583,8 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"preset", &config_struct->enc_mode},
         {"sharpness", &config_struct->sharpness},
         {"balancing-q-bias", &config_struct->balancing_q_bias},
-        {"balancing-r0-based-layer-offset", &config_struct->balancing_r0_based_layer_offset},
+        {"balancing-r0-based-layer", &config_struct->balancing_r0_based_layer},
+        {"balancing-r0-dampening-layer", &config_struct->balancing_r0_dampening_layer},
         {"complex-hvs", &config_struct->complex_hvs},
         {"cdef-bias-max-sec-cdef-rel", &config_struct->cdef_bias_max_sec_cdef_rel},
         {"cdef-bias-damping-offset", &config_struct->cdef_bias_damping_offset},

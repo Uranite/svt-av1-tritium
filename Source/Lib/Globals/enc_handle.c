@@ -4359,6 +4359,35 @@ static void set_param_based_on_input(SequenceControlSet *scs)
              scs->static_config.balancing_q_bias != DEFAULT)
         scs->static_config.qp_scale_compress_strength = 0.0;
 
+    if (scs->static_config.balancing_q_bias && scs->static_config.qp_scale_compress_strength)
+        SVT_WARN("balancing-q-bias is intended to replace qp-scale-compress-strength and not intended to be used together\n");
+    if (scs->static_config.balancing_q_bias && scs->static_config.low_q_taper)
+        SVT_WARN("low-q-taper's effect when being used together with balancing-q-bias is untested\n");
+
+    if (scs->static_config.balancing_luminance_q_bias == UINT8_MAX) {
+        if (scs->static_config.balancing_q_bias)
+            scs->static_config.balancing_luminance_q_bias = 40;
+        else
+            scs->static_config.balancing_luminance_q_bias = 0;
+    }
+    if (scs->static_config.balancing_luminance_q_bias && (scs->static_config.frame_luma_bias || scs->static_config.luminance_qp_bias))
+        SVT_WARN("The effect of frame-luma-bias / luminance-qp-bias when used in conjunction with balancing-luminance-q-bias is untested\n");
+
+    if (scs->static_config.balancing_r0_based_layer == INT8_MAX) {
+        if (scs->static_config.balancing_q_bias &&
+            !scs->static_config.texture_preserving_qmc_bias)
+            scs->static_config.balancing_r0_based_layer = 0;
+        else
+            scs->static_config.balancing_r0_based_layer = -3;
+    }
+    if (scs->static_config.balancing_r0_dampening_layer == INT8_MAX) {
+        if (scs->static_config.balancing_q_bias &&
+            !scs->static_config.texture_preserving_qmc_bias)
+            scs->static_config.balancing_r0_dampening_layer = -2;
+        else
+            scs->static_config.balancing_r0_dampening_layer = 1;
+    }
+
     // no future minigop is used for lowdelay prediction structure
     if (scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_P || scs->static_config.pred_structure == SVT_AV1_PRED_LOW_DELAY_B) {
         scs->lad_mg = scs->tpl_lad_mg = 0;
@@ -4452,7 +4481,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         SVT_WARN("Aggressive variance boost strength used. This is a curve that's only useful under specific situations. Use with caution!\n");
     }
 
-    if (scs->static_config.max_32_tx_size && scs->static_config.qp >= 20 && scs->static_config.tune != 4) {
+    if (scs->static_config.max_32_tx_size && scs->static_config.qp >= 20 && scs->static_config.tune != 4 && !scs->static_config.variance_md_bias) {
         SVT_WARN("Restricting transform sizes to a max of 32x32 might reduce coding efficiency at low to medium fidelity settings. Use with caution!\n");
     }
     if (scs->static_config.cdef_level != 0 && scs->static_config.cdef_bias) {
@@ -4689,7 +4718,10 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     if (scs->static_config.enable_adaptive_quantization == 1 ||
         scs->static_config.scene_change_detection == 1       ||
         scs->vq_ctrls.sharpness_ctrls.tf == 1                ||
-        scs->static_config.enable_variance_boost)
+        scs->static_config.enable_variance_boost             ||
+        scs->static_config.variance_md_bias                  ||
+        scs->static_config.texture_preserving_qmc_bias       ||
+        scs->static_config.balancing_luminance_q_bias)
         scs->calculate_variance = 1;
     else if (scs->static_config.enc_mode <= ENC_M6)
         scs->calculate_variance = 1;
@@ -5126,9 +5158,13 @@ static void copy_api_from_app(
 
     // Balancing Q bias
     scs->static_config.balancing_q_bias = config_struct->balancing_q_bias;
+    // Balancing luminance Q bias
+    scs->static_config.balancing_luminance_q_bias = config_struct->balancing_luminance_q_bias;
 
-    // Balancing r0-based layer bias
-    scs->static_config.balancing_r0_based_layer_offset = config_struct->balancing_r0_based_layer_offset;
+    // Balancing r0-based layer
+    scs->static_config.balancing_r0_based_layer = config_struct->balancing_r0_based_layer;
+    // Balancing r0 dampening layer
+    scs->static_config.balancing_r0_dampening_layer = config_struct->balancing_r0_dampening_layer;
 
     // Noise level Q bias
     scs->static_config.noise_level_q_bias = config_struct->noise_level_q_bias;

@@ -564,12 +564,12 @@ static int get_gfu_boost_from_r0_lap(double min_factor, double max_factor, doubl
     const int boost  = (int)rint(factor / r0);
     return boost;
 }
-int svt_av1_get_deltaq_offset(EbBitDepth bit_depth, int qindex, double beta, uint8_t is_intra) {
+static int svt_av1_get_deltaq_offset(EbBitDepth bit_depth, int qindex, double beta, uint8_t is_intra, bool balancing_no_beta_dampening) {
     assert(beta > 0.0);
     int q = svt_aom_dc_quant_qtx(qindex, 0, bit_depth);
     int newq;
     // use a less aggressive action when lowering the q for non I_slice
-    if (!is_intra && beta > 1)
+    if (!is_intra && !balancing_no_beta_dampening && beta > 1)
         newq = (int)rint(q / sqrt(sqrt(beta)));
     else
         newq = (int)rint(q / sqrt(beta));
@@ -887,7 +887,11 @@ static int crf_qindex_calc(PictureControlSet *pcs, RATE_CONTROL *rc, int qindex)
             (ppcs->tpl_group_size < (uint32_t)(2 << pcs->ppcs->hierarchical_levels)))
             weight = MIN(weight + 0.1, 1);
 
-        double qstep_ratio = sqrt(ppcs->r0) * weight * (1.000 + scs->static_config.qp_scale_compress_strength * 0.125);
+        double qstep_ratio;
+        if (pcs->temporal_layer_index >= AOMMAX(1, pcs->ppcs->hierarchical_levels + scs->static_config.balancing_r0_dampening_layer))
+            qstep_ratio = sqrt(sqrt(ppcs->r0)) * weight * (1.000 + scs->static_config.qp_scale_compress_strength * 0.125);
+        else
+            qstep_ratio = sqrt(ppcs->r0) * weight * (1.000 + scs->static_config.qp_scale_compress_strength * 0.125);
         if (scs->static_config.qp_scale_compress_strength) {
             // clamp qstep_ratio so it doesn't get past the weight value
             qstep_ratio = MIN(weight, qstep_ratio);
@@ -1662,7 +1666,8 @@ void svt_aom_sb_qp_derivation_tpl_la(PictureControlSet *pcs) {
             SuperBlock *sb_ptr = pcs->sb_ptr_array[sb_addr];
             double      beta   = ppcs_ptr->pa_me_data->tpl_beta[sb_addr];
             int         offset = svt_av1_get_deltaq_offset(
-                scs->static_config.encoder_bit_depth, sb_ptr->qindex, beta, pcs->ppcs->slice_type == I_SLICE);
+                scs->static_config.encoder_bit_depth, sb_ptr->qindex, beta, pcs->ppcs->slice_type == I_SLICE,
+                pcs->temporal_layer_index >= AOMMAX(1, pcs->ppcs->hierarchical_levels + scs->static_config.balancing_r0_dampening_layer));
             offset         = AOMMIN(offset, pcs->ppcs->frm_hdr.delta_q_params.delta_q_res * 9 * (pcs->ppcs->scs->static_config.tune == 3 ? 8 : 4) - 1);
             offset         = AOMMAX(offset, -pcs->ppcs->frm_hdr.delta_q_params.delta_q_res * 9 * (pcs->ppcs->scs->static_config.tune == 3 ? 8 : 4) + 1);
 

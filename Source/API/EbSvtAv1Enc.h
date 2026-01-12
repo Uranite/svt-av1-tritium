@@ -1109,7 +1109,7 @@ typedef struct EbSvtAv1EncConfiguration {
     uint8_t texture_preserving_qmc_bias;
 
     /**
-     * @brief Enable CDEF bias, which comes with new SAD & SATD based distortion calculation, cdef strength taper, and various other improvements
+     * @brief Enable CDEF bias
      * 0: disabled
      * 1: enabled
      * Default is 0
@@ -1144,13 +1144,25 @@ typedef struct EbSvtAv1EncConfiguration {
      * Default is 0
      */
     int8_t balancing_q_bias;
+    /**
+     * @brief Enable balancing luminance Q bias
+     * 0: disabled
+     * Calculated from `--balancing-luminance-q-bias` commandline parameter via `"balancing-luminance-q-bias" * 10`.
+     */
+    uint8_t balancing_luminance_q_bias;
 
     /**
-     * @brief Enable balancing r0 based layer offset. Positive numbers increase the number of frames using r0-based QPS QPM.
-     * Min value is -2.
-     * Max value is 3.
+     * @brief Frames with temporal layer lower than or equal to hierarchical levels + `--balancing-r0-based-layer` will use r0-based QPS QPM.
+     * Min value is -5.
+     * Max value is 0.
      */
-    int8_t balancing_r0_based_layer_offset;
+    int8_t balancing_r0_based_layer;
+    /**
+     * @brief Dampen r0-based boosting in frames with temporal layer higher than or equal to hierarchical levels + `--balancing-r0-dampening-layer`.
+     * Min value is -5.
+     * Max value when enabled is 0.
+     */
+    int8_t balancing_r0_dampening_layer;
 
     /**
      * @brief noise level Q bias
@@ -1253,7 +1265,7 @@ typedef struct EbSvtAv1EncConfiguration {
     Bool alt_tf_decay;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - 9 * sizeof(Bool) - 25 * sizeof(uint8_t) - 6 * sizeof(int8_t) - 1 * sizeof(uint16_t) - 1 * sizeof(int32_t) - sizeof(uint32_t) - 3 * sizeof(double)];
+    uint8_t padding[128 - 9 * sizeof(Bool) - 26 * sizeof(uint8_t) - 7 * sizeof(int8_t) - 1 * sizeof(uint16_t) - 1 * sizeof(int32_t) - sizeof(uint32_t) - 3 * sizeof(double)];
 
 } EbSvtAv1EncConfiguration;
 

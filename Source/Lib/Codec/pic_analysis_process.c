@@ -300,6 +300,9 @@ void svt_compute_interm_var_four8x8_c(uint8_t *input_samples, uint16_t input_str
         input_samples + block_index, input_stride, 8, 8);
 }
 
+static int balancing_comp_int(const void *a, const void *b) {
+    return (*(const uint64_t *)a > *(const uint64_t *)b) - (*(const uint64_t *)a < *(const uint64_t *)b);
+}
 /*******************************************
 * compute_block_mean_compute_variance
 *   computes the variance and the block mean of all CUs inside the tree block
@@ -1107,6 +1110,11 @@ static EbErrorType compute_block_mean_compute_variance(
                                           mean_of32x32_squared_values_blocks[2] +
                                           mean_of32x32_squared_values_blocks[3]) >>
         2;
+    // balancing luminance
+    uint64_t sorted_mean_of_32x32_blocks[4];
+    memcpy(&sorted_mean_of_32x32_blocks, mean_of_32x32_blocks, sizeof(uint64_t) * 4);
+    qsort(&sorted_mean_of_32x32_blocks, 4, sizeof(uint64_t), balancing_comp_int);
+    pcs->balancing_luminance[sb_index] = (uint16_t)((sorted_mean_of_32x32_blocks[0] + sorted_mean_of_32x32_blocks[1]) >> ((VARIANCE_PRECISION >> 1) + 1));
     // 8x8 variances
     if (scs->static_config.enable_adaptive_quantization == 1 || scs->static_config.variance_octile) {
         pcs->variance[sb_index][ME_TIER_ZERO_PU_8x8_0] = (uint16_t)((mean_of_8x8_squared_values_blocks[0] -

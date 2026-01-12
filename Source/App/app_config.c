@@ -235,7 +235,9 @@
 #define CDEF_BIAS_MAX_SEC_CDEF_REL_TOKEN "--cdef-bias-max-sec-cdef-rel"
 #define CDEF_BIAS_DAMPING_OFFSET_TOKEN "--cdef-bias-damping-offset"
 #define BALANCING_Q_BIAS_TOKEN "--balancing-q-bias"
-#define BALANCING_R0_BASED_LAYER_OFFSET_TOKEN "--balancing-r0-based-layer-offset"
+#define BALANCING_LUMINANCE_Q_BIAS_TOKEN "--balancing-luminance-q-bias"
+#define BALANCING_R0_BASED_LAYER_TOKEN "--balancing-r0-based-layer"
+#define BALANCING_R0_DAMPENING_LAYER_TOKEN "--balancing-r0-dampening-layer"
 #define NOISE_LEVEL_Q_BIAS_TOKEN "--noise-level-q-bias"
 #define SHARP_TX_TOKEN "--sharp-tx"
 #define HBD_MDS_TOKEN "--hbd-mds"
@@ -1397,8 +1399,16 @@ ConfigEntry config_entry_psy[] = {
      "[PSY] Balancing Q bias, default is 0 [0-1]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
-     BALANCING_R0_BASED_LAYER_OFFSET_TOKEN,
-     "[PSY] Balancing r0-based layer offset, default is 0 [-2-3]",
+     BALANCING_R0_BASED_LAYER_TOKEN,
+     "[PSY] Balancing r0-based layer, default is -3 [-5-0]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     BALANCING_R0_DAMPENING_LAYER_TOKEN,
+     "[PSY] Balancing r0 dampening layer, default is 1 [-5-1]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
+     BALANCING_LUMINANCE_Q_BIAS_TOKEN,
+     "[PSY] Balancing luminance Q bias [0.0-25.0]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      NOISE_LEVEL_Q_BIAS_TOKEN,
@@ -1686,9 +1696,13 @@ ConfigEntry config_entry[] = {
 
     // Balancing Q Bias
     {SINGLE_INPUT, BALANCING_Q_BIAS_TOKEN, "BalancingQBias", set_cfg_generic_token},
+    // Balancing Luminance Q Bias
+    {SINGLE_INPUT, BALANCING_LUMINANCE_Q_BIAS_TOKEN, "BalancingLuminanceQBias", set_cfg_generic_token},
 
-    // Balancing r0-based Layer Offset
-    {SINGLE_INPUT, BALANCING_R0_BASED_LAYER_OFFSET_TOKEN, "BalancingR0BasedLayerOffset", set_cfg_generic_token},
+    // Balancing r0-based Layer
+    {SINGLE_INPUT, BALANCING_R0_BASED_LAYER_TOKEN, "BalancingR0BasedLayer", set_cfg_generic_token},
+    // Balancing Beta Dampening Layer
+    {SINGLE_INPUT, BALANCING_R0_DAMPENING_LAYER_TOKEN, "BalancingR0DampeningLayer", set_cfg_generic_token},
 
     // Noise Level Q Bias
     {SINGLE_INPUT, NOISE_LEVEL_Q_BIAS_TOKEN, "NoiseLevelQBias", set_cfg_generic_token},

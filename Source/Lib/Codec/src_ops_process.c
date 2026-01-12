@@ -1653,6 +1653,8 @@ void svt_aom_generate_r0beta(PictureParentControlSet *pcs) {
     const uint32_t picture_sb_height = (uint32_t)((pcs->aligned_height + scs->sb_size - 1) / scs->sb_size);
     const int32_t  mi_high           = sb_mi_sz; // sb size in 4x4 units
     const int32_t  mi_wide           = sb_mi_sz;
+    const int32_t  balancing_luminance_q_bias_base = CLIP3(0x50, 0x80, pcs->avg_luma);
+    int64_t        balancing_luminance_q_bias;
     for (uint32_t sb_y = 0; sb_y < picture_sb_height; ++sb_y) {
         for (uint32_t sb_x = 0; sb_x < picture_sb_width; ++sb_x) {
             uint16_t  mi_row           = pcs->sb_geom[sb_y * picture_sb_width + sb_x].org_y >> 2;
@@ -1677,6 +1679,15 @@ void svt_aom_generate_r0beta(PictureParentControlSet *pcs) {
                     recrf_dist_sum += tpl_stats_ptr->recrf_dist;
                     mc_dep_delta_sum += mc_dep_delta;
                 }
+            }
+
+            if (scs->static_config.balancing_luminance_q_bias) {
+                balancing_luminance_q_bias = mc_dep_delta_sum *
+                                             ((scs->static_config.balancing_luminance_q_bias *
+                                               CLIP3(0, 0x40, balancing_luminance_q_bias_base - pcs->balancing_luminance[sb_y * picture_sb_width + sb_x])) >>
+                                              6);
+                balancing_luminance_q_bias = AOMMIN(balancing_luminance_q_bias, (recrf_dist_sum << (9 - 3)) * AOMMAX(scs->static_config.balancing_luminance_q_bias, 10));
+                mc_dep_delta_sum += balancing_luminance_q_bias;
             }
 
             if (scs->static_config.balancing_q_bias) {
