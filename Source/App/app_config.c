@@ -118,10 +118,6 @@
 #define MAX_BIT_RATE_TOKEN "--mbr"
 #define MAX_QP_TOKEN "--max-qp"
 #define MIN_QP_TOKEN "--min-qp"
-#if !SVT_AV1_CHECK_VERSION(2, 0, 0)
-/* DEPRECATED: to be removed in 2.0.0. */
-#define VBR_BIAS_PCT_TOKEN "--bias-pct"
-#endif
 #define VBR_MIN_SECTION_PCT_TOKEN "--minsection-pct"
 #define VBR_MAX_SECTION_PCT_TOKEN "--maxsection-pct"
 #define UNDER_SHOOT_PCT_TOKEN "--undershoot-pct"
@@ -210,6 +206,7 @@
 #define QP_SCALE_COMPRESS_STRENGTH_TOKEN "--qp-scale-compress-strength"
 
 #define FRAME_LUMA_BIAS_TOKEN "--frame-luma-bias"
+#define LUMINANCE_QP_BIAS_TOKEN "--luminance-qp-bias" // alias for frame luma bias
 
 #define MAX_32_TX_SIZE_TOKEN "--max-32-tx-size"
 
@@ -230,7 +227,6 @@
 #define HBD_MDS_TOKEN "--hbd-mds"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
 #define ALT_SSIM_TUNING_TOKEN "--alt-ssim-tuning"
-#define LUMINANCE_QP_BIAS_TOKEN "--luminance-qp-bias"
 #define FILTERING_NOISE_DETECTION_TOKEN "--filtering-noise-detection"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
@@ -846,15 +842,15 @@ ConfigEntry config_entry_global_options[] = {
      set_cfg_generic_token},
     {SINGLE_INPUT,
      THREAD_MGMNT,
-     "Target (best effort) number of logical cores to be used. 0 means all. Refer to Appendix A.1 "
+     "Amount of parallelism to use. 0 means choose the level based on machine core count. Refer to Appendix A.1 "
      "of the user "
-     "guide, default is 0 [0, core count of the machine]",
+     "guide, default is 0 [0, 6]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      PIN_TOKEN,
-     "Pin the execution to the first --lp cores. Overwritten to 1 when `--ss` is set. Refer to "
+     "Pin the execution to the first N cores. Refer to "
      "Appendix "
-     "A.1 of the user guide, default is 0 [0-1]",
+     "A.1 of the user guide, default is 0 [0, core count of the machine]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
      TARGET_SOCKET,
@@ -980,13 +976,6 @@ ConfigEntry config_entry_rc[] = {
      "Recode loop level, refer to \"Recode loop level table\" in the user guide for more info [0: "
      "off, 4: preset based]",
      set_cfg_generic_token},
-#if !SVT_AV1_CHECK_VERSION(2, 0, 0)
-    /* DEPRECATED: to be removed in 2.0.0. */
-    {SINGLE_INPUT,
-     VBR_BIAS_PCT_TOKEN,
-     "CBR/VBR bias, default is 50 [0: CBR-like, 1-99, 100: VBR-like] DEPRECATED: to be removed in 2.0.0",
-     set_cfg_generic_token},
-#endif
     {SINGLE_INPUT,
      VBR_MIN_SECTION_PCT_TOKEN,
      "GOP min bitrate (expressed as a percentage of the target rate), default is 0 [0-100]",
@@ -1300,6 +1289,11 @@ ConfigEntry config_entry_psy[] = {
      FRAME_LUMA_BIAS_TOKEN,
      "[PSY] Adjusts the frame's QP based on the frame's average luma value, default is 0 [0 to 100]",
      set_cfg_generic_token},
+    // Luminance QP bias (alias for frame luma bias)
+    {SINGLE_INPUT,
+     LUMINANCE_QP_BIAS_TOKEN,
+     "[PSY] Alias for frame luma bias [0 to 100]",
+     set_cfg_generic_token},
     // Max 32 tx size
     {SINGLE_INPUT,
      MAX_32_TX_SIZE_TOKEN,
@@ -1360,10 +1354,6 @@ ConfigEntry config_entry_psy[] = {
     {SINGLE_INPUT,
      ALT_SSIM_TUNING_TOKEN, 
      "[PSY] Alternative SSIM tuning methods for tunes 2 & 4, default is 0 [0-1]",
-     set_cfg_generic_token},
-    {SINGLE_INPUT,
-     LUMINANCE_QP_BIAS_TOKEN,
-     "[PSY] Adjusts the frame's QP based on the frame's average luma value, default is 0 [0 to 100]",
      set_cfg_generic_token},
     {SINGLE_INPUT, 
      FILTERING_NOISE_DETECTION_TOKEN,
@@ -1427,7 +1417,7 @@ ConfigEntry config_entry[] = {
     {SINGLE_INPUT, ASM_TYPE_TOKEN, "Asm", set_cfg_generic_token},
 
     //   Thread Management
-    {SINGLE_INPUT, THREAD_MGMNT, "LogicalProcessors", set_cfg_generic_token},
+    {SINGLE_INPUT, THREAD_MGMNT, "LevelOfParallelism", set_cfg_generic_token},
     {SINGLE_INPUT, PIN_TOKEN, "PinnedExecution", set_cfg_generic_token},
     {SINGLE_INPUT, TARGET_SOCKET, "TargetSocket", set_cfg_generic_token},
 
@@ -1467,10 +1457,6 @@ ConfigEntry config_entry[] = {
     {SINGLE_INPUT, BUFFER_INITIAL_SIZE_TOKEN, "BufInitialSz", set_cfg_generic_token},
     {SINGLE_INPUT, BUFFER_OPTIMAL_SIZE_TOKEN, "BufOptimalSz", set_cfg_generic_token},
     {SINGLE_INPUT, RECODE_LOOP_TOKEN, "RecodeLoop", set_cfg_generic_token},
-#if !SVT_AV1_CHECK_VERSION(2, 0, 0)
-    /* DEPRECATED: to be removed in 2.0.0. */
-    {SINGLE_INPUT, VBR_BIAS_PCT_TOKEN, "VBRBiasPct", set_cfg_generic_token},
-#endif
     {SINGLE_INPUT, VBR_MIN_SECTION_PCT_TOKEN, "MinSectionPct", set_cfg_generic_token},
     {SINGLE_INPUT, VBR_MAX_SECTION_PCT_TOKEN, "MaxSectionPct", set_cfg_generic_token},
 
@@ -1566,6 +1552,9 @@ ConfigEntry config_entry[] = {
 
     // Frame-level low-luma bias
     {SINGLE_INPUT, FRAME_LUMA_BIAS_TOKEN, "FrameLumaBias", set_cfg_generic_token},
+    
+    // Luminance QP bias (alias for frame luma bias)
+    {SINGLE_INPUT, LUMINANCE_QP_BIAS_TOKEN, "LuminanceQPBias", set_cfg_generic_token},
 
      // Max 32 tx size
     {SINGLE_INPUT, MAX_32_TX_SIZE_TOKEN, "Max32TxSize", set_cfg_generic_token},
@@ -1606,9 +1595,6 @@ ConfigEntry config_entry[] = {
 
     // Alternative SSIM tuning
     {SINGLE_INPUT, ALT_SSIM_TUNING_TOKEN, "AltSSIMTuning", set_cfg_generic_token},
-
-    // Luminance QP bias (alias for frame luma bias)
-    {SINGLE_INPUT, LUMINANCE_QP_BIAS_TOKEN, "LuminanceQPBias", set_cfg_generic_token},
     
     // Filtering noise detection
     {SINGLE_INPUT, FILTERING_NOISE_DETECTION_TOKEN, "FilteringNoiseDetection", set_cfg_generic_token},

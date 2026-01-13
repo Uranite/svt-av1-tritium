@@ -60,12 +60,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         SVT_ERROR("Instance %u: Multi-passes is not support with Low Delay mode \n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
     }
-#if !SVT_AV1_CHECK_VERSION(2, 0, 0)
-    if (config->vbr_bias_pct != 100) {
-        SVT_WARN("Instance %u: The bias percentage is being ignored and will be deprecated in the up coming release \n",
-                 channel_number + 1);
-    }
-#endif
 
     if (config->maximum_buffer_size_ms < 20 || config->maximum_buffer_size_ms > 10000) {
         SVT_ERROR("Instance %u: The maximum buffer size must be between [20, 10000]\n", channel_number + 1);
@@ -960,11 +954,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    // if (config->low_q_taper > 1) {
-    //     SVT_ERROR("Instance %u: low-q-taper must be between 0 and 1\n", channel_number + 1);
-    //     return_error = EB_ErrorBadParameter;
-    // }
-
     if (config->sharp_tx > 1) {
         SVT_ERROR("Instance %u: sharp-tx must be between 0 and 1\n", channel_number + 1);
         return_error = EB_ErrorBadParameter;
@@ -1047,9 +1036,6 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->encoder_color_format         = EB_YUV420;
     // Rate control options
     // Set the default value toward more flexible rate allocation
-#if !SVT_AV1_CHECK_VERSION(2, 0, 0)
-    config_ptr->vbr_bias_pct = 100;
-#endif
     config_ptr->vbr_min_section_pct      = 0;
     config_ptr->vbr_max_section_pct      = 2000;
     config_ptr->under_shoot_pct          = (uint32_t)DEFAULT;
@@ -1078,14 +1064,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->use_cpu_flags = EB_CPU_FLAGS_ALL;
 
     // Channel info
-#if CLN_LP_LVLS
-#if !SVT_AV1_CHECK_VERSION(3, 0, 0)
-    config_ptr->logical_processors = 0;
-#endif
     config_ptr->level_of_parallelism = 0;
-#else
-    config_ptr->logical_processors = 0;
-#endif
     config_ptr->pin_threads          = 0;
     config_ptr->target_socket        = -1;
     config_ptr->channel_id           = 0;
@@ -1148,6 +1127,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->extended_crf_qindex_offset        = 0;
     config_ptr->qp_scale_compress_strength        = 1;
     config_ptr->frame_luma_bias                   = 0;
+    config_ptr->luminance_qp_bias                 = 0; // alias for frame luma bias
     config_ptr->max_32_tx_size                    = FALSE;
     config_ptr->adaptive_film_grain               = TRUE;
     config_ptr->tf_strength                       = 1;
@@ -1160,7 +1140,6 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->hbd_mds                           = 0;
     config_ptr->complex_hvs                       = 0;
     config_ptr->alt_ssim_tuning                   = FALSE;
-    config_ptr->luminance_qp_bias                 = 0;
     config_ptr->filtering_noise_detection         = 0;
     return return_error;
 }
@@ -1295,7 +1274,7 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
         SVT_INFO("SVT [config]: sharpness / QP scale compress strength / frame low-luma bias \t: %d / %.2f / %d\n",
                  config->sharpness,
                  config->qp_scale_compress_strength,
-                 config->frame_luma_bias >= config->luminance_qp_bias ? config->frame_luma_bias : config->luminance_qp_bias);
+                 AOMMAX(config->frame_luma_bias, config->luminance_qp_bias));
 
         switch (config->enable_tf) {
             case 2:
@@ -2187,15 +2166,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"hierarchical-levels", &config_struct->hierarchical_levels},
         {"tier", &config_struct->tier},
         {"level", &config_struct->level},
-#if CLN_LP_LVLS
-#if SVT_AV1_CHECK_VERSION(3, 0, 0)
         {"lp", &config_struct->level_of_parallelism},
-#else
-        {"lp", &config_struct->logical_processors},
-#endif
-#else
-        {"lp", &config_struct->logical_processors},
-#endif
         {"pin", &config_struct->pin_threads},
         {"fps-num", &config_struct->frame_rate_numerator},
         {"fps-denom", &config_struct->frame_rate_denominator},
@@ -2203,9 +2174,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"scd", &config_struct->scene_change_detection},
         {"max-qp", &config_struct->max_qp_allowed},
         {"min-qp", &config_struct->min_qp_allowed},
-#if !SVT_AV1_CHECK_VERSION(2, 0, 0)
-        {"bias-pct", &config_struct->vbr_bias_pct},
-#endif
         {"minsection-pct", &config_struct->vbr_min_section_pct},
         {"maxsection-pct", &config_struct->vbr_max_section_pct},
         {"undershoot-pct", &config_struct->under_shoot_pct},
@@ -2255,6 +2223,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"variance-boost-strength", &config_struct->variance_boost_strength},
         {"variance-octile", &config_struct->variance_octile},
         {"frame-luma-bias", &config_struct->frame_luma_bias},
+        {"luminance-qp-bias", &config_struct->luminance_qp_bias}, // alias for frame luma bias
         {"tf-strength", &config_struct->tf_strength},
         {"kf-tf-strength", &config_struct->kf_tf_strength},
         {"noise-norm-strength", &config_struct->noise_norm_strength},
@@ -2263,7 +2232,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"spy-rd", &config_struct->spy_rd},
         {"hbd-mds", &config_struct->hbd_mds},
         {"complex-hvs", &config_struct->complex_hvs},
-        {"luminance-qp-bias", &config_struct->luminance_qp_bias},
         {"filtering-noise-detection", &config_struct->filtering_noise_detection},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);

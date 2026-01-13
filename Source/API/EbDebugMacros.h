@@ -34,7 +34,6 @@
 extern "C" {
 #endif // __cplusplus
 
-#define CLN_LP_LVLS             1 // Change --lp input to represent the levels of parallelization that are actually implemented in the code
 #define FIX_AVX512_ICL_RTCD     1 // Correct avx512icl support detection
 
 //FOR DEBUGGING - Do not remove

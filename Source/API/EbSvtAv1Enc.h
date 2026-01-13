@@ -445,10 +445,6 @@ typedef struct EbSvtAv1EncConfiguration {
      * Default is 0. */
     uint32_t max_bit_rate;
 
-#if !SVT_AV1_CHECK_VERSION(1, 5, 0)
-    /* DEPRECATED: to be removed in 1.5.0. */
-    uint32_t vbv_bufsize;
-#endif
 
     /* Maxium QP value allowed for rate control use, only applicable when rate
      * control mode is set to 1. It has to be greater or equal to minQpAllowed.
@@ -462,21 +458,6 @@ typedef struct EbSvtAv1EncConfiguration {
     uint32_t min_qp_allowed;
 
     // DATARATE CONTROL OPTIONS
-#if !SVT_AV1_CHECK_VERSION(2, 0, 0)
-    /* DEPRECATED: to be removed in 2.0.0. */
-    /**
-     * @brief Variable Bit Rate Bias Percentage
-     *
-     * Indicates the bias for determining target size for the current frame.
-     * A value 0 indicates the optimal CBR mode value should be used, and 100
-     * indicates the optimal VBR mode value should be used.
-     *
-     * Min is 0.
-     * Max is 100.
-     * Default is 100
-     */
-    uint32_t vbr_bias_pct;
-#endif
 
     /**
      * @brief Variable Bit Rate Minimum Section Percentage
@@ -733,16 +714,6 @@ typedef struct EbSvtAv1EncConfiguration {
     uint8_t superres_kf_qthres;
     uint8_t superres_auto_search_type;
 
-#if !SVT_AV1_CHECK_VERSION(1, 5, 0)
-    /* DEPRECATED: to be removed in 1.5.0. */
-    PredictionStructureConfigEntry pred_struct[1 << (MAX_HIERARCHICAL_LEVEL - 1)];
-
-    /* DEPRECATED: to be removed in 1.5.0. */
-    Bool enable_manual_pred_struct;
-
-    /* DEPRECATED: to be removed in 1.5.0. */
-    int32_t manual_pred_struct_entry_num;
-#endif
     /* Decoder-speed-targeted encoder optimization level (produce bitstreams that can be decoded faster).
     * 0: No decoder-targeted speed optimization
     * 1: Level 1 of decoder-targeted speed optimizations (faster decoder-speed than level 0)
@@ -785,17 +756,6 @@ typedef struct EbSvtAv1EncConfiguration {
 
     // Threads management
 
-#if CLN_LP_LVLS
-#if !SVT_AV1_CHECK_VERSION(3, 0, 0)
-    /* logical_processors refers to how much parallelization the encoder will perform
-     * by setting the number of threads and pictures that can be handled simultaneously. If
-     * the value is 0, a deafult level will be chosen based on the number of cores on the
-     * machine. Levels 1-6 are supported. Beyond that, higher inputs
-     * will map to the highest level.
-     */
-    uint32_t logical_processors;
-#endif
-
     /* The level of parallelism refers to how much parallelization the encoder will perform
      * by setting the number of threads and pictures that can be handled simultaneously. If
      * the value is 0, a deafult level will be chosen based on the number of cores on the
@@ -809,20 +769,6 @@ typedef struct EbSvtAv1EncConfiguration {
      * N: Pin threads to socket's first N processors
      * default 0 */
     uint32_t pin_threads;
-#else
-    /* The number of logical processor which encoder threads run on. If
-     * LogicalProcessors and TargetSocket are not set, threads are managed by
-     * OS thread scheduler. */
-    uint32_t logical_processors;
-
-    /* Unpin the execution .This option does not
-    * set the execution to be pinned to a specific number of cores when set to 1. this allows the execution
-    * of multiple encodes on the CPU without having to pin them to a specific mask
-    * 1: pinned threads
-    * 0: unpinned
-    * default 0 */
-    uint32_t pin_threads;
-#endif
 
     /* Target socket to run on. For dual socket systems, this can specify which
      * socket the encoder runs on.
@@ -966,91 +912,115 @@ typedef struct EbSvtAv1EncConfiguration {
     /* New parameters can go in under this line. Also deduct the size of the parameter */
     /* from the padding array */
 
-    /* Variance boost
+    /**
+     * @brief Variance boost
      * false = disable variance boost
      * true = enable variance boost
-     * Default is true in SVT-AV1-PSY. */
+     * Default is true in SVT-AV1-PSY.
+     */
     Bool enable_variance_boost;
 
-    /* @brief Selects the curve strength to boost low variance regions according to a fast-growing formula
-     * Default is 2 */
+    /**
+     * @brief Selects the curve strength to boost low variance regions according to a fast-growing formula
+     * Default is 2.
+     */
     uint8_t variance_boost_strength;
 
-    /* @brief Picks a set of eight 8x8 variance values per superblock to determine boost
+    /**
+     * @brief Picks a set of eight 8x8 variance values per superblock to determine boost
      * Lower values enable detecting more blocks that need boosting, at the expense of more possible false positives (overall bitrate increase)
-     *  1: 1st octile
-     *  4: 4th octile
-     *  8: 8th octile
-     *  Default is 5 */
+     * 1: 1st octile
+     * 4: 4th octile
+     * 8: 8th octile
+     * Default is 5.
+     */
     uint8_t variance_octile;
 
-    /* @brief Enable the use of an alternative curve for variance boost
+    /**
+     * @brief Enable the use of an alternative curve for variance boost
      * which emphasizes boosting low-medium contrast regions, at a modest bitrate increase over the regular curve
-     *  0: disable alt curve
-     *  1: enable alt curve (i.e. use regular curve)
-     *  Default is 0 */
+     * 0: disable alt curve
+     * 1: enable alt curve (i.e. use regular curve)
+     * Default is 0.
+     */
     Bool enable_alt_curve;
 
-    /* @brief Affects loopfilter deblock sharpness and rate distortion
-     *
+    /**
+     * @brief Affects loopfilter deblock sharpness and rate distortion
      * Min value is -7.
      * Max is 7.
      * Default is 1.
      */
     int8_t sharpness;
 
-    /* @brief Q index for extended CRF support
+    /**
+     * @brief Q index for extended CRF support
      * Value is internally determined by CRF parameter value
-     * Default is 0 if CRF is an integer
+     * Default is 0 if CRF is an integer.
      */
     uint8_t extended_crf_qindex_offset;
 
-    /* @brief compresses the QP hierarchical layer scale to improve temporal video consistency
+    /**
+     * @brief compresses the QP hierarchical layer scale to improve temporal video consistency
      * 0.0: no compression, original SVT-AV1 scaling
      * 0.0-8.0: enable compression, the higher the number the stronger the compression
      *         (different frame quality fluctuation/mean quality tradeoffs)
-     * Default is 1.0
+     * Default is 1.0.
      */
     double qp_scale_compress_strength;
 
-    /* @brief Experimental frame-level luma bias to improve quality in dark scenes
+    /**
+     * @brief Experimental frame-level luma bias to improve quality in dark scenes
      * 0: no bias, stock behavior
-     * 1-4: enable low-luma bias, the higher the number the stronger the bias
-     * Default is 0
+     * 1-100: enable low-luma bias, the higher the number the stronger the bias
+     * Default is 0.
      */
     uint8_t frame_luma_bias;
 
-    /* @brief Limit transform sizes to a maximum of 32x32 pixels
+    /**
+     * @brief Alias for frame_luma_bias for parameter parity with mainline/3.x implementation
+     */
+    uint8_t luminance_qp_bias;
+
+    /** 
+     * @brief Limit transform sizes to a maximum of 32x32 pixels
      * 0: disabled, use transform sizes up to 64x64 pixels
      * 1: enabled, use transform sizes up to 32x32 pixels
-     * Default is 0
+     * Default is 0.
      */
     Bool max_32_tx_size;
 
-    /* @brief Toggle default film grain blocksize behavior
+    /**
+     * @brief Toggle default film grain blocksize behavior
      * 0: use default blocksize behavior
      * 1: use adaptive blocksize based on resolution
      *  - 8x8 for <4k
      *  - 16x16 for 4k
      *  - 32x32 for 8k+
-     * Default is 1
+     * Default is 1.
      */
     Bool adaptive_film_grain;
 
-    /* Manually adjust temporal filtering strength
+    /**
+     * @brief Manually adjust temporal filtering strength
      * 0: 10 + (4 - 0) = 14 (8x weaker)
      * 1: 10 + (4 - 1) = 13 (4x weaker, PSY default)
      * 2: 10 + (4 - 2) = 12 (2x weaker)
      * 3: 10 + (4 - 3) = 11 (mainline default)
-     * 4: 10 + (4 - 4) = 10 (2x stronger) */
+     * 4: 10 + (4 - 4) = 10 (2x stronger)
+     * Default is 1.
+     */
     uint8_t tf_strength;
 
-    /* Manually adjust TF strength on keyframes
+    /**
+     * @brief Manually adjust TF strength on keyframes
      * 0: disable TF on keyframes
      * 1: 10 + (4 - 1) = 13 (4x weaker, PSY default)
      * 2: 10 + (4 - 2) = 12 (2x weaker)
      * 3: 10 + (4 - 3) = 11 (mainline default)
-     * 4: 10 + (4 - 4) = 10 (2x stronger) */
+     * 4: 10 + (4 - 4) = 10 (2x stronger)
+     * Default is 1.
+     */
     uint8_t kf_tf_strength;
 
     /**
@@ -1060,6 +1030,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * Default is 8.
      */
     uint8_t min_chroma_qm_level;
+
     /**
      * @brief Max quant matrix flatness. Applicable when enable_qm is true.
      * Min value is 0.
@@ -1091,7 +1062,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 0: disabled
      * 1: full
      * 2: partial (interpolation filter tweaks only)
-     * Default is 0
+     * Default is 0.
      */
     uint8_t spy_rd;
 
@@ -1102,66 +1073,55 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     Bool low_q_taper;
 
-
     /**
-     * @brief Enable sharp-tx, a toggle that enables much sharper transforms decisions for higher fidelity ouput,
-     at the possible cost of increasing artifacting
+     * @brief Enable sharp-tx, a toggle that enables much sharper transforms decisions for higher fidelity output,
+     * at the possible cost of increasing artifacting
      * 0: disabled
      * 1: enabled
-     * Default is 1
+     * Default is 1.
      */
     Bool sharp_tx;
 
-     /**
+    /**
      * @brief High Bit-Depth Mode Decision, used to control the bit-depth of the mode decision path.
      * 0: default behavior
      * 1: full 10-bit MD
      * 2: hybrid 8/10-bit MD
      * 3: full 8-bit MD
-     * Default is 0
+     * Default is 0.
      */
     uint8_t hbd_mds;
 
-     /**
+    /**
      * @brief Enable complex-hvs, a feature that enables the highest complexity and highest fidelity
-     HVS model at the cost of higher CPU time
+     * HVS model at the cost of higher CPU time
      * 0: default preset behavior
      * 1: highest complexity HVS model (SSD-Psy)
-     * Default is 0
+     * Default is 0.
      */
     uint8_t complex_hvs;
     
-    /* @brief Alternative SSIM tuning, enables VQ enhancements and different rdmult calculations
+    /**
+     * @brief Alternative SSIM tuning, enables VQ enhancements and different rdmult calculations
      * 0: disabled, use stock SSIM tuning
      * 1: enabled, use alternative SSIM tuning with VQ enhacnements and different rdmult calculations
-     * Default is 0
+     * Default is 0.
      */
     Bool alt_ssim_tuning;
 
-    /* @brief Alias for frame_luma_bias to provide parameter parity with v3/mainline implementation
-     * Experimental frame-level luma bias to improve quality in dark scenes
-     * 0: no bias, stock behavior
-     * 1-4: enable low-luma bias, the higher the number the stronger the bias
-     * Default is 0 */
-    uint8_t luminance_qp_bias;
-
-     /**
+    /**
      * @brief Controls noise detection for CDEF/restoration filtering
      * 0: tune-default behavior
      * 1: on
      * 2: off
      * 2: on (CDEF only)
      * 3: on (restoration only)
-     * Default is 0
+     * Default is 0.
      */
-     uint8_t filtering_noise_detection;
+    uint8_t filtering_noise_detection;
 
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-#if CLN_LP_LVLS
-    uint8_t padding[128 - 7 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - sizeof(uint32_t) - 2 * sizeof(double)];
-#else
     uint8_t padding[128 - 7 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double)];
-#endif
 
 } EbSvtAv1EncConfiguration;
 

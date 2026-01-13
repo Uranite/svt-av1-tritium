@@ -1,16 +1,12 @@
+## 5fish/SVT-AV1-PSY
+
 This fork is based on the unreleased [SVT-AV1-PSY 2.3.0-C](https://github.com/psy-ex/svt-av1-psy/tree/testing-2.3.0-C), and includes backports of changes and improvements made in 3.x versions of SVT-AV1-PSY and its continuations by the original developers, [SVT-AV1-PSYEX](https://github.com/BlueSwordM/svt-av1-psyex) and [SVT-AV1-HDR](https://github.com/juliobbv-p/svt-av1-hdr)* (currently excluding any HDR-specific changes.)
 
 Please note that this fork may not be a 1-to-1 copy of changes made in 3.x, and may include additional features or changes that could potentially change, break, or fix certain behaviour.
 
 The primary branch is [main](https://github.com/5fish/svt-av1-psy/tree/main); experimental changes and additions will be hosted on [exp](https://github.com/5fish/svt-av1-psy/tree/exp).
 
-Below is a non-exhaustive list of notable surface-level differences between 3.x and this fork:
-- ~~`--frame-luma-bias` has been renamed in 3.x to `--luminance-qp-bias`; this change has not been reflected here.~~
-`--luminance-qp-bias` is now accepted as an alias for `--frame-luma-bias` to provide parameter parity.
-
-# SVT-AV1-PSY
-
-SVT-AV1-PSY is the Scalable Video Technology for AV1 (SVT-AV1 Encoder and Decoder) with perceptual enhancements for psychovisually optimal AV1 encoding. The goal is to create the best encoding implementation for perceptual quality with AV1.
+# 
 
 ### Feature Additions
 
@@ -70,7 +66,7 @@ Enables a more accurate loop filter that prevents blocking, for a modest increas
 
 Lowers the minimum available preset from 8 to 2 for higher-quality 8K and 16K encoding (64 GB of RAM recommended per encoding instance).
 
-- `--frame-luma-bias` *0 to 100* (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2348)**)
+- `--frame-luma-bias` (alias: `--luminance-qp-bias`) *0 to 100* (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2348)**)
 
 Enables frame-level luma bias to improve quality in dark scenes by adjusting frame-level QP based on average luminance across each frame.
 
@@ -147,48 +143,11 @@ SVT-AV1-PSY has different defaults than mainline SVT-AV1 in order to provide bet
 - `--tf-strength 1` by default for much lower alt-ref temporal filtering to decrease blur for cleaner encoding.
 - `--kf-tf-strength 1` controls are available to the user and are set to 1 by default to remove KF artifacts.
 
-
-*We are not in any way affiliated with the Alliance for Open Media or any upstream SVT-AV1 project contributors who have not also contributed here.*
-
 ### Other Changes
 
 - `--color-help` (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2351)**)
 
 Prints the information found in Appendix A.2 of the user guide in order to help users more easily understand the Color Description Options in SvtAv1EncApp.
-
-- `Micro-Releases`
-
-We are always continuously improving SVT-AV1-PSY, and we always recommend using the `master` branch to experience exciting new features as soon as they can be considered usable. To make our feature additions more clear, micro-release tags indicate when significant new feature additions have been made. Micro-release tags are letters starting with `A`, so new releases will be tagged as `v#.#.#-A`, `v#.#.#-B`, etc.
-
-- `Enhanced Content Detection`
-
-Tune 4 features a smarter content detection algorithm to optimize the encoder for either screen or photographic content based on the image. This helps Tune 4 achieve better visual fidelity on still images.
-
-# Building
-
-For Linux, macOS, & Windows build instructions, see the [PSY Development](Docs/PSY-Development.md) page.
-
-# Getting Involved
-
-For more information on SVT-AV1-PSY and this project's mission, see the [PSY Development](Docs/PSY-Development.md) page.
-
-### Use SVT-AV1-PSY
-
-One way to get involved is to use SVT-AV1-PSY in your own AV1 encoding projects, increasing the impact our work has on others! You and your users will also be able to provide feedback on the encoder's overall performance and report any issues you encounter. Your name will also be added to this page.
-
-**Projects Featuring SVT-AV1-PSY:**
-
-- [Aviator](https://github.com/gianni-rosato/aviator) ~ an AV1 encoding GUI by @gianni-rosato
-- [rAV1ator CLI](https://github.com/ultimaxx/rav1ator-cli) ~ a TUI for video encoding with Av1an by @ultimaxx
-- [SVT-AV1-PSY on the AUR](https://aur.archlinux.org/packages/svt-av1-psy-git) ~ by @BlueSwordM
-- [SVT-AV1-PSY in CachyOS](https://github.com/CachyOS/CachyOS-PKGBUILDS/pull/144) ~ by @BlueSwordM
-- [Handbrake Builds](https://github.com/Nj0be/HandBrake-SVT-AV1-PSY) ~ by @Nj0be
-- [Staxrip](https://github.com/staxrip/staxrip) ~ a video & audio encoding GUI for Windows by @Dendraspis
-- [Av1ador](https://github.com/porcino/Av1ador) ~ an AV1/HEVC/VP9/H264 parallel encoder GUI for FFmpeg by @porcino
-
-### Support Development
-
-If you'd like to directly support the team working on this project, we accept monetary donations via the "Sponsor" button at the top of this repository (it has a pink heart within the button frame). Your donations will help the core development team continue to improve the encoder, our support efforts, and our documentation - a little goes a long way, and we appreciate it immensely.
 
 ## License
 
@@ -199,7 +158,3 @@ under the BSD-3-clause clear license and the Alliance for Open Media Patent
 License 1.0. See [LICENSE](LICENSE.md) and [PATENTS](PATENTS.md) for details.
 
 *SVT-AV1-PSY does not feature license modifications from mainline SVT-AV1.*
-
-## Documentation
-
-For additional docs, see the [PSY Development](Docs/PSY-Development.md) page.

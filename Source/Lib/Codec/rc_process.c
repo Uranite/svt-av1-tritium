@@ -1724,7 +1724,6 @@ void normalize_sb_delta_q(PictureControlSet *pcs) {
 }
 
 void lowq_taper(PictureControlSet *pcs) {
-    PictureParentControlSet *ppcs_ptr = pcs->ppcs;
     SequenceControlSet      *scs      = pcs->ppcs->scs;
 	const int16_t scs_qindex = CLIP3(MIN_Q_INDEX,
 									 MAX_Q_INDEX,

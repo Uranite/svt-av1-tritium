@@ -73,7 +73,6 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **InjectorFrameRate**            | --inj-frm-rt                | [0-240]                        | 60          | Set injector frame rate, only applicable with `--inj 1`                                                       |
 | **StatReport**                   | --enable-stat-report        | [0-1]                          | 0           | Calculates and outputs PSNR SSIM metrics at the end of encoding                                               |
 | **Asm**                          | --asm                       | [0-11, c-max]                  | max         | Limit assembly instruction set [c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512, avx512icl, max] for x86 platforms, [c, neon, crc32, neon_dotprod, neon_i8mm, sve, sve2] for Arm platforms. |
-| **LogicalProcessors**            | --lp                        | [0, 6]                         | 0           | Controls the number of threads to create and the number of picture buffers to allocate (higher level means more parallelism). 0 means choose level based on machine core count. Refer to Appendix A.1. To be deprecated in v3.0. |
 | **LevelOfParallelism**           | --lp                        | [0, 6]                         | 0           | Controls the number of threads to create and the number of picture buffers to allocate (higher level means more parallelism). 0 means choose level based on machine core count. Refer to Appendix A.1 |
 | **PinnedExecution**              | --pin                       | [0-core count of the machine]  | 0           | Pin the execution to the first N cores. [0: no pinning, N: number of cores to pin to]. Refer to Appendix A.1  |
 | **TargetSocket**                 | --ss                        | [-1,1]                         | -1          | Specifies which socket to run on, assumes a max of two equally-sized sockets. Refer to Appendix A.1           |
@@ -131,7 +130,6 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **BufInitialSz**                 | --buf-initial-sz                 | [20-10000] | 600         | Client initial buffer size (ms), only applicable for CBR                                                                                             |
 | **BufOptimalSz**                 | --buf-optimal-sz                 | [20-10000] | 600         | Client optimal buffer size (ms), only applicable for CBR                                                                                             |
 | **RecodeLoop**                   | --recode-loop                    | [0-4]      | 4           | Recode loop level, look at the "Recode loop level table" in the user's guide for more info [0: off, 4: preset based]                                 |
-| **VBRBiasPct**                   | --bias-pct                       | [0-100]    | 100         | CBR/VBR bias [0: CBR-like, 100: VBR-like]DEPRECATED: to be removed in 2.0.                                                                           |
 | **MinSectionPct**                | --minsection-pct                 | [0-100]    | 0           | GOP min bitrate (expressed as a percentage of the target rate)                                                                                       |
 | **MaxSectionPct**                | --maxsection-pct                 | [0-10000]  | 2000        | GOP max bitrate (expressed as a percentage of the target rate)                                                                                       |
 | **GopConstraintRc**              | --gop-constraint-rc              | [0-1]      | 0           | Constrains the rate control to match the target rate for each GoP [0 = OFF, 1 = ON]                                                                  |
@@ -264,7 +262,7 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 
 | **Configuration file parameter** | **Command line**      | **Range**       | **Default**       | **Description**                                                                                                                                              |
 |----------------------------------|-----------------------|-----------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Keyint**                       | --keyint              | [-2-`(2^31)-1`] | -2                | GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-2: ~10 seconds, -1: "infinite" only for CRF, 0: == -1]                                    |
+| **Keyint**                       | --keyint              | [-2-`(2^31)-1`] | -2                | GOP size (frames), use `s` suffix for seconds (SvtAv1EncApp only) [-2: ~10 seconds, -1: "infinite" only for CRF, 0: == -1]                                   |
 | **IntraRefreshType**             | --irefresh-type       | [1-2]           | 2                 | Intra refresh type [1: FWD Frame (Open GOP), 2: KEY Frame (Closed GOP)]                                                                                      |
 | **SceneChangeDetection**         | --scd                 | [0-1]           | 0                 | Scene change detection control                                                                                                                               |
 | **Lookahead**                    | --lookahead           | [-1,0-120]      | -1                | Number of frames in the future to look ahead, beyond minigop, temporal filtering, and rate control [-1: auto]                                                |
@@ -285,7 +283,7 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 | **EnableRestoration**              | --enable-restoration   | [0-1]            | 1             | Enable loop restoration filter                                                                                                                                          |
 | **EnableTPLModel**                 | --enable-tpl-la        | [0-1]            | 1             | Temporal Dependency model control, currently forced on library side, only applicable for CRF/CQP                                                                        |
 | **Mfmv**                           | --enable-mfmv          | [-1-1]           | -1            | Motion Field Motion Vector control [-1: auto]                                                                                                                           |
-| **EnableTF**                       | --enable-tf            | [0-2]            | 1             | Enable ALT-REF (temporally filtered) frames [0: off, 1: on, 2: adaptive]                                                                                                                               |
+| **EnableTF**                       | --enable-tf            | [0-2]            | 1             | Enable ALT-REF (temporally filtered) frames [0: off, 1: on, 2: adaptive]                                                                                                |
 | **EnableOverlays**                 | --enable-overlays      | [0-1]            | 0             | Enable the insertion of overlayer pictures which will be used as an additional reference frame for the base layer picture                                               |
 | **ScreenContentMode**              | --scm                  | [0-2]            | 2             | Set screen content detection level [0: off, 1: on, 2: content adaptive]                                                                                                 |
 | **RestrictedMotionVector**         | --rmv                  | [0-1]            | 0             | Restrict motion vectors from reaching outside the picture boundary                                                                                                      |
@@ -335,11 +333,11 @@ Reference Scaling is better described in [the reference scaling documentation](.
 but this basically allows the input to be encoded and the output at a lower
 resolution, scaling ratio applys on both horizontally and vertically.
 
-| **ResizeMode**   | **Value**                                                                                                                   |
-|------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| 0                | None, no frame resize allowed                                                                                               |
-| 1                | Fixed mode, all frames are encoded at the specified scale of 8/`denom`, thus a `denom` of 8 means no scaling, and 16 means half-scaling |
-| 2                | Random mode, all frames are coded at a random scale, the scaling `denom` can be picked from 8 to 16                         |
+| **ResizeMode**   | **Value**                                                                                                                                                                                 |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0                | None, no frame resize allowed                                                                                                                                                             |
+| 1                | Fixed mode, all frames are encoded at the specified scale of 8/`denom`, thus a `denom` of 8 means no scaling, and 16 means half-scaling                                                   |
+| 2                | Random mode, all frames are coded at a random scale, the scaling `denom` can be picked from 8 to 16                                                                                       |
 | 3                | Dynamic mode, scale for a frame is determined based on buffer level and average qp in rate control, scaling ratio can be 3/4 or 1/2. This mode can only work in 1-pass CBR low-delay mode |
 | 4                | Random access mode, scaling is controlled by scale events, which determine scaling in a specified scaling `denom` or recover to original resolution                                       |
 
@@ -378,9 +376,7 @@ Other options such as updating the Bitrate and resolution during the encoding se
 ### 1. Thread management parameters
 
 `PinnedExecution` (`--pin`) and `TargetSocket` (`--ss`) parameters are used to
-manage thread affinity on Windows and Ubuntu OS. `LogicalProcessors` (`LogicalProcessors`
-will be deprecated in v3.0 and replaced with `LevelOfParallelism`; henceforth, the
-documentation will refer to 'LevelOfParallelsim` instead) is used
+manage thread affinity on Windows and Ubuntu OS. `LevelOfParallelism` is used
 to specify how much parallelism is desired; higher levels will create more threads
 and process more pictures in parallel, leading to greater fps but larger memory use.
 These are some examples how you use them together.
