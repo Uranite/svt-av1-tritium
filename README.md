@@ -137,7 +137,7 @@ SVT-AV1-PSY has different defaults than mainline SVT-AV1 in order to provide bet
 - Set minimum QM level to 2 by default for more consistent performance that min QM level 0 doesn't offer.
 - Set minimum chroma QM level to 8 by default to prevent the encoder from picking suboptimal chroma QMs.
 - `--enable-variance-boost` enabled by default.
-- `--keyint -2` (the default) uses a ~10s GOP size instead of ~5s.
+- `--keyint -2` (the default) uses a ~10s GOP size (up to 305 frames) instead of ~5s.
 - `--sharpness 1` by default to prioritize encoder sharpness.
 - `--ac-bias 1.0` by default.
 - Sharp transform optimizations (`--sharp-tx 1`) are enabled by default to supercharge AC bias optimizations. It is recommended to disable it if you don't use `--ac-bias`.
