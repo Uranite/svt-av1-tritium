@@ -1941,10 +1941,10 @@ static void variance_md_bias_apply(PictureControlSet *pcs, ModeDecisionContext *
             case BLOCK_16X64: case BLOCK_64X16:
             case BLOCK_32X64: case BLOCK_64X32:
             case BLOCK_64X64:
-                variance_md_bias_add_dist(ctx, dist, ssim_dist, -5); break;
+                variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
             case BLOCK_64X128: case BLOCK_128X64:
             case BLOCK_128X128:
-                variance_md_bias_add_dist(ctx, dist, ssim_dist, -4); break;
+                variance_md_bias_add_dist(ctx, dist, ssim_dist, -3); break;
             default: break;
         }
     }

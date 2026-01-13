@@ -120,6 +120,8 @@ You can search for `static_config.variance_md_bias_thr` variable in the code for
 You should enable CDEF with `--enable-cdef 1` when using `--chroma-qmc-bias`. CDEF is the most effective tool at preventing distortion in weak chroma lineart. These parameters are set for you:
 * `--cdef-bias 1`.  
 
+If you want an even stronger dose using `--chroma-qmc-bias 1` (full), `--max-32-tx-size 1` is highly recommended.  
+
 #### Features
 
 | `--chroma-qmc-bias` level | `1` (full) | `2` (light) |
@@ -138,8 +140,6 @@ In addition to internal adjustments, `--texture-preserving-qmc-bias` also sets t
 * `--balancing-q-bias 1`. Please note that `--balancing-q-bias 1` is not intended to be used with `--qp-scale-compress-strength`, so make sure you either don't set `--qp-scale-compress-strength`, or set `--qp-scale-compress-strength` to `0.0`. If you want to use `--qp-scale-compress-strength` instead, you can disable this by setting `--balancing-q-bias 0` explicitly.
 * `--balancing-r0-based-layer -3`. Can be overwritten.
 * `--balancing-r0-dampening-layer 1`. Can be overwritten.
-
-If your texture is static, the default `--balancing-r0-based-layer-offset 0` should work. However, if you want to retain more dynamic details, you can use `balancing-r0-based-layer-offset 1`.  
 
 You're recommended to disable CDEF with `--enable-cdef 0` when texture preservation is your top priority, but in case you want to still have it enabled to clean up some ringing, it also has a special protective CDEF mode. In additional to internal CDEF adjustments, these parameters are set for you:  
 * `--cdef-bias 1`.  
