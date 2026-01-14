@@ -63,10 +63,6 @@ A parameter for modifying loopfilter deblock sharpness and rate distortion to im
 
 Set the path to a Dolby Vision RPU for encoding Dolby Vision video. SVT-AV1-PSY needs to be built with the `enable-libdovi` flag enabled in build.sh (see `./Build/linux/build.sh --help` for more info) (Thank you @quietvoid !)
 
-- `Progress 3`
-
-A new progress mode that provides more detailed information about the encoding process.
-
 - `--fgs-table` *path to file* (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/commit/ae7ce1abc5f3f7913624f728ae123f8b8c1e30de)**)
 
 Argument for providing a film grain table for synthetic film grain (similar to aomenc's '--film-grain-table=' argument).
