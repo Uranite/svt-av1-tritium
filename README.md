@@ -106,21 +106,25 @@ Manually adjust temporal filtering strength specifically on keyframes. Each incr
 
 Adaptively varies temporal filtering strength based on 64x64 block error. This can slightly improve visual fidelity in scenes with fast motion or fine detail. Setting this to 2 will override `--tf-strength` and `--kf-tf-strength`, as their values will be automatically determined by the encoder.
 
-- `--ac-bias` *0.0 to 8.0* (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2513)**)
+- `--ac-bias` *0.0 to 8.0* (**[From Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2513)**)
 
 Configures psychovisual rate distortion strength to improve perceived quality by measuring and attempting to preserve the visual energy distribution of high-frequency details and textures. The default is 1.0.
 
-- `--tx-bias` *0 to 3*
+- `--tx-bias` *0 to 3* (**[From SVT-AV1-HDR](https://github.com/juliobbv-p/svt-av1-hdr/)**)
 
 Configure psychovisually-oriented pathways that bias towards sharpness and detail retention, at the possible expense of increased blocking and banding. The default is 0.
 
-- `--alt-ssim-tuning` *0 and 1*
+- `--alt-ssim-tuning` *0 and 1* (**[From SVT-AV1-HDR](https://github.com/juliobbv-p/svt-av1-hdr/)**)
 
 Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate-distortion calculations by utilizing an alternative per-pixel variance function across 4X4, 8X8, and 16X16 blocks in addition to superblock-level SSIM rate-distortion tuning. Originally tested to operate on Tune 2 (SSIM) and Tune 4 (Still Picture); usage on Tune 3 (Subjective SSIM) is experimental. The default is 0.
 
 - `--filtering-noise-detection` *0 to 4*
 
 This setting controls the noise detection algorithm that turns off CDEF/restoration filtering if the noise level is high enough, which is enabled by default when using Tune 0 (VQ) / 3 (Subjective SSIM). 0 follows the tune's default behavior, 1 enables noise detection, 2 disables noise detection (both filters will be active at all times), 3 enables noise detection for CDEF only (restoration will be active at all times), and 4 enables noise detection for restoration only (CDEF will be active at all times). The default is 0.
+
+- `--scd` *0 and 1* (**[From SVT-AV1-Essential](https://github.com/nekotrix/SVT-AV1-Essential)**)
+
+(Re-)introduce keyframe placement via scene detection, for more accurate seeking and lower quality inconsistencies. The feature was tuned for the highest accuracy on SVT-AV1-Essential defaults following a [testing round](https://gist.github.com/nekotrix/a025a48448ce05c3af9bd162dda70f66). The default is 0.
 
 ### Modified Defaults
 

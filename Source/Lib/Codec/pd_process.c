@@ -185,7 +185,7 @@ uint8_t  circ_inc(uint8_t max, uint8_t off, uint8_t input)
 
     return input;
 }
-#define FLASH_TH                            5
+#define FLASH_TH                            7 // worth double-checking on many other / longer sources
 #define FADE_TH                             3
 #define SCENE_TH                            3000
 #define NUM64x64INPIC(w,h)          ((w*h)>> (svt_log2f(BLOCK_SIZE_64)<<1))
@@ -3854,9 +3854,16 @@ static void perform_scene_change_detection(SequenceControlSet* scs, PictureParen
         }
     }
 
-    pcs->cra_flag = (pcs->scene_change_flag == TRUE) ?
-        TRUE :
-        pcs->cra_flag;
+    if (scs->static_config.intra_refresh_type == SVT_AV1_KF_REFRESH) {
+        pcs->idr_flag = (pcs->scene_change_flag == true) ?
+            true :
+            pcs->idr_flag;
+    }
+    else {
+        pcs->cra_flag = (pcs->scene_change_flag == true) ?
+            true :
+            pcs->cra_flag;
+    }
 
     // Store scene change in context
     ctx->is_scene_change_detected = pcs->scene_change_flag;
@@ -4582,7 +4589,7 @@ void* svt_aom_picture_decision_kernel(void *input_ptr) {
             check_window_availability(scs, enc_ctx, pcs, queue_entry_ptr, &window_avail, &eos_reached);
 
             // If the relevant frames are available, perform scene change detection
-            if (window_avail == TRUE && queue_entry_ptr->picture_number > 0) {
+            if (window_avail == TRUE && queue_entry_ptr->picture_number > 0 && scs->static_config.scene_change_detection == 1) {
                 perform_scene_change_detection(scs, pcs, ctx);
             }
 
@@ -4613,7 +4620,7 @@ void* svt_aom_picture_decision_kernel(void *input_ptr) {
                 pcs->cra_flag =
                     (scs->static_config.intra_refresh_type != SVT_AV1_FWDKF_REFRESH) ?
                     pcs->cra_flag :
-                    ((enc_ctx->intra_period_position == (uint32_t)scs->static_config.intra_period_length) || (pcs->scene_change_flag == TRUE)) ?
+                    enc_ctx->intra_period_position == (uint32_t)scs->static_config.intra_period_length ?
                     TRUE :
                     pcs->cra_flag;
 
@@ -4628,10 +4635,23 @@ void* svt_aom_picture_decision_kernel(void *input_ptr) {
             pcs->idr_flag =
                 (scs->static_config.intra_refresh_type != SVT_AV1_KF_REFRESH) ?
                 pcs->idr_flag :
-                (pcs->scene_change_flag == TRUE ||  pcs->input_ptr->pic_type == EB_AV1_KEY_PICTURE) ?
+                (pcs->input_ptr->pic_type == EB_AV1_KEY_PICTURE) ?
                 TRUE :
                 pcs->idr_flag;
+            // Enforce minimum keyframe distance ctx->is_scene_change_detected  && enc_ctx->intra_period_position > 1
+            if (scs->static_config.min_intra_period_length > 0 && pcs->picture_number != 0) {
+                if ((pcs->idr_flag || pcs->cra_flag) && (enc_ctx->intra_period_position < (uint32_t)scs->static_config.min_intra_period_length)) {
+                    // Too soon to place another keyframe
+                    pcs->idr_flag = FALSE;
+                    pcs->cra_flag = FALSE;
+                    // SVT_LOG("\nToo soon to place another idr keyframe at %d, ipp = %d\n", pcs->picture_number, enc_ctx->intra_period_position);
+                }
+            }
             enc_ctx->pre_assignment_buffer_eos_flag = (pcs->end_of_sequence_flag) ? (uint32_t)TRUE : enc_ctx->pre_assignment_buffer_eos_flag;
+            // if (pcs->idr_flag)
+            //     SVT_LOG("\nKEYFRAME: Frame %d marked as keyframe (IDR)\n", pcs->picture_number);
+            // if (pcs->cra_flag)
+            //     SVT_LOG("\nKEYFRAME: Frame %d marked as keyframe (CRA)\n", pcs->picture_number);
 
             // Histogram data to be used at the next input (N + 1)
             // TODO: can this be moved to the end of perform_scene_change_detection? Histograms aren't needed if at EOS
@@ -4646,9 +4666,8 @@ void* svt_aom_picture_decision_kernel(void *input_ptr) {
 
             // Increment the Intra Period Position
             enc_ctx->intra_period_position =
-                ((enc_ctx->intra_period_position == (uint32_t)scs->static_config.intra_period_length) ||
-                (pcs->scene_change_flag == TRUE) ||
-                    pcs->input_ptr->pic_type == EB_AV1_KEY_PICTURE) ?
+                (pcs->idr_flag == TRUE ||
+                pcs->cra_flag == TRUE) ?
                 0 : enc_ctx->intra_period_position + 1;
 
 #if LAD_MG_PRINT
