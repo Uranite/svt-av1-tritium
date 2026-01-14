@@ -126,6 +126,7 @@ typedef struct PictureDecisionContext {
     bool     enable_startup_mg;
     uint32_t filt_to_unfilt_diff;
     bool     list0_only;
+    int32_t  frames_since_last_keyframe;
 } PictureDecisionContext;
 
 #endif // EbPictureDecision_h

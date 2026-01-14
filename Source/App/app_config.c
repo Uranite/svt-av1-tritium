@@ -150,6 +150,7 @@
 #define QP_FILE_NEW_TOKEN "--qpfile"
 #define INPUT_DEPTH_TOKEN "--input-depth"
 #define KEYINT_TOKEN "--keyint"
+#define MIN_KEYINT_TOKEN "--min-keyint"
 #define LOOKAHEAD_NEW_TOKEN "--lookahead"
 #define SVTAV1_PARAMS "--svtav1-params"
 
@@ -1047,6 +1048,11 @@ ConfigEntry config_entry_intra_refresh[] = {
      "CRF, 0: same as -1]",
      set_cfg_generic_token},
     {SINGLE_INPUT,
+     MIN_KEYINT_TOKEN,
+     "Min GOP size (frames), default is -1 [-1: multiple of the mini-gop length (automatic), "
+     "0: no minimum]",
+     set_cfg_generic_token},
+    {SINGLE_INPUT,
      INTRA_REFRESH_TYPE_TOKEN,
      "Intra refresh type, default is 2 [1: FWD Frame (Open GOP), 2: KEY Frame (Closed GOP)]",
      set_cfg_generic_token},
@@ -1566,6 +1572,7 @@ ConfigEntry config_entry[] = {
     // GOP size and type Options
     {SINGLE_INPUT, INTRA_PERIOD_TOKEN, "IntraPeriod", set_cfg_generic_token},
     {SINGLE_INPUT, KEYINT_TOKEN, "Keyint", set_cfg_generic_token},
+    {SINGLE_INPUT, MIN_KEYINT_TOKEN, "MinKeyint", set_cfg_generic_token},
     {SINGLE_INPUT, INTRA_REFRESH_TYPE_TOKEN, "IntraRefreshType", set_cfg_generic_token},
     {SINGLE_INPUT, SCENE_CHANGE_DETECTION_TOKEN, "SceneChangeDetection", set_cfg_generic_token},
     {SINGLE_INPUT, LOOKAHEAD_NEW_TOKEN, "Lookahead", set_cfg_generic_token},

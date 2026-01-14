@@ -266,6 +266,23 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
                   config->rate_control_mode);
         return_error = EB_ErrorBadParameter;
     }
+    if ((config->min_intra_period_length < -1 || config->min_intra_period_length > 2 * ((1 << 30) - 1)) &&
+        config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF) {
+        SVT_ERROR("Instance %u: The minimum intra period must be [-1, 2^31-2]  \n", channel_number + 1);
+        return_error = EB_ErrorBadParameter;
+    }
+    if (scs->static_config.scene_change_detection != 0) {
+        if (config->intra_period_length >= 0 &&
+            config->min_intra_period_length > config->intra_period_length) {
+            SVT_ERROR("Instance %u: The minimum intra period must be lower than "
+                "the maximum intra period. \n", channel_number + 1);
+            return_error = EB_ErrorBadParameter;
+        }
+        if (config->min_intra_period_length < (1 << config->hierarchical_levels)) {
+            SVT_WARN("A higher min-keyint is recommended to avoid excessive "
+                    "key frames placement.\n", channel_number + 1);
+        }
+    }
 
     if (config->intra_refresh_type > 2 || config->intra_refresh_type < 1) {
         SVT_ERROR("Instance %u: Invalid intra Refresh Type [1-2]\n", channel_number + 1);
@@ -845,11 +862,9 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
             return_error = EB_ErrorBadParameter;
         }
     }
-    if (scs->static_config.scene_change_detection) {
-        scs->static_config.scene_change_detection = 0;
-        SVT_WARN(
-            "SVT-AV1 has an integrated mode decision mechanism to handle scene changes and will "
-            "not insert a key frame at scene changes\n");
+    if (scs->static_config.scene_change_detection == 0) {
+        scs->static_config.min_intra_period_length = 0;
+        SVT_WARN("min-keyint was set to 0 as SCD is disabled.\n", channel_number + 1);
     }
     if ((config->tile_columns > 0 || config->tile_rows > 0)) {
         SVT_WARN(
@@ -1113,6 +1128,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->enable_adaptive_quantization = 2;
     config_ptr->enc_mode                     = 10;
     config_ptr->intra_period_length          = -2;
+    config_ptr->min_intra_period_length      = -1;
     config_ptr->multiply_keyint              = FALSE;
     config_ptr->intra_refresh_type           = 2;
     config_ptr->hierarchical_levels          = 0;
@@ -1330,13 +1346,16 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
                      : config->pred_structure == 2 ? "random access"
                                                    : "unknown pred structure");
         SVT_INFO(
-            "SVT [config]: GOP size / mini-GOP size / key-frame type \t\t\t: "
-            "%d / %d / %s\n",
-            config->intra_period_length + 1,
+            "SVT [config]: max / min gop size / mini-gop size / type \t\t\t: "
+            "%d / %d / %d / %s\n",
+            config->intra_period_length < 0 ? config->intra_period_length
+                : config->intra_period_length + 1,
+            config->min_intra_period_length < 0 ? config->min_intra_period_length
+                : config->min_intra_period_length + 1,
             (1 << config->hierarchical_levels),
-            config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH    ? "FWD key frame"
-                : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "key frame"
-                                                                   : "unknown key frame type");
+            config->intra_refresh_type == SVT_AV1_FWDKF_REFRESH    ? "Open GOP"
+                : config->intra_refresh_type == SVT_AV1_KF_REFRESH ? "Closed GOP"
+                                                                   : "Unknown key frame type");
 
         // Rate control
         switch (config->rate_control_mode) {
@@ -2319,6 +2338,9 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
     if (!strcmp(name, "keyint"))
         return str_to_keyint(value, &config_struct->intra_period_length, &config_struct->multiply_keyint);
 
+    if (!strcmp(name, "min-keyint"))
+        return str_to_keyint(value, &config_struct->min_intra_period_length, &config_struct->multiply_keyint);
+
     if (!strcmp(name, "tbr"))
         return str_to_bitrate(value, &config_struct->target_bit_rate);
 
@@ -2561,6 +2583,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"enable-restoration", &config_struct->enable_restoration_filtering},
         {"enable-mfmv", &config_struct->enable_mfmv},
         {"intra-period", &config_struct->intra_period_length},
+        {"min-keyint", &config_struct->min_intra_period_length},
         {"tile-rows", &config_struct->tile_rows},
         {"tile-columns", &config_struct->tile_columns},
         {"ss", &config_struct->target_socket},
