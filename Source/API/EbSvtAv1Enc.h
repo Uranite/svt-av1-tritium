@@ -1131,8 +1131,15 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t filtering_noise_detection;
 
+    /** 
+     * @brief Signal to the library to automatically adjust tiles
+     *
+     * Default is false.
+     */
+    Bool auto_tiling;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
-    uint8_t padding[128 - 7 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double) - sizeof(int32_t)];
+    uint8_t padding[128 - 8 * sizeof(Bool) - 14 * sizeof(uint8_t) - sizeof(int8_t) - 2 * sizeof(double) - sizeof(int32_t)];
 
 } EbSvtAv1EncConfiguration;
 

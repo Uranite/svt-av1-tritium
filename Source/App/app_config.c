@@ -229,6 +229,7 @@
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
 #define ALT_SSIM_TUNING_TOKEN "--alt-ssim-tuning"
 #define FILTERING_NOISE_DETECTION_TOKEN "--filtering-noise-detection"
+#define AUTO_TILING_TOKEN "--auto-tiling"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -1064,6 +1065,11 @@ ConfigEntry config_entry_intra_refresh[] = {
     {SINGLE_INPUT, NULL, NULL, NULL}};
 
 ConfigEntry config_entry_specific[] = {
+    // Auto tiling
+    {SINGLE_INPUT,
+     AUTO_TILING_TOKEN,
+     "Auto tiling, default is 0 [0-1]",
+     set_cfg_generic_token},
     {SINGLE_INPUT,
      TILE_ROW_TOKEN,
      "Number of tile rows to use, `TileRow == log2(x)`, default changes per resolution but is 1 "
@@ -1604,6 +1610,9 @@ ConfigEntry config_entry[] = {
     
     // Filtering noise detection
     {SINGLE_INPUT, FILTERING_NOISE_DETECTION_TOKEN, "FilteringNoiseDetection", set_cfg_generic_token},
+
+    // Auto Tiling
+    {SINGLE_INPUT, AUTO_TILING_TOKEN, "AutoTiling", set_cfg_generic_token},
 
     // Termination
     {SINGLE_INPUT, NULL, NULL, NULL}};

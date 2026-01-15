@@ -126,6 +126,10 @@ This setting controls the noise detection algorithm that turns off CDEF/restorat
 
 (Re-)introduce keyframe placement via scene detection, for more accurate seeking and lower quality inconsistencies. The feature was tuned for the highest accuracy on SVT-AV1-Essential defaults following a [testing round](https://gist.github.com/nekotrix/a025a48448ce05c3af9bd162dda70f66). The default is 0.
 
+- `--auto-tiling` *0 and 1* (**[From SVT-AV1-Essential](https://github.com/nekotrix/SVT-AV1-Essential)**)
+
+Automatically sets tiles appropriate for the source input resolution, which in turn improves decoding performance with minimal effect on efficiency. The feature was tuned following a [testing round](https://wiki.x266.mov/blog/svt-av1-fourth-deep-dive-p2#tiles). The default is 0.
+
 ### Modified Defaults
 
 SVT-AV1-PSY has different defaults than mainline SVT-AV1 in order to provide better visual fidelity out of the box. They include:
