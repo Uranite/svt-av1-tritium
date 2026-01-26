@@ -1972,19 +1972,7 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
     if (pcs->scs->static_config.hbd_mds > 0)
         pcs->hbd_md = pcs->scs->static_config.hbd_mds;
     else if (scs->enable_hbd_mode_decision == DEFAULT)
-        //In svt-av1-hdr, high bit depth mode decisions are enabled by default
-        //starting from Preset 4 due to the high visual gains 10-bit MD provide
-        //This is worth the computational tradeoff from HBD MD and light PD0 being
-        //essentially disabled with HBD MD
-        if (enc_mode <= ENC_M4)
-            pcs->hbd_md = 1;
-        //Preset 5 also deserves some love
-        else if (enc_mode <= ENC_M5)
-            pcs->hbd_md = 2;
-        else if (enc_mode <= ENC_M6)
-            pcs->hbd_md = is_base ? 2 : 0;
-        else
-            pcs->hbd_md = is_islice ? 2 : 0;
+        pcs->hbd_md = 1;
     else
         pcs->hbd_md = scs->enable_hbd_mode_decision;
 
