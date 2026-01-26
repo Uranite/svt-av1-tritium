@@ -206,6 +206,7 @@
 #define MAX_TX_SIZE_TOKEN "--max-tx-size"
 #define AC_BIAS_TOKEN "--ac-bias"
 #define AUTO_TILING_TOKEN "--auto-tiling"
+#define SHARP_TX_TOKEN "--sharp-tx"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -950,6 +951,8 @@ ConfigDescription config_entry_psychovisual[] = {
     {MAX_TX_SIZE_TOKEN, "Limits the allowed transform sizes to the specified, default is 64 [32,64]"},
     //AC-Bias
     {AC_BIAS_TOKEN, "Strength of AC bias in rate distortion, default is 1.0 [0.0-8.0]"},
+    // Sharp-tx
+    {SHARP_TX_TOKEN, "Sharp transform optimization, default is 1 [0-1]"},
     // Termination
     {NULL, NULL}};
 
@@ -1162,6 +1165,9 @@ ConfigEntry config_entry[] = {
 
     // Auto Tiling
     {AUTO_TILING_TOKEN, "AutoTiling", set_cfg_generic_token},
+
+    // Sharp TX
+    {SHARP_TX_TOKEN, "SharpTX", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};
