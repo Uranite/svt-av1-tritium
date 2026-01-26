@@ -1952,7 +1952,7 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
     pcs->frame_end_cdf_update_mode = 1;
 
     if (scs->enable_hbd_mode_decision == DEFAULT)
-        if (enc_mode <= ENC_MR)
+        if (enc_mode <= ENC_M4)
             pcs->hbd_md = 1;
         else if (enc_mode <= ENC_M5)
             pcs->hbd_md = is_base ? 2 : 0;
