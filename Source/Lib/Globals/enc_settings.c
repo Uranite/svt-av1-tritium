@@ -845,6 +845,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->hbd_mds > 2) {
+        SVT_ERROR("Instance %u: hbd-mds must be between 0 and 2\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
     return return_error;
 }
 
@@ -1006,6 +1011,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->ac_bias                           = 1.0;
     config_ptr->auto_tiling                       = true;
     config_ptr->sharp_tx                          = 1;
+    config_ptr->hbd_mds                           = 0;
     return return_error;
 }
 
@@ -2101,6 +2107,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"tf-strength", &config_struct->tf_strength},
         {"max-tx-size", &config_struct->max_tx_size},
         {"sharp-tx", &config_struct->sharp_tx},
+        {"hbd-mds", &config_struct->hbd_mds},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 

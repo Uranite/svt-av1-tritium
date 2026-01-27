@@ -1188,6 +1188,7 @@ typedef struct PictureControlSetInitData {
     bool    use_flat_ipp;
     bool    auto_tiling;
     uint8_t sharp_tx;
+    uint8_t hbd_mds;
 } PictureControlSetInitData;
 
 /**************************************
