@@ -208,6 +208,7 @@
 #define AUTO_TILING_TOKEN "--auto-tiling"
 #define SHARP_TX_TOKEN "--sharp-tx"
 #define HBD_MDS_TOKEN "--hbd-mds"
+#define NOISE_NORM_STRENGTH_TOKEN "--noise-norm-strength"
 
 static EbErrorType validate_error(EbErrorType err, const char *token, const char *value) {
     switch (err) {
@@ -957,6 +958,8 @@ ConfigDescription config_entry_psychovisual[] = {
     // HBD Mode Decisions
     {HBD_MDS_TOKEN,
      "High Bit-Depth Mode Decision, default is 0 [0: default behavior, 1 = 10-bit, 2 = hybrid 8/10-bit]"},
+    // Noise normalization strength
+    {NOISE_NORM_STRENGTH_TOKEN, "Noise normalization strength, default is 0 [0-4]"},
     // Termination
     {NULL, NULL}};
 
@@ -1175,6 +1178,9 @@ ConfigEntry config_entry[] = {
 
     // HBD MDS
     {HBD_MDS_TOKEN, "HBDMDS", set_cfg_generic_token},
+
+    // Noise normalization strength
+    {NOISE_NORM_STRENGTH_TOKEN, "NoiseNormStrength", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};

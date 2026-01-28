@@ -1189,6 +1189,7 @@ typedef struct PictureControlSetInitData {
     bool    auto_tiling;
     uint8_t sharp_tx;
     uint8_t hbd_mds;
+    uint8_t noise_norm_strength;
 } PictureControlSetInitData;
 
 /**************************************

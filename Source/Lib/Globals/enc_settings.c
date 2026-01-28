@@ -850,6 +850,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->noise_norm_strength > 4) {
+        SVT_ERROR("Instance %u: Noise normalization strength must be between 0 and 4\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
     return return_error;
 }
 
@@ -1012,6 +1017,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->auto_tiling                       = true;
     config_ptr->sharp_tx                          = 1;
     config_ptr->hbd_mds                           = 0;
+    config_ptr->noise_norm_strength               = 0;
     return return_error;
 }
 
@@ -1168,6 +1174,10 @@ void svt_av1_print_lib_params(SequenceControlSet *scs) {
 
         if (config->ac_bias) {
             SVT_INFO("SVT [config]: AC Bias Strength \t\t\t\t\t\t: %.2f\n", config->ac_bias);
+        }
+
+        if (config->noise_norm_strength > 0) {
+            SVT_INFO("SVT [config]: Noise Normalization Strength \t\t\t\t\t: %d\n", config->noise_norm_strength);
         }
     }
 #if DEBUG_BUFFERS
@@ -2108,6 +2118,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration *config_
         {"max-tx-size", &config_struct->max_tx_size},
         {"sharp-tx", &config_struct->sharp_tx},
         {"hbd-mds", &config_struct->hbd_mds},
+        {"noise-norm-strength", &config_struct->noise_norm_strength},
     };
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
 
