@@ -1,6 +1,6 @@
 # SVT-AV1-Tritium
 
-SVT-AV1-Tritium is a fork of SVT-AV1-HDR aiming to incorporate features from SVT-AV1-PSYEX and SVT-AV1-Essential.
+SVT-AV1-Tritium is a fork of SVT-AV1-HDR aiming to incorporate features from SVT-AV1-PSYEX and SVT-AV1-Essential. Most notably, SVT-AV1-Tritium has scene detection and auto tiling from Essential.
 
 SVT-AV1-Tritium (and SVT-AV1-HDR) is the Scalable Video Technology for AV1 (SVT-AV1 Encoder) with perceptual enhancements for psychovisually optimal SDR and HDR AV1 encoding. The goal is to create the best encoding implementation for perceptual quality with AV1, with additional optimizations for HDR encoding and content with film grain.
 
@@ -41,7 +41,7 @@ For additional docs (build instructions, documentation, usage, etc.), see the [S
 
 ## Feature Additions
 
-### SVT-AV1-Tritium
+### From SVT-AV1-Essential
 
 - `--enable-dlf 3`
 
