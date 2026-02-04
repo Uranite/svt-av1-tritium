@@ -1186,7 +1186,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->enable_qm           = 1;
     config_ptr->min_qm_level        = 8;
     config_ptr->max_qm_level        = 15;
-    config_ptr->min_chroma_qm_level = 8;
+    config_ptr->min_chroma_qm_level = 10;
     config_ptr->max_chroma_qm_level = 15;
 
     config_ptr->startup_mg_size                   = 0;
@@ -1224,7 +1224,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
     config_ptr->ac_bias                    = 1.0;
     config_ptr->noise_norm_strength        = 1;
     config_ptr->kf_tf_strength             = 1;
-    config_ptr->alt_lambda_factors         = 1;
+    config_ptr->alt_lambda_factors         = 0;
     config_ptr->sharp_tx                   = 1;
     config_ptr->alt_ssim_tuning            = false;
     config_ptr->hbd_mds                    = 0;

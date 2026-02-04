@@ -227,9 +227,11 @@ SVT-AV1-Tritium Defaults (yis branch):
 
 - `--scd 1` by default.
 - `--auto-tiling 1` by default.
+- `--chroma-qm-min 10` by default.
 - `--qm-min 8` by default.
 - `--qm-max 15` by default.
 - `--tune 0` by default.
+- `--alt-lambda-factors 0` by default.
 
 ### Other Changes
 
