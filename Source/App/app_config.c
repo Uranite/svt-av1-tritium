@@ -692,7 +692,7 @@ ConfigDescription config_entry_options[] = {
 
     {PRESET_TOKEN,
      "Encoder preset, presets < 0 are for debugging. Higher presets means faster encodes, but with "
-     "a quality tradeoff, default is 8 [-1-13]"},
+     "a quality tradeoff, default is 5 [-1-13]"},
 
     {SVTAV1_PARAMS, "colon separated list of key=value pairs of parameters with keys based on config file options"},
 
@@ -821,8 +821,8 @@ ConfigDescription config_entry_rc[] = {
      "GOP max bitrate (expressed as a percentage of the target rate), default is 2000 [0-10000]"},
 #if CONFIG_ENABLE_QUANT_MATRIX
     {ENABLE_QM_TOKEN, "Enable quantisation matrices, default is 1 [0-1]"},
-    {MIN_QM_LEVEL_TOKEN, "Min quant matrix flatness, default is 6 [0-15]"},
-    {MAX_QM_LEVEL_TOKEN, "Max quant matrix flatness, default is 10 [0-15]"},
+    {MIN_QM_LEVEL_TOKEN, "Min quant matrix flatness, default is 4 [0-15]"},
+    {MAX_QM_LEVEL_TOKEN, "Max quant matrix flatness, default is 15 [0-15]"},
     {MIN_CHROMA_QM_LEVEL_TOKEN, "Min chroma quant matrix flatness, default is 8 [0-15]"},
     {MAX_CHROMA_QM_LEVEL_TOKEN, "Max chroma quant matrix flatness, default is 15 [0-15]"},
 #endif
@@ -1002,11 +1002,11 @@ ConfigDescription config_entry_psychovisual[] = {
     //AC-Bias
     {AC_BIAS_TOKEN, "Strength of AC bias in rate distortion, default is 1.0 [0.0-8.0]"},
     // Noise normalization strength
-    {NOISE_NORM_STRENGTH_TOKEN, "Noise normalization strength, default is 1 [0-4]"},
+    {NOISE_NORM_STRENGTH_TOKEN, "Noise normalization strength, default is 0 [0-4]"},
     // Keyframe temporal filtering strength
     {KF_TF_STRENGTH_FILTER_TOKEN, "Adjust TF strength on keyframes, default is 1 (4x weaker than mainline) [0-4]"},
     // Alt lambda factors
-    {ALT_LAMBDA_FACTORS_TOKEN, "Use alternative RDO lambda factors (from SVT-AV1 3.0.2), default is 1 [0-1]"},
+    {ALT_LAMBDA_FACTORS_TOKEN, "Use alternative RDO lambda factors (from SVT-AV1 3.0.2), default is 0 [0-1]"},
     //Sharp-tx
     {SHARP_TX_TOKEN, "Sharp transform optimization, default is 1 [0-1]"},
     // Alternative SSIM tuning

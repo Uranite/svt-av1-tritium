@@ -213,7 +213,7 @@ typedef struct EbSvtAv1EncConfiguration {
      *
      * Min value is -2.
      * Max value is 13.
-     * Default is 12.
+     * Default is 5.
      */
     int8_t enc_mode;
 
@@ -747,14 +747,14 @@ typedef struct EbSvtAv1EncConfiguration {
      * @brief Min quant matrix flatness. Applicable when enable_qm is true.
      * Min value is 0.
      * Max value is 15.
-     * Default is 6 in SVT-AV1-HDR, mainline default is 8.
+     * Default is 4.
      */
     uint8_t min_qm_level;
     /**
      * @brief Max quant matrix flatness. Applicable when enable_qm is true.
      * Min value is 0.
      * Max value is 15.
-     * Default is 10 in SVT-AV1-HDR, mainline default is 15.
+     * Default is 15.
      */
     uint8_t max_qm_level;
 
@@ -962,7 +962,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * to boost AC coefficients in low-noise blocks.
      * Min value is 0.
      * Max value is 4.
-     * Default is 1.
+     * Default is 0.
      */
     uint8_t noise_norm_strength;
 
@@ -987,7 +987,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * @brief Use alternative lambda factors
      * false = use regular lambda factors
      * true = use alternative lambda factors (from SVT-AV1 3.0.2)
-     * Default is true in SVT-AV1-HDR. */
+     * Default is false. */
      bool alt_lambda_factors;
 
     /* @brief compresses the QP hierarchical layer scale to improve temporal video consistency
