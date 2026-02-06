@@ -77,7 +77,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **AdaptiveFilmGrain**            | --adaptive-film-grain       | [0,1]                          | 1           | Allows film grain synthesis to be sourced from different block sizes depending on resolution                  |
 | **MaxTxSize**                    | --max-tx-size               | [32,64]                        | 64          | Restricts use of block transform sizes to the specified value                                                 |
 | **AltSSIMTuning**                | --alt-ssim-tuning           | [0-1]                          | 0           | Enables the usage of VQ optimizations and an alternative SSIM calculation pathway (Only operates with tune 2) |
-| **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                  |
+| **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 0           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                  |
 
 ## Rate Control Options
 
@@ -126,8 +126,8 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **MaxSectionPct**                | --maxsection-pct                 | [0-10000]  | 2000        | GOP max bitrate (expressed as a percentage of the target rate)                                                                                       |
 | **GopConstraintRc**              | --gop-constraint-rc              | [0-1]      | 0           | Constrains the rate control to match the target rate for each GoP [0 = OFF, 1 = ON]                                                                  |
 | **EnableQM**                     | --enable-qm                      | [0-1]      | 1           | Enable quantisation matrices                                                                                                                         |
-| **MinQmLevel**                   | --qm-min                         | [0-15]     | 6           | Min quant matrix flatness                                                                                                                            |
-| **MaxQmLevel**                   | --qm-max                         | [0-15]     | 10          | Max quant matrix flatness                                                                                                                            |
+| **MinQmLevel**                   | --qm-min                         | [0-15]     | 4           | Min quant matrix flatness                                                                                                                            |
+| **MaxQmLevel**                   | --qm-max                         | [0-15]     | 15          | Max quant matrix flatness                                                                                                                            |
 | **MinChromaQmLevel**             | --chroma-qm-min                  | [0-15]     | 8           | Min chroma quant matrix flatness                                                                                                                     |
 | **MaxChromaQmLevel**             | --chroma-qm-max                  | [0-15]     | 15          | Max chroma quant matrix flatness                                                                                                                     |
 | **LambdaScaleFactors**           | --lambda-scale-factors           | [0- ]      | '128,.,128' | list of scale factors for lambda values used for different SvtAv1FrameUpdateType, separated by `,` divide by 128 is the actual scale factor in float |
@@ -136,7 +136,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **LuminanceQpBias**              | --luminance-qp-bias              | [0-100]    | 0           | Adjusts a frame's QP based on its average luma value                                                                                                 |
 | **Sharpness**                    | --sharpness                      | [-7-7]     | 1           | Bias towards decreased/increased sharpness                                                                                                           |
 | **KFTemporalFilteringStrength**  | --kf-tf-strength                 | [0-4]      | 1           | Manually adjust alt-ref temporal filtering strengh on keyframes. Higher values = stronger alt-ref temporal filtering                                 |
-| **AltLambdaFactors**             | --alt-lambda-factors             | [0-1]      | 1           | Use alternative RDO lambda factors (from SVT-AV1 3.0.2)                                                                                              |
+| **AltLambdaFactors**             | --alt-lambda-factors             | [0-1]      | 0           | Use alternative RDO lambda factors (from SVT-AV1 3.0.2)                                                                                              |
 
 ### **UseFixedQIndexOffsets** and more information
 
