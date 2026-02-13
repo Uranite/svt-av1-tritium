@@ -1481,7 +1481,7 @@ static uint8_t get_dlf_level(PictureControlSet *pcs, EncMode enc_mode, uint8_t i
             modulation_mode = 3;
         }
     } else if (fast_decode <= 1 || resolution <= INPUT_SIZE_360p_RANGE) { // fast-decode 0 && fast-decode 1
-        if (enc_mode <= ENC_M0) {
+        if (enc_mode <= ENC_M2) {
             dlf_level = 1;
         } else if ((!sc_class1 && enc_mode <= ENC_M3) || (sc_class1 && enc_mode <= ENC_M4)) {
             dlf_level = 2;
