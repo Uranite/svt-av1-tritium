@@ -1048,8 +1048,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration *config_ptr) {
 
     // Quant Matrices (QM)
     config_ptr->enable_qm           = 1;
-    config_ptr->min_qm_level        = 6;
-    config_ptr->max_qm_level        = 10;
+    config_ptr->min_qm_level        = 4;
+    config_ptr->max_qm_level        = 15;
     config_ptr->min_chroma_qm_level = 8;
     config_ptr->max_chroma_qm_level = 15;
 
