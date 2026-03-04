@@ -1,6 +1,6 @@
 ## 5fish/SVT-AV1-PSY
 
-This fork is based on the unreleased [SVT-AV1-PSY 2.3.0-C](https://github.com/psy-ex/svt-av1-psy/tree/testing-2.3.0-C), and includes backports of changes and improvements made in 3.x+ versions of SVT-AV1-PSY and its continuations by the original developers, [SVT-AV1-PSYEX](https://github.com/BlueSwordM/svt-av1-psyex) and [SVT-AV1-HDR](https://github.com/juliobbv-p/svt-av1-hdr)* (currently excluding any HDR-specific changes.)
+This fork is based on the unreleased [SVT-AV1-PSY 2.3.0-C](https://github.com/psy-ex/svt-av1-psy/tree/testing-2.3.0-C), and includes backports of features, changes and improvements made in 3.x+ versions of SVT-AV1-PSY and its continuations by the original developers, [SVT-AV1-PSYEX](https://github.com/BlueSwordM/svt-av1-psyex) and [SVT-AV1-HDR](https://github.com/juliobbv-p/svt-av1-hdr).
 
 Additionally, some features have been ported from [SVT-AV1-Essential](https://github.com/nekotrix/SVT-AV1-Essential).
 
@@ -135,6 +135,14 @@ The minimum amount of frames before a new keyframe can be introduced by the SCD 
 - `--auto-tiling` *0 and 1* (**[From SVT-AV1-Essential](https://github.com/nekotrix/SVT-AV1-Essential)**)
 
 Automatically sets tiles appropriate for the source input resolution, which in turn improves decoding performance with minimal effect on efficiency. The feature was tuned following a [testing round](https://wiki.x266.mov/blog/svt-av1-fourth-deep-dive-p2#tiles). The default is 0.
+
+- `--photon-noise` *0 to 100000* (**[From SVT-AV1-HDR](https://github.com/juliobbv-p/svt-av1-hdr/)**)
+
+Generates and adds photon noise table with specified ISO value to be used as fgs-table during the encode.
+
+- `--photon-noise-chroma` *0 to 1* (**[From SVT-AV1-HDR](https://github.com/juliobbv-p/svt-av1-hdr/)**)
+
+Enables chroma noise in the photon noise table.
 
 ### Modified Defaults
 

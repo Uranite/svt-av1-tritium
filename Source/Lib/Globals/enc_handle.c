@@ -56,6 +56,7 @@
 #include "rc_results.h"
 #include "definitions.h"
 #include "metadata_handle.h"
+#include "photon_noise.h"
 
 #include "pack_unpack_c.h"
 #include "enc_mode_config.h"
@@ -4067,6 +4068,27 @@ static void set_param_based_on_input(SequenceControlSet *scs)
         scs->static_config.hierarchical_levels = 4;
         SVT_WARN("Fwd key frame is only supported for hierarchical levels 4 at this point. Hierarchical levels are set to 4\n");
     }
+    if (scs->static_config.photon_noise_iso > 0) {
+        // Check if film-grain (internally film-grain-denoise-strength) is also enabled (should be disabled if fgs_table is present)
+        if (scs->static_config.film_grain_denoise_strength > 0) {
+            SVT_WARN("Both film-grain and photon-noise were specified; film-grain will be disabled\n");
+            scs->static_config.film_grain_denoise_strength = 0;
+        }
+        // Check if fgs_table is present
+        if (scs->static_config.fgs_table) {
+            SVT_WARN("Both photon-noise and fgs-table were specified; photon-noise will be disabled\n");
+            scs->static_config.photon_noise_iso = 0;
+        } else {
+            if (scs->static_config.transfer_characteristics == EB_CICP_TC_UNSPECIFIED) {
+                SVT_WARN("Transfer characteristics is not specified, photon noise will be defaulting to BT.709\n");
+            }
+            svt_av1_generate_photon_noise_table(&scs->static_config);
+        }
+    } else {
+        if (scs->static_config.enable_photon_noise_chroma == 1) {
+            SVT_WARN("Photon noise chroma signal is going to be ignored when photon noise level is 0.\n");
+        }
+    }
     bool disallow_nsq = true;
     uint8_t nsq_geom_level;
     uint8_t allow_HVA_HVB = 0;
@@ -4393,6 +4415,8 @@ static void copy_api_from_app(
     }
     scs->seq_header.film_grain_params_present = (uint8_t)(scs->static_config.film_grain_denoise_strength>0);
     scs->static_config.fgs_table = ((EbSvtAv1EncConfiguration*)config_struct)->fgs_table;
+    scs->static_config.photon_noise_iso = ((EbSvtAv1EncConfiguration*)config_struct)->photon_noise_iso;
+    scs->static_config.enable_photon_noise_chroma = ((EbSvtAv1EncConfiguration*)config_struct)->enable_photon_noise_chroma;
 
     // MD Parameters
     scs->enable_hbd_mode_decision = ((EbSvtAv1EncConfiguration*)config_struct)->encoder_bit_depth > 8 ? DEFAULT : 0;

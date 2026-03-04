@@ -90,6 +90,8 @@
 #define LEVEL_TOKEN "--level"
 #define FILM_GRAIN_TOKEN "--film-grain"
 #define FILM_GRAIN_DENOISE_APPLY_TOKEN "--film-grain-denoise"
+#define PHOTON_NOISE_TOKEN "--photon-noise"
+#define PHOTON_NOISE_CHROMA_TOKEN "--photon-noise-chroma"
 #define INTRA_REFRESH_TYPE_TOKEN "--irefresh-type" // no Eval
 #define CDEF_ENABLE_TOKEN "--enable-cdef"
 #define SCREEN_CONTENT_TOKEN "--scm"
@@ -1148,6 +1150,16 @@ ConfigEntry config_entry_specific[] = {
 
     {SINGLE_INPUT, FGS_TABLE_TOKEN, "Set the film grain model table path", set_cfg_fgs_table_path},
 
+    {SINGLE_INPUT,
+     PHOTON_NOISE_TOKEN,
+     "Generate photon noise table for film grain, default is 0 [0: off, 1-100000: ISO value]",
+     set_cfg_generic_token},
+
+    {SINGLE_INPUT,
+     PHOTON_NOISE_CHROMA_TOKEN,
+     "Enable chroma noise, default is 0 [0: off, 1: on]",
+     set_cfg_generic_token},
+
     // --- start: SUPER-RESOLUTION SUPPORT
     {SINGLE_INPUT,
      SUPERRES_MODE_INPUT,
@@ -1488,7 +1500,6 @@ ConfigEntry config_entry[] = {
     {SINGLE_INPUT, PRED_STRUCT_TOKEN, "PredStructure", set_cfg_generic_token},
     {SINGLE_INPUT, FORCE_KEY_FRAMES_TOKEN, "ForceKeyFrames", set_cfg_force_key_frames},
     {SINGLE_INPUT, STARTUP_MG_SIZE_TOKEN, "StartupMgSize", set_cfg_generic_token},
-
     // AV1 Specific Options
     {SINGLE_INPUT, TILE_ROW_TOKEN, "TileRow", set_cfg_generic_token},
     {SINGLE_INPUT, TILE_COL_TOKEN, "TileCol", set_cfg_generic_token},
@@ -1505,9 +1516,12 @@ ConfigEntry config_entry[] = {
     {SINGLE_INPUT, ENABLE_OVERLAYS, "EnableOverlays", set_cfg_generic_token},
     {SINGLE_INPUT, SCREEN_CONTENT_TOKEN, "ScreenContentMode", set_cfg_generic_token},
     {SINGLE_INPUT, RESTRICTED_MOTION_VECTOR, "RestrictedMotionVector", set_cfg_generic_token},
+	// Film Grain Synthesis Options
     {SINGLE_INPUT, FILM_GRAIN_TOKEN, "FilmGrain", set_cfg_generic_token},
     {SINGLE_INPUT, FILM_GRAIN_DENOISE_APPLY_TOKEN, "FilmGrainDenoise", set_cfg_generic_token},
     {SINGLE_INPUT, FGS_TABLE_TOKEN, "FilmGrainTable", set_cfg_fgs_table_path},
+    {SINGLE_INPUT, PHOTON_NOISE_TOKEN, "PhotonNoise", set_cfg_generic_token},
+    {SINGLE_INPUT, PHOTON_NOISE_CHROMA_TOKEN, "PhotonNoiseChroma", set_cfg_generic_token},
 
     //   Super-resolution support
     {SINGLE_INPUT, SUPERRES_MODE_INPUT, "SuperresMode", set_cfg_generic_token},
