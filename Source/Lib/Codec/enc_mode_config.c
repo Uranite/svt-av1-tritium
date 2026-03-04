@@ -1469,7 +1469,7 @@ static void svt_aom_set_sg_filter_ctrls(Av1Common *cm, uint8_t sg_filter_lvl) {
 static uint8_t svt_aom_get_wn_filter_level(EncMode enc_mode, uint8_t input_resolution, Bool is_not_last_layer,
                                            const uint8_t is_base) {
     uint8_t wn_filter_lvl = 0;
-    if (enc_mode <= ENC_M2)
+    if (enc_mode <= ENC_M2) // WIENER and SGRPROJ must both consider chroma, or both not consider chroma to avoid the chroma bug
         wn_filter_lvl = 1;
     else if (enc_mode <= ENC_M8)
         wn_filter_lvl = is_not_last_layer ? 5 : 0;
@@ -1490,7 +1490,7 @@ static uint8_t svt_aom_get_sg_filter_level(EncMode enc_mode, uint8_t input_resol
     uint8_t sg_filter_lvl = 0;
     if (enc_mode <= ENC_M0)
         sg_filter_lvl = 1;
-    else if (enc_mode <= ENC_M3)
+    else if (enc_mode <= ENC_M2) // WIENER and SGRPROJ must both consider chroma, or both not consider chroma to avoid the chroma bug
         sg_filter_lvl = 3;
     else
         sg_filter_lvl = 0;
