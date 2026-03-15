@@ -267,13 +267,13 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet *scs) {
     }
     if ((config->min_intra_period_length < -1 || config->min_intra_period_length > 2 * ((1 << 30) - 1)) &&
         config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF) {
-        SVT_ERROR("Instance %u: The minimum intra period must be [-1, 2^31-2]  \n");
+        SVT_ERROR("The minimum intra period must be [-1, 2^31-2]  \n");
         return_error = EB_ErrorBadParameter;
     }
-    if (scs->static_config.scene_change_detection != 0) {
+    if (config->scene_change_detection != 0) {
         if (config->intra_period_length >= 0 &&
             config->min_intra_period_length > config->intra_period_length) {
-            SVT_ERROR("Instance %u: The minimum intra period must be lower than "
+            SVT_ERROR("The minimum intra period must be lower than "
                 "the maximum intra period. \n");
             return_error = EB_ErrorBadParameter;
         }
