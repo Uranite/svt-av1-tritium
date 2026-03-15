@@ -4036,9 +4036,6 @@ static void set_param_based_on_input(SequenceControlSet *scs)
     if (scs->static_config.encoder_bit_depth < 10)
         scs->enable_hbd_mode_decision = 0;
 
-    // Throws a warning when scene change is on, as the feature is not optimal and may produce false detections
-    if (scs->static_config.scene_change_detection == 1)
-        SVT_WARN("SCD has been optimized on SVT-AV1-Essential defaults. Accuracy cannot be guaranteed inside SVT-AV1-Tritium.\n");
     // MRP level
     uint8_t mrp_level;
     if (scs->static_config.rtc) {
@@ -4412,7 +4409,7 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
         scs->static_config.intra_period_length =
             (int32_t)(fps * scs->static_config.intra_period_length);
     }
-    if (scs->static_config.intra_period_length == -1)
+    if (scs->static_config.intra_period_length == -1 || scs->allintra)
         scs->static_config.min_intra_period_length = 0;
     else {
         if (scs->static_config.min_intra_period_length == -1)
