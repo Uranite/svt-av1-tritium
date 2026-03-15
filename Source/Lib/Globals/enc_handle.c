@@ -4232,21 +4232,17 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
             }
         }
         if (scs->static_config.auto_tiling) {
-            if (scs->max_input_luma_width >= 3840 && scs->max_input_luma_height >= 2160) {
-                scs->static_config.tile_rows = 0;
-                scs->static_config.tile_columns = 2;
+            uint32_t max_dim = scs->max_input_luma_width > scs->max_input_luma_height ?
+                               scs->max_input_luma_width : scs->max_input_luma_height;
+            bool is_vertical = scs->max_input_luma_height > scs->max_input_luma_width;
+
+            if (max_dim >= 3840) {
+                scs->static_config.tile_rows = is_vertical ? 2 : 0;
+                scs->static_config.tile_columns = is_vertical ? 0 : 2;
             }
-            else if (scs->max_input_luma_width >= 2160 && scs->max_input_luma_height >= 3840) {
-                scs->static_config.tile_rows = 2;
-                scs->static_config.tile_columns = 0;
-            }
-            else if (scs->max_input_luma_width >= 1920 && scs->max_input_luma_height >= 1080) {
-                scs->static_config.tile_rows = 0;
-                scs->static_config.tile_columns = 1;
-            }
-            else if (scs->max_input_luma_width >= 1080 && scs->max_input_luma_height >= 1920) {
-                scs->static_config.tile_rows = 1;
-                scs->static_config.tile_columns = 0;
+            else if (max_dim >= 1920) {
+                scs->static_config.tile_rows = is_vertical ? 1 : 0;
+                scs->static_config.tile_columns = is_vertical ? 0 : 1;
             }
         }
     }
