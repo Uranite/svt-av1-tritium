@@ -78,6 +78,7 @@ typedef struct ModeDecisionCandidateBuffer {
     uint64_t*   fast_cost;
     uint64_t*   full_cost;
     uint64_t*   full_cost_ssim;
+    uint64_t*   full_cost_daala;
     uint64_t    fast_luma_rate;
     uint64_t    fast_chroma_rate;
     uint64_t    total_rate;
@@ -115,7 +116,7 @@ typedef EbErrorType (*EbAv1FullCostFunc)(PictureControlSet* pcs, struct ModeDeci
 EbErrorType svt_aom_mode_decision_cand_bf_ctor(ModeDecisionCandidateBuffer* buffer_ptr, EbBitDepth max_bitdepth,
                                                uint8_t sb_size, uint32_t buffer_mask,
                                                EbPictureBufferDesc* temp_residual, EbPictureBufferDesc* temp_recon_ptr,
-                                               uint64_t* fast_cost, uint64_t* full_cost, uint64_t* full_cost_ssim_ptr);
+                                               uint64_t* fast_cost, uint64_t* full_cost, uint64_t* full_cost_ssim_ptr, uint64_t* full_cost_daala_ptr);
 
 EbErrorType svt_aom_mode_decision_scratch_cand_bf_ctor(ModeDecisionCandidateBuffer* buffer_ptr, uint8_t sb_size,
                                                        EbBitDepth max_bitdepth);
@@ -206,6 +207,10 @@ int              svt_aom_get_sad_per_bit(int qidx, EbBitDepth is_hbd);
 
 int  svt_av1_allow_palette(int allow_palette, BlockSize bsize);
 bool svt_av1_is_lossless_segment(PictureControlSet* pcs, int8_t segment_id);
+uint64_t svt_spatial_full_distortion_daala_kernel(uint8_t *input, uint32_t input_offset, uint32_t input_stride,
+                                                  uint8_t *recon, int32_t recon_offset, uint32_t recon_stride,
+                                                  uint32_t area_width, uint32_t area_height, uint32_t bit_depth,
+                                                  int32_t qindex, int activity_masking);
 #ifdef __cplusplus
 }
 #endif

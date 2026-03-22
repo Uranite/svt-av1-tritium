@@ -952,6 +952,7 @@ typedef struct ModeDecisionContext {
     uint64_t* fast_cost_array;
     uint64_t* full_cost_array;
     uint64_t* full_cost_ssim_array;
+    uint64_t* full_cost_daala_array;
     // Lambda
     uint32_t fast_lambda_md[2];
     uint32_t full_lambda_md[2];
@@ -1259,6 +1260,7 @@ typedef struct ModeDecisionContext {
     // SSIM_LVL_1: use ssim cost to find best candidate in product_full_mode_decision()
     // SSIM_LVL_2: addition to level 1, also use ssim cost to find best tx type in tx_type_search()
     SsimLevel tune_ssim_level;
+    uint8_t   tune_daala_level;
     // OBMC control signals (flags related to OBMC prediction readiness and bit depth)
     bool obmc_weighted_pred_ready; // Flag indicating if weighted prediction is prepared
     bool obmc_neighbor_luma_pred_ready; // Flag indicating if luma neighbor prediction is prepared
