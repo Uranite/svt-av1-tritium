@@ -241,6 +241,7 @@
 #define AUTO_TILING_TOKEN "--auto-tiling"
 #define ZONES_TOKEN "--zones"
 #define ALT_CDEF_TOKEN "--enable-alt-cdef"
+#define ENABLE_DAALA_TOKEN "--enable-daala"
 
 static EbErrorType validate_error(EbErrorType err, const char* token, const char* value) {
     switch (err) {
@@ -1197,6 +1198,8 @@ ConfigDescription config_entry_psychovisual[] = {
     {ALT_CDEF_TOKEN,
      "Enable alternative CDEF biases."
      "Default is 0 [0-3]."},
+    {ENABLE_DAALA_TOKEN,
+     "Enable Daala distortion metric, default is 0 [0-4]"},
     // Termination
     {NULL, NULL}};
 
@@ -1461,6 +1464,9 @@ ConfigEntry config_entry[] = {
 
     // Alt CDEF
     {ALT_CDEF_TOKEN, "AltCDEF", set_cfg_generic_token},
+
+    // Daala
+    {ENABLE_DAALA_TOKEN, "EnableDaala", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};

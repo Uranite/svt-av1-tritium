@@ -1230,6 +1230,17 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t alt_cdef;
 
+    /**
+     * @brief Enable Daala distortion metric.
+     * 0 = OFF
+     * 1 = CDEF
+     * 2 = 1 + TX Search + MDS3 Selection
+     * 3 = 2 + DCT TX
+     * 4 = 3 + MDS0 + IFS
+     * Default is 0.
+     */
+    uint8_t enable_daala;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1261,6 +1272,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(SvtAv1QualityZone*) // quality_zones
         - sizeof(uint16_t) // num_zones
         - sizeof(uint8_t) // alt_cdef
+        - sizeof(uint8_t) // enable_daala
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
