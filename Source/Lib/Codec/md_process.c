@@ -143,6 +143,7 @@ static void mode_decision_context_dctor(EbPtr p) {
     EB_DELETE(obj->temp_residual);
     EB_DELETE(obj->temp_recon_ptr);
     EB_FREE_ARRAY(obj->full_cost_ssim_array);
+    EB_FREE_ARRAY(obj->full_cost_daala_array);
 }
 
 void svt_aom_set_nics(SequenceControlSet* scs, NicScalingCtrls* scaling_ctrls, uint32_t mds1_count[CAND_CLASS_TOTAL],
@@ -404,6 +405,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
     EB_MALLOC_ARRAY(ctx->fast_cost_array, ctx->max_nics_uv);
     EB_MALLOC_ARRAY(ctx->full_cost_array, ctx->max_nics_uv);
     EB_MALLOC_ARRAY(ctx->full_cost_ssim_array, ctx->max_nics_uv);
+    EB_MALLOC_ARRAY(ctx->full_cost_daala_array, ctx->max_nics_uv);
     // Candidate Buffers
     EB_NEW(ctx->cand_bf_tx_depth_1,
            svt_aom_mode_decision_scratch_cand_bf_ctor,
@@ -603,7 +605,8 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
                ctx->temp_recon_ptr,
                &(ctx->fast_cost_array[buffer_index]),
                &(ctx->full_cost_array[buffer_index]),
-               &(ctx->full_cost_ssim_array[buffer_index]));
+               &(ctx->full_cost_ssim_array[buffer_index]),
+               &(ctx->full_cost_daala_array[buffer_index]));
     }
 
     for (buffer_index = max_nics; buffer_index < ctx->max_nics_uv; ++buffer_index) {
@@ -616,7 +619,8 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
                ctx->temp_recon_ptr,
                &(ctx->fast_cost_array[buffer_index]),
                &(ctx->full_cost_array[buffer_index]),
-               &(ctx->full_cost_ssim_array[buffer_index]));
+               &(ctx->full_cost_ssim_array[buffer_index]),
+               &(ctx->full_cost_daala_array[buffer_index]));
     }
 
     return EB_ErrorNone;

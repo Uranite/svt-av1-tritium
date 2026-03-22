@@ -1858,7 +1858,8 @@ typedef enum DistType
 {
     DIST_SSD = 0,
     DIST_SSIM = 1,
-    DIST_TOTAL = 2
+    DIST_DAALA = 2,
+    DIST_TOTAL = 3
 } DistType;
 
 typedef enum EbPtrType
