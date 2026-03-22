@@ -98,6 +98,8 @@ set(all_files
         corner_detect.h
         corner_match.c
         corner_match.h
+        daala_dist.c
+        daala_dist.h
         deblocking_common.c
         deblocking_common.h
         deblocking_filter.c

@@ -3429,6 +3429,8 @@ static void av1_cost_calc_cfl(PictureControlSet* pcs, ModeDecisionCandidateBuffe
     full_dist[DIST_SSD][DIST_CALC_PREDICTION]  = 0;
     full_dist[DIST_SSIM][DIST_CALC_RESIDUAL]   = 0;
     full_dist[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
+    full_dist[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
+    full_dist[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
     *coeff_bits                                = 0;
 
     // Loop over alphas and find the best
@@ -3443,6 +3445,11 @@ static void av1_cost_calc_cfl(PictureControlSet* pcs, ModeDecisionCandidateBuffe
         cr_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL]   = 0;
         cb_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
         cr_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
+
+        cb_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
+        cr_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
+        cb_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
+        cr_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
         uint64_t cb_coeff_bits                              = 0;
         uint64_t cr_coeff_bits                              = 0;
         int32_t  alpha_q3                                   = (check_dc) ? 0
@@ -3503,6 +3510,9 @@ static void av1_cost_calc_cfl(PictureControlSet* pcs, ModeDecisionCandidateBuffe
 
         full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] += cb_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL];
         full_dist[DIST_SSIM][DIST_CALC_PREDICTION] += cb_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION];
+
+        full_dist[DIST_DAALA][DIST_CALC_RESIDUAL] += cb_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL];
+        full_dist[DIST_DAALA][DIST_CALC_PREDICTION] += cb_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION];
         *coeff_bits += cb_coeff_bits;
     }
     if (component_mask == COMPONENT_CHROMA_CR || component_mask == COMPONENT_CHROMA ||
@@ -3516,6 +3526,11 @@ static void av1_cost_calc_cfl(PictureControlSet* pcs, ModeDecisionCandidateBuffe
         cr_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL]   = 0;
         cb_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
         cr_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
+
+        cb_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
+        cr_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
+        cb_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
+        cr_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
 
         uint64_t cb_coeff_bits = 0;
         uint64_t cr_coeff_bits = 0;
@@ -3576,6 +3591,9 @@ static void av1_cost_calc_cfl(PictureControlSet* pcs, ModeDecisionCandidateBuffe
 
         full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] += cr_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL];
         full_dist[DIST_SSIM][DIST_CALC_PREDICTION] += cr_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION];
+
+        full_dist[DIST_DAALA][DIST_CALC_RESIDUAL] += cr_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL];
+        full_dist[DIST_DAALA][DIST_CALC_PREDICTION] += cr_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION];
         *coeff_bits += cr_coeff_bits;
     }
 }
@@ -3607,6 +3625,7 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet* pcs, ModeDecisionCandida
         coeff_bits                               = 0;
         full_dist[DIST_SSD][DIST_CALC_RESIDUAL]  = 0;
         full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] = 0;
+        full_dist[DIST_DAALA][DIST_CALC_RESIDUAL] = 0;
         for (uint8_t joint_sign = 0; joint_sign < CFL_JOINT_SIGNS; joint_sign++) {
             best_rd_uv[joint_sign][plane] = MAX_MODE_COST;
             best_c[joint_sign][plane]     = 0;
@@ -3658,6 +3677,7 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet* pcs, ModeDecisionCandida
                 coeff_bits                               = 0;
                 full_dist[DIST_SSD][DIST_CALC_RESIDUAL]  = 0;
                 full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] = 0;
+                full_dist[DIST_DAALA][DIST_CALC_RESIDUAL] = 0;
                 for (uint8_t i = 0; i < CFL_SIGNS; i++) {
                     const uint8_t joint_sign = PLANE_SIGN_TO_JOINT_SIGN(plane, pn_sign, i);
                     if (i == 0) {
@@ -4002,6 +4022,11 @@ static void check_best_indepedant_cfl(PictureControlSet* pcs, EbPictureBufferDes
         cr_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL]   = 0;
         cb_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
         cr_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
+
+        cb_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
+        cr_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
+        cb_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
+        cr_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
 
         *cb_coeff_bits = 0;
         *cr_coeff_bits = 0;
@@ -4953,6 +4978,7 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
                         SVT_EFFECTIVE_HBD_MD(ctx->hbd_md),
                         effective_ac_bias);
                 }
+
                 txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_PREDICTION] <<= 4;
                 txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] <<= 4;
 
@@ -5004,6 +5030,7 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
                 txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL] << ctx->mds_subres_step;
             txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_PREDICTION] =
                 txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_PREDICTION] << ctx->mds_subres_step;
+
             // Do not perform rate estimation @ tx_type search if current tx_type dist is higher than best_cost
             uint64_t early_cost = RDCOST(
                 full_lambda, 0, txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL]);
@@ -5070,7 +5097,69 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
         }
     }
 
-    if (ssim_level > SSIM_LVL_1) {
+    if (ctx->tune_daala_level >= 2) {
+        const uint64_t ssd_cost_threshold       = (uint64_t)(cost_threshold_factor * best_cost_tx_search);
+        uint64_t       best_daala_cost_tx_search = (uint64_t)~0;
+        for (int i = 0; i < candidate_num; ++i) {
+            tx_type           = tx_type_candidate[i];
+            uint64_t ssd_cost = RDCOST(full_lambda,
+                                       y_txb_coeff_bits_txt[tx_type],
+                                       txb_full_distortion_txt[DIST_SSD][tx_type][DIST_CALC_RESIDUAL]);
+            if (ssd_cost > ssd_cost_threshold) {
+                continue;
+            }
+
+            EbPictureBufferDesc *recon_ptr = (tx_type == DCT_DCT) ? cand_bf->recon : ctx->recon_ptr[tx_type];
+            const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+
+            txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_PREDICTION] = svt_spatial_full_distortion_daala_kernel(
+                input_pic->y_buffer,
+                input_txb_origin_index,
+                input_pic->y_stride,
+                cand_bf->pred->y_buffer,
+                (int32_t)txb_origin_index,
+                cand_bf->pred->y_stride,
+                cropped_tx_width,
+                cropped_tx_height,
+                pcs->scs->static_config.encoder_bit_depth,
+                qindex,
+                1);
+
+            txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_RESIDUAL] = svt_spatial_full_distortion_daala_kernel(
+                input_pic->y_buffer,
+                input_txb_origin_index,
+                input_pic->y_stride,
+                recon_ptr->y_buffer,
+                (int32_t)txb_origin_index,
+                cand_bf->recon->y_stride,
+                cropped_tx_width,
+                cropped_tx_height,
+                pcs->scs->static_config.encoder_bit_depth,
+                qindex,
+                1);
+
+            txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_PREDICTION] <<= 4;
+            txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_RESIDUAL] <<= 4;
+            txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_PREDICTION] <<= ctx->mds_subres_step;
+            txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_RESIDUAL] <<= ctx->mds_subres_step;
+
+            uint64_t daala_cost = RDCOST(full_lambda,
+                                        y_txb_coeff_bits_txt[tx_type],
+                                        txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_RESIDUAL]);
+
+            if (daala_cost < best_daala_cost_tx_search) {
+                best_cost_tx_search      = ssd_cost;
+                best_daala_cost_tx_search = daala_cost;
+                best_tx_type             = tx_type;
+            } else if (daala_cost == best_daala_cost_tx_search) {
+                if (ssd_cost < best_cost_tx_search) {
+                    best_cost_tx_search      = ssd_cost;
+                    best_daala_cost_tx_search = daala_cost;
+                    best_tx_type             = tx_type;
+                }
+            }
+        }
+    } else if (ssim_level > SSIM_LVL_1) {
         const uint64_t ssd_cost_threshold       = (uint64_t)(cost_threshold_factor * best_cost_tx_search);
         uint64_t       best_ssim_cost_tx_search = (uint64_t)~0;
         for (int i = 0; i < candidate_num; ++i) {
@@ -5207,6 +5296,13 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
         y_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] += ssim_pred_dist;
     } else if (ssim_level == SSIM_LVL_2) {
         // it doesn't need to update y_full_distortion[DIST_SSIM] since ssim is only used to select best tx type
+    }
+    
+    if (ctx->tune_daala_level >= 2) {
+        y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] +=
+            txb_full_distortion_txt[DIST_DAALA][best_tx_type][DIST_CALC_PREDICTION];
+        y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL] +=
+            txb_full_distortion_txt[DIST_DAALA][best_tx_type][DIST_CALC_RESIDUAL];
     }
 
     y_full_distortion[DIST_SSD][DIST_CALC_RESIDUAL] +=
@@ -5545,6 +5641,10 @@ static void perform_tx_partitioning(ModeDecisionCandidateBuffer* cand_bf, ModeDe
                 y_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] =
                     tx_y_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION];
 
+                y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL] = tx_y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL];
+                y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] =
+                    tx_y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION];
+
                 y_full_distortion[DIST_SSD][DIST_CALC_RESIDUAL] = tx_y_full_distortion[DIST_SSD][DIST_CALC_RESIDUAL];
                 y_full_distortion[DIST_SSD][DIST_CALC_PREDICTION] =
                     tx_y_full_distortion[DIST_SSD][DIST_CALC_PREDICTION];
@@ -5557,6 +5657,9 @@ static void perform_tx_partitioning(ModeDecisionCandidateBuffer* cand_bf, ModeDe
         } else {
             y_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL]   = tx_y_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL];
             y_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = tx_y_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION];
+
+            y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL]   = tx_y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL];
+            y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = tx_y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION];
 
             y_full_distortion[DIST_SSD][DIST_CALC_RESIDUAL]   = tx_y_full_distortion[DIST_SSD][DIST_CALC_RESIDUAL];
             y_full_distortion[DIST_SSD][DIST_CALC_PREDICTION] = tx_y_full_distortion[DIST_SSD][DIST_CALC_PREDICTION];
@@ -5968,6 +6071,21 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
                 SVT_EFFECTIVE_HBD_MD(ctx->hbd_md),
                 effective_ac_bias);
         }
+        if (ctx->tune_daala_level >= 3) {
+            const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = svt_spatial_full_distortion_daala_kernel(
+                input_pic->y_buffer,
+                input_txb_origin_index,
+                input_pic->y_stride,
+                cand_bf->pred->y_buffer,
+                (int32_t)txb_origin_index,
+                cand_bf->pred->y_stride,
+                cropped_tx_width,
+                cropped_tx_height,
+                pcs->scs->static_config.encoder_bit_depth,
+                qindex,
+                1);
+        }
 
         y_full_distortion[DIST_SSD][DIST_CALC_RESIDUAL] = qmpsnr
             ? 0
@@ -5997,8 +6115,27 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
                                                                                      SVT_EFFECTIVE_HBD_MD(ctx->hbd_md),
                                                                                      effective_ac_bias);
         }
+        if (ctx->tune_daala_level >= 3) {
+            const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL] = svt_spatial_full_distortion_daala_kernel(
+                input_pic->y_buffer,
+                input_txb_origin_index,
+                input_pic->y_stride,
+                recon_ptr->y_buffer,
+                (int32_t)txb_origin_index,
+                cand_bf->recon->y_stride,
+                cropped_tx_width,
+                cropped_tx_height,
+                pcs->scs->static_config.encoder_bit_depth,
+                qindex,
+                1);
+        }
         y_full_distortion[DIST_SSD][DIST_CALC_PREDICTION] <<= 4;
         y_full_distortion[DIST_SSD][DIST_CALC_RESIDUAL] <<= 4;
+        if (ctx->tune_daala_level >= 3) {
+            y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] <<= 4;
+            y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL] <<= 4;
+        }
 
         if (qmpsnr) {
             psy_dist[0] = y_full_distortion[DIST_SSD][0];
@@ -6053,6 +6190,9 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
 
     y_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL] <<= ctx->mds_subres_step;
     y_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] <<= ctx->mds_subres_step;
+
+    y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL] <<= ctx->mds_subres_step;
+    y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] <<= ctx->mds_subres_step;
 
     //LUMA-ONLY
     const uint32_t th = ((tx_width * tx_height) >> 6);
@@ -6172,7 +6312,7 @@ static void full_loop_core_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx,
 
     perform_tx_pd0(pcs, ctx, cand_bf, ctx->blk_ptr->qindex, &y_coeff_bits, &y_full_distortion[0]);
     cand_bf->cnt_nz_coeff = cand_bf->eob.y[0];
-    svt_aom_full_cost_pd0(ctx, cand_bf, y_full_distortion, full_lambda, &y_coeff_bits);
+    svt_aom_full_cost_pd0(ctx, cand_bf, y_full_distortion, full_lambda, &y_coeff_bits, DIST_SSD);
 }
 
 extern const uint8_t  svt_aom_eb_av1_var_offs[MAX_SB_SIZE];
@@ -6856,17 +6996,17 @@ static void full_loop_core_light_pd1(PictureControlSet* pcs, ModeDecisionContext
         } // chroma_component > COMPONENT_LUMA
         cand_bf->block_has_coeff = (cand_bf->y_has_coeff || cand_bf->u_has_coeff || cand_bf->v_has_coeff) ? true
                                                                                                           : false;
-        svt_aom_full_cost(
-            pcs,
-            ctx,
-            cand_bf,
-            SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD],
-            y_full_distortion,
-            cb_full_distortion,
-            cr_full_distortion,
-            &y_coeff_bits,
-            &cb_coeff_bits,
-            &cr_coeff_bits);
+        svt_aom_full_cost(pcs,
+                          ctx,
+                          cand_bf,
+                          ctx->hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD],
+                          y_full_distortion,
+                          cb_full_distortion,
+                          cr_full_distortion,
+                          &y_coeff_bits,
+                          &cb_coeff_bits,
+                          &cr_coeff_bits,
+                          ctx->tune_daala_level >= 2 ? DIST_DAALA : DIST_SSD);
     } else {
         // Only need chroma pred if generating recon
         if (ctx->lpd1_chroma_comp > COMPONENT_LUMA) {
@@ -7211,7 +7351,8 @@ static void full_loop_core(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
                       cr_full_distortion,
                       &y_coeff_bits,
                       &cb_coeff_bits,
-                      &cr_coeff_bits);
+                      &cr_coeff_bits,
+                      ctx->tune_daala_level >= 2 ? DIST_DAALA : DIST_SSD);
 }
 
 static void md_stage_1(PictureControlSet* pcs, ModeDecisionContext* ctx, EbPictureBufferDesc* input_pic,
