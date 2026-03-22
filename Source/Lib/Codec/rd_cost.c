@@ -1351,7 +1351,9 @@ EbErrorType svt_aom_txb_estimate_coeff_bits(ModeDecisionContext* ctx, uint8_t al
 }
 
 EbErrorType svt_aom_full_cost_light_pd0(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
-                                        uint64_t* y_distortion, uint64_t lambda, uint64_t* y_coeff_bits) {
+                                        uint64_t* y_distortion, uint64_t lambda, uint64_t* y_coeff_bits,
+                                        DistType dist_type) {
+    (void)dist_type;
     EbErrorType return_error = EB_ErrorNone;
 
     uint64_t coeff_rate = (*y_coeff_bits + (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[0][0]);
@@ -1373,9 +1375,10 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
                        uint64_t lambda, uint64_t y_distortion[DIST_TOTAL][DIST_CALC_TOTAL],
                        uint64_t cb_distortion[DIST_TOTAL][DIST_CALC_TOTAL],
                        uint64_t cr_distortion[DIST_TOTAL][DIST_CALC_TOTAL], uint64_t* y_coeff_bits,
-                       uint64_t* cb_coeff_bits, uint64_t* cr_coeff_bits) {
-    const uint8_t skip_coeff_ctx        = ctx->skip_coeff_ctx;
-    const bool    update_full_cost_ssim = ctx->tune_ssim_level > SSIM_LVL_0 ? true : false;
+                       uint64_t* cb_coeff_bits, uint64_t* cr_coeff_bits, DistType dist_type) {
+    const uint8_t skip_coeff_ctx         = ctx->skip_coeff_ctx;
+    const bool    update_full_cost_ssim  = ctx->tune_ssim_level > SSIM_LVL_0 ? true : false;
+    const bool    update_full_cost_daala = ctx->tune_daala_level > 1 ? true : false;
 
     // Get the TX size rate for skip and non-skip block. Need both to make non-skip decision
     uint64_t non_skip_tx_size_bits = 0, skip_tx_size_bits = 0;
@@ -1414,6 +1417,10 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
             y_distortion[DIST_SSIM][0]  = y_distortion[DIST_SSIM][1];
             cb_distortion[DIST_SSIM][0] = cb_distortion[DIST_SSIM][1];
             cr_distortion[DIST_SSIM][0] = cr_distortion[DIST_SSIM][1];
+
+            y_distortion[DIST_DAALA][0]  = y_distortion[DIST_DAALA][1];
+            cb_distortion[DIST_DAALA][0] = cb_distortion[DIST_SSD][1];
+            cr_distortion[DIST_DAALA][0] = cr_distortion[DIST_SSD][1];
             cand_bf->block_has_coeff    = 0;
             cand_bf->y_has_coeff        = 0;
             cand_bf->u_has_coeff        = 0;
@@ -1442,7 +1449,13 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
     uint64_t mode_ssim_distortion = update_full_cost_ssim
         ? y_distortion[DIST_SSIM][0] + cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0]
         : 0;
-    uint64_t mode_cost            = RDCOST(lambda, mode_rate, mode_distortion);
+    uint64_t mode_daala_distortion = update_full_cost_daala
+        ? y_distortion[DIST_DAALA][0] + mode_distortion
+        : 0;
+    uint64_t mode_cost            = (dist_type == DIST_SSD) ? RDCOST(lambda, mode_rate, mode_distortion)
+        : (dist_type == DIST_SSIM)  ? RDCOST(lambda, mode_rate, mode_ssim_distortion)
+        : (dist_type == DIST_DAALA) ? RDCOST(lambda, mode_rate, mode_daala_distortion)
+                                    : 0;
 
     // If skip_mode is allowed for this candidate, check cost of skip mode compared to regular cost
     if (cand_bf->cand->skip_mode_allowed == true) {
@@ -1455,7 +1468,13 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
         const uint64_t skip_mode_ssim_distortion = update_full_cost_ssim
             ? y_distortion[DIST_SSIM][1] + cb_distortion[DIST_SSIM][1] + cr_distortion[DIST_SSIM][1]
             : 0;
-        const uint64_t skip_mode_cost            = RDCOST(lambda, skip_mode_rate, skip_mode_distortion);
+        const uint64_t skip_mode_daala_distortion = update_full_cost_daala
+            ? y_distortion[DIST_DAALA][1] + skip_mode_distortion
+            : 0;
+        const uint64_t skip_mode_cost            = (dist_type == DIST_SSD) ? RDCOST(lambda, skip_mode_rate, skip_mode_distortion)
+            : (dist_type == DIST_SSIM)  ? RDCOST(lambda, skip_mode_rate, skip_mode_ssim_distortion)
+            : (dist_type == DIST_DAALA) ? RDCOST(lambda, skip_mode_rate, skip_mode_daala_distortion)
+                                        : 0;
 
         cand_bf->cand->block_mi.skip_mode = false;
         if (skip_mode_cost <= mode_cost) {
@@ -1464,6 +1483,7 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
             mode_rate                         = skip_mode_rate;
             mode_distortion                   = skip_mode_distortion;
             mode_ssim_distortion              = skip_mode_ssim_distortion;
+            mode_daala_distortion             = skip_mode_daala_distortion;
             cand_bf->cand->block_mi.skip_mode = true;
 
             // Update signals to correspond to skip_mode values (no coeffs, etc.)
@@ -1488,6 +1508,9 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
         assert(ctx->pd_pass == PD_PASS_1);
         assert(ctx->md_stage == MD_STAGE_3);
         *(cand_bf->full_cost_ssim) = RDCOST(lambda, mode_rate, mode_ssim_distortion);
+    }
+    if (update_full_cost_daala) {
+        *(cand_bf->full_cost_daala) = RDCOST(lambda, mode_rate, mode_daala_distortion);
     }
     return;
 }

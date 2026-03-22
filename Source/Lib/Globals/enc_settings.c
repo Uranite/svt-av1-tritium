@@ -1134,6 +1134,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->parsed_zones                      = NULL;
     config_ptr->num_zones                         = 0;
     config_ptr->alt_cdef                          = 0;
+    config_ptr->enable_daala                      = 0;
     return return_error;
 }
 
@@ -2639,6 +2640,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"noise-adaptive-filtering", &config_struct->noise_adaptive_filtering},
         {"cdef-scaling", &config_struct->cdef_scaling},
         {"enable-alt-cdef", &config_struct->alt_cdef},
+        {"enable-daala", &config_struct->enable_daala},
     };
 
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
