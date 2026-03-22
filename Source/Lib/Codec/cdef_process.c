@@ -26,6 +26,7 @@
 #include "pcs.h"
 #include "resize.h"
 #include "super_res.h"
+#include "daala_dist.h"
 
 static void set_unscaled_input_16bit(PictureControlSet* pcs) {
     EbPictureBufferDesc* input_pic  = pcs->ppcs->enhanced_unscaled_pic;
@@ -294,11 +295,63 @@ static INLINE uint64_t compute_cdef_dist_facade(PictureControlSet *pcs, Sequence
             return compute_cdef_dist(dst, doffset, dstride, src,
                                      dlist, cdef_count, bsize, coeff_shift,
                                      subsampling_factor, is_16bit);
+    } else
+        return compute_cdef_dist(dst, doffset, dstride, src, dlist, cdef_count, bsize, coeff_shift, subsampling_factor, is_16bit);
+}
+
+/* Compute Daala perceptual distortion for CDEF on luma 8x8 blocks.
+ *
+ * For each non-skipped 8x8 block in the dlist, copies the source and filtered
+ * pixels into contiguous uint16_t buffers and calls svt_aom_od_compute_dist.
+ * Handles both 8-bit and 16-bit pipelines by converting as needed.
+ *
+ * dst: reference (source) frame, offset by doffset
+ * dstride: stride of the reference frame
+ * src: filtered output from svt_cdef_filter_fb (contiguous, no stride)
+ * dlist: list of non-skipped 8x8 blocks
+ * cdef_count: number of blocks in dlist
+ * qindex: quantization index for Daala scaling
+ * is_16bit: whether the pipeline is 16-bit
+ */
+static uint64_t compute_cdef_dist_daala(const EbByte dst, int32_t doffset, int32_t dstride, const uint8_t *src,
+                                        const CdefList *dlist, int32_t cdef_count, int32_t qindex, int32_t coeff_shift, bool is_16bit) {
+    double total_dist = 0;
+    DECLARE_ALIGNED(16, uint16_t, ref_blk[8 * 8]);
+    DECLARE_ALIGNED(16, uint16_t, filt_blk[8 * 8]);
+
+    for (int bi = 0; bi < cdef_count; bi++) {
+        int by = dlist[bi].by;
+        int bx = dlist[bi].bx;
+
+        // Copy 8x8 block from the reference (source) frame into contiguous buffer
+        if (is_16bit) {
+            const uint16_t *ref16 = ((const uint16_t *)dst) + doffset;
+            for (int i = 0; i < 8; i++)
+                for (int j = 0; j < 8; j++)
+                    ref_blk[i * 8 + j] = ref16[(by << 3) * dstride + (bx << 3) + i * dstride + j] >> coeff_shift;
+        } else {
+            const uint8_t *ref8 = dst + doffset;
+            for (int i = 0; i < 8; i++)
+                for (int j = 0; j < 8; j++)
+                    ref_blk[i * 8 + j] = (uint16_t)ref8[(by << 3) * dstride + (bx << 3) + i * dstride + j];
+        }
+
+        // Copy 8x8 block from the filtered output (contiguous layout, each block is 64 samples)
+        if (is_16bit) {
+            const uint16_t *src16 = (const uint16_t *)src;
+            for (int i = 0; i < 8; i++)
+                for (int j = 0; j < 8; j++)
+                    filt_blk[i * 8 + j] = src16[(bi << 6) + i * 8 + j] >> coeff_shift;
+        } else {
+            for (int i = 0; i < 8; i++)
+                for (int j = 0; j < 8; j++)
+                    filt_blk[i * 8 + j] = (uint16_t)src[(bi << 6) + i * 8 + j];
+        }
+
+        total_dist += svt_aom_od_compute_dist(ref_blk, filt_blk, 8, 8, qindex, 1);
     }
-    else
-        return compute_cdef_dist(dst, doffset, dstride, src,
-                                 dlist, cdef_count, bsize, coeff_shift,
-                                 subsampling_factor, is_16bit);
+
+    return (uint64_t)total_dist;
 }
 
 /* Search for the best filter strength pair for each 64x64 filter block.
@@ -311,6 +364,8 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
     FrameHeader*             frm_hdr  = &ppcs->frm_hdr;
     Av1Common*               cm       = ppcs->av1_cm;
     const bool               is_16bit = scs->is_16bit_pipeline;
+    const uint8_t            use_daala_cdef = scs->static_config.enable_daala >= 1;
+    const int32_t            qindex         = frm_hdr->quantization_params.base_q_idx;
     uint32_t                 x_seg_idx;
     uint32_t                 y_seg_idx;
     const uint32_t           b64_pic_width  = (ppcs->aligned_width + 64 - 1) / 64;
@@ -452,6 +507,10 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                     is_16bit);
 
                 uint8_t subsampling_factor = cdef_ctrls->subsampling_factor;
+                // Disable subsampling for luma when using Daala, as the metric
+                // needs all rows for accurate variance and activity computation.
+                if (use_daala_cdef && pli == 0)
+                    subsampling_factor = 1;
                 /*
                 Cap the subsampling for certain block sizes.
 
@@ -545,20 +604,34 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                        sec_damping,
                                        coeff_shift,
                                        subsampling_factor);
-                    uint64_t curr_mse = compute_cdef_dist_facade(
-                        pcs,
-                        scs,
-                        ref[pli],
-                        (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
-                        stride_ref[pli],
-                        (uint8_t*)tmp_dst,
-                        dlist,
-                        cdef_count,
-                        (BlockSize)plane_bsize[pli],
-                        coeff_shift,
-                        pli,
-                        subsampling_factor,
-                        is_16bit);
+                    uint64_t curr_mse;
+                    if (use_daala_cdef && pli == 0) {
+                        curr_mse = compute_cdef_dist_daala(
+                            ref[pli],
+                            (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
+                            stride_ref[pli],
+                            (uint8_t *)tmp_dst,
+                            dlist,
+                            cdef_count,
+                            qindex,
+                            coeff_shift,
+                            is_16bit);
+                    } else {
+                        curr_mse = compute_cdef_dist_facade(
+                            pcs,
+                            scs,
+                            ref[pli],
+                            (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
+                            stride_ref[pli],
+                            (uint8_t *)tmp_dst,
+                            dlist,
+                            cdef_count,
+                            (BlockSize)plane_bsize[pli],
+                            coeff_shift,
+                            pli,
+                            subsampling_factor,
+                            is_16bit);
+                    }
 
                     if (pli < 2) {
                         pcs->mse_seg[pli][fb_idx][gi] = curr_mse * subsampling_factor;
@@ -619,20 +692,34 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                        sec_damping,
                                        coeff_shift,
                                        subsampling_factor);
-                    uint64_t curr_mse = compute_cdef_dist_facade(
-                        pcs,
-                        scs,
-                        ref[pli],
-                        (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
-                        stride_ref[pli],
-                        (uint8_t*)tmp_dst,
-                        dlist,
-                        cdef_count,
-                        (BlockSize)plane_bsize[pli],
-                        coeff_shift,
-                        pli,
-                        subsampling_factor,
-                        is_16bit);
+                    uint64_t curr_mse;
+                    if (use_daala_cdef && pli == 0) {
+                        curr_mse = compute_cdef_dist_daala(
+                            ref[pli],
+                            (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
+                            stride_ref[pli],
+                            (uint8_t *)tmp_dst,
+                            dlist,
+                            cdef_count,
+                            qindex,
+                            coeff_shift,
+                            is_16bit);
+                    } else {
+                        curr_mse = compute_cdef_dist_facade(
+                            pcs,
+                            scs,
+                            ref[pli],
+                            (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
+                            stride_ref[pli],
+                            (uint8_t *)tmp_dst,
+                            dlist,
+                            cdef_count,
+                            (BlockSize)plane_bsize[pli],
+                            coeff_shift,
+                            pli,
+                            subsampling_factor,
+                            is_16bit);
+                    }
 
                     if (pli < 2) {
                         pcs->mse_seg[pli][fb_idx][gi] = curr_mse * subsampling_factor;

@@ -4670,6 +4670,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // Alt CDEF
     scs->static_config.alt_cdef = config_struct->alt_cdef;
 
+    // Daala
+    scs->static_config.enable_daala = config_struct->enable_daala;
+
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {
         SVT_WARN(
