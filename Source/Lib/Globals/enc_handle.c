@@ -4917,6 +4917,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // Alt CDEF
     scs->static_config.alt_cdef = config_struct->alt_cdef;
 
+    // Daala
+    scs->static_config.enable_daala = config_struct->enable_daala;
+
     // Zones
     if (config_struct->quality_zones && config_struct->num_zones > 0) {
         EB_NO_THROW_MALLOC(scs->static_config.quality_zones, sizeof(SvtAv1QualityZone) * config_struct->num_zones);

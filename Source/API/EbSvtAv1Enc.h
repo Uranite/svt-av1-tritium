@@ -1206,6 +1206,17 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t alt_cdef;
 
+    /**
+     * @brief Enable Daala distortion metric.
+     * 0 = OFF
+     * 1 = CDEF
+     * 2 = 1 + TX Search + MDS3 Selection
+     * 3 = 2 + DCT TX
+     * 4 = 3 + MDS0 + IFS
+     * Default is 0.
+     */
+    uint8_t enable_daala;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1216,7 +1227,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(bool) // enable_intrabc
         - sizeof(uint8_t) // max_managed_refs (ref-frame mgmt)
         /* SVT-AV1-HDR additions */
-        - (sizeof(uint8_t) * 10) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength, noise_chroma_from_luma, alt_cdef
+        - (sizeof(uint8_t) * 11) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength, noise_chroma_from_luma, alt_cdef, enable_daala
         - sizeof(int8_t)        // noise_size
         - (sizeof(int32_t) * 2) // noise_strength_chroma, min_intra_period_length
         - (sizeof(bool) * 4)    // alt_lambda_factors, alt_ssim_tuning, color_range_provided, auto_tiling
