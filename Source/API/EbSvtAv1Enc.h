@@ -1125,10 +1125,10 @@ typedef struct EbSvtAv1EncConfiguration {
     uint8_t cdef_scaling;
 
     /**
-     * @brief Noise strength
+     * @brief Enables static noise table generation
      *
      * 0: off
-     * 1-100: noise strength
+     * 1-200: noise strength
      * Default is 0.
      */
     uint8_t noise_strength;
@@ -1136,13 +1136,21 @@ typedef struct EbSvtAv1EncConfiguration {
     /**
      * @brief Control whether chroma noise is scaled from luma or as a separate strength value
      *
-     * -2: enable chroma scaling from luma flag in the noise table (legacy)
-     * -1: chroma strength value is derived from noise strength value
+     * -1: chroma noise strength is ~60% of noise_strength value
      *  0: disable chroma noise
-     *  1-100: chroma noise strength
+     *  1-200: chroma noise strength
      * Default is -1.
      */
-    int8_t noise_strength_chroma;
+    int32_t noise_strength_chroma;
+
+    /*
+     * @brief Enable noise on chroma planes based on luma plane
+     *
+     * 0: off, chroma noise is applied based on chroma planes
+     * 1: on, chroma noise application is based on luma plane
+     * Default is 0.
+     */
+    uint8_t noise_chroma_from_luma;
 
     /**
      * @brief Control the grain size of noise
@@ -1157,7 +1165,6 @@ typedef struct EbSvtAv1EncConfiguration {
      * @brief Check if color range is provided by the user
      */
     bool color_range_provided;
-
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1168,8 +1175,9 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(bool) // enable_intrabc
         - sizeof(uint8_t) // max_managed_refs (ref-frame mgmt)
         /* SVT-AV1-HDR additions */
-        - (sizeof(uint8_t) * 8) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength
-        - (sizeof(int8_t) * 2)  // noise_strength_chroma, noise_size
+        - (sizeof(uint8_t) * 9) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength, noise_chroma_from_luma
+        - sizeof(int8_t)        // noise_size
+        - sizeof(int32_t)       // noise_strength_chroma
         - (sizeof(bool) * 3)    // alt_lambda_factors, alt_ssim_tuning, color_range_provided
         - sizeof(double)        // qp_scale_compress_strength
     ];
