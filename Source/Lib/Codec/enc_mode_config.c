@@ -8086,6 +8086,8 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
         }
     } else if (enc_mode <= ENC_M1) {
         pcs->txs_level = 2;
+    } else if (enc_mode <= ENC_M2) {
+        pcs->txs_level = is_not_last_layer ? 2 : 3;
     } else if (enc_mode <= ENC_M8) {
         pcs->txs_level = is_base ? 3 : 0;
     } else if (enc_mode <= ENC_M9) {
