@@ -8001,6 +8001,8 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
         pcs->bipred3x3_injection = 1;
     else if (enc_mode <= ENC_M1)
         pcs->bipred3x3_injection = 2;
+    else if (enc_mode <= ENC_M3)
+        pcs->bipred3x3_injection = 4;
     else
         pcs->bipred3x3_injection = 0;
 
