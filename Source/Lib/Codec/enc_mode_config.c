@@ -7586,7 +7586,7 @@ uint8_t svt_aom_get_obmc_level(EncMode enc_mode, uint32_t qp, uint8_t seq_qp_mod
 
     if (enc_mode <= ENC_MR)
         obmc_level = 1;
-    else if (enc_mode <= ENC_M1)
+    else if (enc_mode <= ENC_M2)
         obmc_level = 3;
     else if (enc_mode <= ENC_M5)
         obmc_level = 5;
