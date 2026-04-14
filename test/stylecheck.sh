@@ -128,6 +128,10 @@ diff_output=$(
     git diff "$MERGE_BASE" -- "$@" | iconv -c -t UTF-8 | python3 "$CLANG_FORMAT_DIFF" -p1
 ) || true
 if [ -n "$diff_output" ]; then
+    if [ -n "$CI" ]; then
+        exec 2>&1
+    fi
+
     cat >&2 << 'FOE'
 clang-format check failed!
 Please run inside a posix compatible shell with git and amend or commit the
