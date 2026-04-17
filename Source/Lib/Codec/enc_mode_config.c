@@ -8109,8 +8109,6 @@ uint8_t svt_aom_get_nsq_geom_level_default(EncMode enc_mode, InputCoeffLvl coeff
         } else { // regular or low
             nsq_geom_level = 1;
         }
-    } else if (enc_mode <= ENC_M2) {
-        nsq_geom_level = 2;
     } else if (enc_mode <= ENC_M5) {
         if (coeff_lvl == HIGH_LVL) {
             nsq_geom_level = 3;
@@ -8157,8 +8155,6 @@ uint8_t svt_aom_get_nsq_search_level_default(PictureControlSet* pcs, EncMode enc
     } else if (enc_mode <= ENC_M0) {
         const uint8_t is_base = pcs->ppcs->temporal_layer_index == 0;
         nsq_search_level      = is_base ? 2 : 3;
-    } else if (enc_mode <= ENC_M1) {
-        nsq_search_level = 6;
     } else if (enc_mode <= ENC_M2) {
         nsq_search_level = 7;
     } else if (enc_mode <= ENC_M3) {
