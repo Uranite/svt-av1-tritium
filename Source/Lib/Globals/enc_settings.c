@@ -1116,9 +1116,9 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->sharp_tx                          = 1;
     config_ptr->alt_ssim_tuning                   = false;
     config_ptr->hbd_mds                           = 0;
-    config_ptr->tx_bias                           = 2;
+    config_ptr->tx_bias                           = 0;
     config_ptr->complex_hvs                       = 0;
-    config_ptr->noise_adaptive_filtering          = 1;
+    config_ptr->noise_adaptive_filtering          = 2;
     config_ptr->cdef_scaling                      = 15;
     config_ptr->auto_tiling                       = true;
     config_ptr->zones                             = NULL;
