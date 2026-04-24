@@ -274,6 +274,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("The minimum intra period must be [-1, 2^31-2]  \n");
         return_error = EB_ErrorBadParameter;
     }
+    if (config->scene_change_detection > 1) {
+        SVT_ERROR("The scene change detection must be 0 or 1 \n");
+        return_error = EB_ErrorBadParameter;
+    }
     if (config->scene_change_detection != 0) {
         if (config->intra_period_length >= 0 &&
             config->min_intra_period_length > config->intra_period_length) {
