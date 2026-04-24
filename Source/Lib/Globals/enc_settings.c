@@ -274,6 +274,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("The minimum intra period must be [-1, 2^31-2]  \n");
         return_error = EB_ErrorBadParameter;
     }
+    if (config->scene_change_detection > 1) {
+        SVT_ERROR("The scene change detection must be 0 or 1 \n");
+        return_error = EB_ErrorBadParameter;
+    }
     if (config->scene_change_detection != 0) {
         if (config->intra_period_length >= 0 &&
             config->min_intra_period_length > config->intra_period_length) {
@@ -941,6 +945,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     if (config->cdef_scaling < 1 || config->cdef_scaling > 30) {
         SVT_ERROR("Cdef-scaling must be between 1 and 30\n");
         return_error = EB_ErrorBadParameter;
+    }
+
+    if (config->alt_ssim_tuning && config->tune != TUNE_SSIM) {
+        SVT_WARN("alt-ssim-tuning only works with tune 2 (SSIM). It will be ignored.\n");
     }
 
     return return_error;
