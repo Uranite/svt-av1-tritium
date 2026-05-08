@@ -1135,11 +1135,19 @@ typedef struct EbSvtAv1EncConfiguration {
     QualityZone* parsed_zones;
     uint16_t     num_zones;
 
+    /**
+     * @brief Enable alternative CDEF biases
+     * 0: disabled
+     * 1-3: enabled
+     * Default is 0
+     */
+    uint8_t alt_cdef;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
     uint8_t padding[128 - sizeof(PredStructure) +
                     sizeof(uint8_t) // pred_strucutre type was changed from uint8_t to PredStructure
                     /* SVT-AV1-HDR additions */
-                    - (sizeof(uint8_t) * 10) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 2) - (sizeof(bool) * 4) -
+                    - (sizeof(uint8_t) * 11) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 2) - (sizeof(bool) * 4) -
                     (sizeof(double)) - sizeof(char*) - sizeof(QualityZone*) - sizeof(uint16_t)];
     // clang-format on
 } EbSvtAv1EncConfiguration;

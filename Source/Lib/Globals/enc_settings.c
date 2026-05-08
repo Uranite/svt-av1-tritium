@@ -947,6 +947,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->alt_cdef > 3) {
+        SVT_ERROR("enable-alt-cdef must be between 0 and 3\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
     return return_error;
 }
 
@@ -1128,6 +1133,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->zones                             = NULL;
     config_ptr->parsed_zones                      = NULL;
     config_ptr->num_zones                         = 0;
+    config_ptr->alt_cdef                          = 0;
     return return_error;
 }
 
@@ -1416,6 +1422,10 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
             SVT_INFO("SVT [config]: CDEF scaling (ratio) \t\t\t\t\t\t: %d (%.2fx)\n",
                      config->cdef_scaling,
                      config->cdef_scaling / 15.0);
+        }
+
+        if (config->cdef_level != 0 && config->alt_cdef) {
+            SVT_INFO("SVT [config]: alternative CDEF bias \t\t\t\t\t: %d\n", config->alt_cdef);
         }
     }
 #if DEBUG_BUFFERS
@@ -2610,6 +2620,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"complex-hvs", &config_struct->complex_hvs},
         {"noise-adaptive-filtering", &config_struct->noise_adaptive_filtering},
         {"cdef-scaling", &config_struct->cdef_scaling},
+        {"enable-alt-cdef", &config_struct->alt_cdef},
     };
 
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
