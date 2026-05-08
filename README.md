@@ -70,6 +70,11 @@ You can now feed the standalone encoder regular video files like MP4s, MKVs, M2T
 In CRF/CQP mode, allows setting different quality levels for the specified frame ranges.  
 For example, `--zones 0,100,20;101,200,40` applies a CRF/CQP value of 20 to frames 0-100, a CRF/CQP value of 40 to frames 101-200, while maintaining the original quality level for all other frames.
 
+- **`--enable-alt-cdef`** *0 to 3*
+
+Proposes different CDEF trade-offs, typically resulting in weaker deringing but improved fidelity. May gradually cause higher distortion, especially at high presets.  
+**2** and **3** force the best CDEF quality level which can improve results, at the cost of speed.
+
 ### SVT-AV1-HDR
 
 - `PQ-optimized Variance Boost curve`
