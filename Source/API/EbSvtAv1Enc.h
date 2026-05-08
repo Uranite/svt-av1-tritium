@@ -1222,6 +1222,14 @@ typedef struct EbSvtAv1EncConfiguration {
     SvtAv1QualityZone* quality_zones;
     uint16_t           num_zones;
 
+    /**
+     * @brief Enable alternative CDEF biases
+     * 0: disabled
+     * 1-3: enabled
+     * Default is 0
+     */
+    uint8_t alt_cdef;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1252,6 +1260,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(int32_t) // min_intra_period_length
         - sizeof(SvtAv1QualityZone*) // quality_zones
         - sizeof(uint16_t) // num_zones
+        - sizeof(uint8_t) // alt_cdef
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;

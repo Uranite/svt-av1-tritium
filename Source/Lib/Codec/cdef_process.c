@@ -284,6 +284,48 @@ static uint64_t compute_cdef_dist(const EbByte dst, int32_t doffset, int32_t dst
     return curr_mse;
 }
 
+static INLINE uint64_t compute_cdef_dist_sad_mse(EbByte dst, int32_t doffset, int32_t dstride, uint8_t *src,
+                                                 CdefList *dlist, int32_t cdef_count, BlockSize bsize, int32_t coeff_shift,
+                                                 uint8_t subsampling_factor, bool is_16bit) {
+    if (is_16bit) {
+        return compute_cdef_dist_sad_mse_16bit(((uint16_t *)dst) + doffset,
+                                                dstride,
+                                                (uint16_t *)src,
+                                                dlist,
+                                                cdef_count,
+                                                bsize,
+                                                coeff_shift,
+                                                subsampling_factor);
+
+    } else {
+        return compute_cdef_dist_sad_mse_8bit(
+            dst + doffset, dstride, src, dlist, cdef_count, bsize, coeff_shift, subsampling_factor);
+    }
+}
+
+static INLINE uint64_t compute_cdef_dist_facade(PictureControlSet *pcs, SequenceControlSet *scs,
+                                                EbByte dst, int32_t doffset, int32_t dstride, uint8_t *src,
+                                                CdefList *dlist, int32_t cdef_count, BlockSize bsize, int32_t coeff_shift,
+                                                int32_t pli, uint8_t subsampling_factor, bool is_16bit) {
+    if (scs->static_config.alt_cdef) {
+        if (pli == 0 &&
+            pcs->ppcs->frm_hdr.quantization_params.base_q_idx >> 6 == 0 &&
+            bsize == BLOCK_8X8 && // Safety check; Always true with pli == 0
+            subsampling_factor == 1)  // Safety check; Always true with `--cdef-bias`
+            return compute_cdef_dist_sad_mse(dst, doffset, dstride, src,
+                                             dlist, cdef_count, bsize, coeff_shift,
+                                             subsampling_factor, is_16bit);
+        else
+            return compute_cdef_dist(dst, doffset, dstride, src,
+                                     dlist, cdef_count, bsize, coeff_shift,
+                                     subsampling_factor, is_16bit);
+    }
+    else
+        return compute_cdef_dist(dst, doffset, dstride, src,
+                                 dlist, cdef_count, bsize, coeff_shift,
+                                 subsampling_factor, is_16bit);
+}
+
 /* Search for the best filter strength pair for each 64x64 filter block.
  *
  * For each 64x64 filter block and each plane, search the allowable filter strength pairs.
@@ -511,6 +553,29 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
                     break;
                 }
 
+                int alt_cdef1, alt_cdef2, alt_cdef3, alt_cdef4;
+                switch (scs->static_config.alt_cdef) {
+                case 3:
+                    alt_cdef1 = 1;
+                    alt_cdef2 = 0;
+                    alt_cdef3 = 0;
+                    alt_cdef4 = 0;
+                    break;
+                case 2:
+                    alt_cdef1 = 4;
+                    alt_cdef2 = 0;
+                    alt_cdef3 = 2;
+                    alt_cdef4 = 0;
+                    break;
+                case 1:
+                    alt_cdef1 = 4;
+                    alt_cdef2 = 1;
+                    alt_cdef3 = 2;
+                    alt_cdef4 = 0;
+                    break;
+                default: break;
+                }
+
                 /* first cdef stage
                  * Perform the pri_filter strength search for the current sub_block
                  */
@@ -567,6 +632,28 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
                                            coeff_shift,
                                            subsampling_factor);
 #endif
+                    int32_t pri_strength = cdef_ctrls->default_first_pass_fs[gi] / CDEF_SEC_STRENGTHS;
+                    int32_t sec_strength = cdef_ctrls->default_first_pass_fs[gi] % CDEF_SEC_STRENGTHS;
+
+                    if (scs->static_config.alt_cdef) {
+                        if (pli == 0) {
+                            if (pri_strength > alt_cdef1 || pri_strength < 0 ||
+                                sec_strength > alt_cdef2 || sec_strength < 0 ||
+                                (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
+                                pcs->mse_seg[0][fb_idx][gi] = default_mse_uv * 64;
+                                continue;
+                            }
+                        }
+                        else {
+                            if (pri_strength > alt_cdef3 || pri_strength < 0 ||
+                                sec_strength > alt_cdef4 || sec_strength < 0 ||
+                                (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
+                                pcs->mse_seg[1][fb_idx][gi] = default_mse_uv * 64;
+                                continue;
+                            }
+                        }
+                    }
+
                     uint64_t curr_mse = compute_cdef_dist(
                         ref[pli],
                         (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
@@ -642,6 +729,30 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
                                            coeff_shift,
                                            subsampling_factor);
 #endif
+                    int32_t pri_strength = cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num] /
+                        CDEF_SEC_STRENGTHS;
+                    int32_t sec_strength = cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num] %
+                        CDEF_SEC_STRENGTHS;
+
+                    if (scs->static_config.alt_cdef) {
+                        if (pli == 0) {
+                            if (pri_strength > alt_cdef1 || pri_strength < 0 ||
+                                sec_strength > alt_cdef2 || sec_strength < 0 ||
+                                (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
+                                pcs->mse_seg[0][fb_idx][gi] = default_mse_uv * 64;
+                                continue;
+                            }
+                        }
+                        else {
+                            if (pri_strength > alt_cdef3 || pri_strength < 0 ||
+                                sec_strength > alt_cdef4 || sec_strength < 0 ||
+                                (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
+                                pcs->mse_seg[1][fb_idx][gi] = default_mse_uv * 64;
+                                continue;
+                            }
+                        }
+                    }
+
                     uint64_t curr_mse = compute_cdef_dist(
                         ref[pli],
                         (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
