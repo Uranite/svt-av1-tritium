@@ -27,7 +27,7 @@
 #endif
 
 #if HAVE_FFMS2
-#include "third_party/ffms2/include/ffms.h"
+#include "ffms.h"
 #endif
 
 /*************************************
@@ -502,6 +502,8 @@ static EbErrorType init_ffms2(EbConfig *app_cfg) {
     } else {
         app_cfg->config.color_range = EB_CR_STUDIO_RANGE;
     }
+
+    app_cfg->config.color_range_provided = true;
 
     if (test_frame->ChromaLocation == 1) {
         app_cfg->config.chroma_sample_position = EB_CSP_VERTICAL;
