@@ -1363,6 +1363,14 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
             }
         }
 
+        if (config->enable_qm == 1) {
+            SVT_INFO("SVT [config]: quant. matrices min / max / chroma-min / chroma-max \t\t: %d / %d / %d / %d\n",
+                     config->min_qm_level,
+                     config->max_qm_level,
+                     config->min_chroma_qm_level,
+                     config->max_chroma_qm_level);
+        }
+
         if (config->film_grain_denoise_strength != 0) {
             if (config->adaptive_film_grain) {
                 SVT_INFO(
@@ -1414,14 +1422,24 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                          : (config->tx_bias == 2 ? "size only" : (config->tx_bias == 3 ? "interp. only" : "off")));
         }
 
-        if (config->noise_norm_strength > 0) {
-            SVT_INFO("SVT [config]: Noise Normalization Strength \t\t\t\t\t: %d\n", config->noise_norm_strength);
-        }
+        SVT_INFO("SVT [config]: Noise Normalization Strength / adaptive filtering \t\t: %d / %s\n",
+            config->noise_norm_strength,
+            config->noise_adaptive_filtering == 0 ? "CDEF/Restoration off (0)" :
+            config->noise_adaptive_filtering == 1 ? "CDEF/Restoration on (1)" :
+            config->noise_adaptive_filtering == 2 ? "default tune (2)" :
+            config->noise_adaptive_filtering == 3 ? "CDEF only (3)" :
+            config->noise_adaptive_filtering == 4 ? "Restoration only (4)" :
+                                                    "unknown");
 
         if (config->cdef_scaling != 15 && config->cdef_level != 0) {
             SVT_INFO("SVT [config]: CDEF scaling (ratio) \t\t\t\t\t\t: %d (%.2fx)\n",
                      config->cdef_scaling,
                      config->cdef_scaling / 15.0);
+        }
+
+        if (config->complex_hvs == 1) {
+            SVT_INFO("SVT [config]: highest complexity HVS model \t\t\t\t\t: %d\n",
+                     config->complex_hvs);
         }
 
         if (config->cdef_level != 0 && config->alt_cdef) {
