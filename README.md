@@ -41,7 +41,18 @@ For additional docs (build instructions, documentation, usage, etc.), see the [S
 
 ## Feature Additions
 
-### From SVT-AV1-Essential
+### From [SVT-AV1-HDR-Personalized](https://github.com/Clybius/svt-av1-hdr-personalized)
+
+- `--enable-daala` *0 to 4*
+
+Enables the Daala perceptual distortion metric, which uses frequency-domain masking to better preserve fine textures and grain.
+
+- **1**: CDEF
+- **2**: 1 + TX Search + MDS3 Selection
+- **3**: 2 + DCT TX
+- **4**: 3 + MDS0 + IFS
+
+### From [SVT-AV1-Essential](https://github.com/nekotrix/SVT-AV1-Essential)
 
 - `--enable-dlf 3`
 
