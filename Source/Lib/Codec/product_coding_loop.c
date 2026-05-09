@@ -1018,7 +1018,7 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer* cand_bf, Pictu
                                                                ref_pic->y_stride << 1,
                                                                ctx->blk_geom->bwidth,
                                                                ctx->blk_geom->bheight >> 1,
-                                                               pcs->scs->static_config.encoder_bit_depth,
+                                                               ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
                                                                qindex,
                                                                1)
                     << 1;
@@ -1386,6 +1386,24 @@ void fast_loop_core(ModeDecisionCandidateBuffer* cand_bf, PictureControlSet* pcs
         // shift is applied to sse in the full loop)
         luma_fast_dist = cand_bf->luma_fast_dist << 4;
     }
+
+    if (ctx->tune_daala_level >= 4) {
+        const uint32_t qindex     = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+        uint64_t       daala_dist = svt_spatial_full_distortion_daala_kernel(input_pic->y_buffer,
+                                                                       input_origin_index,
+                                                                       input_pic->y_stride,
+                                                                       pred->y_buffer,
+                                                                       0,
+                                                                       pred->y_stride,
+                                                                       ctx->blk_geom->bwidth,
+                                                                       ctx->blk_geom->bheight,
+                                                                       ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                                                                       qindex,
+                                                                       1);
+        daala_dist <<= 4;
+        luma_fast_dist += daala_dist;
+    }
+
     if (ctx->mds0_ctrls.pruning_method_th && ctx->pd_pass == PD_PASS_1) {
         if (ctx->mds0_ctrls.pruning_method_th != (uint8_t)~0 &&
             (MIN(ctx->md_me_dist, ctx->md_pme_dist) / (ctx->blk_geom->bwidth * ctx->blk_geom->bheight)) >
@@ -4894,7 +4912,7 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
                 cand_bf->pred->y_stride,
                 cropped_tx_width,
                 cropped_tx_height,
-                pcs->scs->static_config.encoder_bit_depth,
+                ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
                 qindex,
                 1);
 
@@ -4907,7 +4925,7 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
                 cand_bf->recon->y_stride,
                 cropped_tx_width,
                 cropped_tx_height,
-                pcs->scs->static_config.encoder_bit_depth,
+                ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
                 qindex,
                 1);
 
@@ -5805,7 +5823,7 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
                 cand_bf->pred->y_stride,
                 cropped_tx_width,
                 cropped_tx_height,
-                pcs->scs->static_config.encoder_bit_depth,
+                ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
                 qindex,
                 1);
         }
@@ -5848,7 +5866,7 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
                 cand_bf->recon->y_stride,
                 cropped_tx_width,
                 cropped_tx_height,
-                pcs->scs->static_config.encoder_bit_depth,
+                ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
                 qindex,
                 1);
         }

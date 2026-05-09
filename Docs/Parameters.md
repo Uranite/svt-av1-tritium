@@ -282,6 +282,7 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 | **LoopFilterEnable**             | --enable-dlf           | [0-3]          | 1           | Deblocking loop filter control (1: enabled, 2: slower, more accurate filtering, 3: maximum accuracy)                                                                  |
 | **CDEFLevel**                    | --enable-cdef          | [0-1]          | 1           | Enable Constrained Directional Enhancement Filter                                                                                                                     |
 | **CDEFScaling**                  | --cdef-scaling         | [1-30]         | 15          | Controls scaling of the CDEF strength computation                                                                                                                     |
+| **EnableDaala**                  | --enable-daala         | [0-4]          | 0           | Enables the Daala perceptual distortion metric [0: OFF, 1: CDEF, 2: 1 + TX Search + MDS3 Selection, 3: 2 + DCT TX, 4: 3 + MDS0 + IFS]                                 |
 | **EnableRestoration**            | --enable-restoration   | [0-1]          | 1           | Enable loop restoration filter                                                                                                                                        |
 | **Mfmv**                         | --enable-mfmv          | [-1-1]         | -1          | Motion Field Motion Vector control [-1: auto]                                                                                                                         |
 | **EnableTF**                     | --enable-tf            | [0-2]          | 1           | Enable ALT-REF (temporally filtered) frames [0: off, 1: on, 2: adaptive]                                                                                              |
@@ -582,6 +583,19 @@ Adaptive film grain is enabled by default.
 - **Moderate values** (1.0-1.5) help retain sharpness and acuity of textures and scenes with complex motion.
 
 - **High values** (4.0-6.0, together with disabling temporal filtering and CDEF) can dramatically improve film grain and noise retention.
+
+### `--enable-daala [0-4]`
+`--enable-daala` enables the Daala perceptual distortion metric.
+
+- **0** disables the feature, the default value.
+
+- **1** enables Daala for CDEF.
+
+- **2** additionally enables Daala for TX Search and MDS3 Selection.
+
+- **3** additionally enables Daala for DCT TX.
+
+- **4** additionally enables Daala for MDS0 and IFS.
 
 ### `--luminance-qp-bias [0-100]`
 When enabled, the `--luminance-qp-bias` parameter enables frame-level luma bias to improve quality in dark scenes by adjusting frame-level QP based on average luminance across each frame.
