@@ -1473,6 +1473,22 @@ void fast_loop_core(ModeDecisionCandidateBuffer* cand_bf, PictureControlSet* pcs
     }
     cand_bf->valid_luma_pred = 1;
 
+    if (ctx->tune_daala_level >= 4) {
+        const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+        *(cand_bf->fast_cost) += svt_spatial_full_distortion_daala_kernel(
+            input_pic->y_buffer,
+            input_origin_index,
+            input_pic->y_stride,
+            pred->y_buffer,
+            0,
+            pred->y_stride,
+            ctx->blk_geom->bwidth,
+            ctx->blk_geom->bheight,
+            pcs->scs->static_config.encoder_bit_depth,
+            qindex,
+            1);
+    }
+
     if (ctx->obmc_ctrls.enabled && ctx->obmc_ctrls.trans_face_off == 1) {
         obmc_trans_face_off(cand_bf, pcs, ctx, input_pic, loc);
     }
