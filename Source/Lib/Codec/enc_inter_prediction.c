@@ -657,6 +657,30 @@ void model_rd_for_sb_with_curvfit(PictureControlSet* pcs, ModeDecisionContext* c
             sse = svt_aom_sse(src_buf, src_stride, pred_buf, pred_stride, bw, bh);
         }
 
+        if (pcs->scs->static_config.enable_daala_rd) {
+            const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            uint64_t       daala_dist = svt_spatial_full_distortion_daala_kernel(
+                src_buf,
+                0,
+                src_stride,
+                pred_buf,
+                0,
+                pred_stride,
+                bw,
+                bh,
+                ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                qindex,
+                1);
+
+            // For 10-bit, SSE is computed on 10-bit samples while Daala is computed on
+            // 8-bit-equivalent samples. Shift Daala by 4 to match the SSE scale.
+            if (ctx->hbd_md) {
+                daala_dist <<= 4;
+            }
+
+            sse += daala_dist;
+        }
+
         sse = ROUND_POWER_OF_TWO(sse, bd_round);
         model_rd_with_curvfit(pcs, plane_bsize, sse, bw * bh, &rate, &dist, ctx, full_lambda);
 

@@ -18,6 +18,7 @@
 #include "temporal_filtering.h"
 #include "compute_sad.h"
 #include "motion_estimation.h"
+#include "mode_decision.h"
 #include "me_process.h"
 #include "me_context.h"
 #include "lambda_rate_tables.h"
@@ -2534,30 +2535,51 @@ static void convert_64x64_info_to_32x32_info(PictureParentControlSet* pcs, MeCon
                 uint8_t* pred_y_ptr = pred[PLANE_Y] + bsize * block_row * stride_pred[PLANE_Y] + bsize * block_col;
                 uint8_t* src_y_ptr  = src[PLANE_Y] + bsize * block_row * stride_src[PLANE_Y] + bsize * block_col;
 
-                const AomVarianceFnPtr* fn_ptr = pcs->tf_ctrls.sub_sampling_shift ? &svt_aom_mefn_ptr[BLOCK_32X16]
-                                                                                  : &svt_aom_mefn_ptr[BLOCK_32X32];
-                unsigned int            sse;
-                distortion = fn_ptr->vf(pred_y_ptr,
-                                        stride_pred[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
-                                        src_y_ptr,
-                                        stride_src[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
-                                        &sse)
-                    << pcs->tf_ctrls.sub_sampling_shift;
+                if (pcs->scs->static_config.enable_daala_filtering >= 2) {
+                    const uint32_t qindex = pcs->frm_hdr.quantization_params.base_q_idx;
+                    distortion = svt_spatial_full_distortion_daala_kernel(
+                        src_y_ptr, 0, stride_src[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
+                        pred_y_ptr, 0, stride_pred[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
+                        bsize, bsize >> pcs->tf_ctrls.sub_sampling_shift,
+                        EB_EIGHT_BIT, qindex, 1)
+                        << pcs->tf_ctrls.sub_sampling_shift;
+                } else {
+                    const AomVarianceFnPtr* fn_ptr = pcs->tf_ctrls.sub_sampling_shift ? &svt_aom_mefn_ptr[BLOCK_32X16]
+                                                                                      : &svt_aom_mefn_ptr[BLOCK_32X32];
+                    unsigned int            sse;
+                    distortion = fn_ptr->vf(pred_y_ptr,
+                                            stride_pred[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
+                                            src_y_ptr,
+                                            stride_src[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
+                                            &sse)
+                        << pcs->tf_ctrls.sub_sampling_shift;
+                }
             } else {
                 uint16_t* pred_y_ptr = pred_16bit[PLANE_Y] + bsize * block_row * stride_pred[PLANE_Y] +
                     bsize * block_col;
                 uint16_t* src_y_ptr = src_16bit[PLANE_Y] + bsize * block_row * stride_src[PLANE_Y] + bsize * block_col;
-                const AomVarianceFnPtr* fn_ptr = pcs->tf_ctrls.sub_sampling_shift ? &svt_aom_mefn_ptr[BLOCK_32X16]
-                                                                                  : &svt_aom_mefn_ptr[BLOCK_32X32];
 
-                unsigned int sse;
+                if (pcs->scs->static_config.enable_daala_filtering >= 2) {
+                    const uint32_t qindex = pcs->frm_hdr.quantization_params.base_q_idx;
+                    distortion = svt_spatial_full_distortion_daala_kernel(
+                        (uint8_t*)src_y_ptr, 0, stride_src[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
+                        (uint8_t*)pred_y_ptr, 0, stride_pred[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
+                        bsize, bsize >> pcs->tf_ctrls.sub_sampling_shift,
+                        EB_TEN_BIT, qindex, 1)
+                        << pcs->tf_ctrls.sub_sampling_shift;
+                    distortion <<= 4;
+                } else {
+                    const AomVarianceFnPtr* fn_ptr = pcs->tf_ctrls.sub_sampling_shift ? &svt_aom_mefn_ptr[BLOCK_32X16]
+                                                                                      : &svt_aom_mefn_ptr[BLOCK_32X32];
+                    unsigned int sse;
 
-                distortion = fn_ptr->vf_hbd_10(CONVERT_TO_BYTEPTR(pred_y_ptr),
-                                               stride_pred[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
-                                               CONVERT_TO_BYTEPTR(src_y_ptr),
-                                               stride_src[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
-                                               &sse)
-                    << pcs->tf_ctrls.sub_sampling_shift;
+                    distortion = fn_ptr->vf_hbd_10(CONVERT_TO_BYTEPTR(pred_y_ptr),
+                                                   stride_pred[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
+                                                   CONVERT_TO_BYTEPTR(src_y_ptr),
+                                                   stride_src[PLANE_Y] << pcs->tf_ctrls.sub_sampling_shift,
+                                                   &sse)
+                        << pcs->tf_ctrls.sub_sampling_shift;
+                }
             }
             ctx->tf_32x32_block_error[ctx->idx_32x32] = distortion;
         }
@@ -3457,34 +3479,55 @@ static EbErrorType produce_temporally_filtered_pic_ld(PictureParentControlSet** 
                                 uint8_t* src_y_ptr = src_center_ptr[PLANE_Y] + bsize * block_row * stride[PLANE_Y] +
                                     bsize * block_col;
 
-                                const AomVarianceFnPtr* fn_ptr = centre_pcs->tf_ctrls.sub_sampling_shift
-                                    ? &svt_aom_mefn_ptr[BLOCK_32X16]
-                                    : &svt_aom_mefn_ptr[BLOCK_32X32];
-                                unsigned int            sse;
-                                distortion = fn_ptr->vf(pred_y_ptr,
-                                                        stride_pred[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
-                                                        src_y_ptr,
-                                                        stride[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
-                                                        &sse)
-                                    << centre_pcs->tf_ctrls.sub_sampling_shift;
+                                if (centre_pcs->scs->static_config.enable_daala_filtering >= 2) {
+                                    const uint32_t qindex = centre_pcs->frm_hdr.quantization_params.base_q_idx;
+                                    distortion = svt_spatial_full_distortion_daala_kernel(
+                                        src_y_ptr, 0, stride[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
+                                        pred_y_ptr, 0, stride_pred[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
+                                        bsize, bsize >> centre_pcs->tf_ctrls.sub_sampling_shift,
+                                        EB_EIGHT_BIT, qindex, 1)
+                                        << centre_pcs->tf_ctrls.sub_sampling_shift;
+                                } else {
+                                    const AomVarianceFnPtr* fn_ptr = centre_pcs->tf_ctrls.sub_sampling_shift
+                                        ? &svt_aom_mefn_ptr[BLOCK_32X16]
+                                        : &svt_aom_mefn_ptr[BLOCK_32X32];
+                                    unsigned int            sse;
+                                    distortion = fn_ptr->vf(pred_y_ptr,
+                                                            stride_pred[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
+                                                            src_y_ptr,
+                                                            stride[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
+                                                            &sse)
+                                        << centre_pcs->tf_ctrls.sub_sampling_shift;
+                                }
                             } else {
                                 uint16_t* pred_y_ptr = pred_16bit[PLANE_Y] + bsize * block_row * stride_pred[PLANE_Y] +
                                     bsize * block_col;
                                 uint16_t* src_y_ptr = altref_buffer_highbd_ptr[PLANE_Y] +
                                     bsize * block_row * stride[PLANE_Y] + bsize * block_col;
-                                const AomVarianceFnPtr* fn_ptr = centre_pcs->tf_ctrls.sub_sampling_shift
-                                    ? &svt_aom_mefn_ptr[BLOCK_32X16]
-                                    : &svt_aom_mefn_ptr[BLOCK_32X32];
 
-                                unsigned int sse;
+                                if (centre_pcs->scs->static_config.enable_daala_filtering >= 2) {
+                                    const uint32_t qindex = centre_pcs->frm_hdr.quantization_params.base_q_idx;
+                                    distortion = svt_spatial_full_distortion_daala_kernel(
+                                        (uint8_t*)src_y_ptr, 0, stride[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
+                                        (uint8_t*)pred_y_ptr, 0, stride_pred[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
+                                        bsize, bsize >> centre_pcs->tf_ctrls.sub_sampling_shift,
+                                        EB_TEN_BIT, qindex, 1)
+                                        << centre_pcs->tf_ctrls.sub_sampling_shift;
+                                    distortion <<= 4;
+                                } else {
+                                    const AomVarianceFnPtr* fn_ptr = centre_pcs->tf_ctrls.sub_sampling_shift
+                                        ? &svt_aom_mefn_ptr[BLOCK_32X16]
+                                        : &svt_aom_mefn_ptr[BLOCK_32X32];
+                                    unsigned int sse;
 
-                                distortion = fn_ptr->vf_hbd_10(
-                                                 CONVERT_TO_BYTEPTR(pred_y_ptr),
-                                                 stride_pred[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
-                                                 CONVERT_TO_BYTEPTR(src_y_ptr),
-                                                 stride[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
-                                                 &sse)
-                                    << centre_pcs->tf_ctrls.sub_sampling_shift;
+                                    distortion = fn_ptr->vf_hbd_10(
+                                                     CONVERT_TO_BYTEPTR(pred_y_ptr),
+                                                     stride_pred[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
+                                                     CONVERT_TO_BYTEPTR(src_y_ptr),
+                                                     stride[PLANE_Y] << centre_pcs->tf_ctrls.sub_sampling_shift,
+                                                     &sse)
+                                        << centre_pcs->tf_ctrls.sub_sampling_shift;
+                                }
                             }
                             ctx->tf_32x32_block_error[ctx->idx_32x32] = distortion;
                         }

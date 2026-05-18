@@ -324,6 +324,16 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->enable_daala_rd > 1) {
+        SVT_ERROR("Invalid enable-daala-rd flag [0-1], your input: %d\n", config->enable_daala_rd);
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if (config->enable_daala_filtering > 3) {
+        SVT_ERROR("Invalid enable-daala-filtering [0-3], your input: %d\n", config->enable_daala_filtering);
+        return_error = EB_ErrorBadParameter;
+    }
+
     if (config->rate_control_mode > SVT_AV1_RC_MODE_CBR &&
         (config->pass == ENC_FIRST_PASS || config->rc_stats_buffer.buf)) {
         SVT_ERROR("Only rate control mode 0~2 are supported for 2-pass \n");
@@ -1172,6 +1182,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->alt_cdef                          = 0;
     config_ptr->alt_dlf                           = 0;
     config_ptr->enable_daala                      = 0;
+    config_ptr->enable_daala_rd                   = 0;
+    config_ptr->enable_daala_filtering            = 0;
     config_ptr->low_memory                        = false;
     config_ptr->hide_banner                       = false;
     return return_error;
@@ -2699,6 +2711,8 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"enable-alt-cdef", &config_struct->alt_cdef},
         {"enable-alt-dlf", &config_struct->alt_dlf},
         {"enable-daala", &config_struct->enable_daala},
+        {"enable-daala-rd", &config_struct->enable_daala_rd},
+        {"enable-daala-filtering", &config_struct->enable_daala_filtering},
     };
 
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);

@@ -22,6 +22,7 @@
 #include "common_utils.h"
 #include "ac_bias.h"
 #include "inv_transforms.h"
+#include "mode_decision.h"
 
 #define DLF_MAX_LVL 4
 static const int32_t  inter_frame_multiplier[INPUT_SIZE_COUNT]      = {6017, 6017, 6017, 12034, 12034, 12034, 12034};
@@ -775,6 +776,38 @@ uint64_t picture_sse_calculations(PictureControlSet* pcs, EbPictureBufferDesc* r
                      : 0);
 }
 
+static uint64_t picture_daala_calculations(PictureControlSet* pcs, EbPictureBufferDesc* recon_ptr, int32_t plane) {
+    SequenceControlSet* scs      = pcs->ppcs->scs;
+    bool                is_16bit = scs->is_16bit_pipeline;
+    const uint32_t ss_x = scs->subsampling_x;
+    const uint32_t ss_y = scs->subsampling_y;
+    const uint16_t width  = plane ? pcs->ppcs->aligned_width >> ss_x : pcs->ppcs->aligned_width;
+    const uint16_t height = plane ? pcs->ppcs->aligned_height >> ss_y : pcs->ppcs->aligned_height;
+
+    EbPictureBufferDesc* input_pic = is_16bit ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
+    const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+
+    uint64_t total_daala = 0;
+    const int tile_size = 64;
+    for (int y = 0; y < height; y += tile_size) {
+        for (int x = 0; x < width; x += tile_size) {
+            int tile_w = MIN(tile_size, width - x);
+            int tile_h = MIN(tile_size, height - y);
+            total_daala += svt_spatial_full_distortion_daala_kernel(
+                input_pic->buffer[plane], y * input_pic->stride[plane] + x, input_pic->stride[plane],
+                recon_ptr->buffer[plane], y * recon_ptr->stride[plane] + x, recon_ptr->stride[plane],
+                tile_w, tile_h,
+                is_16bit ? EB_TEN_BIT : EB_EIGHT_BIT,
+                qindex, 1);
+        }
+    }
+
+    if (is_16bit) {
+        total_daala <<= 4;
+    }
+    return total_daala;
+}
+
 /*************************************************************************************************
 * try_filter_frame
 * Sett the filter levels, compute the filtering sse, and resett the recon buffer.
@@ -817,7 +850,11 @@ static int64_t try_filter_frame(const EbPictureBufferDesc* sd, EbPictureBufferDe
 
     svt_av1_loop_filter_frame(recon_buffer, pcs, plane, plane + 1);
 
-    filt_err = picture_sse_calculations(pcs, recon_buffer, plane, dlf_ac_bias);
+    if (pcs->scs->static_config.enable_daala_filtering >= 3 && plane == 0) {
+        filt_err = (int64_t)picture_daala_calculations(pcs, recon_buffer, plane);
+    } else {
+        filt_err = picture_sse_calculations(pcs, recon_buffer, plane, dlf_ac_bias);
+    }
 
     // Re-instate the unfiltered frame; if both filters are off, no need to copy as there was no change to the pic
     if (filter_level[0] || filter_level[1]) {

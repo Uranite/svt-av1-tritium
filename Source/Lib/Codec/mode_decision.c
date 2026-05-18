@@ -460,6 +460,28 @@ static void inter_intra_search(PictureControlSet* pcs, ModeDecisionContext* ctx,
             {
                 rd = svt_aom_sse(src_buf, src_pic->y_stride, ii_pred_buf, bwidth, bwidth, bheight);
             }
+            if (pcs->scs->static_config.enable_daala_rd) {
+                const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+                uint64_t       daala_dist = svt_spatial_full_distortion_daala_kernel(
+                    ctx->hbd_md ? (uint8_t*)src_buf_hbd : src_buf,
+                    0,
+                    src_pic->y_stride,
+                    ii_pred_buf,
+                    0,
+                    bwidth,
+                    bwidth,
+                    bheight,
+                    ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                    qindex,
+                    1);
+
+                // Scale Daala to match the SSE scale for 10-bit
+                if (ctx->hbd_md) {
+                    daala_dist <<= 4;
+                }
+
+                rd += daala_dist;
+            }
         }
         if (rd < best_interintra_rd) {
             best_interintra_rd             = rd;
