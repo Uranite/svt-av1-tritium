@@ -77,8 +77,8 @@ extern "C" {
 #define FIX_MR_STILL_IMAGE         1 // Restore MR for still-image
 
 #define FTR_TUNE_VMAF  1 // Implement an unsharp preprocessing filter under TUNE-VMAF (--tune 5)
-#define OPT_TUNE_VMAF  1 // TUNE-VMAF Optimizations: adaptive sharpening (per-QP + spatial MAD), noise gate (Laplacian),
-                         // per-pixel High Frequency delta clip (QP-adaptive), chroma QP compensation, SIMD
+#define OPT_TUNE_VMAF  1 // TUNE-VMAF Optimizations (requires FTR_TUNE_VMAF=1): adaptive sharpening (per-QP + spatial MAD + gradient coherence), noise gate (Laplacian),
+                         // per-pixel High Frequency delta clip (QP-adaptive + content-adaptive), chroma QP compensation, AVX2 SIMD
 
 #define FIX_CR_BAND_WRAPPING       1 // Handle wrapped range: sb_start > sb_end means [sb_start, total) union [0, sb_end)
 #define OPT_CR_MOTION_GATE         1 // Cyclic-refresh motion gate: only boost SBs with low motion (dist < 2*norm_me_dist AND zero MV); disable CR for the frame if all SBs rejected to skip delta_q signaling overhead

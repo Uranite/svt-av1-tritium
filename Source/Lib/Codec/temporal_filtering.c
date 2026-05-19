@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 #include "temporal_filtering.h"
 #include "compute_sad.h"
 #include "motion_estimation.h"
@@ -3651,7 +3652,7 @@ void svt_vmaf_apply_unsharp_row_c(const uint8_t* src, const int16_t* blur, uint8
     for (int j = 0; j < width; j++) {
         int32_t detail = (int32_t)src[j] - (int32_t)blur[j];
         detail         = detail > max_delta ? max_delta : detail < -max_delta ? -max_delta : detail;
-        int32_t result = (int32_t)src[j] + ((detail * amount) >> 16);
+        int32_t result = (int32_t)src[j] + ((detail * amount) >> 15);
         dst[j]         = (uint8_t)(result < 0 ? 0 : result > 255 ? 255 : result);
     }
 }
@@ -3673,6 +3674,72 @@ void svt_vmaf_vpass_row_c(const uint32_t* hpass, uint32_t* sc0, uint32_t* sc1, u
         if (do_output && i >= blur_start) {
             blur_row[i - blur_start] = (int16_t)((tmp1 + 128u) >> 8);
         }
+    }
+}
+
+float svt_vmaf_compute_gradient_coherence_c(const uint8_t* src, int width, int height, int stride) {
+    double weighted_coh = 0.0;
+    double weight_sum   = 0.0;
+    for (int by = 1; by < height - 1; by += 16) {
+        for (int bx = 1; bx < width - 1; bx += 16) {
+            int64_t sum_xx = 0, sum_yy = 0, sum_xy = 0;
+            int     y_end = (by + 16 < height - 1) ? by + 16 : height - 1;
+            int     x_end = (bx + 16 < width - 1) ? bx + 16 : width - 1;
+            for (int y = by; y < y_end; y++) {
+                const uint8_t* row  = src + y * stride;
+                const uint8_t* up   = src + (y - 1) * stride;
+                const uint8_t* down = src + (y + 1) * stride;
+                for (int x = bx; x < x_end; x++) {
+                    int32_t grad_x = (int32_t)row[x + 1] - (int32_t)row[x - 1];
+                    int32_t grad_y = (int32_t)down[x] - (int32_t)up[x];
+                    sum_xx += (int64_t)grad_x * grad_x;
+                    sum_yy += (int64_t)grad_y * grad_y;
+                    sum_xy += (int64_t)grad_x * grad_y;
+                }
+            }
+            double xx        = (double)sum_xx;
+            double yy        = (double)sum_yy;
+            double xy        = (double)sum_xy;
+            double energy    = xx + yy + 1e-6;
+            double coherence = sqrt((xx - yy) * (xx - yy) + 4.0 * xy * xy) / energy;
+            weighted_coh += coherence * energy;
+            weight_sum += energy;
+        }
+    }
+    if (weight_sum <= 0.0) {
+        return 1.0f;
+    }
+    return (float)(weighted_coh / weight_sum);
+}
+
+uint32_t svt_vmaf_count_detail_le_c(const uint8_t* src, const int16_t* blur, int width, int height, int src_stride,
+                                    int thresh) {
+    uint32_t match_count = 0;
+    for (int y = 0; y < height; y++) {
+        const uint8_t* src_row  = src + (size_t)y * src_stride;
+        const int16_t* blur_row = blur + (size_t)y * width;
+        for (int x = 0; x < width; x++) {
+            int32_t detail = abs((int32_t)src_row[x] - (int32_t)blur_row[x]);
+            if (detail <= thresh) {
+                match_count++;
+            }
+        }
+    }
+    return match_count;
+}
+
+void svt_vmaf_hpass_row_c(const uint8_t* src_row, int width, uint32_t* h_row) {
+    const int steps_x  = 2;
+    uint32_t  h_acc[4] = {0};
+    for (int x = -steps_x; x < width + steps_x; x++) {
+        uint32_t tmp1 = x <= 0 ? src_row[0] : x >= width ? src_row[width - 1] : (uint32_t)src_row[x];
+        for (int s = 0; s < steps_x * 2; s += 2) {
+            uint32_t tmp2 = h_acc[s] + tmp1;
+            h_acc[s]      = tmp1;
+            tmp1          = h_acc[s + 1] + tmp2;
+            h_acc[s + 1]  = tmp2;
+        }
+        h_row[x + steps_x] = tmp1;
     }
 }
 #endif

@@ -567,7 +567,7 @@ void svt_av1_rc_calc_qindex_crf_cqp(PictureControlSet* pcs, SequenceControlSet* 
                       ? scs->static_config.key_frame_chroma_qindex_offset
                       : scs->static_config.chroma_qindex_offsets[pcs->temporal_layer_index];
         const int   base_chroma_offset = cfg_offset;
-        const float norm               = (float)ppcs->vmaf_sharpening_amount / 65536.0f;
+        const float norm               = (float)ppcs->vmaf_sharpening_amount / 32768.0f;
         float       qp_scale           = (float)new_qindex / 128.0f;
         if (qp_scale < 0.5f) {
             qp_scale = 0.5f;

@@ -584,6 +584,9 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_AVX2(svt_vmaf_compute_avg_mad,   svt_vmaf_compute_avg_mad_c,   svt_vmaf_compute_avg_mad_avx2);
     SET_AVX2(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c, svt_vmaf_apply_unsharp_row_avx2);
     SET_AVX2(svt_vmaf_vpass_row,         svt_vmaf_vpass_row_c,         svt_vmaf_vpass_row_avx2);
+    SET_AVX2(svt_vmaf_compute_gradient_coherence, svt_vmaf_compute_gradient_coherence_c, svt_vmaf_compute_gradient_coherence_avx2);
+    SET_AVX2(svt_vmaf_count_detail_le, svt_vmaf_count_detail_le_c, svt_vmaf_count_detail_le_avx2);
+    SET_AVX2(svt_vmaf_hpass_row, svt_vmaf_hpass_row_c, svt_vmaf_hpass_row_avx2);
 #endif
     SET_AVX2(svt_copy_mi_map_grid, svt_copy_mi_map_grid_c, svt_copy_mi_map_grid_avx2);
 #if CONFIG_ENABLE_FILM_GRAIN

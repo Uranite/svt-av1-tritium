@@ -34,7 +34,7 @@ void svt_vmaf_apply_unsharp_row_sve2(const uint8_t* src, const int16_t* blur, ui
         detail           = svmin_s16_x(ptrue, detail, clamp_max);
         detail           = svmax_s16_x(ptrue, detail, clamp_min);
 
-        svint16_t res = svmulh_n_s16_x(ptrue, detail, amount_s16);
+        svint16_t res = svqdmulh_n_s16(detail, amount_s16);
         res           = svadd_s16_x(ptrue, res, s);
 
         svst1b_u16(ptrue, dst + j, svreinterpret_u16_u8(svqxtunb_s16(res)));
@@ -49,7 +49,7 @@ void svt_vmaf_apply_unsharp_row_sve2(const uint8_t* src, const int16_t* blur, ui
         detail           = svmin_s16_x(pg_s16, detail, clamp_max);
         detail           = svmax_s16_x(pg_s16, detail, clamp_min);
 
-        svint16_t res = svmulh_n_s16_x(pg_s16, detail, amount_s16);
+        svint16_t res = svqdmulh_n_s16(detail, amount_s16);
         res           = svadd_s16_x(pg_s16, res, s);
 
         svst1b_u16(pg_s16, dst + j, svreinterpret_u16_u8(svqxtunb_s16(res)));

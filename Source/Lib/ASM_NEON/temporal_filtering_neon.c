@@ -1476,7 +1476,7 @@ void svt_vmaf_apply_unsharp_row_neon(const uint8_t* src, const int16_t* blur, ui
         detail           = vmaxq_s16(detail, clamp_min);
 
         int16x8_t res_s16 = vqdmulhq_s16(detail, amount_neg_vec);
-        res_s16           = vsraq_n_s16(s_s16, res_s16, 1);
+        res_s16           = vaddq_s16(s_s16, res_s16);
 
         vst1_u8(dst + j, vqmovun_s16(res_s16));
 
