@@ -1750,9 +1750,16 @@ bool svt_aom_is_pic_used_as_ref(uint32_t hierarchical_levels, uint32_t temporal_
     }
 
     switch (hierarchical_levels) {
+#if OPT_USE_HL0_FLAT
+    case 0:
+        return true;
+    case 1:
+        return referencing_scheme == 0 ? false : true;
+#else
     case 0:
     case 1:
         return true;
+#endif
     case 2:
         return referencing_scheme == 0 ? false : referencing_scheme == 1 ? true : (picture_index == 0);
     case 3:
@@ -1883,8 +1890,10 @@ static void set_ref_list_counts(PictureParentControlSet* pcs, PictureDecisionCon
         is_sc ? (is_base ? mrp_ctrls->sc_base_ref_list1_count : mrp_ctrls->sc_non_base_ref_list1_count)
               : (is_base ? mrp_ctrls->base_ref_list1_count : mrp_ctrls->non_base_ref_list1_count));
 #endif
+#if !OPT_USE_HL0_FLAT
     // Old assert fails when M13 uses non-zero mrp
     assert(!(pcs->ref_list1_count == 0 && pcs->scs->static_config.pred_structure == RANDOM_ACCESS));
+#endif
 }
 
 static INLINE void update_ref_poc_array(uint8_t* ref_dpb_idx, uint64_t* ref_poc_array, DpbEntry* dpb) {
@@ -2090,6 +2099,147 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         const uint8_t  long_base_idx = 7;
         const uint16_t long_base_pic = 128;
 
+#if OPT_USE_HL0_FLAT
+        if (hierarchical_levels == 1) {
+            switch (temporal_layer) {
+            case 0:
+                ref_dpb_index[LAST]  = base2_idx;
+                ref_dpb_index[LAST2] = base1_idx;
+                ref_dpb_index[LAST3] = long_base_idx;
+                ref_dpb_index[GOLD]  = base0_idx;
+
+                ref_dpb_index[BWD]  = ref_dpb_index[LAST];
+                ref_dpb_index[ALT2] = ref_dpb_index[LAST];
+                ref_dpb_index[ALT]  = ref_dpb_index[LAST];
+
+                if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+                    // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xfc);
+                } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
+                    // Only 5 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xf0);
+                    //Layer0 toggle 0->1->2
+                    ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+                } else {
+                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
+                    //Layer0 toggle 0->1->2
+                    ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+                }
+                break;
+            case 1:
+                ref_dpb_index[LAST]  = base2_idx;
+                ref_dpb_index[LAST2] = scs->mrp_ctrls.referencing_scheme == 0 ? base1_idx : lay1_1_idx;
+                ref_dpb_index[LAST3] = base1_idx;
+                ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
+
+                ref_dpb_index[BWD]  = ref_dpb_index[LAST];
+                ref_dpb_index[ALT2] = ref_dpb_index[LAST];
+                ref_dpb_index[ALT]  = ref_dpb_index[LAST];
+
+                av1_rps->refresh_frame_mask = 0;
+                if (pcs->is_ref) {
+                    if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+                        av1_rps->refresh_frame_mask = 1 << 1;
+                    } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
+                        av1_rps->refresh_frame_mask = 1 << LAY1_OFF;
+                    } else {
+                        av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
+                        // Layer1 toggle 3->4
+                        ctx->lay1_toggle = 1 - ctx->lay1_toggle;
+                    }
+                }
+                break;
+            default:
+                SVT_ERROR("unexpected picture mini Gop number\n");
+                break;
+            }
+        } else {
+            // LD CBR only supports flat/1L/2L
+            assert(hierarchical_levels == 2);
+            switch (temporal_layer) {
+            case 0:
+                ref_dpb_index[LAST]  = base2_idx;
+                ref_dpb_index[LAST2] = base0_idx;
+                ref_dpb_index[LAST3] = long_base_idx;
+                ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
+
+                ref_dpb_index[BWD]  = ref_dpb_index[LAST];
+                ref_dpb_index[ALT2] = ref_dpb_index[LAST];
+                ref_dpb_index[ALT]  = ref_dpb_index[LAST];
+
+                if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+                    // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xfc);
+                } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
+                    // Only 5 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xf0);
+                    //Layer0 toggle 0->1->2
+                    ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+                } else {
+                    av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle;
+                    //Layer0 toggle 0->1->2
+                    ctx->lay0_toggle = circ_inc(3, 1, ctx->lay0_toggle);
+                }
+                break;
+
+            case 1: // Phoenix
+                ref_dpb_index[LAST]  = base2_idx;
+                ref_dpb_index[LAST2] = lay1_1_idx;
+                ref_dpb_index[LAST3] = base1_idx;
+                ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
+
+                ref_dpb_index[BWD]  = ref_dpb_index[LAST];
+                ref_dpb_index[ALT2] = ref_dpb_index[LAST];
+                ref_dpb_index[ALT]  = ref_dpb_index[LAST];
+
+                if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+                    av1_rps->refresh_frame_mask = 1 << 1;
+                } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
+                    av1_rps->refresh_frame_mask = 1 << LAY1_OFF;
+                } else {
+                    av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
+                    // Layer1 toggle 3->4
+                    ctx->lay1_toggle = 1 - ctx->lay1_toggle;
+                }
+                break;
+
+            case 2:
+                if (pic_idx == 0) {
+                    ref_dpb_index[LAST]  = base2_idx;
+                    ref_dpb_index[LAST2] = lay1_1_idx;
+                    ref_dpb_index[LAST3] = base1_idx;
+                    ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
+
+                    ref_dpb_index[BWD]  = ref_dpb_index[LAST];
+                    ref_dpb_index[ALT2] = ref_dpb_index[LAST];
+                    ref_dpb_index[ALT]  = ref_dpb_index[LAST];
+                } else if (pic_idx == 2) {
+                    ref_dpb_index[LAST]  = lay1_1_idx;
+                    ref_dpb_index[LAST2] = base2_idx;
+                    ref_dpb_index[LAST3] = lay1_0_idx;
+                    ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
+
+                    ref_dpb_index[BWD]  = ref_dpb_index[LAST];
+                    ref_dpb_index[ALT2] = ref_dpb_index[LAST];
+                    ref_dpb_index[ALT]  = ref_dpb_index[LAST];
+                } else {
+                    SVT_LOG("Error in GOp indexing\n");
+                }
+
+                assert(IMPLIES(scs->mrp_ctrls.ld_reduce_ref_buffs,
+                               !pcs->is_ref && scs->mrp_ctrls.referencing_scheme == 0));
+                av1_rps->refresh_frame_mask = (pcs->is_ref) ? 1 << (lay2_idx) : 0;
+                // This check should be redundant, but is added to avoid hangs if settings are not set correctly
+                if (scs->mrp_ctrls.ld_reduce_ref_buffs) {
+                    av1_rps->refresh_frame_mask = 0;
+                }
+                break;
+            default:
+                SVT_ERROR("unexpected picture mini Gop number\n");
+                break;
+            }
+        }
+#else
         switch (temporal_layer) {
         case 0:
             ref_dpb_index[LAST]  = base2_idx;
@@ -2171,6 +2321,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             SVT_ERROR("unexpected picture mini Gop number\n");
             break;
         }
+#endif
 
         update_ref_poc_array(ref_dpb_index, ref_poc_array, ctx->dpb);
 
@@ -2237,7 +2388,11 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         const uint8_t base1_idx = lay0_toggle == 0 ? 1 : lay0_toggle == 1 ? 2 : 0; //the middle L0 picture in the DPB
         const uint8_t base2_idx = lay0_toggle == 0 ? 2 : lay0_toggle == 1 ? 0 : 1; //the newest L0 picture in the DPB
 
+#if OPT_USE_HL0_FLAT
+        const uint8_t lay1_0_idx = lay1_toggle == 0 ? LAY1_OFF + 0 : LAY1_OFF + 1; //the oldest L1 picture in the DPB
+#else
         //const uint8_t  lay1_0_idx = lay1_toggle == 0 ? LAY1_OFF + 0 : LAY1_OFF + 1; //the oldest L1 picture in the DPB
+#endif
         const uint8_t lay1_1_idx = lay1_toggle == 0 ? LAY1_OFF + 1 : LAY1_OFF + 0; //the newest L1 picture in the DPB
         //const uint8_t  lay2_idx = LAY2_OFF; //the newest L2 picture in the DPB
 
@@ -2271,22 +2426,38 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2]  = base2_idx;
                 ref_dpb_index[ALT]   = base2_idx;
                 assert(!pcs->is_ref);
+#if OPT_USE_HL0_FLAT
+                av1_rps->refresh_frame_mask = 0;
+#endif
             } else {
                 //{ 1, 2, 3,  0},   // GOP Index 4 - Ref List 0
                 //{-1,  0, 0,  0}     // GOP Index 4 - Ref List 1
-                ref_dpb_index[LAST]  = base1_idx;
+                ref_dpb_index[LAST] = base1_idx;
+#if OPT_USE_HL0_FLAT
+                ref_dpb_index[LAST2] = scs->mrp_ctrls.referencing_scheme == 0 ? base0_idx : lay1_1_idx;
+#else
                 ref_dpb_index[LAST2] = lay1_1_idx;
+#endif
                 ref_dpb_index[LAST3] = base0_idx;
                 ref_dpb_index[GOLD]  = ref_dpb_index[LAST];
 
-                ref_dpb_index[BWD]  = base2_idx;
+                ref_dpb_index[BWD] = base2_idx;
+#if OPT_USE_HL0_FLAT
+                ref_dpb_index[ALT2] = scs->mrp_ctrls.referencing_scheme == 0 ? ref_dpb_index[BWD] : lay1_0_idx;
+#else
                 ref_dpb_index[ALT2] = ref_dpb_index[BWD];
-                ref_dpb_index[ALT]  = ref_dpb_index[BWD];
+#endif
+                ref_dpb_index[ALT] = ref_dpb_index[BWD];
 
+#if OPT_USE_HL0_FLAT
+                av1_rps->refresh_frame_mask = pcs->is_ref ? 1 << (LAY1_OFF + ctx->lay1_toggle) : 0;
+#endif
                 //Layer1 toggle 3->4
                 ctx->lay1_toggle = 1 - ctx->lay1_toggle;
             }
+#if !OPT_USE_HL0_FLAT
             av1_rps->refresh_frame_mask = pcs->is_ref ? 1 << (LAY1_OFF + ctx->lay1_toggle) : 0;
+#endif
             break;
         default:
             SVT_ERROR("unexpected picture mini Gop number\n");
@@ -4681,6 +4852,13 @@ static void set_mini_gop_structure(SequenceControlSet* scs, EncodeContext* enc_c
     enc_ctx->mini_gop_cnt_per_gop = (enc_ctx->pre_assignment_buffer_idr_count) ? 0 : enc_ctx->mini_gop_cnt_per_gop + 1;
     assert(IMPLIES(enc_ctx->pre_assignment_buffer_intra_count == enc_ctx->pre_assignment_buffer_count,
                    enc_ctx->pre_assignment_buffer_count == 1));
+#if OPT_USE_HL0_FLAT
+    // In RA, if the only picture is an I_SLICE, use default settings (set above). If treat the solo I_SLICE
+    // as a regular MG, you will change the hierarchical_levels to the minimum.
+    // For low-delay pred strucutres, pre_assignment_buffer_count will be 1, but no need to change the default
+    // hierarchical levels.
+    if (enc_ctx->pre_assignment_buffer_count > 1 ||
+#else
     // TODO: Why special case? Why no check on enc_ctx->pre_assignment_buffer_count > 1
     if (next_mg_hierarchical_levels == 1) {
         //minigop 2 case
@@ -4695,7 +4873,8 @@ static void set_mini_gop_structure(SequenceControlSet* scs, EncodeContext* enc_c
     // For low-delay pred strucutres, pre_assignment_buffer_count will be 1, but no need to change the default
     // hierarchical levels.
     else if (enc_ctx->pre_assignment_buffer_count > 1 ||
-             (!enc_ctx->pre_assignment_buffer_intra_count && scs->static_config.pred_structure == RANDOM_ACCESS)) {
+#endif
+        (!enc_ctx->pre_assignment_buffer_intra_count && scs->static_config.pred_structure == RANDOM_ACCESS)) {
         initialize_mini_gop_activity_array(scs, pcs, enc_ctx, ctx);
 
         generate_picture_window_split(ctx, enc_ctx);
@@ -5515,7 +5694,13 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                             assert(!pcs->is_overlay);
                             pcs->pred_struct_index    = (uint8_t)enc_ctx->pred_struct_position;
                             pcs->temporal_layer_index = (uint8_t)pred_position_ptr->temporal_layer_index;
-                            pcs->is_highest_layer     = (pcs->temporal_layer_index == pcs->hierarchical_levels);
+#if OPT_USE_HL0_FLAT
+                            // For flat, set is_highest_layer to false to avoid using aggressive settings for all pictures
+                            pcs->is_highest_layer = (pcs->temporal_layer_index == pcs->hierarchical_levels) &&
+                                pcs->hierarchical_levels != 0;
+#else
+                            pcs->is_highest_layer = (pcs->temporal_layer_index == pcs->hierarchical_levels);
+#endif
                             switch (pcs->slice_type) {
                             case I_SLICE:
 

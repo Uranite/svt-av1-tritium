@@ -273,7 +273,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     }
 
     if (config->hierarchical_levels > 5) {
+#if OPT_USE_HL0_FLAT
+        SVT_ERROR("Hierarchical Levels supported: [0-5]\n");
+#else
         SVT_ERROR("Hierarchical Levels supported [0-5]\n");
+#endif
         return_error = EB_ErrorBadParameter;
     }
     if ((config->intra_period_length < -2 || config->intra_period_length > 2 * ((1 << 30) - 1)) &&
@@ -659,10 +663,12 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
             "color format.\n");
         return_error = EB_ErrorBadParameter;
     }
+#if !OPT_USE_HL0_FLAT
     if (config->hierarchical_levels < 2 || config->hierarchical_levels > 5) {
         SVT_ERROR("Only hierarchical levels 2-5 is currently supported.\n");
         return_error = EB_ErrorBadParameter;
     }
+#endif
 
     if (config->rate_control_mode == SVT_AV1_RC_MODE_VBR && config->intra_period_length == -1) {
         SVT_ERROR(

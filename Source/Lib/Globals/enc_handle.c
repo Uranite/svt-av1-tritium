@@ -4686,9 +4686,15 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     }
     if (scs->static_config.pass == ENC_SINGLE_PASS && scs->static_config.pred_structure == LOW_DELAY) {
         if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR &&
+#if OPT_USE_HL0_FLAT
+            scs->static_config.hierarchical_levels > 2) {
+            scs->static_config.hierarchical_levels = 2;
+            SVT_WARN("Low delay CBR supports hierarchical_levels [0-2]. Forced hierarchical_levels = 2.\n");
+#else
             scs->static_config.hierarchical_levels != 2) {
             scs->static_config.hierarchical_levels = 2;
             SVT_WARN("Forced Low delay CBR mode to use HierarchicalLevels = 2\n");
+#endif
         }
     }
     // Set hierarchical_levels to 2 to reduce memory allocation; 2 is the minimum currently supported
