@@ -399,9 +399,16 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
             max_refs = 2;
         }
 
-        min_ref   = 1 /*current pic*/ + max_refs;
+        min_ref = 1 /*current pic*/ + max_refs;
+        // Ref-frame management: app may hold up to max_managed_refs anchors
+        // simultaneously; grow the ref-buffer pool by that many entries.
+        // When max_managed_refs == 0 (default), this adds 0 and the legacy
+        // memory footprint is preserved bit-exactly.
+        min_ref += scs->static_config.max_managed_refs;
         min_me    = 1;
         min_paref = 1 /*current pic*/ + low_delay_tf_frames + max_refs + scs->scd_delay + eos_delay;
+        // Same rationale for the PA-ref pool.
+        min_paref += scs->static_config.max_managed_refs;
     }
     //Configure max needed buffers to process 1+n_extra_mg Mini-Gops in the pipeline. n extra MGs to feed to picMgr on top of current one.
     // Low delay mode has no extra minigops to process.
@@ -3290,9 +3297,7 @@ static void derive_tf_params(SequenceControlSet* scs) {
 /*
  * Set the MRP control
  */
-static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
-    MrpCtrls* mrp_ctrl = &scs->mrp_ctrls;
-
+static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp_ctrl, uint8_t mrp_level) {
     switch (mrp_level) {
     case 0:
         mrp_ctrl->referencing_scheme = 0;
@@ -3552,11 +3557,11 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
                                           MAX(mrp_ctrl->non_base_ref_list0_count, mrp_ctrl->non_base_ref_list1_count));
 #else
             const uint8_t max_sc_refs = MAX(
-                MAX(scs->mrp_ctrls.sc_non_base_ref_list0_count, scs->mrp_ctrls.sc_non_base_ref_list1_count),
-                MAX(scs->mrp_ctrls.sc_base_ref_list0_count, scs->mrp_ctrls.sc_base_ref_list1_count));
+                MAX(mrp_ctrl->sc_non_base_ref_list0_count, mrp_ctrl->sc_non_base_ref_list1_count),
+                MAX(mrp_ctrl->sc_base_ref_list0_count, mrp_ctrl->sc_base_ref_list1_count));
             const uint8_t max_nsc_refs = MAX(
-                MAX(scs->mrp_ctrls.base_ref_list0_count, scs->mrp_ctrls.base_ref_list1_count),
-                MAX(scs->mrp_ctrls.non_base_ref_list0_count, scs->mrp_ctrls.non_base_ref_list1_count));
+                MAX(mrp_ctrl->base_ref_list0_count, mrp_ctrl->base_ref_list1_count),
+                MAX(mrp_ctrl->non_base_ref_list0_count, mrp_ctrl->non_base_ref_list1_count));
             mrp_ctrl->flat_max_refs = scs->static_config.screen_content_mode == 2 ? MAX(max_sc_refs, max_nsc_refs)
                 : scs->static_config.screen_content_mode == 1                     ? max_sc_refs
                                                                                   : max_nsc_refs;
@@ -3613,6 +3618,82 @@ static void set_mrp_ctrl(SequenceControlSet* scs, uint8_t mrp_level) {
     } else {
         mrp_ctrl->ld_reduce_ref_buffs = 0;
     }
+}
+
+// Preset-driven entry point for setting mrp_ctrl. Owns the
+// enc_mode->mrp_level cascade; callers needing to FORCE a specific level
+// (e.g. LTR override) call set_mrp_ctrl_with_level directly.
+static void set_mrp_ctrl(const SequenceControlSet* scs, MrpCtrls* mrp_ctrl, EncMode enc_mode) {
+    uint8_t mrp_level;
+#if TUNE_SIMPLIFY_SETTINGS
+    if (scs->static_config.rtc) {
+        if (scs->use_flat_ipp) {
+#if TUNE_SHIFT_PRESETS_RTC
+            if (enc_mode <= ENC_M8) {
+                mrp_level = 6;
+            } else {
+                mrp_level = 0;
+            }
+#else
+            if (enc_mode <= ENC_M8) {
+                mrp_level = 6;
+            } else if (enc_mode <= ENC_M9) {
+                mrp_level = 9;
+            } else {
+                mrp_level = 0;
+            }
+#endif
+        } else {
+#if TUNE_SHIFT_PRESETS_RTC
+            if (enc_mode <= ENC_M9) {
+                mrp_level = 6;
+            } else if (enc_mode <= ENC_M10) {
+                mrp_level = 9;
+            } else {
+                mrp_level = 0;
+            }
+#else
+            if (enc_mode <= ENC_M10) {
+                mrp_level = 6;
+            } else if (enc_mode <= ENC_M11) {
+                mrp_level = 9;
+            } else {
+                mrp_level = 0;
+            }
+#endif
+        }
+#else
+    if (scs->static_config.rtc) {
+        if (enc_mode <= ENC_M8 || (!scs->use_flat_ipp && enc_mode <= ENC_M10)) {
+            mrp_level = 6;
+        } else if ((scs->use_flat_ipp && enc_mode <= ENC_M9) || (!scs->use_flat_ipp && enc_mode <= ENC_M11)) {
+            mrp_level = 9;
+        } else {
+            mrp_level = 0;
+        }
+#endif
+    }
+
+    else {
+        if (enc_mode <= ENC_MR) {
+            mrp_level = 1;
+        } else if (enc_mode <= ENC_M2) {
+            mrp_level = 2;
+        } else if (enc_mode <= ENC_M4) {
+            mrp_level = 4;
+        } else if (enc_mode <= ENC_M8) {
+            mrp_level = 6;
+        } else if (enc_mode <= ENC_M9) {
+            mrp_level = scs->static_config.pred_structure == RANDOM_ACCESS ? 7 : 9;
+        } else {
+            if (scs->static_config.encoder_bit_depth == EB_EIGHT_BIT) {
+                mrp_level = scs->static_config.pred_structure == RANDOM_ACCESS ? 11 : 0;
+            } else {
+                mrp_level = scs->static_config.pred_structure == RANDOM_ACCESS ? 7 : 0;
+            }
+        }
+    }
+    set_mrp_ctrl_with_level(scs, mrp_ctrl, mrp_level);
 }
 
 static uint8_t get_tpl(uint8_t pred_structure, uint8_t superres_mode, uint8_t resize_mode, uint8_t aq_mode,
@@ -3899,9 +3980,6 @@ void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
 static void set_param_based_on_input(SequenceControlSet* scs) {
     const bool allintra = scs->allintra;
     const bool rtc_tune = scs->static_config.rtc;
-#if TUNE_SIMPLIFY_SETTINGS
-    const bool use_flat_ipp = scs->use_flat_ipp;
-#endif
     set_multi_pass_params(scs);
 
     // superres_mode and resize_mode may be updated,
@@ -4275,79 +4353,57 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     if (scs->static_config.scene_change_detection == 1) {
         SVT_WARN("Scene Change is not optimal and may produce suboptimal keyframe placements\n");
     }
-    // MRP level
-    uint8_t mrp_level;
-#if TUNE_SIMPLIFY_SETTINGS
-    if (rtc_tune) {
-        if (use_flat_ipp) {
-#if TUNE_SHIFT_PRESETS_RTC
-            if (scs->static_config.enc_mode <= ENC_M8) {
-                mrp_level = 6;
-            } else {
-                mrp_level = 0;
-            }
-#else
-            if (scs->static_config.enc_mode <= ENC_M8) {
-                mrp_level = 6;
-            } else if (scs->static_config.enc_mode <= ENC_M9) {
-                mrp_level = 9;
-            } else {
-                mrp_level = 0;
-            }
-#endif
-        } else {
-#if TUNE_SHIFT_PRESETS_RTC
-            if (scs->static_config.enc_mode <= ENC_M9) {
-#else
-            if (scs->static_config.enc_mode <= ENC_M10) {
-#endif
-                mrp_level = 6;
-#if TUNE_SHIFT_PRESETS_RTC
-            } else if (scs->static_config.enc_mode <= ENC_M10) {
-#else
-            } else if (scs->static_config.enc_mode <= ENC_M11) {
-#endif
-                mrp_level = 9;
-            } else {
-                mrp_level = 0;
-            }
+    // LTR DPB-layout constraint: the natural mrp_level may not provide enough
+    // STORE-safe DPB slots for the configured max_managed_refs. Override to
+    // the cheapest level that does, preferring to preserve non_base list0
+    // count (non_base refs are consulted by every TID>0 frame). RTC-tuned
+    // non-flat-IPP per-preset native capacity:
+    //
+    //   M9   → level 6 (list0 3/3) → ld_reduce 0 → 2 STOREs  (insufficient)
+    //   M10  → level 9 (list0 3/1) → ld_reduce 0 → 2 STOREs  (insufficient)
+    //   M11+ → level 0 (list0 1/1) → ld_reduce 2 → 4 STOREs  (native)
+    //
+    // Fallback choice: level 8 (list0 2/2) when non_base ≥ 2, else level 10
+    // (list0 2/1). See src/Docs/Appendix-Ref-Frame-Management.md §5.
+    set_mrp_ctrl(scs, &scs->mrp_ctrls, scs->static_config.enc_mode);
+    if (scs->static_config.max_managed_refs > 0) {
+        const uint8_t safe_pool_size = (uint8_t)svt_numbits(svt_aom_ref_mgmt_storeable_slots_mask(scs));
+        if (safe_pool_size < scs->static_config.max_managed_refs) {
+            const uint8_t fallback_level = (scs->mrp_ctrls.non_base_ref_list0_count >= 2) ? 8 : 10;
+            SVT_LOG(
+                "LTR enabled (max_managed_refs=%u): natural safe pool %u "
+                "insufficient, forcing mrp_level=%u\n",
+                (unsigned)scs->static_config.max_managed_refs,
+                (unsigned)safe_pool_size,
+                (unsigned)fallback_level);
+            set_mrp_ctrl_with_level(scs, &scs->mrp_ctrls, fallback_level);
         }
-#else
-    if (scs->static_config.rtc) {
-        if (scs->static_config.enc_mode <= ENC_M8 || (!scs->use_flat_ipp && scs->static_config.enc_mode <= ENC_M10)) {
-            mrp_level = 6;
-        } else if ((scs->use_flat_ipp && scs->static_config.enc_mode <= ENC_M9) ||
-                   (!scs->use_flat_ipp && scs->static_config.enc_mode <= ENC_M11)) {
-            mrp_level = 9;
-        } else {
-            mrp_level = 0;
-        }
-#endif
     }
 
-    else {
-        if (scs->static_config.enc_mode <= ENC_MR) {
-            mrp_level = 1;
-        } else if (scs->static_config.enc_mode <= ENC_M2) {
-            mrp_level = 2;
-        } else if (scs->static_config.enc_mode <= ENC_M4) {
-            mrp_level = 4;
-        } else if (scs->static_config.enc_mode <= ENC_M8) {
-            mrp_level = 6;
-        } else if (scs->static_config.enc_mode <= ENC_M9) {
-            mrp_level = scs->static_config.pred_structure == RANDOM_ACCESS ? 7 : 9;
-        } else {
-            if (scs->static_config.encoder_bit_depth == EB_EIGHT_BIT) {
-                mrp_level = scs->static_config.pred_structure == RANDOM_ACCESS ? 11 : 0;
-            } else {
-                mrp_level = scs->static_config.pred_structure == RANDOM_ACCESS ? 7 : 0;
-            }
+    // Defensive invariant: the override must have left enough STORE-safe
+    // slots. Trips if a future change to set_mrp_ctrl's per-level counts
+    // silently regresses below the cap.
+    if (scs->static_config.max_managed_refs > 0) {
+        const uint8_t safe_pool_size = (uint8_t)svt_numbits(svt_aom_ref_mgmt_storeable_slots_mask(scs));
+        if (safe_pool_size < scs->static_config.max_managed_refs) {
+            SVT_ERROR(
+                "LTR invariant: safe-pool %u < max_managed_refs %u "
+                "(ld_reduce=%u list0=%u/%u hier=%u flat_ipp=%u)\n",
+                (unsigned)safe_pool_size,
+                (unsigned)scs->static_config.max_managed_refs,
+                (unsigned)scs->mrp_ctrls.ld_reduce_ref_buffs,
+                (unsigned)scs->mrp_ctrls.base_ref_list0_count,
+                (unsigned)scs->mrp_ctrls.non_base_ref_list0_count,
+                (unsigned)scs->static_config.hierarchical_levels,
+                (unsigned)scs->use_flat_ipp);
+            assert(0 && "LTR safe-pool size < max_managed_refs");
         }
     }
-    set_mrp_ctrl(scs, mrp_level);
-    scs->is_short_clip = scs->static_config.gop_constraint_rc
-        ? 1
-        : 0; // set to 1 if multipass and less than 200 frames in resourcecordination
+
+    // Snapshot the post-override state; PRESET_CHANGE_EVENT clamps against this.
+    scs->mrp_ctrls_init = scs->mrp_ctrls;
+    // set to 1 if multipass and less than 200 frames in resourcecordination
+    scs->is_short_clip = scs->static_config.gop_constraint_rc ? 1 : 0;
     if (allintra || scs->static_config.aq_mode == 1 || scs->static_config.scene_change_detection == 1 ||
         scs->vq_ctrls.sharpness_ctrls.tf == 1 || scs->static_config.enable_variance_boost) {
         scs->calculate_variance = 1;
@@ -4881,6 +4937,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
 
     // HBD-MDS
     scs->static_config.hbd_mds = config_struct->hbd_mds;
+
+    // Ref-frame management: propagate caller's max-anchors hint (0 = disabled).
+    scs->static_config.max_managed_refs = config_struct->max_managed_refs;
 
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {
@@ -5581,6 +5640,66 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
                           MAX_ENC_PRESET);
                 return EB_ErrorBadParameter;
             }
+        } else if (node->node_type == REF_STORE_EVENT || node->node_type == REF_CLEAR_EVENT ||
+                   node->node_type == REF_USE_EVENT) {
+            // Ref-frame management: per-event validation (FAIL-HARD path).
+            // Synchronous-checkable preconditions:
+            //   - Payload shape (size + non-NULL data).
+            //   - pic_id != 0 (0 is reserved as the "no event" sentinel).
+            //   - max_managed_refs > 0 (feature must be enabled at config time).
+            //   - pred_structure == LOW_DELAY (feature scope).
+            //   - At most ONE event of each type per input (STORE/CLEAR/USE).
+            //   - No pic_id collision across STORE/CLEAR/USE on the same input.
+            // Conditions requiring per-frame DPB state (duplicate STORE,
+            // cap reached, unknown CLEAR/USE, non-base layer, overlay) are
+            // detected later in pd_process and logged with SVT_ERROR.
+            const char* evt_name = (node->node_type == REF_STORE_EVENT) ? "REF_STORE_EVENT"
+                : (node->node_type == REF_CLEAR_EVENT)                  ? "REF_CLEAR_EVENT"
+                                                                        : "REF_USE_EVENT";
+            if (node->size != sizeof(SvtAv1RefFrameCmd) || !node->data) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("%s: invalid private-data size or NULL data\n", evt_name);
+                return EB_ErrorBadParameter;
+            }
+            const uint32_t pic_id = ((const SvtAv1RefFrameCmd*)node->data)->pic_id;
+            if (pic_id == 0) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("%s: pic_id == 0 is reserved\n", evt_name);
+                return EB_ErrorBadParameter;
+            }
+            if (scs->static_config.max_managed_refs == 0) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("%s requires max_managed_refs > 0\n", evt_name);
+                return EB_ErrorBadParameter;
+            }
+            if (scs->static_config.pred_structure != LOW_DELAY) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("%s requires pred_structure == LOW_DELAY\n", evt_name);
+                return EB_ErrorBadParameter;
+            }
+            // Walk the rest of the priv-data chain to detect (a) a second
+            // node of the same type and (b) a different ref-mgmt node
+            // carrying the same pic_id. Both indicate caller misuse.
+            for (EbPrivDataNode* peer = node->next; peer != NULL; peer = peer->next) {
+                if (peer->node_type != REF_STORE_EVENT && peer->node_type != REF_CLEAR_EVENT &&
+                    peer->node_type != REF_USE_EVENT) {
+                    continue;
+                }
+                if (peer->size != sizeof(SvtAv1RefFrameCmd) || !peer->data) {
+                    continue; // its own validation pass will reject it
+                }
+                if (peer->node_type == node->node_type) {
+                    input_ptr->flags = EB_BUFFERFLAG_EOS;
+                    SVT_ERROR("%s: duplicate event type on same input\n", evt_name);
+                    return EB_ErrorBadParameter;
+                }
+                if (((const SvtAv1RefFrameCmd*)peer->data)->pic_id == pic_id) {
+                    input_ptr->flags = EB_BUFFERFLAG_EOS;
+                    SVT_ERROR("Ref-frame mgmt: pic_id=%u used by multiple events on the same input (STORE/CLEAR/USE)\n",
+                              (unsigned)pic_id);
+                    return EB_ErrorBadParameter;
+                }
+            }
         }
         node = node->next;
     }
@@ -5749,7 +5868,7 @@ EB_API EbErrorType svt_av1_enc_get_packet(EbComponentType* svt_enc_component, Eb
 
     if (eb_wrapper_ptr) {
         packet = (EbBufferHeaderType*)eb_wrapper_ptr->object_ptr;
-        if (packet->flags & 0xfffffff0) {
+        if (packet->flags & EB_BUFFERFLAG_ERROR_MASK) {
             return_error = EB_ErrorMax;
         }
         // return the output stream buffer

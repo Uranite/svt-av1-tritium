@@ -230,6 +230,9 @@ typedef struct SequenceControlSet {
     uint8_t      calc_hist;
     TfControls   tf_params_per_type[3]; // [I_SLICE][BASE][L1]
     MrpCtrls     mrp_ctrls;
+    // Init-time snapshot; runtime PRESET_CHANGE_EVENT clamps mrp_ctrls
+    // list0 counts to MIN(init, runtime). See enc_handle.c.
+    MrpCtrls mrp_ctrls_init;
     /*!< The RC stat generation pass mode (0: The default, 1: optimized)*/
     uint8_t rc_stat_gen_pass_mode;
 #if TUNE_CQP_CHROMA_SSIM

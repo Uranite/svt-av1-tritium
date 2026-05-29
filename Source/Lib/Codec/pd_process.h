@@ -45,6 +45,10 @@ bool        svt_aom_is_pic_used_as_ref(unsigned hierarchical_levels, unsigned te
                                        unsigned referencing_scheme, bool is_overlay);
 bool        svt_aom_is_incomp_mg_frame(PictureParentControlSet* pcs);
 
+// Bitmask of DPB slots safe to STORE-lock (i.e. slots no pred-struct
+// branch refreshes as its sole refresh_frame_mask bit). See pd_process.c.
+uint8_t svt_aom_ref_mgmt_storeable_slots_mask(const SequenceControlSet* scs);
+
 typedef struct DpbEntry {
     uint64_t picture_number;
     uint64_t decode_order;
@@ -138,6 +142,11 @@ typedef struct PictureDecisionContext {
     uint64_t sframe_last_arf;
     bool     next_arf_is_s;
     int64_t  current_input_poc;
+
+    // Ref-frame management bookkeeping (per pd_process thread):
+    //   pic_id_per_dpb_slot[i] : application pic_id held in DPB slot i (0 = none).
+    // The STOREd-slot bitmask is derived on demand via ref_mgmt_stored_mask().
+    uint32_t pic_id_per_dpb_slot[REF_FRAMES];
 } PictureDecisionContext;
 
 #endif // EbPictureDecision_h

@@ -1130,10 +1130,330 @@ static bool set_frame_display_params(PictureParentControlSet* pcs, PictureDecisi
     return true;
 }
 
+static void ref_mgmt_reset_state(PictureDecisionContext* ctx) {
+    memset(ctx->pic_id_per_dpb_slot, 0, sizeof(ctx->pic_id_per_dpb_slot));
+}
+
+// Bitmask of currently-STOREd DPB slots, derived from pic_id_per_dpb_slot:
+// bit i is set iff slot i holds a nonzero app pic_id. pic_id 0 is the
+// "no id" sentinel and a STORE always records a nonzero id, so a nonzero
+// entry is exactly a held STORE. This keeps pic_id_per_dpb_slot the single
+// source of truth (no separate mask to keep in sync). Called per-frame in
+// pd_process; REF_FRAMES==8, not on the per-block hot path.
+static uint8_t ref_mgmt_stored_mask(const PictureDecisionContext* ctx) {
+    uint8_t m = 0;
+    for (uint8_t i = 0; i < REF_FRAMES; ++i) {
+        if (ctx->pic_id_per_dpb_slot[i] != 0) {
+            m |= (uint8_t)(1u << i);
+        }
+    }
+    return m;
+}
+
+// Ref-frame management helpers — operate on PictureDecisionContext state
+// (pic_id_per_dpb_slot; the STOREd-slot bitmask is derived on demand via
+// ref_mgmt_stored_mask). STOREd slots are allocated dynamically: the
+// encoder picks a slot the short-term allocator was already going to
+// refresh this frame, then locks it by recording its pic_id. CLEAR
+// releases a slot back to the ST allocator. The post-branch refresh-guard
+// masks out STOREd-slot bits so the encoder never overwrites a locked slot.
+
+// Find DPB slot currently holding `pic_id` (must be STOREd). Returns REF_FRAMES on miss.
+static uint8_t ref_mgmt_find_slot(const PictureDecisionContext* ctx, uint32_t pic_id) {
+    if (pic_id == 0) {
+        return (uint8_t)REF_FRAMES; // 0 = "no id" sentinel
+    }
+    for (uint8_t i = 0; i < REF_FRAMES; ++i) {
+        if (ctx->pic_id_per_dpb_slot[i] == pic_id) {
+            return i;
+        }
+    }
+    return (uint8_t)REF_FRAMES;
+}
+
+// CLEAR: release a previously-STOREd pic_id. Warns + no-ops if id unknown.
+static void apply_ref_clear(PictureParentControlSet* pcs, PictureDecisionContext* ctx) {
+    const uint32_t pid  = pcs->ref_mgmt.clear_id;
+    const uint8_t  slot = ref_mgmt_find_slot(ctx, pid);
+    if (slot >= REF_FRAMES) {
+        SVT_ERROR("Ref-frame mgmt: CLEAR pic_id=%u not found in DPB; no-op (poc=%lu)\n",
+                  (unsigned)pid,
+                  (unsigned long)pcs->picture_number);
+        return;
+    }
+    ctx->pic_id_per_dpb_slot[slot] = 0;
+}
+
+// STORE-safe DPB slot pool: complement of the slots that some active LD-CBR
+// pred-struct branch refreshes as the sole bit of refresh_frame_mask.
+// Locking one of those slots would collapse the branch's refresh mask to 0
+// in apply_ref_mgmt_events Phase 3 → crash in assign_and_release_pa_refs.
+// Mirror of av1_generate_rps_info LD-CBR branch (line 2024-2126); keep in
+// sync when refresh_frame_mask assignments there change. LTR is gated to
+// LD-CBR in enc_settings.c — LD-CRF's shifted lay1_offset would need its
+// own branch here. Slot 7's long-base period-128 refresh is silently
+// suppressed when STOREd by the same Phase 3 guard, so it stays safe.
+static uint8_t exclusive_write_slots_mask_ld_cbr(const SequenceControlSet* scs) {
+    uint8_t       mask      = 0;
+    const uint8_t hier      = scs->static_config.hierarchical_levels;
+    const uint8_t ld_reduce = scs->mrp_ctrls.ld_reduce_ref_buffs;
+
+    // TID-0: single-bit `1 << lay0_toggle` (toggle ∈ {0,1,2}) only at
+    // ld_reduce=0; backup bits (`| 0xf0` / `| 0xfc`) make it non-exclusive otherwise.
+    if (ld_reduce == 0) {
+        mask |= 0x07u;
+    }
+    // TID-1: always single-bit; slot depends on ld_reduce.
+    if (hier >= 1) {
+        switch (ld_reduce) {
+        case 0:
+            mask |= (uint8_t)((1u << LAY1_OFF) | (1u << (LAY1_OFF + 1)));
+            break;
+        case 1:
+            mask |= (uint8_t)(1u << LAY1_OFF);
+            break;
+        case 2:
+            mask |= (uint8_t)(1u << 1);
+            break;
+        default:
+            assert(0 && "unhandled ld_reduce_ref_buffs");
+            break;
+        }
+    }
+    // TID-2: ld_reduce > 0 force-zeros TID-2 refresh, so only exclusive at ld_reduce=0.
+    if (hier >= 2 && ld_reduce == 0) {
+        mask |= (uint8_t)(1u << LAY2_OFF);
+    }
+    return mask;
+}
+
+uint8_t svt_aom_ref_mgmt_storeable_slots_mask(const SequenceControlSet* scs) {
+    // Flat IPP (hier=0): regular refs only ever occupy slots [0..flat_max_refs-1]
+    // (flat_max_refs <= 4) and lay0_toggle rotates through them, while slots 4-7
+    // are the per-frame `| 0xf0` refresh/clear backup and are never read as refs.
+    // Returning 0xFF is crash-safe (the 0xf0 backup keeps the Phase-3 refresh
+    // guard from collapsing refresh_frame_mask to 0), but STOREing into a bottom
+    // slot would let the Phase-3 guard freeze a slot the toggle still rotates
+    // through, silently dropping a live ref out of the window. Restrict STORE to
+    // the top 4 so it never interferes with the regular sliding-window refs.
+    if (scs->use_flat_ipp) {
+        return 0xF0u;
+    }
+    if (scs->static_config.pred_structure == LOW_DELAY && scs->static_config.hierarchical_levels >= 1) {
+        return (uint8_t)(~exclusive_write_slots_mask_ld_cbr(scs) & 0xFFu);
+    }
+    // RA / other paths: not LTR-eligible (rejected in enc_settings.c).
+    return 0xFFu;
+}
+
+// STORE: place the current frame into the lowest free STORE-safe DPB slot
+// and force-refresh that bit so the reconstruction lands there regardless
+// of the branch's natural refresh choice.
+//
+// Failure modes (warn + no-op; caller scrubs store_id so packetization
+// does NOT stamp the output flag):
+//   - duplicate pic_id (already STOREd; app must CLEAR first)
+//   - simultaneous-STORE cap reached (popcount of STOREd slots ==
+//     scs->static_config.max_managed_refs); matches buffer-pool sizing.
+//   - safe slot pool full (see svt_aom_ref_mgmt_storeable_slots_mask)
+// Returns the picked slot, or REF_FRAMES on failure.
+static uint8_t apply_ref_store(PictureParentControlSet* pcs, PictureDecisionContext* ctx) {
+    const uint32_t pid = pcs->ref_mgmt.store_id;
+    if (ref_mgmt_find_slot(ctx, pid) < REF_FRAMES) {
+        SVT_ERROR("Ref-frame mgmt: STORE pic_id=%u already STOREd; no-op (poc=%lu)\n",
+                  (unsigned)pid,
+                  (unsigned long)pcs->picture_number);
+        return (uint8_t)REF_FRAMES;
+    }
+    // Enforce the simultaneous-hold cap to match buffer-pool sizing.
+    const uint8_t held = (uint8_t)svt_numbits(ref_mgmt_stored_mask(ctx));
+    if (held >= pcs->scs->static_config.max_managed_refs) {
+        SVT_ERROR(
+            "Ref-frame mgmt: STORE pic_id=%u — already at max_managed_refs cap (%u held); CLEAR something first "
+            "(poc=%lu)\n",
+            (unsigned)pid,
+            (unsigned)pcs->scs->static_config.max_managed_refs,
+            (unsigned long)pcs->picture_number);
+        return (uint8_t)REF_FRAMES;
+    }
+    const uint8_t storeable_mask = svt_aom_ref_mgmt_storeable_slots_mask(pcs->scs);
+    const uint8_t free           = (uint8_t)(storeable_mask & ~ref_mgmt_stored_mask(ctx));
+    if (free == 0) {
+        SVT_ERROR("Ref-frame mgmt: STORE pic_id=%u — safe slot pool (0x%02x) is full; no-op (poc=%lu)\n",
+                  (unsigned)pid,
+                  (unsigned)storeable_mask,
+                  (unsigned long)pcs->picture_number);
+        return (uint8_t)REF_FRAMES;
+    }
+    const uint8_t slot = (uint8_t)svt_ctz(free);
+    // Force-refresh the picked slot so the current frame's reconstruction
+    // lands there, independent of what the branch's RPS chose. This is
+    // why the safe-pool design works even on TL=1/TL=2 frames whose
+    // refresh_frame_mask wouldn't otherwise include slot 6/7.
+    pcs->av1_ref_signal.refresh_frame_mask |= (uint8_t)(1u << slot);
+    ctx->pic_id_per_dpb_slot[slot] = pid;
+    return slot;
+}
+
+// USE: redirect every AV1 ref position to the STOREd slot holding pic_id
+// and clamp ref_list counts to (1,0). Warns + no-ops on unknown pic_id.
+// Returns true on success.
+//
+// (a) splattering the slot index into all 7 ref_dpb_index[] entries
+//     guarantees that even if the encoder's mode decision picks
+//     LAST2..ALT for some block, it still resolves to the same DPB slot;
+// (b) clamping ref_list counts to (1,0) tells the mode decision not to
+//     try compound prediction with other refs.
+static bool apply_ref_use(PictureParentControlSet* pcs, PictureDecisionContext* ctx) {
+    const uint32_t pid  = pcs->ref_mgmt.use_id;
+    const uint8_t  slot = ref_mgmt_find_slot(ctx, pid);
+    if (slot >= REF_FRAMES) {
+        SVT_ERROR("Ref-frame mgmt: USE pic_id=%u not found in DPB; no-op (poc=%lu)\n",
+                  (unsigned)pid,
+                  (unsigned long)pcs->picture_number);
+        return false;
+    }
+    Av1RpsNode*    rps = &pcs->av1_ref_signal;
+    const uint64_t poc = ctx->dpb[slot].picture_number;
+    /* AV1 ref positions LAST..ALT = INTER_REFS_PER_FRAME (7) entries. */
+    for (int i = 0; i < INTER_REFS_PER_FRAME; ++i) {
+        rps->ref_dpb_index[i] = slot;
+        rps->ref_poc_array[i] = poc;
+    }
+    pcs->ref_list0_count = 1;
+    pcs->ref_list1_count = 0;
+    return true;
+}
+
+// Dispatcher: applies CLEAR/STORE/USE events on the just-computed RPS.
+// Called for every frame at the end of av1_generate_rps_info.
+//
+// Order: CLEAR (free slots) → STORE (allocate a slot for current frame) →
+// USE (override refs + recovery-point refresh). CLEAR runs first so a
+// same-frame STORE can use a slot just freed.
+//
+// Refresh guard: the encoder must never overwrite a STOREd slot. We take the
+// derived STOREd-slot mask (ref_mgmt_stored_mask), exclude this frame's new
+// STORE slot (if any) so the current frame's data lands there, and mask the
+// rest out of refresh_frame_mask.
+//
+// Gates (silently no-op + warning when violated):
+//   - AV1 overlay frames: refresh_frame_mask is force-zeroed downstream,
+//     so events would corrupt bookkeeping.
+//   - Non-base temporal-layer frames: can't be standalone anchors.
+//   - Same pic_id used in multiple events on the same frame: invalid.
+//
+// Always-on refresh guard (even for event-less frames): when any slot is
+// STOREd, that slot must never be in refresh_frame_mask. With no STOREs the
+// derived mask is 0, making this a no-op and preserving bit-exact legacy.
+static void apply_ref_mgmt_events(PictureParentControlSet* pcs, PictureDecisionContext* ctx) {
+    uint8_t    new_store_slot = (uint8_t)REF_FRAMES;
+    const bool have_event     = pcs->ref_mgmt.store_id != 0 || pcs->ref_mgmt.clear_id != 0 || pcs->ref_mgmt.use_id != 0;
+    bool       events_ok      = have_event;
+
+    if (have_event) {
+        if (pcs->is_overlay) {
+            SVT_ERROR("Ref-frame mgmt: ignoring events on AV1 overlay frame poc=%lu\n",
+                      (unsigned long)pcs->picture_number);
+            events_ok = false;
+        } else {
+            const bool is_base = pcs->scs->use_flat_ipp || pcs->temporal_layer_index == 0;
+            if (!is_base) {
+                SVT_ERROR("Ref-frame mgmt: ignoring events on non-base frame poc=%lu temporal_layer=%u\n",
+                          (unsigned long)pcs->picture_number,
+                          (unsigned)pcs->temporal_layer_index);
+                events_ok = false;
+            } else {
+                // Reject pic_id collisions across same-frame events.
+                const uint32_t s = pcs->ref_mgmt.store_id;
+                const uint32_t c = pcs->ref_mgmt.clear_id;
+                const uint32_t u = pcs->ref_mgmt.use_id;
+                if ((s != 0 && s == c) || (s != 0 && s == u) || (c != 0 && c == u)) {
+                    SVT_ERROR(
+                        "Ref-frame mgmt: duplicate pic_id across STORE/CLEAR/USE on same frame poc=%lu "
+                        "(store=%u clear=%u use=%u); ignoring all\n",
+                        (unsigned long)pcs->picture_number,
+                        (unsigned)s,
+                        (unsigned)c,
+                        (unsigned)u);
+                    events_ok = false;
+                }
+            }
+        }
+        if (!events_ok) {
+            pcs->ref_mgmt.store_id = pcs->ref_mgmt.clear_id = pcs->ref_mgmt.use_id = 0;
+        }
+    }
+
+    // Phase 1: CLEAR — frees slots before STORE so freed slots can be reused.
+    if (pcs->ref_mgmt.clear_id != 0) {
+        apply_ref_clear(pcs, ctx);
+        // apply_ref_clear() warns on miss; clear the field so downstream
+        // consumers don't see a "phantom" CLEAR after the warning.
+        pcs->ref_mgmt.clear_id = 0;
+    }
+
+    // Phase 2: STORE — claim a free slot from refresh_frame_mask.
+    // On failure (duplicate id, no candidate slot), the helper warns AND
+    // we must scrub store_id here so packetization_process.c does NOT
+    // stamp EB_BUFFERFLAG_REF_STORED on the output (the flag is the
+    // ground-truth signal to the wrapper; tagging a failed STORE would
+    // break its anchor-tracking state machine).
+    if (pcs->ref_mgmt.store_id != 0) {
+        new_store_slot = apply_ref_store(pcs, ctx);
+        if (new_store_slot >= REF_FRAMES) {
+            pcs->ref_mgmt.store_id = 0;
+        }
+    }
+
+    // Phase 3: refresh guard — preserve all previously-STOREd slots from
+    // overwrite. The new STORE's slot (if any) is excluded from the preserve
+    // set so the current frame's data lands there. Always runs (even without
+    // events) so a held slot from an earlier frame is never overwritten.
+    {
+        const uint8_t stored_mask   = ref_mgmt_stored_mask(ctx);
+        const uint8_t preserve_mask = (new_store_slot < REF_FRAMES)
+            ? (uint8_t)(stored_mask & ~(uint8_t)(1u << new_store_slot))
+            : stored_mask;
+        const uint8_t orig          = pcs->av1_ref_signal.refresh_frame_mask;
+        pcs->av1_ref_signal.refresh_frame_mask &= (uint8_t)~preserve_mask;
+        // Diagnostic: detect the degenerate case where every bit the branch
+        // wanted to refresh is locked by a STORE. The frame is valid AV1 but
+        // its reconstruction is not inserted into the DPB; future inter
+        // frames will reference older content. Caller should CLEAR sooner.
+        if (orig != 0 && pcs->av1_ref_signal.refresh_frame_mask == 0 && !pcs->is_overlay) {
+            SVT_WARN(
+                "Ref-frame mgmt: refresh_frame_mask collapsed to 0 at poc=%lu "
+                "(branch wanted 0x%02x, all bits locked by STOREs 0x%02x); "
+                "this frame will NOT be inserted into the DPB\n",
+                (unsigned long)pcs->picture_number,
+                (unsigned)orig,
+                (unsigned)preserve_mask);
+        }
+    }
+
+    // Phase 4: USE — override refs, then recovery-point refresh.
+    if (pcs->ref_mgmt.use_id != 0) {
+        if (apply_ref_use(pcs, ctx)) {
+            // Recovery-point refresh: every non-STOREd slot gets the current
+            // frame so future frames can only reference STOREd anchors or
+            // this recovery point.
+            uint8_t refresh_mask = (uint8_t)(0xFFu & ~ref_mgmt_stored_mask(ctx));
+            if (new_store_slot < REF_FRAMES) {
+                // The just-STOREd slot must also receive current frame data.
+                refresh_mask |= (uint8_t)(1u << new_store_slot);
+            }
+            pcs->av1_ref_signal.refresh_frame_mask = refresh_mask;
+        }
+    }
+}
+
 static void set_key_frame_rps(PictureParentControlSet* pcs, PictureDecisionContext* pd_ctx) {
     FrameHeader* frm_hdr = &pcs->frm_hdr;
     pd_ctx->lay0_toggle  = 0;
     pd_ctx->lay1_toggle  = 0;
+    // KF refreshes all 8 DPB slots, so all previously-STOREd refs are invalidated.
+    ref_mgmt_reset_state(pd_ctx);
 
     frm_hdr->show_frame    = true;
     pcs->has_show_existing = false;
@@ -1607,6 +1927,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             if (IS_SFRAME_FLEXIBLE_INSERT(scs->static_config.sframe_mode)) {
                 decide_sframe_mg(pcs, enc_ctx, ctx);
             }
+            // KF refreshes all 8 slots; set_key_frame_rps already reset the
+            // managed-ref state. If the app STOREd this KF, record (slot, pic_id) now.
+            apply_ref_mgmt_events(pcs, ctx);
             return;
         }
     } else {
@@ -3106,6 +3429,12 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
     if (frm_hdr->frame_type == S_FRAME) {
         set_sframe_rps(pcs, enc_ctx, ctx);
     }
+
+    // Ref-frame management: apply STORE/USE events after any branch-specific
+    // RPS computation (incl. S-FRAME) but before the AV1-overlay refresh
+    // reset below. No-op when no STORE/CLEAR/USE event is queued AND no
+    // slot is currently STOREd in this ctx.
+    apply_ref_mgmt_events(pcs, ctx);
 
     // This should already be the case
     if (pcs->is_overlay) {

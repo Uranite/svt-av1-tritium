@@ -245,6 +245,9 @@ typedef enum {
     FRAME_RATE_CHANGE_EVENT, // Frame rate change data per picture
     COMPUTE_QUALITY_EVENT, // Compute quality per frame
     PRESET_CHANGE_EVENT, // Preset (enc_mode) change data per picture
+    REF_STORE_EVENT, // Ref-frame management: STORE current frame in DPB with pic_id (payload: SvtAv1RefFrameCmd)
+    REF_CLEAR_EVENT, // Ref-frame management: release a previously STOREd pic_id (payload: SvtAv1RefFrameCmd)
+    REF_USE_EVENT, // Ref-frame management: predict current frame from a STOREd ref (payload: SvtAv1RefFrameCmd)
     PRIVATE_DATA_TYPES // end of private data types
 } PrivDataType;
 
@@ -289,6 +292,39 @@ typedef struct SvtAv1RateInfo {
     uint32_t seq_qp;
     uint32_t target_bit_rate;
 } SvtAv1RateInfo;
+
+// Ref-frame management API — application-controlled DPB stores.
+//
+// New EbPrivDataNode event types (REF_STORE_EVENT, REF_USE_EVENT,
+// REF_CLEAR_EVENT) let an application STORE encoded frames into the AV1
+// DPB as long-term references, then USE a recovery frame to predict
+// only from a STOREd anchor. Designed for RTC error-recovery: cheaper
+// than a full keyframe when one is lost.
+//
+// At-a-glance contract:
+//   - Enable: set EbSvtAv1EncConfiguration::max_managed_refs in [1..4].
+//   - Per-event payload: SvtAv1RefFrameCmd { uint32_t pic_id; }
+//     (one STORE + one CLEAR + one USE max per input; pic_id != 0).
+//   - Required encoder config: pred_structure == LOW_DELAY,
+//     rate_control_mode == CBR, hierarchical_levels in {0,1,2}.
+//   - Events apply only on base-layer (temporal_layer_index == 0) inputs.
+//   - Key frames implicitly release all anchors.
+//   - Pre-condition violations either FAIL-HARD (returns
+//     EB_ErrorBadParameter, stamps EOS on the buffer) or ERROR + DROP
+//     (logs SVT_ERROR, no bitstream effect). The application is
+//     expected to maintain its own anchor-state model to avoid
+//     ERROR + DROP paths.
+//
+// Full workflow, configuration constraints, error-handling matrix,
+// encoder-side mrp_level override mechanics, and memory-overhead notes:
+// see src/Docs/Appendix-Ref-Frame-Management.md
+
+// Payload for the three ref-frame management events (REF_STORE_EVENT,
+// REF_CLEAR_EVENT, REF_USE_EVENT). All three share the same single-field
+// layout — only the EbPrivDataNode::node_type distinguishes them.
+typedef struct SvtAv1RefFrameCmd {
+    uint32_t pic_id; // application-chosen non-zero id; 0 is the "no event" sentinel
+} SvtAv1RefFrameCmd;
 
 typedef struct SvtAv1FrameRateInfo {
     // Sequence frame rate which over writes the sequence frame rate.

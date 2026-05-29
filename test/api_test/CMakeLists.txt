@@ -23,6 +23,7 @@ set(all_files
     MultiEncoderTest.cc
     SvtAv1EncApiTest.cc
     SvtAv1EncApiTest.h
+    SvtAv1EncRefMgmtApiTest.cc
     SvtAv1EncParamsTest.cc
     params.h
     ${PROJECT_SOURCE_DIR}/test/e2e_test/VideoSource.cc

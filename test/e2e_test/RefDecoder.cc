@@ -280,6 +280,23 @@ RefDecoder::RefDecoderErr RefDecoder::decode(const uint8_t* data,
     }
     enc_bytes_ += size;
     burst_bytes_ = std::max(burst_bytes_, size);
+
+    // Capture per-frame parses for ref-frame management cross-check.
+    // AOMD_GET_LAST_REF_UPDATES returns refresh_frame_flags (bit i set iff
+    // DPB slot i was refreshed). AOMD_GET_FRAME_CORRUPTED reports decode
+    // integrity. Both controls reflect the LAST decoded frame.
+    int refresh_flags = 0;
+    if (aom_codec_control(codec_, AOMD_GET_LAST_REF_UPDATES, &refresh_flags) ==
+        AOM_CODEC_OK) {
+        stream_info_.refresh_frame_flags_list.push_back(
+            (uint8_t)(refresh_flags & 0xFF));
+    }
+    int corrupted = 0;
+    if (aom_codec_control(codec_, AOMD_GET_FRAME_CORRUPTED, &corrupted) ==
+        AOM_CODEC_OK) {
+        stream_info_.frame_corrupted_list.push_back(corrupted);
+    }
+
     return REF_CODEC_OK;
 }
 

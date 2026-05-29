@@ -158,6 +158,22 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("CBR Rate control is currently not supported for RANDOM_ACCESS/ALL_INTRA, use VBR mode\n");
         return_error = EB_ErrorBadParameter;
     }
+    // Ref-frame management validation: ABI cap + LD-CBR-only when enabled.
+    if (config->max_managed_refs > 4) {
+        SVT_ERROR("max_managed_refs must be in [0, 4] (got %u)\n", (unsigned)config->max_managed_refs);
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->max_managed_refs > 0 && config->pred_structure != LOW_DELAY) {
+        SVT_ERROR("max_managed_refs > 0 requires pred_structure == LOW_DELAY\n");
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->max_managed_refs > 0 && config->rate_control_mode != SVT_AV1_RC_MODE_CBR) {
+        // Only LD-CBR is implemented; LD-CRF's shifted lay1_offset would
+        // collide with the STORE-safe slot pool. See pd_process.c.
+        SVT_ERROR("max_managed_refs > 0 requires rate_control_mode == CBR (got %u)\n",
+                  (unsigned)config->rate_control_mode);
+        return_error = EB_ErrorBadParameter;
+    }
     if (config->rate_control_mode == SVT_AV1_RC_MODE_VBR && config->pred_structure == LOW_DELAY) {
         SVT_ERROR("VBR Rate control is currently not supported for LOW_DELAY, use CBR mode\n");
         return_error = EB_ErrorBadParameter;
@@ -1069,6 +1085,11 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->extended_crf_qindex_offset        = 0;
     config_ptr->ac_bias                           = 0.0;
     config_ptr->hbd_mds                           = DEFAULT;
+
+    // Ref-frame management disabled by default → legacy bit-exact behavior
+    // and no extra ref-buffer memory allocated.
+    config_ptr->max_managed_refs = 0;
+
     return return_error;
 }
 

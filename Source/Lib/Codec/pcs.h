@@ -723,6 +723,15 @@ typedef struct DGDetectorSeg {
 //  to store SB based encoding results and information. Parent is created before the Child, and
 //  continue to live more. Child PCS only lives the exact time needed to encode the picture: from ME
 //  to EC/ALF.
+
+// Ref-frame management — per-frame app intent: stamped from REF_STORE/CLEAR/USE_EVENT
+// nodes during resource coordination, consumed by pd_process. 0 = no event.
+typedef struct RefMgmt {
+    uint32_t store_id;
+    uint32_t clear_id;
+    uint32_t use_id;
+} RefMgmt;
+
 typedef struct PictureParentControlSet {
     EbDctor          dctor;
     EbObjectWrapper* input_pic_wrapper;
@@ -1019,6 +1028,11 @@ typedef struct PictureParentControlSet {
     // reference scaling random access event
     EbRefFrameScale resize_evt;
     bool            rc_reset_flag;
+
+    // Ref-frame management: per-frame STORE/USE intent stamped from
+    // REF_STORE_EVENT / REF_USE_EVENT nodes during resource coordination
+    // and consumed by pd_process for reference selection.
+    RefMgmt ref_mgmt;
 
     bool    frame_superres_enabled;
     uint8_t superres_denom;

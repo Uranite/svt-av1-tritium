@@ -647,6 +647,15 @@ static inline int svt_ctzll(unsigned __int64 x) {
 }
 #endif
 
+// Count of set bits in x. Portable, branchless, ~12 ops; not on any hot
+// path so the C version is fine and avoids compiler-specific intrinsics.
+static INLINE int svt_numbits(unsigned int x) {
+    x = x - ((x >> 1) & 0x55555555u);
+    x = (x & 0x33333333u) + ((x >> 2) & 0x33333333u);
+    x = (x + (x >> 4)) & 0x0F0F0F0Fu;
+    return (int)((x * 0x01010101u) >> 24);
+}
+
 /* clang-format on */
 
 typedef uint16_t ConvBufType;
