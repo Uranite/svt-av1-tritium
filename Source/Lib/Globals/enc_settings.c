@@ -1046,7 +1046,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->pred_structure               = RANDOM_ACCESS;
     config_ptr->enable_dlf_flag              = 2;
     config_ptr->cdef_level                   = DEFAULT;
-    config_ptr->enable_restoration_filtering = DEFAULT;
+    config_ptr->enable_restoration_filtering = 0;
     config_ptr->enable_mfmv                  = DEFAULT;
     config_ptr->enable_dg                    = 1;
     config_ptr->fast_decode                  = 0;
@@ -1169,7 +1169,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->auto_tiling                       = true;
     config_ptr->quality_zones                     = NULL;
     config_ptr->num_zones                         = 0;
-    config_ptr->alt_cdef                          = 0;
+    config_ptr->alt_cdef                          = 2;
     config_ptr->alt_dlf                           = 0;
     config_ptr->enable_daala                      = 0;
     config_ptr->low_memory                        = false;
