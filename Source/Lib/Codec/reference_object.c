@@ -180,10 +180,11 @@ EbErrorType svt_reference_object_ctor(EbReferenceObject* ref_object, EbPtr objec
 
     ref_object->mi_rows = mi_rows;
     ref_object->mi_cols = mi_cols;
+    ref_object->r0      = 0.0;
     EB_MALLOC_ARRAY(ref_object->sb_intra, picture_buffer_desc_init_data_ptr->sb_total_count);
     EB_MALLOC_ARRAY(ref_object->sb_skip, picture_buffer_desc_init_data_ptr->sb_total_count);
     EB_MALLOC_ARRAY(ref_object->sb_64x64_mvp, picture_buffer_desc_init_data_ptr->sb_total_count);
-    EB_MALLOC_ARRAY(ref_object->sb_me_64x64_dist, picture_buffer_desc_init_data_ptr->sb_total_count);
+    EB_CALLOC_ARRAY(ref_object->sb_me_64x64_dist, picture_buffer_desc_init_data_ptr->sb_total_count);
     EB_MALLOC_ARRAY(ref_object->sb_me_8x8_cost_var, picture_buffer_desc_init_data_ptr->sb_total_count);
     EB_MALLOC_ARRAY(ref_object->sb_min_sq_size, picture_buffer_desc_init_data_ptr->sb_total_count);
     EB_MALLOC_ARRAY(ref_object->sb_max_sq_size, picture_buffer_desc_init_data_ptr->sb_total_count);
