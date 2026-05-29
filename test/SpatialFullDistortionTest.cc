@@ -98,13 +98,13 @@ class SpatialFullDistortionKernelFuncTest
         recon_.resize(MAX_SB_SIZE * recon_stride_);
     }
     void RunCheckOutput(TestPattern pattern);
-    size_t input_stride_{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
-    size_t recon_stride_{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
+    uint32_t input_stride_{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
+    uint32_t recon_stride_{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
 };
 
 void SpatialFullDistortionKernelFuncTest::RunCheckOutput(TestPattern pattern) {
-    const auto area_width = std::get<0>(TEST_GET_PARAM(0));
-    const auto area_height = std::get<1>(TEST_GET_PARAM(0));
+    const uint32_t area_width = std::get<0>(TEST_GET_PARAM(0));
+    const uint32_t area_height = std::get<1>(TEST_GET_PARAM(0));
     const auto test_func{TEST_GET_PARAM(1)};
     for (int i = 0; i < 10; i++) {
         init_data(pattern);
@@ -224,15 +224,15 @@ class FullDistortionKernel16BitsFuncTest
     }
 
   protected:
-    size_t input_stride_{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
-    size_t recon_stride_{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
+    uint32_t input_stride_{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
+    uint32_t recon_stride_{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
     void RunCheckOutput(TestPattern pattern);
 };
 
 void FullDistortionKernel16BitsFuncTest::RunCheckOutput(TestPattern pattern) {
     const auto test_func{TEST_GET_PARAM(1)};
-    const auto area_width = std::get<0>(TEST_GET_PARAM(0));
-    const auto area_height = std::get<1>(TEST_GET_PARAM(0));
+    const uint32_t area_width = std::get<0>(TEST_GET_PARAM(0));
+    const uint32_t area_height = std::get<1>(TEST_GET_PARAM(0));
     for (int i = 0; i < 10; i++) {
         init_data(pattern);
         const uint64_t dist_test = test_func(input_.data(),

@@ -206,7 +206,7 @@ EbHandle svt_create_thread(void* thread_function(void*), void* thread_context, c
         // the source doesn't fit, so truncate first.
         char    truncated[16];
         wchar_t wname[16];
-        strncpy(truncated, name, sizeof(truncated) - 1);
+        strncpy_s(truncated, sizeof(truncated), name, sizeof(truncated) - 1);
         truncated[sizeof(truncated) - 1] = '\0';
         if (MultiByteToWideChar(CP_UTF8, 0, truncated, -1, wname, (int)(sizeof(wname) / sizeof(wname[0]))) > 0) {
             (void)SetThreadDescription((HANDLE)thread_handle, wname);

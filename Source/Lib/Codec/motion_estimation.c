@@ -968,19 +968,19 @@ static void hme_level_1(MeContext*           me_ctx, // ME context Ptr, used to 
 }
 
 // Perform HME Level 2 for one 64x64 block on the given picture
-void hme_level_2(MeContext*           me_ctx, // ME context Ptr, used to get/update ME results
-                 int16_t              org_x, // Block position in the horizontal direction
-                 int16_t              org_y, // Block position in the vertical direction
-                 uint32_t             block_width, // Block pwidth - full resolution
-                 uint32_t             block_height, // Block height - full resolution
-                 EbPictureBufferDesc* ref_pic_ptr, // reference picture
-                 int16_t              sa_width, // hme level 1 search area in width
-                 int16_t              sa_height, // hme level 1 search area in height
-                 int16_t              hme_l1_sc_x, // best Level1 xMV at (sr_w, sr_h)
-                 int16_t              hme_l1_sc_y, // best Level1 yMV at (sr_w, sr_h)
-                 uint64_t*            best_sad, // Level2 SAD at (sr_w, sr_h)
-                 int16_t*             hme_l2_sc_x, // Level2 xMV at (sr_w, sr_h)
-                 int16_t*             hme_l2_sc_y // Level2 yMV at (sr_w, sr_h)
+static void hme_level_2(MeContext*           me_ctx, // ME context Ptr, used to get/update ME results
+                        int16_t              org_x, // Block position in the horizontal direction
+                        int16_t              org_y, // Block position in the vertical direction
+                        uint32_t             block_width, // Block pwidth - full resolution
+                        uint32_t             block_height, // Block height - full resolution
+                        EbPictureBufferDesc* ref_pic_ptr, // reference picture
+                        int16_t              sa_width, // hme level 1 search area in width
+                        int16_t              sa_height, // hme level 1 search area in height
+                        int16_t              hme_l1_sc_x, // best Level1 xMV at (sr_w, sr_h)
+                        int16_t              hme_l1_sc_y, // best Level1 yMV at (sr_w, sr_h)
+                        uint64_t*            best_sad, // Level2 SAD at (sr_w, sr_h)
+                        int16_t*             hme_l2_sc_x, // Level2 xMV at (sr_w, sr_h)
+                        int16_t*             hme_l2_sc_y // Level2 yMV at (sr_w, sr_h)
 ) {
     // round up the search region width to nearest multiple of 8 because the SAD calculation performance (for
     // intrinsic functions) is the same for search region width from 1 to 8
@@ -1057,9 +1057,9 @@ void hme_level_2(MeContext*           me_ctx, // ME context Ptr, used to get/upd
     return;
 }
 
-uint32_t check_00_center(EbPictureBufferDesc* ref_pic_ptr, MeContext* me_ctx, uint32_t sb_origin_x,
-                         uint32_t sb_origin_y, uint32_t sb_width, uint32_t sb_height, int16_t* x_search_center,
-                         int16_t* y_search_center, uint32_t zz_sad)
+static uint64_t check_00_center(EbPictureBufferDesc* ref_pic_ptr, MeContext* me_ctx, uint32_t sb_origin_x,
+                                uint32_t sb_origin_y, uint32_t sb_width, uint32_t sb_height, int16_t* x_search_center,
+                                int16_t* y_search_center, uint32_t zz_sad)
 
 {
     const int16_t org_x         = (int16_t)sb_origin_x;

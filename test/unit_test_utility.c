@@ -38,85 +38,85 @@
 /***************************************
  * Randomize Data
  ***************************************/
-void svt_buf_random_void(void *const buf, const uint32_t sizeBuf) {
+void svt_buf_random_void(void *const buf, const size_t sizeBuf) {
     uint8_t *const buffer = (uint8_t *)buf;
 
-    for (uint32_t i = 0; i < sizeBuf; i++) {
+    for (size_t i = 0; i < sizeBuf; i++) {
         buffer[i] = (uint8_t)(rand() % 256);
     }
 }
 
-void svt_buf_random_u8(uint8_t *const buf, const uint32_t sizeBuf) {
+void svt_buf_random_u8(uint8_t *const buf, const size_t sizeBuf) {
     svt_buf_random_void(buf, sizeBuf);
 }
 
-void svt_buf_random_u8_to_0_or_255(uint8_t *const buf, const uint32_t sizeBuf) {
-    for (uint32_t i = 0; i < sizeBuf; i++)
+void svt_buf_random_u8_to_0_or_255(uint8_t *const buf, const size_t sizeBuf) {
+    for (size_t i = 0; i < sizeBuf; i++)
         buf[i] = (rand() > (RAND_MAX >> 1)) ? 255 : 0;
 }
 
-void svt_buf_random_u8_to_255(uint8_t *const buf, const uint32_t sizeBuf) {
+void svt_buf_random_u8_to_255(uint8_t *const buf, const size_t sizeBuf) {
     memset(buf, 255, sizeBuf);
 }
 
-void svt_buf_random_s16(int16_t *const buf, const uint32_t sizeBuf) {
+void svt_buf_random_s16(int16_t *const buf, const size_t sizeBuf) {
     svt_buf_random_void(buf, sizeof(*buf) * sizeBuf);
 }
 
-void svt_buf_random_u16(uint16_t *const buf, const uint32_t sizeBuf) {
+void svt_buf_random_u16(uint16_t *const buf, const size_t sizeBuf) {
     svt_buf_random_void(buf, sizeof(*buf) * sizeBuf);
 }
 
-void svt_buf_random_u16_to_0_or_bd(uint16_t *const buf, const uint32_t sizeBuf,
+void svt_buf_random_u16_to_0_or_bd(uint16_t *const buf, const size_t sizeBuf,
                                    const uint32_t bd) {
     const uint16_t max = (uint16_t)((1 << bd) - 1);
 
-    for (uint32_t i = 0; i < sizeBuf; i++)
+    for (size_t i = 0; i < sizeBuf; i++)
         buf[i] = (rand() > (RAND_MAX >> 1)) ? max : 0;
 }
 
-void svt_buf_random_u16_to_bd(uint16_t *const buf, const uint32_t sizeBuf,
+void svt_buf_random_u16_to_bd(uint16_t *const buf, const size_t sizeBuf,
                               const uint32_t bd) {
     const uint16_t max = (uint16_t)((1 << bd) - 1);
 
-    for (uint32_t i = 0; i < sizeBuf; i++)
+    for (size_t i = 0; i < sizeBuf; i++)
         buf[i] = max;
 }
 
-void svt_buf_random_u16_with_bd(uint16_t *const buf, const uint32_t sizeBuf,
+void svt_buf_random_u16_with_bd(uint16_t *const buf, const size_t sizeBuf,
                                 const uint32_t bd) {
     assert(bd >= 8);
 
-    for (uint32_t i = 0; i < sizeBuf; i++)
+    for (size_t i = 0; i < sizeBuf; i++)
         buf[i] = (uint16_t)((uint32_t)rand() % (1 << bd));
 }
 
-void svt_buf_random_s32(int32_t *const buf, const uint32_t sizeBuf) {
+void svt_buf_random_s32(int32_t *const buf, const size_t sizeBuf) {
     svt_buf_random_void(buf, sizeof(*buf) * sizeBuf);
 }
 
-void svt_buf_random_s32_with_max(int32_t *const buf, const uint32_t sizeBuf,
+void svt_buf_random_s32_with_max(int32_t *const buf, const size_t sizeBuf,
                                  const int32_t max_abs) {
     svt_buf_random_void(buf, sizeof(*buf) * sizeBuf);
 
-    for (uint32_t i = 0; i < sizeBuf; i++) {
+    for (size_t i = 0; i < sizeBuf; i++) {
         buf[i] %= (max_abs + 1);
     }
 }
 
-void svt_buf_random_u32(uint32_t *const buf, const uint32_t sizeBuf) {
+void svt_buf_random_u32(uint32_t *const buf, const size_t sizeBuf) {
     svt_buf_random_void(buf, sizeof(*buf) * sizeBuf);
 }
 
-void svt_buf_random_u32_with_max(uint32_t *const buf, const uint32_t sizeBuf,
+void svt_buf_random_u32_with_max(uint32_t *const buf, const size_t sizeBuf,
                                  const uint32_t max) {
     svt_buf_random_void(buf, sizeof(*buf) * sizeBuf);
 
-    for (uint32_t i = 0; i < sizeBuf; i++)
+    for (size_t i = 0; i < sizeBuf; i++)
         buf[i] %= (max + 1);
 }
 
-void svt_buf_random_s64(int64_t *const buf, const uint32_t sizeBuf) {
+void svt_buf_random_s64(int64_t *const buf, const size_t sizeBuf) {
     svt_buf_random_void(buf, sizeof(*buf) * sizeBuf);
 }
 

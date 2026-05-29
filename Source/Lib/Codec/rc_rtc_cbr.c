@@ -159,7 +159,7 @@ static int av1_estimate_frame_size(PictureControlSet* pcs, int qindex, double rc
 
     // scale to resolution
     FrameSize* frm_size = &pcs->ppcs->av1_cm->frm_size;
-    return AOMMAX(estimated_size * frm_size->frame_width * frm_size->frame_height / 512, 1);
+    return (int)AOMMAX(estimated_size * frm_size->frame_width * frm_size->frame_height / 512, 1);
 }
 
 typedef struct {
@@ -246,7 +246,7 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
     }
 
     double frame_target = rc->avg_frame_bandwidth;
-    double buffer_diff  = rc->buffer_level - rc->optimal_buffer_level;
+    double buffer_diff  = (double)rc->buffer_level - rc->optimal_buffer_level;
     double one_pct_bits = 1.0 + rc->optimal_buffer_level / 100.0;
 
     // temporal dependency and mode decision modulation
@@ -265,7 +265,7 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
         frame_target *= 1.0 + pct / 400;
     }
 
-    return frame_target;
+    return (int)frame_target;
 }
 
 // Select SBs for cyclic refresh by advancing the persisted cycling index (with wrapping).
@@ -399,7 +399,7 @@ static void rtc_set_rate_correction_factor(PictureParentControlSet* ppcs, double
     svt_release_mutex(rc->rc_mutex);
 }
 
-static double calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) {
+static uint8_t calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) {
     PictureParentControlSet* ppcs   = pcs->ppcs;
     RATE_CONTROL*            rc     = &scs->enc_ctx->rc;
     RateControlCfg*          rc_cfg = &scs->enc_ctx->rc_cfg;

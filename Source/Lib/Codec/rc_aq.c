@@ -403,9 +403,9 @@ void svt_av1_generate_b64_me_qindex_map(PictureControlSet* pcs) {
             int diff_dist = (int)(ppcs->me_8x8_cost_variance[b64_idx] - avg_dist);
             int offset    = 0;
             if (diff_dist < 0) {
-                offset = min_offset[tl_index] * diff_dist / (min_dist - avg_dist);
+                offset = (int)(min_offset[tl_index] * diff_dist / (min_dist - avg_dist));
             } else if (diff_dist > 0) {
-                offset = max_offset[tl_index] * diff_dist / (max_dist - avg_dist);
+                offset = (int)(max_offset[tl_index] * diff_dist / (max_dist - avg_dist));
             }
             pcs->b64_me_qindex[b64_idx] = CLIP3(min_q_idx, max_q_idx, base_q_idx + offset);
         }
