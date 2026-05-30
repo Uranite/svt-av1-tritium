@@ -4777,7 +4777,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     if (scs->allintra) {
         scs->static_config.hierarchical_levels = 2;
     }
+#if !ADD_ON_THE_FLY_MG
     scs->max_temporal_layers                  = scs->static_config.hierarchical_levels;
+#endif
     scs->static_config.look_ahead_distance    = config_struct->look_ahead_distance;
     scs->static_config.frame_rate_denominator = config_struct->frame_rate_denominator;
     scs->static_config.frame_rate_numerator   = config_struct->frame_rate_numerator;

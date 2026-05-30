@@ -196,7 +196,11 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
         double rcf_tlx[1 + MAX_TEMPORAL_LAYERS] = {0};
 
         // prepare weighted RCFs - core components of layer weights
+#if ADD_ON_THE_FLY_MG
+        int num_layers = ppcs->hierarchical_levels + 1;
+#else
         int num_layers = scs->static_config.hierarchical_levels + 1;
+#endif
         svt_block_on_mutex(rc->rc_mutex);
         for (int k = 1; k < rc->mini_qop_size + 1; k++) {
             int k_tl = index2tl(k - 1, num_layers - 1);
@@ -500,7 +504,11 @@ void svt_av1_rc_calc_qindex_rtc_cbr(PictureControlSet* pcs) {
             // d) invert current buffer level
             rc->buffer_level = (maximum - starting) * bandwidth / 1000;
 
+#if ADD_ON_THE_FLY_MG
+            int num_layers = pcs->ppcs->hierarchical_levels + 1;
+#else
             int num_layers = scs->static_config.hierarchical_levels + 1;
+#endif
             for (int k = 0; k < num_layers + 1; k++) {
                 rc->target_size_factors[k] = 1.0; // flat at start
             }

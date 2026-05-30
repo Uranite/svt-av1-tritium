@@ -1251,7 +1251,11 @@ int32_t svt_aom_get_frame_update_type(SequenceControlSet* scs, PictureParentCont
         return SVT_AV1_KF_UPDATE;
     }
 
+#if ADD_ON_THE_FLY_MG
+    if (pcs->hierarchical_levels > 0) {
+#else
     if (scs->max_temporal_layers > 0) {
+#endif
         if (pcs->temporal_layer_index == 0) {
             return SVT_AV1_ARF_UPDATE;
         } else if (pcs->temporal_layer_index == pcs->hierarchical_levels) {

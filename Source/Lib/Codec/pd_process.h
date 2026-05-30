@@ -147,6 +147,16 @@ typedef struct PictureDecisionContext {
     //   pic_id_per_dpb_slot[i] : application pic_id held in DPB slot i (0 = none).
     // The STOREd-slot bitmask is derived on demand via ref_mgmt_stored_mask().
     uint32_t pic_id_per_dpb_slot[REF_FRAMES];
+#if ADD_ON_THE_FLY_MG
+    // Dynamic hierarchical_levels change support for LOW_DELAY prediction structure.
+    // When pcs->hierarchical_levels (set by resource_coordination) differs from the
+    // currently active level, the change is deferred until the next base picture
+    // (temporal_layer_index == 0) to avoid splitting a mini-GOP mid-flight.
+    uint8_t ld_active_hierarchical_levels;     // currently applied hierarchical level
+    uint8_t ld_new_hierarchical_levels;        // requested new hierarchical level
+    bool    ld_hierarchical_levels_change_pending; // true when a change is awaiting a base frame
+    uint64_t    last_base_pic; // pic number of the previous base frame
+#endif
 } PictureDecisionContext;
 
 #endif // EbPictureDecision_h

@@ -73,12 +73,14 @@ typedef struct SequenceControlSet {
     /*!< Sequence header structure, common between the encoder and decoder */
     SeqHeader seq_header;
 
+#if !ADD_ON_THE_FLY_MG
     /*!< Sequence coding parameters
             parameters/features are set to be set for the full stream
             but encoding decisions may still be taken at a picture / sub picture level
     */
     /*!< Maximum number of allowed temporal layers */
     uint32_t max_temporal_layers;
+#endif
     /*!< Number of delay frames needed to implement future window
          for algorithms such as SceneChange or TemporalFiltering */
     uint32_t scd_delay;

@@ -578,6 +578,58 @@ static EbErrorType test_update_input_pic_def(uint64_t pic_num, EbBufferHeaderTyp
     return EB_ErrorNone;
 }
 #endif
+#if FTR_MG_SIZE_ON_FLY_SAMPLE
+// test_update_mg_size_info: sample test case for updating the MG size on the fly
+static EbErrorType test_update_mg_size_info(uint64_t pic_num, EbBufferHeaderType* header_ptr) {
+    SvtAv1MgSizeInfo* data;
+    int               interval = 20;
+    if (pic_num == 0) {
+        return EB_ErrorNone;
+    }
+    else if (pic_num % (5 * interval) == 0) {
+        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 1;
+    }
+    else if (pic_num % (4 * interval) == 0) {
+        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 0;
+    }
+    else if (pic_num % (3 * interval) == 0) {
+        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 1;
+    }
+    else if (pic_num % (2 * interval) == 0) {
+        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 2;
+    }
+    else if (pic_num % interval == 0) {
+        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 1;
+    }
+    else {
+        return EB_ErrorNone;
+    }
+    EbPrivDataNode* new_node = (EbPrivDataNode*)malloc(sizeof(EbPrivDataNode));
+    new_node->size = sizeof(SvtAv1MgSizeInfo);
+    new_node->node_type = MG_SIZE_CHANGE_EVENT;
+    new_node->data = data;
+    new_node->next = NULL;
+
+    // append to tail
+    if (header_ptr->p_app_private == NULL) {
+        header_ptr->p_app_private = new_node;
+    }
+    else {
+        EbPrivDataNode* last = header_ptr->p_app_private;
+        while (last->next != NULL) {
+            last = last->next;
+        }
+        last->next = new_node;
+    }
+
+    return EB_ErrorNone;
+}
+#endif
 
 static EbErrorType retrieve_roi_map_event(SvtAv1RoiMap* roi_map, uint64_t pic_num, EbBufferHeaderType* header_ptr) {
     if (roi_map == NULL || roi_map->evt_list == NULL) {
@@ -701,6 +753,9 @@ void process_input_buffer(EncChannel* channel) {
 #endif
 #if FTR_PER_FRAME_QUALITY_SAMPLE
             test_update_psnr_per_frame_info(header_ptr->pts, header_ptr);
+#endif
+#if FTR_MG_SIZE_ON_FLY_SAMPLE
+            test_update_mg_size_info(header_ptr->pts, header_ptr);
 #endif
             retrieve_roi_map_event(app_cfg->roi_map, header_ptr->pts, header_ptr);
             // Send the picture

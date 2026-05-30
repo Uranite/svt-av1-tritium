@@ -4778,7 +4778,11 @@ static void set_frame_update_type(PictureParentControlSet* ppcs) {
     SequenceControlSet* scs = ppcs->scs;
     if (ppcs->frm_hdr.frame_type == KEY_FRAME) {
         ppcs->update_type = SVT_AV1_KF_UPDATE;
+#if ADD_ON_THE_FLY_MG
+    } else if (ppcs->hierarchical_levels > 0 && ppcs->pred_structure != LOW_DELAY) {
+#else
     } else if (scs->max_temporal_layers > 0 && ppcs->pred_structure != LOW_DELAY) {
+#endif
         if (ppcs->temporal_layer_index == 0) {
             ppcs->update_type = SVT_AV1_ARF_UPDATE;
         } else if (ppcs->temporal_layer_index == ppcs->hierarchical_levels) {
@@ -4911,6 +4915,34 @@ static void set_mini_gop_structure(SequenceControlSet* scs, EncodeContext* enc_c
     if (ctx->enable_startup_mg) {
         next_mg_hierarchical_levels = scs->static_config.startup_mg_size;
     }
+#if ADD_ON_THE_FLY_MG
+    // For LOW_DELAY, support on-the-fly hierarchical_levels changes.
+    // pcs->hierarchical_levels holds the value requested by resource_coordination for this picture.
+    // A change is deferred until the next base picture (temporal_layer_index == 0), which is
+    // identified by pic_idx_in_mg == 0 under the currently active prediction structure period.
+    if (scs->static_config.pred_structure == LOW_DELAY && !ctx->enable_startup_mg) {
+        // Track the latest requested hierarchical_levels.
+        const uint8_t incoming_hl              = pcs->hierarchical_levels;
+        ctx->ld_new_hierarchical_levels        = incoming_hl;
+        ctx->ld_hierarchical_levels_change_pending = (incoming_hl != ctx->ld_active_hierarchical_levels);
+
+        // Apply the pending change at the next base picture.
+        if (ctx->ld_hierarchical_levels_change_pending) {
+            const uint64_t distance_to_last_idr = pcs->picture_number - ctx->last_base_pic;
+            const uint32_t current_mg_period    = 1u << ctx->ld_active_hierarchical_levels;
+            // Base frame: pic_idx_in_mg == 0, which occurs when distance == 0 (IDR) or
+            // (distance - 1) is an exact multiple of the current mini-GOP period.
+            const bool is_base = (pcs->idr_flag) ||
+                                 ((distance_to_last_idr > 0) &&
+                                  ((distance_to_last_idr - 1) % current_mg_period == 0));
+            if (is_base) {
+                ctx->ld_active_hierarchical_levels     = ctx->ld_new_hierarchical_levels;
+                ctx->ld_hierarchical_levels_change_pending = false;
+            }
+        }
+        next_mg_hierarchical_levels = ctx->ld_active_hierarchical_levels;
+    }
+#endif
     // Initialize Picture Block Params
     ctx->mini_gop_start_index[0] = 0;
     ctx->mini_gop_end_index[0]   = enc_ctx->pre_assignment_buffer_count - 1;
@@ -5617,7 +5649,11 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
             ctx->prev_delayed_intra = NULL;
         }
         if (pcs->picture_number == 0) {
-            ctx->sframe_hier_lvls = scs->static_config.hierarchical_levels;
+            ctx->sframe_hier_lvls              = scs->static_config.hierarchical_levels;
+#if ADD_ON_THE_FLY_MG
+            ctx->ld_active_hierarchical_levels = (uint8_t)scs->static_config.hierarchical_levels;
+            ctx->last_base_pic                 = 0;
+#endif
         }
 
         release_prev_picture_from_reorder_queue(enc_ctx);
@@ -5774,6 +5810,11 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                                 pcs->hierarchical_levels != 0;
 #else
                             pcs->is_highest_layer = (pcs->temporal_layer_index == pcs->hierarchical_levels);
+#endif
+#if ADD_ON_THE_FLY_MG
+                            if (pcs->temporal_layer_index == 0) {
+                                ctx->last_base_pic = pcs->picture_number;
+                            }
 #endif
                             switch (pcs->slice_type) {
                             case I_SLICE:
