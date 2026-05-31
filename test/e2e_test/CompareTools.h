@@ -23,7 +23,6 @@
 #define _COMPARE_TOOLS_H_
 
 #include "gtest/gtest.h"
-#include <sstream>
 #include <stdint.h>
 #include <math.h>
 #include <float.h>
@@ -35,20 +34,16 @@ static inline bool compare_image(const VideoFrame *recon,
                                  const VideoFrame *ref_frame) {
     if (recon->disp_width != ref_frame->disp_width ||
         recon->disp_height != ref_frame->disp_height) {
-        SCOPED_TRACE((std::stringstream()
-                      << "compare failed for width(" << recon->disp_width
+        ADD_FAILURE() << "compare failed for width(" << recon->disp_width
                       << "--" << ref_frame->disp_width << ") or height("
                       << recon->disp_height << "--" << ref_frame->disp_height
-                      << ") different\n")
-                         .str());
+                      << ") different\n";
         return false;
     }
 
     if (recon->format != ref_frame->format) {
-        SCOPED_TRACE((std::stringstream()
-                      << "compare failed for format(" << recon->format << "--"
-                      << ref_frame->format << ") different\n")
-                         .str());
+        ADD_FAILURE() << "compare failed for format(" << recon->format << "--"
+                      << ref_frame->format << ") different\n";
         return false;
     }
 
@@ -82,10 +77,8 @@ static inline bool compare_image(const VideoFrame *recon,
                                          ? d[r]
                                          : (((uint16_t *)d)[r] & 0x3FF);
             if (s_pixel != d_pixel) {
-                SCOPED_TRACE((std::stringstream()
-                              << "pixel index(" << l << "--" << r
-                              << ") luma compare failed!\n")
-                                 .str());
+                ADD_FAILURE() << "pixel index(" << l << "--" << r
+                              << ") luma compare failed!\n";
                 return false;
             }
         }
@@ -103,10 +96,8 @@ static inline bool compare_image(const VideoFrame *recon,
                                          ? d[r]
                                          : (((uint16_t *)d)[r] & 0x3FF);
             if (s_pixel != d_pixel) {
-                SCOPED_TRACE((std::stringstream()
-                              << "pixel index(" << l << "--" << r
-                              << ") cb compare failed!\n")
-                                 .str());
+                ADD_FAILURE() << "pixel index(" << l << "--" << r
+                              << ") cb compare failed!\n";
                 return false;
             }
         }
@@ -124,10 +115,8 @@ static inline bool compare_image(const VideoFrame *recon,
                                          ? d[r]
                                          : (((uint16_t *)d)[r] & 0x3FF);
             if (s_pixel != d_pixel) {
-                SCOPED_TRACE((std::stringstream()
-                              << "pixel index(" << l << "--" << r
-                              << ") cr compare failed!\n")
-                                 .str());
+                ADD_FAILURE() << "pixel index(" << l << "--" << r
+                              << ") cr compare failed!\n";
                 return false;
             }
         }

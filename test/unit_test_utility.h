@@ -19,8 +19,8 @@
 #include "svt_time.h"
 
 #ifdef __cplusplus
+#include "gtest/gtest.h"
 #include <type_traits>
-#include <sstream>
 
 /***************************************
  * Compare Data
@@ -33,10 +33,10 @@ bool svt_buf_compare(const T *const buf1, const T *const buf2,
     bool result = true;
     for (size_t i = 0; i < bufSize; i++) {
         if (buf1[i] != buf2[i]) {
-            SCOPED_TRACE((std::stringstream()
-                          << "buf1[" << i << "] = 0x" << std::hex << buf1[i]
-                          << "\tbuf2[" << i << "] = 0x" << std::hex << buf2[i])
-                             .str());
+            ADD_FAILURE() << "buf1[" << i << "] = 0x" << std::hex
+                          << static_cast<uint64_t>(buf1[i]) << "\tbuf2[" << i
+                          << "] = 0x" << std::hex
+                          << static_cast<uint64_t>(buf2[i]);
             result = false;
         }
     }

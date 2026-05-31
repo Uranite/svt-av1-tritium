@@ -62,7 +62,7 @@ static const uint8_t quantizer_to_qindex[] = {
 /** get qp value with the given qindex */
 static uint32_t get_qp(const int16_t qindex) {
     if (qindex > 255) {
-        SCOPED_TRACE("qindex is larger than 255!\n");
+        ADD_FAILURE() << "qindex is larger than 255!\n";
         return 63;
     }
 
