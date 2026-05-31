@@ -11,6 +11,7 @@
  */
 
 #include "gtest/gtest.h"
+#include <algorithm>
 #include "definitions.h"
 #include "aom_dsp_rtcd.h"
 #include "unit_test_utility.h"
@@ -52,8 +53,8 @@ static void init_data(int16_t **input, int16_t **input_opt,
         int16_t *, *input, sizeof(int16_t) * MAX_SB_SIZE * input_stride);
     TEST_ALLIGN_MALLOC(
         int16_t *, *input_opt, sizeof(int16_t) * MAX_SB_SIZE * input_stride);
-    memset(*input, 0, MAX_SB_SIZE * input_stride);
-    memset(*input_opt, 0, MAX_SB_SIZE * input_stride);
+    std::fill_n(*input, MAX_SB_SIZE * input_stride, 0);
+    std::fill_n(*input_opt, MAX_SB_SIZE * input_stride, 0);
     svt_buf_random_s16(*input, MAX_SB_SIZE * input_stride);
     memcpy(*input_opt, *input, sizeof(**input) * MAX_SB_SIZE * input_stride);
 }
@@ -74,8 +75,8 @@ static void init_coeff(int32_t **coeff, int32_t **coeff_opt, uint32_t *stride) {
         int32_t *, *coeff, sizeof(int32_t) * MAX_SB_SIZE * *stride);
     TEST_ALLIGN_MALLOC(
         int32_t *, *coeff_opt, sizeof(int32_t) * MAX_SB_SIZE * *stride);
-    memset(*coeff, 0, MAX_SB_SIZE * *stride);
-    memset(*coeff_opt, 0, MAX_SB_SIZE * *stride);
+    std::fill_n(*coeff, MAX_SB_SIZE * *stride, 0);
+    std::fill_n(*coeff_opt, MAX_SB_SIZE * *stride, 0);
 }
 
 void compare_s32(int32_t *output_base, int32_t *output_opt, uint32_t stride,
