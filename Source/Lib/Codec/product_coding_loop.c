@@ -1004,22 +1004,21 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer* cand_bf, Pictu
                                                                               pcs->scs->static_config.ac_bias,
                                                                               pcs->scs->static_config.tx_bias)
                 << 1;
-            if (ctx->tune_daala_level >= 4) {
-                const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
-                *(cand_bf->fast_cost) += svt_spatial_full_distortion_daala_kernel(
-                                             input_pic->y_buffer,
-                                             input_origin_index,
-                                             input_pic->y_stride << 1,
-                                             ref_pic->y_buffer,
-                                             ref_origin_index,
-                                             ref_pic->y_stride << 1,
-                                             ctx->blk_geom->bwidth,
-                                             ctx->blk_geom->bheight >> 1,
-                                             ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
-                                             qindex,
-                                             1)
-                    << 1;
-            }
+        }
+        if (ctx->tune_daala_level >= 4) {
+            const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            *(cand_bf->fast_cost) = svt_spatial_full_distortion_daala_kernel(
+                                         input_pic->y_buffer,
+                                         input_origin_index,
+                                         input_pic->y_stride,
+                                         ref_pic->y_buffer,
+                                         ref_origin_index,
+                                         ref_pic->y_stride,
+                                         ctx->blk_geom->bwidth,
+                                         ctx->blk_geom->bheight,
+                                         ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                                         qindex,
+                                         1);
         }
     } else {
         // intrabc not allowed in light_pd0
@@ -1046,6 +1045,21 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer* cand_bf, Pictu
                                                                               pcs->scs->static_config.ac_bias,
                                                                               pcs->scs->static_config.tx_bias)
                 << 1;
+        }
+        if (ctx->tune_daala_level >= 4) {
+            const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            *(cand_bf->fast_cost) = svt_spatial_full_distortion_daala_kernel(
+                                         input_pic->y_buffer,
+                                         input_origin_index,
+                                         input_pic->y_stride,
+                                         pred->y_buffer,
+                                         cu_origin_index,
+                                         pred->y_stride,
+                                         ctx->blk_geom->bwidth,
+                                         ctx->blk_geom->bheight,
+                                         ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                                         qindex,
+                                         1);
         }
     }
 }
@@ -1235,9 +1249,8 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer* cand_bf, PictureCon
                                                                                      ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
                                                                                      qindex,
                                                                                      1);
-                cand_bf->luma_fast_dist += daala_dist;
-                daala_dist <<= 4;
-                luma_fast_dist += daala_dist;
+                cand_bf->luma_fast_dist = daala_dist;
+                luma_fast_dist = daala_dist << 4;
             }
 
             // Fast Cost
@@ -1417,9 +1430,8 @@ void fast_loop_core(ModeDecisionCandidateBuffer* cand_bf, PictureControlSet* pcs
                                                                              ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
                                                                              qindex,
                                                                              1);
-        cand_bf->luma_fast_dist += daala_dist;
-        daala_dist <<= 4;
-        luma_fast_dist += daala_dist;
+        cand_bf->luma_fast_dist = daala_dist;
+        luma_fast_dist = daala_dist << 4;
     }
 
     if (ctx->mds0_ctrls.pruning_method_th && ctx->pd_pass == PD_PASS_1) {
