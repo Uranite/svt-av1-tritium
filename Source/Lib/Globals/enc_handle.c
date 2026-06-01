@@ -3696,6 +3696,59 @@ static void set_mrp_ctrl(const SequenceControlSet* scs, MrpCtrls* mrp_ctrl, EncM
     set_mrp_ctrl_with_level(scs, mrp_ctrl, mrp_level);
 }
 
+// Mutate mrp_ctrls mode-decision fields in place for the runtime preset.
+// Structural fields (ld_reduce_ref_buffs, flat_max_refs) are never written
+// — they're locked to the init-time DPB allocation. Per-field writes are
+// hardware-atomic; same lock-free runtime-update pattern as
+// update_rate_info / update_frame_rate_info.
+void svt_aom_clamp_mrp_ctrls_to_runtime_preset(SequenceControlSet* scs, EncMode runtime_enc_mode) {
+    // Defensive zero-init: set_mrp_ctrl writes most but not all fields (e.g.
+    // flat_max_refs only in the flat-IPP path). We don't read the unset
+    // fields, but zero-init prevents propagation of garbage if a future
+    // edit adds a copy-back for one.
+    MrpCtrls tmp = {0};
+    // mrp_ctrls_init is populated at end of set_param_based_on_input; if 0
+    // here, init never ran and we shouldn't be processing frames.
+    assert(scs->mrp_ctrls_init.base_ref_list0_count > 0);
+    set_mrp_ctrl(scs, &tmp, runtime_enc_mode);
+
+    // Clamp list counts to the init buffer envelope (runtime can shrink but
+    // never grow past what was allocated).
+#define CLAMP(field) tmp.field = MIN(scs->mrp_ctrls_init.field, tmp.field)
+    CLAMP(base_ref_list0_count);
+    CLAMP(base_ref_list1_count);
+    CLAMP(non_base_ref_list0_count);
+    CLAMP(non_base_ref_list1_count);
+#if !TUNE_SIMPLIFY_SETTINGS
+    CLAMP(sc_base_ref_list0_count);
+    CLAMP(sc_base_ref_list1_count);
+    CLAMP(sc_non_base_ref_list0_count);
+    CLAMP(sc_non_base_ref_list1_count);
+#endif
+#undef CLAMP
+
+    // Publish mutable fields one-by-one. NOT updating ld_reduce_ref_buffs
+    // or flat_max_refs — readers in pd_process use those to interpret DPB
+    // layout, which is locked at init.
+    scs->mrp_ctrls.referencing_scheme       = tmp.referencing_scheme;
+    scs->mrp_ctrls.base_ref_list0_count     = tmp.base_ref_list0_count;
+    scs->mrp_ctrls.base_ref_list1_count     = tmp.base_ref_list1_count;
+    scs->mrp_ctrls.non_base_ref_list0_count = tmp.non_base_ref_list0_count;
+    scs->mrp_ctrls.non_base_ref_list1_count = tmp.non_base_ref_list1_count;
+    scs->mrp_ctrls.more_5L_refs             = tmp.more_5L_refs;
+    scs->mrp_ctrls.safe_limit_nref          = tmp.safe_limit_nref;
+    scs->mrp_ctrls.safe_limit_zz_th         = tmp.safe_limit_zz_th;
+    scs->mrp_ctrls.only_l_bwd               = tmp.only_l_bwd;
+    scs->mrp_ctrls.pme_ref0_only            = tmp.pme_ref0_only;
+    scs->mrp_ctrls.use_best_references      = tmp.use_best_references;
+#if !TUNE_SIMPLIFY_SETTINGS
+    scs->mrp_ctrls.sc_base_ref_list0_count     = tmp.sc_base_ref_list0_count;
+    scs->mrp_ctrls.sc_base_ref_list1_count     = tmp.sc_base_ref_list1_count;
+    scs->mrp_ctrls.sc_non_base_ref_list0_count = tmp.sc_non_base_ref_list0_count;
+    scs->mrp_ctrls.sc_non_base_ref_list1_count = tmp.sc_non_base_ref_list1_count;
+#endif
+}
+
 static uint8_t get_tpl(uint8_t pred_structure, uint8_t superres_mode, uint8_t resize_mode, uint8_t aq_mode,
                        bool allintra) {
     if (allintra) {

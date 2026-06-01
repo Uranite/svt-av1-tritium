@@ -821,14 +821,18 @@ static void update_frame_rate_info(ResourceCoordinationContext* ctx, EbBufferHea
 //    That is faster presets don't have any additional features of memory allocations
 //    comparing to slower presets.
 // 3. Some settings are fixed at init time, e.g. SB size.
-static void update_preset_info(ResourceCoordinationContext* ctx, EbBufferHeaderType* input_ptr) {
+static void update_preset_info(ResourceCoordinationContext* ctx, EbBufferHeaderType* input_ptr,
+                               SequenceControlSet* scs) {
     EbPrivDataNode* node = (EbPrivDataNode*)input_ptr->p_app_private;
     while (node) {
         if (node->node_type == PRESET_CHANGE_EVENT) {
             svt_aom_assert_err(node->size == sizeof(SvtAv1PresetInfo) && node->data,
                                "invalid private data of type PRESET_CHANGE_EVENT");
             SvtAv1PresetInfo* preset_info = (SvtAv1PresetInfo*)node->data;
-            ctx->runtime_enc_mode         = preset_info->enc_mode;
+            if (preset_info->enc_mode != ctx->runtime_enc_mode) {
+                ctx->runtime_enc_mode = preset_info->enc_mode;
+                svt_aom_clamp_mrp_ctrls_to_runtime_preset(scs, ctx->runtime_enc_mode);
+            }
         }
         node = node->next;
     }
@@ -1006,7 +1010,7 @@ EbErrorType svt_aom_resource_coordination_kernel_iter(void* context) {
     // Update the frame rate
     update_frame_rate_info(context_ptr, eb_input_ptr, scs);
     // Update the encoder preset
-    update_preset_info(context_ptr, eb_input_ptr);
+    update_preset_info(context_ptr, eb_input_ptr, scs);
     // If config changes occurred since the last picture began encoding, then
     //   prepare a new scs containing the new changes and update the state
     //   of the previous Active scs

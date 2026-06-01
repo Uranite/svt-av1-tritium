@@ -135,4 +135,11 @@ struct _EbEncHandle {
 };
 
 void set_segments_numbers(SequenceControlSet* scs);
+
+// Re-derive mrp_ctrls mode-decision fields for the runtime preset. Caller
+// must initialize the encoder at the slowest preset it will reach mid-
+// stream (list counts shrink within the init envelope, never grow). Single
+// writer (resource_coordination thread); lock-free per-field publish.
+void svt_aom_clamp_mrp_ctrls_to_runtime_preset(SequenceControlSet* scs, EncMode runtime_enc_mode);
+
 #endif // EbEncHandle_h
