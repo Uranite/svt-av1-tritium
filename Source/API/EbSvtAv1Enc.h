@@ -1212,7 +1212,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 1 = CDEF
      * 2 = 1 + TX Search + MDS3 Selection
      * 3 = 2 + DCT TX
-     * 4 = 3 + MDS0 + IFS
+     * 4 = 3 + MDS0 + IFS RD + OBMC
      * Default is 0.
      */
     uint8_t enable_daala;
