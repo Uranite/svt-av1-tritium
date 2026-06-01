@@ -112,10 +112,10 @@ uint64_t svt_aom_compute_cdef_dist_16bit_c(const uint16_t* dst, int32_t dstride,
     return sum >> 2 * coeff_shift;
 }
 
-uint64_t compute_cdef_dist_sad_mse_16bit(uint16_t *dst, int32_t dstride, uint16_t *src, CdefList *dlist,
+uint64_t compute_cdef_dist_sad_mse_16bit(uint16_t* dst, int32_t dstride, uint16_t* src, CdefList* dlist,
                                          int32_t cdef_count, BlockSize bsize, int32_t coeff_shift,
                                          uint8_t subsampling_factor) {
-    int32_t bi, bx, by;
+    int32_t  bi, bx, by;
     uint64_t sad = 0;
     uint64_t mse;
 
@@ -123,12 +123,10 @@ uint64_t compute_cdef_dist_sad_mse_16bit(uint16_t *dst, int32_t dstride, uint16_
         by = dlist[bi].by;
         bx = dlist[bi].bx;
 
-        sad += sad_16b_kernel(&src[bi << (3 + 3)], 8,
-                              &dst[(by << 3) * dstride + (bx << 3)], dstride,
-                              8, 8);
+        sad += sad_16b_kernel(&src[bi << (3 + 3)], 8, &dst[(by << 3) * dstride + (bx << 3)], dstride, 8, 8);
     }
     mse = svt_compute_cdef_dist_16bit(dst, dstride, src, dlist, cdef_count, bsize, coeff_shift, subsampling_factor)
-          << (2 * coeff_shift);
+        << (2 * coeff_shift);
 
     return ((sad << 2) + (mse >> 1)) >> (2 * coeff_shift);
 }
@@ -171,10 +169,10 @@ uint64_t svt_aom_compute_cdef_dist_8bit_c(const uint8_t* dst8, int32_t dstride, 
     return sum >> 2 * coeff_shift;
 }
 
-uint64_t compute_cdef_dist_sad_mse_8bit(uint8_t *dst8, int32_t dstride, uint8_t *src8,
-                                        CdefList *dlist, int32_t cdef_count, BlockSize bsize,
-                                        int32_t coeff_shift, uint8_t subsampling_factor) {
-    int32_t bi, bx, by;
+uint64_t compute_cdef_dist_sad_mse_8bit(uint8_t* dst8, int32_t dstride, uint8_t* src8, CdefList* dlist,
+                                        int32_t cdef_count, BlockSize bsize, int32_t coeff_shift,
+                                        uint8_t subsampling_factor) {
+    int32_t  bi, bx, by;
     uint64_t sad = 0;
     uint64_t mse;
 
@@ -182,12 +180,10 @@ uint64_t compute_cdef_dist_sad_mse_8bit(uint8_t *dst8, int32_t dstride, uint8_t 
         by = dlist[bi].by;
         bx = dlist[bi].bx;
 
-        sad += svt_nxm_sad_kernel(&src8[bi << (3 + 3)], 8,
-                                  &dst8[(by << 3) * dstride + (bx << 3)], dstride,
-                                  8, 8);
+        sad += svt_nxm_sad_kernel(&src8[bi << (3 + 3)], 8, &dst8[(by << 3) * dstride + (bx << 3)], dstride, 8, 8);
     }
     mse = svt_compute_cdef_dist_8bit(dst8, dstride, src8, dlist, cdef_count, bsize, coeff_shift, subsampling_factor)
-          << (2 * coeff_shift);
+        << (2 * coeff_shift);
 
     return ((sad << 2) + (mse >> 1)) >> (2 * coeff_shift);
 }
