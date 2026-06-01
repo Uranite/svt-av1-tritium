@@ -2023,8 +2023,8 @@ static void model_rd_for_sb(PictureControlSet* pcs, EbPictureBufferDesc* predict
         Dequants* const dequants        = ctx->hbd_md ? &scs->enc_ctx->deq_bd : &scs->enc_ctx->deq_8bit;
         int16_t         quantizer       = dequants->y_dequant_qtx[current_q_index][1];
 
-        if (ctx->tune_daala_level >= 4) {
-            sse += svt_spatial_full_distortion_daala_kernel(input_pic->buffer[plane],
+        if (ctx->tune_daala_level >= 4 && plane == 0) {
+            sse = svt_spatial_full_distortion_daala_kernel(input_pic->buffer[plane],
                                                             input_offset,
                                                             input_pic->stride[plane],
                                                             prediction_ptr->buffer[plane],

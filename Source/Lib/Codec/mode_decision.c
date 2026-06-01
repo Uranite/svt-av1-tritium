@@ -4496,6 +4496,16 @@ uint64_t svt_spatial_full_distortion_daala_kernel(uint8_t* input, uint32_t input
                 input_16bit[i * calc_width + j] = input[input_offset + i * input_stride + j];
                 recon_16bit[i * calc_width + j] = recon[recon_offset + i * recon_stride + j];
             }
+            for (uint32_t j = area_width; j < calc_width; j++) {
+                input_16bit[i * calc_width + j] = input_16bit[i * calc_width + area_width - 1];
+                recon_16bit[i * calc_width + j] = recon_16bit[i * calc_width + area_width - 1];
+            }
+        }
+        for (uint32_t i = area_height; i < calc_height; i++) {
+            for (uint32_t j = 0; j < calc_width; j++) {
+                input_16bit[i * calc_width + j] = input_16bit[(area_height - 1) * calc_width + j];
+                recon_16bit[i * calc_width + j] = recon_16bit[(area_height - 1) * calc_width + j];
+            }
         }
     } else {
         uint32_t        coeff_shift = bit_depth - 8;
@@ -4506,11 +4516,29 @@ uint64_t svt_spatial_full_distortion_daala_kernel(uint8_t* input, uint32_t input
                 input_16bit[i * calc_width + j] = input16[i * input_stride + j] >> coeff_shift;
                 recon_16bit[i * calc_width + j] = recon16[i * recon_stride + j] >> coeff_shift;
             }
+            for (uint32_t j = area_width; j < calc_width; j++) {
+                input_16bit[i * calc_width + j] = input_16bit[i * calc_width + area_width - 1];
+                recon_16bit[i * calc_width + j] = recon_16bit[i * calc_width + area_width - 1];
+            }
+        }
+        for (uint32_t i = area_height; i < calc_height; i++) {
+            for (uint32_t j = 0; j < calc_width; j++) {
+                input_16bit[i * calc_width + j] = input_16bit[(area_height - 1) * calc_width + j];
+                recon_16bit[i * calc_width + j] = recon_16bit[(area_height - 1) * calc_width + j];
+            }
         }
     }
 
-    total_distortion = (uint64_t)svt_aom_od_compute_dist(
-        input_16bit, recon_16bit, calc_width, calc_height, qindex, activity_masking);
+    total_distortion = (uint64_t)svt_aom_od_compute_dist(input_16bit,
+                                                         recon_16bit,
+                                                         calc_width,
+                                                         calc_height,
+                                                         qindex,
+                                                         activity_masking);
+
+    if (bit_depth > 8) {
+        total_distortion <<= 2 * (bit_depth - 8);
+    }
 
     return total_distortion;
 }
