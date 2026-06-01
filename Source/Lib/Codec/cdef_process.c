@@ -324,6 +324,20 @@ static INLINE uint64_t compute_cdef_dist_facade(PictureControlSet* pcs, Sequence
     }
 }
 
+/* Compute Daala perceptual distortion for CDEF on luma 8x8 blocks.
+ *
+ * For each non-skipped 8x8 block in the dlist, copies the source and filtered
+ * pixels into contiguous uint16_t buffers and calls svt_aom_od_compute_dist.
+ * Handles both 8-bit and 16-bit pipelines by converting as needed.
+ *
+ * dst: reference (source) frame, offset by doffset
+ * dstride: stride of the reference frame
+ * src: filtered output from svt_cdef_filter_fb (contiguous, no stride)
+ * dlist: list of non-skipped 8x8 blocks
+ * cdef_count: number of blocks in dlist
+ * qindex: quantization index for Daala scaling
+ * is_16bit: whether the pipeline is 16-bit
+ */
 static uint64_t compute_cdef_dist_daala(const EbByte dst, int32_t doffset, int32_t dstride, const uint8_t* src,
                                         const CdefList* dlist, int32_t cdef_count, int32_t qindex, int32_t coeff_shift,
                                         bool is_16bit) {
