@@ -1444,7 +1444,8 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
         }
 
         if (config->cdef_level != 0 && config->alt_cdef) {
-            SVT_INFO("SVT [config]: alternative CDEF bias \t\t\t\t\t: %d\n", config->alt_cdef);
+            SVT_INFO("SVT [config]: alternative CDEF bias \t\t\t\t\t\t: %d\n", config->alt_cdef);
+        }
 
         if (config->enable_daala) {
             SVT_INFO("SVT [config]: Daala Dist Level \t\t\t\t\t\t: %d\n", config->enable_daala);
