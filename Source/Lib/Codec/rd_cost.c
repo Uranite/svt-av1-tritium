@@ -1449,13 +1449,11 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
     uint64_t mode_ssim_distortion = update_full_cost_ssim
         ? y_distortion[DIST_SSIM][0] + cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0]
         : 0;
-    uint64_t mode_daala_distortion = update_full_cost_daala
-        ? y_distortion[DIST_DAALA][0] + mode_distortion
-        : 0;
-    uint64_t mode_cost            = (dist_type == DIST_SSD) ? RDCOST(lambda, mode_rate, mode_distortion)
-        : (dist_type == DIST_SSIM)  ? RDCOST(lambda, mode_rate, mode_ssim_distortion)
-        : (dist_type == DIST_DAALA) ? RDCOST(lambda, mode_rate, mode_daala_distortion)
-                                    : 0;
+    uint64_t mode_daala_distortion = update_full_cost_daala ? y_distortion[DIST_DAALA][0] + mode_distortion : 0;
+    uint64_t mode_cost             = (dist_type == DIST_SSD) ? RDCOST(lambda, mode_rate, mode_distortion)
+        : (dist_type == DIST_SSIM)                           ? RDCOST(lambda, mode_rate, mode_ssim_distortion)
+        : (dist_type == DIST_DAALA)                          ? RDCOST(lambda, mode_rate, mode_daala_distortion)
+                                                             : 0;
 
     // If skip_mode is allowed for this candidate, check cost of skip mode compared to regular cost
     if (cand_bf->cand->skip_mode_allowed == true) {
@@ -1471,7 +1469,7 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
         const uint64_t skip_mode_daala_distortion = update_full_cost_daala
             ? y_distortion[DIST_DAALA][1] + skip_mode_distortion
             : 0;
-        const uint64_t skip_mode_cost            = (dist_type == DIST_SSD) ? RDCOST(lambda, skip_mode_rate, skip_mode_distortion)
+        const uint64_t skip_mode_cost = (dist_type == DIST_SSD) ? RDCOST(lambda, skip_mode_rate, skip_mode_distortion)
             : (dist_type == DIST_SSIM)  ? RDCOST(lambda, skip_mode_rate, skip_mode_ssim_distortion)
             : (dist_type == DIST_DAALA) ? RDCOST(lambda, skip_mode_rate, skip_mode_daala_distortion)
                                         : 0;
