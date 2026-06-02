@@ -1232,6 +1232,14 @@ typedef struct EbSvtAv1EncConfiguration {
     uint8_t alt_cdef;
 
     /**
+     * @brief Enable alternative DLF biases
+     * 0: disabled
+     * 1-3: enabled
+     * Default is 0
+     */
+    uint8_t alt_dlf;
+
+    /**
      * @brief Enable Daala distortion metric.
      * 0 = OFF
      * 1 = CDEF
@@ -1288,6 +1296,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint8_t) // enable_daala
         - sizeof(bool) // low_memory
         - sizeof(bool) // hide_banner
+        - sizeof(uint8_t) // alt_dlf
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
