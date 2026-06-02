@@ -1029,6 +1029,15 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->enable_tf > 3) {
+        SVT_ERROR("Temporal filtering must be between 0 and 3\n");
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->enable_tf == 3) {
+        SVT_WARN("enable-tf 3 forces temporal filtering on all frames and tend to be very aggressive. "
+            "Proceed with caution.\n");
+    }
+
     return return_error;
 }
 
@@ -1498,6 +1507,11 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
             break;
         case 2:
             SVT_INFO("SVT [config]: Temporal Filtering strength\t\t\t\t\t: auto\n");
+            break;
+        case 3:
+            SVT_INFO("SVT [config]: Temporal Filtering / keyframe strength \t\t\t: %d / %d (full)\n",
+                     config->tf_strength,
+                     config->kf_tf_strength);
             break;
         }
 
