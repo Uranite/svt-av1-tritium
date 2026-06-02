@@ -1288,6 +1288,12 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t enable_daala;
 
+    /* @brief use settings which reduce memory usage
+     *
+     * Default is false.
+     */
+    bool low_memory;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1322,6 +1328,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint16_t) // num_zones
         - sizeof(uint8_t) // alt_cdef
         - sizeof(uint8_t) // enable_daala
+        - sizeof(bool) // low_memory
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
