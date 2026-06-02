@@ -1163,14 +1163,6 @@ typedef struct PictureControlSetInitData {
     bool    allintra;
     bool    adaptive_film_grain;
     bool    use_flat_ipp;
-    uint8_t noise_norm_strength;
-    uint8_t kf_tf_strength;
-    uint8_t alt_lambda_factors;
-    uint8_t sharp_tx;
-    bool    alt_ssim_tuning;
-    uint8_t hbd_mds;
-    uint8_t tx_bias;
-    uint8_t complex_hvs;
 } PictureControlSetInitData;
 
 /**************************************
