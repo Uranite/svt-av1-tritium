@@ -94,7 +94,7 @@ It is most effective in CRF/CQP Random Access mode.
 
 - `--hide-banner` *0 and 1*
 
-Some may prefer to hide the banner though, so we have that option too!
+Hides the encoder parameters banner that is normally printed at the start of an encode. This helps keep the console output cleaner if you are scripting or wrapping the encoder.
 
 ### SVT-AV1-HDR
 
