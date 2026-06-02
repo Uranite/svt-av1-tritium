@@ -992,18 +992,17 @@ static void fast_loop_core_pd0(ModeDecisionCandidateBuffer* cand_bf, PictureCont
             << 1;
         if (ctx->tune_daala_level >= 4) {
             const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
-            *(cand_bf->fast_cost) = svt_spatial_full_distortion_daala_kernel(
-                                         input_pic->y_buffer,
-                                         input_origin_index,
-                                         input_pic->y_stride,
-                                         pred->y_buffer,
-                                         cu_origin_index,
-                                         pred->y_stride,
-                                         ctx->blk_geom->bwidth,
-                                         ctx->blk_geom->bheight,
-                                         ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
-                                         qindex,
-                                         1);
+            *(cand_bf->fast_cost) = svt_spatial_full_distortion_daala_kernel(input_pic->y_buffer,
+                                                                             input_origin_index,
+                                                                             input_pic->y_stride,
+                                                                             pred->y_buffer,
+                                                                             cu_origin_index,
+                                                                             pred->y_stride,
+                                                                             ctx->blk_geom->bwidth,
+                                                                             ctx->blk_geom->bheight,
+                                                                             ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                                                                             qindex,
+                                                                             1);
         }
     }
 }
@@ -1181,29 +1180,29 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer* cand_bf, PictureCon
             }
 
             if (ctx->tune_daala_level >= 4) {
-                const uint32_t qindex     = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
-                uint64_t       daala_dist = svt_spatial_full_distortion_daala_kernel(input_pic->y_buffer,
-                                                                                     input_origin_index,
-                                                                                     input_pic->y_stride,
-                                                                                     pred->y_buffer,
-                                                                                     0,
-                                                                                     pred->y_stride,
-                                                                                     ctx->blk_geom->bwidth,
-                                                                                     ctx->blk_geom->bheight,
-                                                                                     ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
-                                                                                     qindex,
-                                                                                     1);
+                const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+                uint64_t daala_dist = svt_spatial_full_distortion_daala_kernel(input_pic->y_buffer,
+                                                                               input_origin_index,
+                                                                               input_pic->y_stride,
+                                                                               pred->y_buffer,
+                                                                               0,
+                                                                               pred->y_stride,
+                                                                               ctx->blk_geom->bwidth,
+                                                                               ctx->blk_geom->bheight,
+                                                                               ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
+                                                                               qindex,
+                                                                               1);
                 cand_bf->luma_fast_dist = daala_dist;
-                luma_fast_dist = daala_dist << 4;
+                luma_fast_dist          = daala_dist << 4;
             }
 
             // Fast Cost
             cand_bf->fast_luma_rate = obmc_fast_luma_rate;
             if (ctx->mds0_ctrls.mds0_dist_type == SSD) {
-                *(cand_bf->fast_cost)   = av1_product_fast_cost_func_table[is_inter_mode(cand->block_mi.mode)](
+                *(cand_bf->fast_cost) = av1_product_fast_cost_func_table[is_inter_mode(cand->block_mi.mode)](
                     pcs, ctx, cand_bf, full_lambda, luma_fast_dist);
             } else {
-                *(cand_bf->fast_cost)   = RDCOST(
+                *(cand_bf->fast_cost) = RDCOST(
                     full_lambda, cand_bf->fast_luma_rate + cand_bf->fast_chroma_rate, luma_fast_dist);
             }
             if (simple_translation_cost < *(cand_bf->fast_cost)) {
@@ -1374,8 +1373,8 @@ void fast_loop_core(ModeDecisionCandidateBuffer* cand_bf, PictureControlSet* pcs
                                                                              ctx->hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT,
                                                                              qindex,
                                                                              1);
-        cand_bf->luma_fast_dist = daala_dist;
-        luma_fast_dist = daala_dist << 4;
+        cand_bf->luma_fast_dist   = daala_dist;
+        luma_fast_dist            = daala_dist << 4;
     }
 
     if (ctx->mds0_ctrls.pruning_method_th && ctx->pd_pass == PD_PASS_1) {
@@ -3455,13 +3454,13 @@ static void av1_cost_calc_cfl(PictureControlSet* pcs, ModeDecisionCandidateBuffe
     // FullLoop and TU search
     uint16_t cb_qindex = ctx->qp_index;
 
-    full_dist[DIST_SSD][DIST_CALC_RESIDUAL]    = 0;
-    full_dist[DIST_SSD][DIST_CALC_PREDICTION]  = 0;
-    full_dist[DIST_SSIM][DIST_CALC_RESIDUAL]   = 0;
-    full_dist[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
+    full_dist[DIST_SSD][DIST_CALC_RESIDUAL]     = 0;
+    full_dist[DIST_SSD][DIST_CALC_PREDICTION]   = 0;
+    full_dist[DIST_SSIM][DIST_CALC_RESIDUAL]    = 0;
+    full_dist[DIST_SSIM][DIST_CALC_PREDICTION]  = 0;
     full_dist[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
     full_dist[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
-    *coeff_bits                                = 0;
+    *coeff_bits                                 = 0;
 
     // Loop over alphas and find the best
     if (component_mask == COMPONENT_CHROMA_CB || component_mask == COMPONENT_CHROMA ||
@@ -3651,9 +3650,9 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet* pcs, ModeDecisionCandida
     uint8_t  best_c[CFL_JOINT_SIGNS][CFL_PRED_PLANES];
 
     for (uint8_t plane = 0; plane < CFL_PRED_PLANES; plane++) {
-        coeff_bits                               = 0;
-        full_dist[DIST_SSD][DIST_CALC_RESIDUAL]  = 0;
-        full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] = 0;
+        coeff_bits                                = 0;
+        full_dist[DIST_SSD][DIST_CALC_RESIDUAL]   = 0;
+        full_dist[DIST_SSIM][DIST_CALC_RESIDUAL]  = 0;
         full_dist[DIST_DAALA][DIST_CALC_RESIDUAL] = 0;
         for (uint8_t joint_sign = 0; joint_sign < CFL_JOINT_SIGNS; joint_sign++) {
             best_rd_uv[joint_sign][plane] = MAX_MODE_COST;
@@ -3703,9 +3702,9 @@ static uint64_t md_cfl_rd_pick_alpha(PictureControlSet* pcs, ModeDecisionCandida
                 if (c > ctx->cfl_ctrls.itr_th && progress < c) {
                     break;
                 }
-                coeff_bits                               = 0;
-                full_dist[DIST_SSD][DIST_CALC_RESIDUAL]  = 0;
-                full_dist[DIST_SSIM][DIST_CALC_RESIDUAL] = 0;
+                coeff_bits                                = 0;
+                full_dist[DIST_SSD][DIST_CALC_RESIDUAL]   = 0;
+                full_dist[DIST_SSIM][DIST_CALC_RESIDUAL]  = 0;
                 full_dist[DIST_DAALA][DIST_CALC_RESIDUAL] = 0;
                 for (uint8_t i = 0; i < CFL_SIGNS; i++) {
                     const uint8_t joint_sign = PLANE_SIGN_TO_JOINT_SIGN(plane, pn_sign, i);
