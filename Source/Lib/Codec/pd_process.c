@@ -499,6 +499,49 @@ static void early_hme_b64(uint8_t* sixteenth_b64_buffer, uint32_t sixteenth_b64_
 
     return;
 }
+#if OPT_MRP_HME_L0_DETECT
+// Compute the total HME-L0 SAD between ppcs (current frame, 1/16 DS) and ref_sixt_ds_pic.
+// Used to compare reference quality before deciding to prune weaker L0 refs.
+uint64_t mrp_detector_hme_level0(PictureParentControlSet* ppcs, EbPictureBufferDesc* ref_sixt_ds_pic) {
+    EbPictureBufferDesc* src_sixt_ds_pic =
+        ((EbPaReferenceObject*)ppcs->pa_ref_pic_wrapper->object_ptr)->sixteenth_downsampled_picture_ptr;
+
+    int16_t  sa_width          = 8;
+    int16_t  sa_height         = 8;
+    Mv       sr_center         = {.as_int = 0};
+    uint8_t  hme_search_method = FULL_SAD_SEARCH;
+    uint32_t pic_width_in_b64  = (ppcs->aligned_width + ppcs->scs->b64_size - 1) / ppcs->scs->b64_size;
+    uint32_t pic_height_in_b64 = (ppcs->aligned_height + ppcs->scs->b64_size - 1) / ppcs->scs->b64_size;
+    uint64_t tot_dist          = 0;
+
+    for (uint32_t y_b64_idx = 0; y_b64_idx < pic_height_in_b64; ++y_b64_idx) {
+        for (uint32_t x_b64_idx = 0; x_b64_idx < pic_width_in_b64; ++x_b64_idx) {
+            uint64_t hme_level0_sad = (uint64_t)~0;
+            uint32_t b64_origin_x   = x_b64_idx * 64;
+            uint32_t b64_origin_y   = y_b64_idx * 64;
+
+            uint32_t buffer_index = ((b64_origin_y >> 2)) * src_sixt_ds_pic->y_stride + (b64_origin_x >> 2);
+
+            early_hme_b64(&src_sixt_ds_pic->y_buffer[buffer_index],
+                          src_sixt_ds_pic->y_stride,
+                          hme_search_method,
+                          ((int16_t)b64_origin_x) >> 2,
+                          ((int16_t)b64_origin_y) >> 2,
+                          16,
+                          16,
+                          sa_width,
+                          sa_height,
+                          ref_sixt_ds_pic,
+                          &hme_level0_sad,
+                          &sr_center);
+
+            tot_dist += hme_level0_sad;
+        }
+    }
+
+    return tot_dist;
+}
+#endif
 
 void dg_detector_hme_level0(PictureParentControlSet* ppcs, uint32_t seg_idx) {
     EbPictureBufferDesc* src_sixt_ds_pic =
@@ -4384,6 +4427,37 @@ static void send_picture_out(SequenceControlSet* scs, PictureParentControlSet* p
     pcs->tf_motion_direction = ctx->tf_motion_direction;
     MrpCtrls* mrp_ctrl       = &(scs->mrp_ctrls);
 
+#if OPT_MRP_HME_L0_DETECT
+    if (scs->static_config.rtc && mrp_ctrl->early_hme_l0_prune_th && pcs->ref_list0_count_try > 1) {
+        if (scs->use_flat_ipp) {
+            EbPictureBufferDesc* ref_last_ds =
+                ((EbPaReferenceObject*)pcs->ref_pa_pic_ptr_array[0][0]->object_ptr)->sixteenth_downsampled_picture_ptr;
+            EbPictureBufferDesc* ref_last2_ds =
+                ((EbPaReferenceObject*)pcs->ref_pa_pic_ptr_array[0][1]->object_ptr)->sixteenth_downsampled_picture_ptr;
+            uint64_t last_dist  = mrp_detector_hme_level0(pcs, ref_last_ds);
+            uint64_t last2_dist = mrp_detector_hme_level0(pcs, ref_last2_ds);
+            // Prune LAST2 when it is >= early_hme_l0_prune_th% worse than LAST.
+            if (last2_dist * 100 >= last_dist * mrp_ctrl->early_hme_l0_prune_th) {
+                pcs->ref_list0_count_try = MIN(pcs->ref_list0_count_try, 1);
+                set_all_ref_frame_type(ctx, pcs, pcs->ref_frame_type_arr, &pcs->tot_ref_frame_types);
+            }
+        } else {
+            if (pcs->temporal_layer_index == 0 && pcs->ref_list0_count_try >= 3) {
+                EbPictureBufferDesc* ref_last_ds = ((EbPaReferenceObject*)pcs->ref_pa_pic_ptr_array[0][0]->object_ptr)
+                                                       ->sixteenth_downsampled_picture_ptr;
+                EbPictureBufferDesc* ref_last3_ds = ((EbPaReferenceObject*)pcs->ref_pa_pic_ptr_array[0][2]->object_ptr)
+                                                        ->sixteenth_downsampled_picture_ptr;
+                uint64_t last_dist  = mrp_detector_hme_level0(pcs, ref_last_ds);
+                uint64_t last3_dist = mrp_detector_hme_level0(pcs, ref_last3_ds);
+                // Prune LAST3 when it is >= early_hme_l0_prune_th% worse than LAST.
+                if (last3_dist * 100 >= last_dist * mrp_ctrl->early_hme_l0_prune_th) {
+                    pcs->ref_list0_count_try = MIN(pcs->ref_list0_count_try, 2);
+                    set_all_ref_frame_type(ctx, pcs, pcs->ref_frame_type_arr, &pcs->tot_ref_frame_types);
+                }
+            }
+        }
+    }
+#endif
     pcs->similar_brightness_refs = get_similar_ref_brightness(pcs);
     if (scs->mrp_ctrls.safe_limit_nref == 2 && pcs->slice_type == B_SLICE && pcs->hierarchical_levels > 0 &&
         (pcs->temporal_layer_index >= pcs->hierarchical_levels - 1)) {

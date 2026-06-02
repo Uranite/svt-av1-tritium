@@ -3317,6 +3317,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 0;
         mrp_ctrl->pme_ref0_only               = 0;
         mrp_ctrl->use_best_references         = 0;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 0;
+#endif
         break;
 
     case 1:
@@ -3337,6 +3340,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 0;
         mrp_ctrl->pme_ref0_only               = 0;
         mrp_ctrl->use_best_references         = 0;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 0;
+#endif
         break;
 
     case 2:
@@ -3357,6 +3363,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 0;
         mrp_ctrl->use_best_references         = 0;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 0;
+#endif
         break;
     case 3:
         mrp_ctrl->referencing_scheme = 1;
@@ -3376,6 +3385,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 0;
         mrp_ctrl->use_best_references         = 2;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 0;
+#endif
         break;
     case 4:
         mrp_ctrl->referencing_scheme = 1;
@@ -3395,6 +3407,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
         mrp_ctrl->use_best_references         = 3;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 0;
+#endif
         break;
     case 5:
         mrp_ctrl->referencing_scheme = 0;
@@ -3414,6 +3429,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
         mrp_ctrl->use_best_references         = 3;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 0;
+#endif
         break;
     case 6:
         mrp_ctrl->referencing_scheme = 0;
@@ -3433,7 +3451,40 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
         mrp_ctrl->use_best_references         = 3;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 170;
+#endif
         break;
+#if OPT_MRP_HME_L0_DETECT
+    case 7:
+        mrp_ctrl->referencing_scheme       = 0;
+        mrp_ctrl->base_ref_list0_count     = 3;
+        mrp_ctrl->base_ref_list1_count     = 2;
+        mrp_ctrl->non_base_ref_list0_count = 3;
+        mrp_ctrl->non_base_ref_list1_count = 2;
+        mrp_ctrl->more_5L_refs             = 0;
+        mrp_ctrl->safe_limit_nref          = 2;
+        mrp_ctrl->safe_limit_zz_th         = 60000;
+        mrp_ctrl->only_l_bwd               = 1;
+        mrp_ctrl->pme_ref0_only            = 1;
+        mrp_ctrl->use_best_references      = 3;
+        mrp_ctrl->early_hme_l0_prune_th    = 150;
+        break;
+    case 8:
+        mrp_ctrl->referencing_scheme       = 0;
+        mrp_ctrl->base_ref_list0_count     = 3;
+        mrp_ctrl->base_ref_list1_count     = 2;
+        mrp_ctrl->non_base_ref_list0_count = 2;
+        mrp_ctrl->non_base_ref_list1_count = 2;
+        mrp_ctrl->more_5L_refs             = 0;
+        mrp_ctrl->safe_limit_nref          = 2;
+        mrp_ctrl->safe_limit_zz_th         = 60000;
+        mrp_ctrl->only_l_bwd               = 1;
+        mrp_ctrl->pme_ref0_only            = 1;
+        mrp_ctrl->use_best_references      = 3;
+        mrp_ctrl->early_hme_l0_prune_th    = 0;
+        break;
+#else
     case 7:
         mrp_ctrl->referencing_scheme = 0;
 #if !TUNE_SIMPLIFY_SETTINGS
@@ -3472,6 +3523,7 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->pme_ref0_only               = 1;
         mrp_ctrl->use_best_references         = 3;
         break;
+#endif
     case 9:
         mrp_ctrl->referencing_scheme = 0;
 #if !TUNE_SIMPLIFY_SETTINGS
@@ -3490,6 +3542,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
         mrp_ctrl->use_best_references         = 3;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 0;
+#endif
         break;
     case 10:
         mrp_ctrl->referencing_scheme = 0;
@@ -3509,6 +3564,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 1;
         mrp_ctrl->pme_ref0_only               = 1;
         mrp_ctrl->use_best_references         = 3;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 0;
+#endif
         break;
     case 11:
         mrp_ctrl->referencing_scheme = 0;
@@ -3528,6 +3586,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd                  = 0;
         mrp_ctrl->pme_ref0_only               = 0;
         mrp_ctrl->use_best_references         = 0;
+#if OPT_MRP_HME_L0_DETECT
+        mrp_ctrl->early_hme_l0_prune_th = 0;
+#endif
         break;
     default:
         assert(0);

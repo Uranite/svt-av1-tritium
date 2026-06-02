@@ -155,6 +155,10 @@ typedef struct MrpCtrls {
     uint8_t ld_reduce_ref_buffs;
     // When flat rtc structure is used, this is the number of refs to use (from previous consecutive frames)
     uint8_t flat_max_refs;
+#if OPT_MRP_HME_L0_DETECT
+    // HME L0 MRP detector threshold. 0: off. Higher values are more conservative.
+    uint16_t early_hme_l0_prune_th;
+#endif
 
 } MrpCtrls;
 
