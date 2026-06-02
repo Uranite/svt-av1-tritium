@@ -1374,9 +1374,53 @@ uint8_t svt_av1_compute_cul_level_c(const int16_t* const scan, const int32_t* co
 
 #if OPT_COEFF_SHAVING
 
-// Retract EOB by removing trailing low-magnitude coefficients separated by zero gaps,
-// then compute energy on the reduced block and optionally zero it entirely if energy is low.
-// Returns the updated EOB (0 = block became skip).
+// Retract EOB by removing trailing low-magnitude coefficients separated by zero gaps
+#if OPT_SHAVE_COEFF_LIN
+static INLINE uint16_t shave_coeff(int32_t* quant_buf, int32_t* recon_buf, uint16_t eob, TxSize tx_size, TxType tx_type,
+                                   const CoeffShavingCtrls* ctrls) {
+    const int16_t* const scan             = get_scan_order(tx_size, tx_type)->scan;
+    const int            level_th         = ctrls->level_threshold;
+    const int            gap_th           = ctrls->zero_gap_threshold;
+    int                  updated_eob      = (int)eob;
+    int                  prev_nz_scan_idx = updated_eob - 2;
+
+    while (updated_eob > 1) {
+        const int     last_scan_idx = updated_eob - 1;
+        const int     last_pos      = scan[last_scan_idx];
+        const int32_t val           = quant_buf[last_pos];
+        const int32_t abs_val       = (val < 0) ? -val : val;
+
+        if (abs_val > level_th) {
+            break;
+        }
+
+        while (prev_nz_scan_idx >= 0) {
+            const int pos = scan[prev_nz_scan_idx];
+            if (quant_buf[pos] != 0) {
+                break;
+            }
+            --prev_nz_scan_idx;
+        }
+
+        if (prev_nz_scan_idx < 0) {
+            break;
+        }
+
+        const int gap = last_scan_idx - prev_nz_scan_idx - 1;
+        if (gap < gap_th) {
+            break;
+        }
+
+        quant_buf[last_pos] = 0;
+        recon_buf[last_pos] = 0;
+
+        updated_eob = prev_nz_scan_idx + 1;
+        --prev_nz_scan_idx;
+    }
+
+    return (uint16_t)updated_eob;
+}
+#else
 static INLINE uint16_t shave_coeff(int32_t* quant_buf, int32_t* recon_buf, uint16_t eob, TxSize tx_size, TxType tx_type,
                                    const CoeffShavingCtrls* ctrls) {
     const int16_t* const scan = get_scan_order(tx_size, tx_type)->scan;
@@ -1450,6 +1494,7 @@ static INLINE uint16_t shave_coeff(int32_t* quant_buf, int32_t* recon_buf, uint1
 
     return (uint16_t)updated_eob;
 }
+#endif
 
 #endif
 
