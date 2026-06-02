@@ -1060,6 +1060,16 @@ void svt_aom_sig_deriv_me(SequenceControlSet* scs, PictureParentControlSet* pcs,
             me_ctx->me_early_exit_th = BLOCK_SIZE_64 * BLOCK_SIZE_64 * 12;
         }
     }
+#if OPT_ME_STATIC_B64
+    // Complete ME bypass for static 64x64 blocks: if L0/R0 zero-MV SAD < threshold,
+    // skip all HME + integer ME, set all MVs to (0,0), approximate sub-block SADs.
+    // Unlike me_early_exit_th which only shrinks search range per-reference.
+    if (rtc_tune) {
+        me_ctx->me_static_b64_th = BLOCK_SIZE_64 * BLOCK_SIZE_64;
+    } else {
+        me_ctx->me_static_b64_th = 0;
+    }
+#endif
 
     me_ctx->me_safe_limit_zz_th = scs->mrp_ctrls.safe_limit_nref == 1 ? scs->mrp_ctrls.safe_limit_zz_th : 0;
 

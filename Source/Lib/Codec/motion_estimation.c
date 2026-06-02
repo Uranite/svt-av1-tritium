@@ -2824,6 +2824,48 @@ static INLINE void init_me_hme_data(MeContext* me_ctx) {
 *   performs ME on 64x64 blocks
 *******************************************/
 
+#if OPT_ME_STATIC_B64
+// Early-exit path for static 64x64 blocks. If the list0/ref0 (0,0) SAD is
+// below me_ctx->me_static_b64_th, populate the minimal set of outputs that
+// downstream consumers (construct_me_candidate_array*, compute_distortion)
+// need and return true so the caller can skip init/HME/integer ME.
+static bool me_static_b64_bypass(MeContext* me_ctx, uint32_t b64_origin_x, uint32_t b64_origin_y) {
+    if (!me_ctx->me_static_b64_th) {
+        return false;
+    }
+
+    EbPictureBufferDesc* ref_pic = me_ctx->me_ds_ref_array[0][0].picture_ptr;
+    uint32_t zz_sad = get_zz_sad(ref_pic, me_ctx, b64_origin_x, b64_origin_y, me_ctx->b64_width, me_ctx->b64_height);
+    // Normalize for incomplete (edge) SBs
+    zz_sad = (zz_sad * 64 * 64) / (me_ctx->b64_width * me_ctx->b64_height);
+    if (zz_sad >= me_ctx->me_static_b64_th) {
+        return false;
+    }
+
+    me_ctx->zz_sad[0][0]                = zz_sad;
+    me_ctx->search_results[0][0].do_ref = 1;
+    svt_memset(me_ctx->p_sb_best_mv[0][0], 0, SQUARE_PU_COUNT * sizeof(uint32_t));
+    // 64x64
+    me_ctx->p_sb_best_sad[0][0][0] = zz_sad;
+    // 32x32
+    const uint32_t sad32 = zz_sad >> 2;
+    for (int i = 1; i <= 4; i++) {
+        me_ctx->p_sb_best_sad[0][0][i] = sad32;
+    }
+    // 16x16
+    const uint32_t sad16 = zz_sad >> 4;
+    for (int i = 5; i <= 20; i++) {
+        me_ctx->p_sb_best_sad[0][0][i] = sad16;
+    }
+    // 8x8
+    const uint32_t sad8 = zz_sad >> 6;
+    for (int i = 21; i < SQUARE_PU_COUNT; i++) {
+        me_ctx->p_sb_best_sad[0][0][i] = sad8;
+    }
+    return true;
+}
+#endif
+
 EbErrorType svt_aom_motion_estimation_b64(
     PictureParentControlSet* pcs, // input parameter, Picture Control Set Ptr
     uint32_t                 b64_index, // input parameter, SB Index
@@ -2848,26 +2890,32 @@ EbErrorType svt_aom_motion_estimation_b64(
 
     //pruning of the references is not done for alt-ref / when HMeLevel2 not done
     uint8_t prune_ref = me_ctx->enable_hme_flag && me_ctx->me_type != ME_MCTF;
-    // Initialize ME/HME buffers
-    init_me_hme_data(me_ctx);
-    // HME: Perform Hierarchical Motion Estimation for all reference frames for the current 64x64 block.
-    hme_b64(pcs, b64_origin_x, b64_origin_y, me_ctx, input_ptr);
+#if OPT_ME_STATIC_B64
+    if (!me_static_b64_bypass(me_ctx, b64_origin_x, b64_origin_y)) {
+#endif
+        // Initialize ME/HME buffers
+        init_me_hme_data(me_ctx);
+        // HME: Perform Hierarchical Motion Estimation for all reference frames for the current 64x64 block.
+        hme_b64(pcs, b64_origin_x, b64_origin_y, me_ctx, input_ptr);
 
-    if (me_ctx->me_type == ME_MCTF && me_ctx->search_results[0][0].hme_sad < me_ctx->tf_me_exit_th) {
-        me_ctx->tf_use_pred_64x64_only_th = (uint8_t)~0;
-        return return_error;
-    }
-    // prune the reference frames based on the HME outputs.
-    if (prune_ref) {
-        hme_prune_ref_and_adjust_sr(me_ctx);
-    }
-    // Full pel: Perform the Integer Motion Estimation on the allowed reference frames.
-    integer_search_b64(pcs, me_ctx, b64_origin_x, b64_origin_y, input_ptr);
+        if (me_ctx->me_type == ME_MCTF && me_ctx->search_results[0][0].hme_sad < me_ctx->tf_me_exit_th) {
+            me_ctx->tf_use_pred_64x64_only_th = (uint8_t)~0;
+            return return_error;
+        }
+        // prune the reference frames based on the HME outputs.
+        if (prune_ref) {
+            hme_prune_ref_and_adjust_sr(me_ctx);
+        }
+        // Full pel: Perform the Integer Motion Estimation on the allowed reference frames.
+        integer_search_b64(pcs, me_ctx, b64_origin_x, b64_origin_y, input_ptr);
 
-    // prune the reference frames
-    if (prune_ref && me_ctx->me_hme_prune_ctrls.enable_me_hme_ref_pruning) {
-        me_prune_ref(me_ctx);
+        // prune the reference frames
+        if (prune_ref && me_ctx->me_hme_prune_ctrls.enable_me_hme_ref_pruning) {
+            me_prune_ref(me_ctx);
+        }
+#if OPT_ME_STATIC_B64
     }
+#endif
 
     if (me_ctx->me_type != ME_MCTF) {
         {
