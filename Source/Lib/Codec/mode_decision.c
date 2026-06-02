@@ -4563,12 +4563,8 @@ uint64_t svt_spatial_full_distortion_daala_kernel(uint8_t* input, uint32_t input
         }
     }
 
-    total_distortion = (uint64_t)svt_aom_od_compute_dist(input_16bit,
-                                                         recon_16bit,
-                                                         calc_width,
-                                                         calc_height,
-                                                         qindex,
-                                                         activity_masking);
+    total_distortion = (uint64_t)svt_aom_od_compute_dist(
+        input_16bit, recon_16bit, calc_width, calc_height, qindex, activity_masking);
 
     if (bit_depth > 8) {
         total_distortion <<= 2 * (bit_depth - 8);
