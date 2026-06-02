@@ -15,6 +15,7 @@
 #include "enc_handle.h"
 #include "utility.h"
 #include "pcs.h"
+#include "sequence_control_set.h"
 #include "md_config_process.h"
 #include "rc_results.h"
 #include "enc_dec_tasks.h"
@@ -617,7 +618,8 @@ static void generate_ibc_data(PictureControlSet* pcs) {
 }
 
 static void derive_intra_coeff_level(PictureControlSet* pcs) {
-    uint64_t cmplx = pcs->ppcs->pic_avg_variance / MAX(1, pcs->scs->static_config.qp);
+    const uint8_t effective_qp = svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp;
+    uint64_t      cmplx        = pcs->ppcs->pic_avg_variance / MAX(1, effective_qp);
 
     uint64_t coeff_vlow_level_th = COEFF_LVL_INTRA_TH_0;
     uint64_t coeff_low_level_th  = COEFF_LVL_INTRA_TH_1;

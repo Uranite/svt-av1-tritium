@@ -4340,11 +4340,6 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         }
     }
 
-    // Zones
-    scs->static_config.zones        = config_struct->zones;
-    scs->static_config.parsed_zones = config_struct->parsed_zones;
-    scs->static_config.num_zones    = config_struct->num_zones;
-
     // Rate Control
     scs->static_config.scene_change_detection = config_struct->scene_change_detection;
     if (config_struct->lossless && config_struct->rate_control_mode) {
@@ -4683,6 +4678,17 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // Daala
     scs->static_config.enable_daala = config_struct->enable_daala;
 
+    // Zones
+    if (config_struct->quality_zones && config_struct->num_zones > 0) {
+        EB_NO_THROW_MALLOC(scs->static_config.quality_zones, sizeof(SvtAv1QualityZone) * config_struct->num_zones);
+        memcpy(scs->static_config.quality_zones,
+               config_struct->quality_zones,
+               sizeof(SvtAv1QualityZone) * config_struct->num_zones);
+    } else {
+        scs->static_config.quality_zones = NULL;
+    }
+    scs->static_config.num_zones = config_struct->num_zones;
+
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {
         SVT_WARN(
@@ -4820,6 +4826,12 @@ EB_API EbErrorType svt_av1_enc_set_parameter(EbComponentType*          svt_enc_c
         EB_FREE(config_struct->sframe_posi.sframe_posis);
     }
     memset(&config_struct->sframe_posi, 0, sizeof(SvtAv1SFramePositions));
+
+    if (config_struct->quality_zones) {
+        EB_FREE(config_struct->quality_zones);
+    }
+    config_struct->quality_zones = NULL;
+    config_struct->num_zones     = 0;
 
     return return_error;
 }

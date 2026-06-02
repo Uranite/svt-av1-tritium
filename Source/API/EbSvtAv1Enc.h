@@ -206,12 +206,12 @@ typedef struct SvtAv1SFramePositions {
     int8_t*   sframe_qp_offsets;
 } SvtAv1SFramePositions;
 
-typedef struct QualityZone {
+typedef struct SvtAv1QualityZone {
     uint32_t start_frame; // inclusive
-    uint32_t end_frame;   // inclusive
-    int      zone_baseq;  // base CRF/CQP value for this zone
-    int      zone_qsidx;  // quarter step index
-} QualityZone;
+    uint32_t end_frame; // inclusive
+    int      zone_baseq; // base CRF/CQP value for this zone
+    int      zone_qsidx; // quarter step index
+} SvtAv1QualityZone;
 
 // Will contain the EbEncApi which will live in the EncHandle class
 // Only modifiable during config-time.
@@ -1124,16 +1124,12 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool auto_tiling;
 
-    /* @brief Quality zones configuration string
+    /* @brief Quality zones configuration
      *
-     * Format: "start1,end1,quality1;start2,end2,quality2" etc
-     * Example: "0,100,35;101,200,25"
      * Default is no zones.
      */
-    char* zones;
-    // Internal parsed zones (not exposed to CLI)
-    QualityZone* parsed_zones;
-    uint16_t     num_zones;
+    SvtAv1QualityZone* quality_zones;
+    uint16_t           num_zones;
 
     /**
      * @brief Enable alternative CDEF biases
@@ -1159,7 +1155,7 @@ typedef struct EbSvtAv1EncConfiguration {
                     sizeof(uint8_t) // pred_strucutre type was changed from uint8_t to PredStructure
                     /* SVT-AV1-HDR additions */
                     - (sizeof(uint8_t) * 12) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 2) - (sizeof(bool) * 4) -
-                    (sizeof(double)) - sizeof(char*) - sizeof(QualityZone*) - sizeof(uint16_t)];
+                    (sizeof(double)) - sizeof(SvtAv1QualityZone*) - sizeof(uint16_t)];
     // clang-format on
 } EbSvtAv1EncConfiguration;
 
