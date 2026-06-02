@@ -259,7 +259,7 @@ static void set_hme_search_params(PictureParentControlSet* pcs, MeContext* me_ct
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.hme_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
-                                            pcs->scs->static_config.qp);
+                                            svt_av1_get_effective_qp(pcs->scs, pcs->picture_number).qp);
     me_ctx->hme_l0_sa.sa_min.width  = MAX(8,
                                          DIVIDE_AND_ROUND(me_ctx->hme_l0_sa.sa_min.width * q_weight, q_weight_denom));
     me_ctx->hme_l0_sa.sa_min.height = MAX(8,
@@ -403,7 +403,7 @@ static void set_me_search_params(SequenceControlSet* scs, PictureParentControlSe
     }
     uint32_t q_weight, q_weight_denom;
     svt_aom_get_qp_based_th_scaling_factors(
-        scs->qp_based_th_scaling_ctrls.me_qp_based_th_scaling, &q_weight, &q_weight_denom, scs->static_config.qp);
+        scs->qp_based_th_scaling_ctrls.me_qp_based_th_scaling, &q_weight, &q_weight_denom, svt_av1_get_effective_qp(scs, pcs->picture_number).qp);
     me_ctx->me_sa.sa_min.width  = MAX(8, DIVIDE_AND_ROUND(me_ctx->me_sa.sa_min.width * q_weight, q_weight_denom));
     me_ctx->me_sa.sa_min.height = MAX(3, DIVIDE_AND_ROUND(me_ctx->me_sa.sa_min.height * q_weight, q_weight_denom));
     me_ctx->me_sa.sa_max.width  = MAX(8, DIVIDE_AND_ROUND(me_ctx->me_sa.sa_max.width * q_weight, q_weight_denom));
@@ -8569,12 +8569,13 @@ static void set_pic_lpd0_lvl_default(PictureControlSet* pcs, EncMode enc_mode) {
     uint8_t                  ldp0_lvl_offset[4] = {2, 2, 1, 0};
     uint8_t                  qp_band_idx        = 0;
     const uint8_t            seq_qp_mod         = pcs->scs->seq_qp_mod;
+    const uint8_t            effective_qp       = svt_av1_get_effective_qp(pcs->scs, ppcs->picture_number).qp;
 
-    if (pcs->scs->static_config.qp <= 27) {
+    if (effective_qp <= 27) {
         qp_band_idx = 0;
-    } else if (pcs->scs->static_config.qp <= 39) {
+    } else if (effective_qp <= 39) {
         qp_band_idx = 1;
-    } else if (pcs->scs->static_config.qp <= 43) {
+    } else if (effective_qp <= 43) {
         qp_band_idx = 2;
     } else {
         qp_band_idx = 3;
@@ -8902,7 +8903,7 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
     const uint32_t           hierarchical_levels = ppcs->hierarchical_levels;
     const bool               transition_present  = (ppcs->transition_present == 1);
     const bool               is_not_last_layer   = !ppcs->is_highest_layer;
-    const uint32_t           sq_qp               = scs->static_config.qp;
+    const uint32_t           sq_qp               = svt_av1_get_effective_qp(scs, ppcs->picture_number).qp;
 
     //MFMV
     uint8_t mfmv_level = 0;
@@ -9173,7 +9174,7 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
 
     //set the nsq_level
     pcs->nsq_geom_level   = svt_aom_get_nsq_geom_level_default(enc_mode, pcs->coeff_lvl);
-    pcs->nsq_search_level = svt_aom_get_nsq_search_level_default(pcs, enc_mode, pcs->coeff_lvl, scs->static_config.qp);
+    pcs->nsq_search_level = svt_aom_get_nsq_search_level_default(pcs, enc_mode, pcs->coeff_lvl, sq_qp);
 
     // Set the level for inter-intra level
     if (!is_islice && scs->seq_header.enable_interintra_compound) {
@@ -9454,12 +9455,14 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
             }
         }
     }
+    SvtAv1EffectiveQp active_qp = svt_av1_get_effective_qp(scs, ppcs->picture_number);
+    uint32_t active_ext_crf_qindex_offset = active_qp.extended_crf_qindex_offset;
     // Extended CRF range (63.25 - 70), increase lambda weight toward further bit saving
     // Max lambda weight increase: 28 * 28 = 784
     // The multiplier of "28" was derived empirically to allow a smooth bitrate decrease as
     // CRF increases from 63.25 (extended_crf_qindex_offset = 1) to 70 (extended_crf_qindex_offset = 4 * 7)
-    if (scs->static_config.qp == MAX_QP_VALUE && scs->static_config.extended_crf_qindex_offset) {
-        pcs->lambda_weight += scs->static_config.extended_crf_qindex_offset * 28;
+    if (active_qp.qp_is_max && active_ext_crf_qindex_offset) {
+        pcs->lambda_weight += active_ext_crf_qindex_offset * 28;
     }
 
     uint8_t dlf_level = 0;
@@ -9490,7 +9493,7 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
     const uint32_t           hierarchical_levels = ppcs->hierarchical_levels;
     const bool               transition_present  = (ppcs->transition_present == 1);
     const bool               is_not_last_layer   = !ppcs->is_highest_layer;
-    const uint32_t           sq_qp               = scs->static_config.qp;
+    const uint32_t           sq_qp               = svt_av1_get_effective_qp(scs, ppcs->picture_number).qp;
     const bool               flat_rtc            = scs->use_flat_ipp;
     //MFMV
     uint8_t mfmv_level = 0;
@@ -9735,7 +9738,7 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
 
     //set the nsq_level
     pcs->nsq_geom_level   = svt_aom_get_nsq_geom_level_rtc(enc_mode);
-    pcs->nsq_search_level = svt_aom_get_nsq_search_level_rtc(pcs, enc_mode, pcs->coeff_lvl, scs->static_config.qp);
+    pcs->nsq_search_level = svt_aom_get_nsq_search_level_rtc(pcs, enc_mode, pcs->coeff_lvl, sq_qp);
 
     // Set the level for inter-intra level
     if (!is_islice && scs->seq_header.enable_interintra_compound) {
@@ -9922,12 +9925,14 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         // Upper QP cutoff: QP 39 = (63 - QP) * 3
         pcs->lambda_weight = CLIP3(0, 72, MIN(ppcs->picture_qp * 4, (63 - pcs->ppcs->picture_qp) * 3)) + 128;
     }
+    SvtAv1EffectiveQp active_qp = svt_av1_get_effective_qp(scs, ppcs->picture_number);
+    uint32_t active_ext_crf_qindex_offset = active_qp.extended_crf_qindex_offset;
     // Extended CRF range (63.25 - 70), increase lambda weight toward further bit saving
     // Max lambda weight increase: 28 * 28 = 784
     // The multiplier of "28" was derived empirically to allow a smooth bitrate decrease as
     // CRF increases from 63.25 (extended_crf_qindex_offset = 1) to 70 (extended_crf_qindex_offset = 4 * 7)
-    if (scs->static_config.qp == MAX_QP_VALUE && scs->static_config.extended_crf_qindex_offset) {
-        pcs->lambda_weight += scs->static_config.extended_crf_qindex_offset * 28;
+    if (active_qp.qp_is_max && active_ext_crf_qindex_offset) {
+        pcs->lambda_weight += active_ext_crf_qindex_offset * 28;
     }
 
     uint8_t dlf_level = 0;
