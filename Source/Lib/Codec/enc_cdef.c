@@ -404,6 +404,57 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                     level        = uv_level;
                     sec_strength = uv_sec_strength;
                 }
+#if OPT_CDEF_PER_PLANE_SKIP
+                // Per-plane elision: when this plane's strength is (0,0), the
+                // filter is a no-op and the only purpose of the per-plane src[]
+                // border-copy machinery is to feed colbuf[pli] / linebuf[pli]
+                // for neighbours (right, below). Since the recon for this plane
+                // is unmodified, we can source those saves directly from
+                // rec_buff and skip the whole src[] dance.
+                //
+                // For luma (pli=0) we additionally require dirinit==1 so that
+                // dir/var are already populated by the search; if dirinit==0
+                // (use_reference_cdef_fs / use_qp_strength), svt_cdef_filter_fb
+                // must still run to populate dir for subsequent chroma planes.
+                if (level == 0 && sec_strength == 0 && (pli != 0 || dirinit)) {
+                    // Save linebuf[pli] (bottom edge for the FB below) from rec_buff.
+                    if (fbr < nvfb - 1) {
+                        svt_aom_copy_sb8_16(&linebuf[pli][coffset],
+                                            stride,
+                                            rec_buff,
+                                            (MI_SIZE_64X64 << mi_high_l2[pli]) * (fbr + 1) - CDEF_VBORDER,
+                                            coffset,
+                                            rec_stride,
+                                            CDEF_VBORDER,
+                                            hsize,
+                                            is_16bit);
+                    }
+                    // Save colbuf[pli] (right edge for the FB to the right) from rec_buff.
+                    // colbuf layout: rend+VBORDER rows x HBORDER cols, mirroring the
+                    // standard save which reads from src[] rows 0..rend+VBORDER-1 cols
+                    // hsize..hsize+HBORDER-1 (== rec_buff cols coffset+hsize-HBORDER..coffset+hsize-1).
+                    //
+                    // - For fbr > 0: copy the full rend+VBORDER rows starting VBORDER above the FB.
+                    // - For fbr == 0: the top VBORDER rows of colbuf are read by the right
+                    //   neighbour but immediately overwritten by its frame_top fill, so we
+                    //   skip them (rec_buff has no rows above 0).
+                    if (fbc < nhfb - 1) {
+                        const int32_t row_top     = (fbr == 0) ? 0 : -CDEF_VBORDER;
+                        const int32_t num_rows    = (fbr == 0) ? rend : (rend + CDEF_VBORDER);
+                        const int32_t dst_row_off = (fbr == 0) ? CDEF_VBORDER : 0;
+                        svt_aom_copy_sb8_16(colbuf[pli] + dst_row_off * CDEF_HBORDER,
+                                            CDEF_HBORDER,
+                                            rec_buff,
+                                            (MI_SIZE_64X64 << mi_high_l2[pli]) * fbr + row_top,
+                                            coffset + hsize - CDEF_HBORDER,
+                                            rec_stride,
+                                            num_rows,
+                                            CDEF_HBORDER,
+                                            is_16bit);
+                    }
+                    continue;
+                }
+#endif
 
                 /* Copy in the pixels we need from the current superblock for
                    deringing.*/
