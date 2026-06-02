@@ -321,7 +321,10 @@ static void init_frame_rate_tables(PictureControlSet* pcs) {
     // Initial Rate Estimation of the Motion vectors
     svt_aom_estimate_mv_rate(pcs, md_rate_est_ctx, &pcs->md_frame_context);
     // Initial Rate Estimation of the quantized coefficients
-    svt_aom_estimate_coefficients_rate(md_rate_est_ctx, &pcs->md_frame_context);
+#if OPT_APPROX_COEFF_RATE
+    if (pcs->rate_est_level || pcs->cdf_ctrl.update_coef)
+#endif
+        svt_aom_estimate_coefficients_rate(md_rate_est_ctx, &pcs->md_frame_context);
 }
 
 // Perform initializations needed for MD

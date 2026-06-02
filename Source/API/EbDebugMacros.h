@@ -92,6 +92,7 @@ extern "C" {
 #define OPT_VLPD0_PATH_INTER       1 // Bypass generate_md_stage_0_cand/md_stage_0, evaluate ME candidates directly on ref buffer (bit-exact)
 #define OPT_PADDING                1 // Rewrite svt_aom_generate_padding: use svt_memset per-row for horizontal padding and svt_memcpy for vertical row replication; reduces 4 temp pointers to 2, eliminates sizeof(uint8_t) multiplier.
 #define OPT_CDEF_PER_PLANE_SKIP    1 // Per-plane skip of src[] border copies + filter call in svt_av1_cdef_frame when that plane's (level,sec)=(0,0); linebuf/colbuf are saved directly from the unmodified rec_buff
+#define OPT_APPROX_COEFF_RATE      1 // Mirror the existing luma cheap eob-based coeff-rate path on the chroma side (svt_aom_full_loop_uv / svt_aom_cuchroma_coding_loop): both for consistency and to bypass useless rate-estimation operation
 
 #define OPT_USE_HL0_FLAT  1 // Support hierarchical_levels 0 (flat) and 1 in LD CBR and RA 1L referencing
 

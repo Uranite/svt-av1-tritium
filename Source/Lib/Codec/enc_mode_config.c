@@ -11284,7 +11284,9 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
         }
     }
     mfmv_controls(pcs, mfmv_level);
-
+#if OPT_APPROX_COEFF_RATE
+    pcs->rate_est_level = 1;
+#endif
 #if TUNE_SIMPLIFY_SETTINGS
     uint8_t update_cdf_level = svt_aom_get_update_cdf_level_default(enc_mode, is_islice, is_base);
 #else
@@ -11442,8 +11444,9 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
 #if OPT_COEFF_SHAVING
     pcs->coeff_shaving_level = 0;
 #endif
-
+#if !OPT_APPROX_COEFF_RATE
     pcs->rate_est_level = 1;
+#endif
 #if OPT_VLPD0_COST_BIS
     pcs->vlpd0_cost_bias_weight = 0;
 #endif
@@ -11981,6 +11984,13 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         }
     }
     mfmv_controls(pcs, mfmv_level);
+#if OPT_APPROX_COEFF_RATE
+    if (enc_mode <= ENC_M11) {
+        pcs->rate_est_level = 1;
+    } else {
+        pcs->rate_est_level = 0;
+    }
+#endif
     uint8_t update_cdf_level = svt_aom_get_update_cdf_level_rtc(enc_mode, is_islice);
     set_cdf_controls(pcs, update_cdf_level);
     if (pcs->cdf_ctrl.enabled) {
@@ -12177,7 +12187,9 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         }
     }
 #endif
+#if !OPT_APPROX_COEFF_RATE
     pcs->rate_est_level = 1;
+#endif
 #if OPT_VLPD0_COST_BIS
     // ME distortion ratio-weighted variance bias for VLPD0 inter-depth decision
     // 0: off (default offsets), 512..1024: min weight = 50%..100% of default offset
@@ -12647,8 +12659,15 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         }
     }
 #endif
-
+#if OPT_APPROX_COEFF_RATE
+    if (enc_mode <= ENC_M11) {
+        pcs->rate_est_level = 1;
+    } else {
+        pcs->rate_est_level = 0;
+    }
+#else
     pcs->rate_est_level = 1;
+#endif
 
 #if OPT_VLPD0_COST_BIS
     // ME distortion ratio-weighted variance bias for VLPD0 inter-depth decision
@@ -13031,6 +13050,16 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
 #endif
     //MFMV
     mfmv_controls(pcs, 0);
+#if OPT_APPROX_COEFF_RATE
+    // Set the rate estimation level
+    if (enc_mode <= ENC_M6) {
+        pcs->rate_est_level = 1;
+    } else if (enc_mode <= ENC_M8) {
+        pcs->rate_est_level = 4;
+    } else {
+        pcs->rate_est_level = 0;
+    }
+#endif
 
     uint8_t update_cdf_level = svt_aom_get_update_cdf_level_allintra(enc_mode);
     set_cdf_controls(pcs, update_cdf_level);
@@ -13115,6 +13144,7 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
 #if OPT_COEFF_SHAVING
     pcs->coeff_shaving_level = 0;
 #endif
+#if !OPT_APPROX_COEFF_RATE
     // Set the rate estimation level
     if (enc_mode <= ENC_M6) {
         pcs->rate_est_level = 1;
@@ -13123,6 +13153,7 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
     } else {
         pcs->rate_est_level = 0;
     }
+#endif
 #if OPT_VLPD0_COST_BIS
     pcs->vlpd0_cost_bias_weight = 0;
 #endif
