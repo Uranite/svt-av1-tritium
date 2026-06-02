@@ -79,6 +79,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **MaxTxSize**                    | --max-tx-size               | [32,64]                        | 64          | Restricts use of block transform sizes to the specified value                                                 |
 | **NoiseNormStrength**            |  --noise-norm-strength      | [0-4]                          | 1           | Selectively boost AC coefficients to improve fine detail retention in certain circumstances                   |
 | **AltSSIMTuning**                | --alt-ssim-tuning           | [0-1]                          | 0           | Enables the usage of VQ optimizations and an alternative SSIM calculation pathway (Only operates with tune 2) |
+| **LowMemory**                    | --low-memory                | [0-1]                          | 0           | Specifies whether to use params which reduce RAM consumption with potential efficiency and speed trade-offs   |
 
 ## Rate Control Options
 
