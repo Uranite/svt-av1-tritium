@@ -92,6 +92,10 @@ This parameter sets options that reduce RAM usage of the encoding instance signi
 Enabling low-memory can have some impact on encoding speeds and perceptual quality.
 It is most effective in CRF/CQP Random Access mode.
 
+- `--hide-banner` *0 and 1*
+
+Some may prefer to hide the banner though, so we have that option too!
+
 ### SVT-AV1-HDR
 
 - `PQ-optimized Variance Boost curve`
