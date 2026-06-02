@@ -752,7 +752,7 @@ static void tf_set_me_hme_params_oq(MeContext* me_ctx, PictureParentControlSet* 
         svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.tf_me_qp_based_th_scaling,
                                                 &q_weight,
                                                 &q_weight_denom,
-                                                pcs->scs->static_config.qp);
+                                                svt_av1_get_effective_qp(pcs->scs, pcs->picture_number).qp);
         me_ctx->me_sa.sa_min.width  = MAX(8, DIVIDE_AND_ROUND(me_ctx->me_sa.sa_min.width * q_weight, q_weight_denom));
         me_ctx->me_sa.sa_min.height = MAX(8, DIVIDE_AND_ROUND(me_ctx->me_sa.sa_min.height * q_weight, q_weight_denom));
         me_ctx->me_sa.sa_max.width  = MAX(8, DIVIDE_AND_ROUND(me_ctx->me_sa.sa_max.width * q_weight, q_weight_denom));
@@ -5313,7 +5313,7 @@ static void set_nsq_search_ctrls(PictureControlSet* pcs, ModeDecisionContext* ct
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.nsq_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
-                                            pcs->scs->static_config.qp);
+                                            svt_av1_get_effective_qp(pcs->scs, pcs->picture_number).qp);
     nsq_search_ctrls->component_multiple_th = DIVIDE_AND_ROUND(nsq_search_ctrls->component_multiple_th * q_weight,
                                                                q_weight_denom);
     nsq_search_ctrls->nsq_split_cost_th     = DIVIDE_AND_ROUND(nsq_search_ctrls->nsq_split_cost_th * q_weight,
@@ -6956,7 +6956,7 @@ static void get_max_block_size_allintra(PictureControlSet* pcs, ModeDecisionCont
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.cap_max_size_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
-                                            pcs->scs->static_config.qp);
+                                            svt_av1_get_effective_qp(pcs->scs, pcs->picture_number).qp);
 
     uint16_t var_th_cap = (base_var_th_cap == (uint16_t)~0)
         ? base_var_th_cap
@@ -9955,7 +9955,7 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
     EncMode                  enc_mode         = pcs->enc_mode;
     const ResolutionRange    input_resolution = ppcs->input_resolution;
     const uint8_t            fast_decode      = scs->static_config.fast_decode;
-    const uint32_t           sq_qp            = scs->static_config.qp;
+    const uint32_t           sq_qp            = svt_av1_get_effective_qp(scs, ppcs->picture_number).qp;
     FrameHeader*             frm_hdr          = &ppcs->frm_hdr;
     const uint8_t            sc_class1        = ppcs->sc_class1;
     //MFMV
@@ -10069,7 +10069,7 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
 
     //set the nsq_level
     pcs->nsq_geom_level   = svt_aom_get_nsq_geom_level_allintra(enc_mode);
-    pcs->nsq_search_level = svt_aom_get_nsq_search_level_allintra(pcs, enc_mode, scs->static_config.qp);
+    pcs->nsq_search_level = svt_aom_get_nsq_search_level_allintra(pcs, enc_mode, sq_qp);
 
     //set the txs level
     if (enc_mode <= ENC_MRP) {
@@ -10179,8 +10179,10 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
     // Max lambda weight increase: 28 * 28 = 784
     // The multiplier of "28" was derived empirically to allow a smooth bitrate decrease as
     // CRF increases from 63.25 (extended_crf_qindex_offset = 1) to 70 (extended_crf_qindex_offset = 4 * 7)
-    if (scs->static_config.qp == MAX_QP_VALUE && scs->static_config.extended_crf_qindex_offset) {
-        pcs->lambda_weight += scs->static_config.extended_crf_qindex_offset * 28;
+    SvtAv1EffectiveQp active_qp = svt_av1_get_effective_qp(scs, ppcs->picture_number);
+    uint32_t active_ext_crf_qindex_offset = active_qp.extended_crf_qindex_offset;
+    if (active_qp.qp_is_max && active_ext_crf_qindex_offset) {
+        pcs->lambda_weight += active_ext_crf_qindex_offset * 28;
     }
     // Set the dlf level
     uint8_t dlf_level = 0;
