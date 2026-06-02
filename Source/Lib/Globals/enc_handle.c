@@ -4685,6 +4685,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // Daala
     scs->static_config.enable_daala = config_struct->enable_daala;
 
+    // Distortion bias preset
+    scs->static_config.distortion_bias_preset = config_struct->distortion_bias_preset;
+
     // Zones
     if (config_struct->quality_zones && config_struct->num_zones > 0) {
         EB_NO_THROW_MALLOC(scs->static_config.quality_zones, sizeof(SvtAv1QualityZone) * config_struct->num_zones);
@@ -4697,6 +4700,55 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.num_zones = config_struct->num_zones;
 
     scs->static_config.hide_banner = config_struct->hide_banner;
+
+    // Override settings for Distortion bias presets
+    if (scs->static_config.distortion_bias_preset == 1) {
+        SVT_WARN("Distortion bias preset 1 hard sets: --complex-hvs 1 --tx-bias 3 --enable-alt-cdef 1 --noise-adaptive-filtering 4\n");
+        SVT_WARN("Distortion bias presets serve illustrative purposes. It is recommended to tweak the settings around your preferred preset for better results\n");
+        scs->static_config.complex_hvs = 1;
+        scs->static_config.tx_bias = 3;
+        scs->static_config.alt_cdef = 1;
+        scs->static_config.noise_adaptive_filtering = 4;
+    }
+    else if (scs->static_config.distortion_bias_preset == 2) {
+        SVT_WARN("Distortion bias preset 2 hard sets: --tune 0 --qm-min 4 --qm-max 15 --tf-strength 0 --ac-bias 2.0 --complex-hvs 1 --tx-bias 2 --enable-alt-cdef 1 --noise-adaptive-filtering 4\n");
+        SVT_WARN("Distortion bias presets serve illustrative purposes. It is recommended to tweak the settings around your preferred preset for better results\n");
+        SVT_WARN("With higher Distortion bias presets and high CRFs, it is recommended to up the film-grain/noise strength for a more consistent picture\n");
+        SVT_WARN("Keep in mind for benchmarking analysis that this configuration will likely harm metric performance.\n");
+        scs->static_config.tune = TUNE_VQ;
+        scs->static_config.min_qm_level = 4;
+        scs->static_config.max_qm_level = 15;
+        scs->static_config.tf_strength = 0;
+        scs->static_config.ac_bias = 2.0;
+        scs->static_config.complex_hvs = 1;
+        scs->static_config.tx_bias = 2;
+        scs->static_config.alt_cdef = 1;
+        scs->static_config.noise_adaptive_filtering = 4;
+    }
+    else if (scs->static_config.distortion_bias_preset == 3) {
+        SVT_WARN("Distortion bias preset 3 hard sets: --tune 0 --qm-min 8 --qm-max 15 --chroma-qm-min 10 --tf-strength 0 --ac-bias 4.0 --noise-norm-strength 3 --complex-hvs 1 --tx-bias 1 --enable-alt-cdef 2 --noise-adaptive-filtering 4\n");
+        SVT_WARN("Distortion bias presets serve illustrative purposes. It is recommended to tweak the settings around your preferred preset for better results\n");
+        SVT_WARN("With higher Distortion bias presets and high CRFs, it is recommended to up the film-grain/noise strength for a more consistent picture\n");
+        SVT_WARN("Keep in mind for benchmarking analysis that this configuration will likely harm metric performance.\n");
+        scs->static_config.tune = TUNE_VQ;
+        scs->static_config.min_qm_level = 8;
+        scs->static_config.max_qm_level = 15;
+        scs->static_config.min_chroma_qm_level = 10;
+        scs->static_config.tf_strength = 0;
+        scs->static_config.ac_bias = 4.0;
+        scs->static_config.noise_norm_strength = 3;
+        scs->static_config.complex_hvs = 1;
+        scs->static_config.tx_bias = 1;
+        scs->static_config.alt_cdef = 2;
+        scs->static_config.noise_adaptive_filtering = 4;
+    }
+    else if (scs->static_config.distortion_bias_preset == 4) {
+        SVT_WARN("Distortion bias preset 4 hard sets: --tune 5\n");
+        SVT_WARN("Tune 5 is equivalent to --enable-tf 0 --enable-cdef 0 --enable-restoration 0 --complex-hvs 1 --ac-bias 4.0 --tx-bias 1\n");
+        SVT_WARN("Distortion bias presets serve illustrative purposes. It is recommended to tweak the settings around your preferred preset for better results\n");
+        SVT_WARN("With higher Distortion bias presets and high CRFs, it is recommended to up the film-grain/noise strength for a more consistent picture\n");
+        scs->static_config.tune = TUNE_FILM_GRAIN;
+    }
 
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {

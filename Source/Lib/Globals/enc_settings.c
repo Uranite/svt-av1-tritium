@@ -989,6 +989,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
             "Proceed with caution.\n");
     }
 
+    if (config->distortion_bias_preset > 4) {
+        SVT_ERROR("distortion-bias-preset must be between 0 and 4\n");
+        return_error = EB_ErrorBadParameter;
+    }
     return return_error;
 }
 
@@ -1174,6 +1178,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->enable_daala                      = 0;
     config_ptr->low_memory                        = false;
     config_ptr->hide_banner                       = false;
+    config_ptr->distortion_bias_preset            = 0;
     return return_error;
 }
 
@@ -1485,6 +1490,10 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
         if (config->complex_hvs == 1) {
             SVT_INFO("SVT [config]: highest complexity HVS model \t\t\t\t\t: %d\n",
                      config->complex_hvs);
+        }
+
+        if (config->distortion_bias_preset != 0) {
+            SVT_INFO("SVT [config]: distortion bias preset \t\t\t\t\t\t: %d\n", config->distortion_bias_preset);
         }
 
         if (config->cdef_level != 0 && config->alt_cdef) {
@@ -2699,6 +2708,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"enable-alt-cdef", &config_struct->alt_cdef},
         {"enable-alt-dlf", &config_struct->alt_dlf},
         {"enable-daala", &config_struct->enable_daala},
+        {"distortion-bias-preset", &config_struct->distortion_bias_preset},
     };
 
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);

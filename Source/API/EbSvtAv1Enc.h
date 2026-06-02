@@ -1171,11 +1171,20 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool hide_banner;
 
+    /**
+     * @brief Enable presets that automatically set settings that biases towards higher distortion
+     * levels for greater fidelity potential
+     * 0: disabled
+     * 1-4: enabled, increasingly distorted
+     * Default is 0
+     */
+    uint8_t distortion_bias_preset;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
     uint8_t padding[128 - sizeof(PredStructure) +
                     sizeof(uint8_t) // pred_strucutre type was changed from uint8_t to PredStructure
                     /* SVT-AV1-HDR additions */
-                    - (sizeof(uint8_t) * 13) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 2) - (sizeof(bool) * 6) -
+                    - (sizeof(uint8_t) * 14) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 2) - (sizeof(bool) * 6) -
                     (sizeof(double)) - sizeof(SvtAv1QualityZone*) - sizeof(uint16_t)];
     // clang-format on
 } EbSvtAv1EncConfiguration;

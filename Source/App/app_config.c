@@ -237,6 +237,7 @@
 #define ALT_DLF_TOKEN "--enable-alt-dlf"
 #define ENABLE_DAALA_TOKEN "--enable-daala"
 #define HIDE_BANNER_TOKEN "--hide-banner"
+#define DISTORTION_BIAS_PRESET_TOKEN "--distortion-bias-preset"
 
 static EbErrorType validate_error(EbErrorType err, const char* token, const char* value) {
     switch (err) {
@@ -1182,6 +1183,11 @@ ConfigDescription config_entry_psychovisual[] = {
      "Default is 0 [0-3]."},
     {ENABLE_DAALA_TOKEN,
      "Enable Daala distortion metric, default is 0 [0-4]"},
+    // Distortion bias preset
+    {DISTORTION_BIAS_PRESET_TOKEN,
+     "Enable presets that automatically set settings that biases towards higher distortion "
+     "levels for greater fidelity potential. "
+     "Default is 0 [0-4]."},
     // Termination
     {NULL, NULL}};
 
@@ -1449,6 +1455,9 @@ ConfigEntry config_entry[] = {
 
     // Daala
     {ENABLE_DAALA_TOKEN, "EnableDaala", set_cfg_generic_token},
+
+    // Distortion bias preset
+    {DISTORTION_BIAS_PRESET_TOKEN, "DistortionBiasPreset", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};

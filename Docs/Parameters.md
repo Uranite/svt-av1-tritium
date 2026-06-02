@@ -107,6 +107,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **NoiseAdaptiveFiltering**       | --noise-adaptive-filtering       | [0-4]      | 2           | Controls noise detection which disables CDEF/restoration when noise level is high enough [0: off, 1: both CDEF and restoration noise-adaptive filtering are on, 2: default tune behavior, 3: noise-adaptive CDEF only, 4: noise-adaptive restoration only] |
 | **AltCDEF**                      | --enable-alt-cdef                | [0-3]      | 0           | Enable alternative CDEF biases                                                                                                                       |
 | **AltDLF**                       | --enable-alt-dlf                 | [0-3]      | 0           | Enable alternative DLF biases                                                                                                                        |
+| **DistortionBiasPreset**         | --distortion-bias-preset         | [0-4]      | 0           | Hard sets parameters that trade distortion for higher fidelity potential (Default: 0)                                                                |
 | **UseFixedQIndexOffsets**        | --use-fixed-qindex-offsets       | [0-2]      | 0           | Overwrite the encoder default hierarchical layer based QP assignment and use fixed Q index offsets                                                   |
 | **KeyFrameQIndexOffset**         | --key-frame-qindex-offset        | [-64-63]   | 0           | Overwrite the encoder default keyframe Q index assignment                                                                                            |
 | **KeyFrameChromaQIndexOffset**   | --key-frame-chroma-qindex-offset | [-64-63]   | 0           | Overwrite the encoder default chroma keyframe Q index assignment                                                                                     |
@@ -606,3 +607,16 @@ When enabled, the `--luminance-qp-bias` parameter enables frame-level luma bias 
 ### `--sharpness [-7-7]`
 The `--sharpness` parameter allows users to manually configure deblocking loop filter sharpness, and it also affects rate control. It is used in Tune 3 (IQ) and Tune 4 (MS_SSIM), which is designed for still image compression; that being said, it still may be useful for perceptual fidelity in video.
 By default, sharpness is set to 0.
+
+### `--distortion-bias-preset [0-4]`
+Hard sets parameters that serve as showcase to SVT-AV1-Essential's high fidelity potential.  
+Gradually selects more and more aggressive parameters that improve detail retention at the cost of higher distortion:  
+**1**: Mild distortion bias for slightly higher fidelity. Expect higher filesizes compared to **0** at a given CRF.  
+- sets: `--complex-hvs 1 --tx-bias 3 --enable-alt-cdef 1 --noise-adaptive-filtering 4`
+**2**: Medium distortion bias for greater fidelity. Expect higher filesizes compared to **1** at a given CRF.  
+- sets: `--tune 0 --qm-min 4 --qm-max 15 --tf-strength 0 --ac-bias 2.0 --complex-hvs 1 --tx-bias 2 --enable-alt-cdef 1 --noise-adaptive-filtering 4`
+**3**: Strong distortion bias for maximum fidelity. Expect higher filesizes compared to **2** at a given CRF.  
+- sets: `--tune 0 --qm-min 8 --qm-max 15 --chroma-qm-min 10 --tf-strength 0 --ac-bias 4.0 --noise-norm-strength 3 --complex-hvs 1 --tx-bias 1 --enable-alt-cdef 2 --noise-adaptive-filtering 4`
+**4**: The same as tune film grain (tune 5) for absolute grain retention with no regard to distortion at all. Filesize behavior can vary from clip to clip.  
+- sets: `--tune 5`
+It is recommended to use the parameters from these presets as baseline for additional tweaking, but these are good for quick testing.

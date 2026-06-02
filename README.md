@@ -106,6 +106,17 @@ Hides the encoder parameters banner that is normally printed at the start of an 
 The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  
 The strength can still be adjusted up or down using `--tf-strength`.
 
+- **`--distortion-bias-preset`** *0 to 4*
+
+Keep in mind that it's not the same as SVT-AV1-Essential's distortion bias preset because of different defaults.
+Hard sets parameters that serve as showcase to SVT-AV1-Essential's high fidelity potential.  
+Gradually selects more and more aggressive parameters that improve detail retention at the cost of higher distortion:  
+**1**: Mild distortion bias for slightly higher fidelity. Expect higher filesizes compared to **0** at a given CRF.  
+**2**: Medium distortion bias for greater fidelity. Expect higher filesizes compared to **1** at a given CRF.  
+**3**: Strong distortion bias for maximum fidelity. Expect higher filesizes compared to **2** at a given CRF.  
+**4**: The same as film grain tune (tune 5), for absolute grain retention with no regard to distortion at all. Filesize behavior can vary from clip to clip.  
+It is recommended to use the parameters from these presets as baseline for additional tweaking, but these are good for quick testing.
+
 ### SVT-AV1-HDR
 
 - `PQ-optimized Variance Boost curve`
