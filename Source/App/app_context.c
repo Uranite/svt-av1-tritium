@@ -493,24 +493,31 @@ static EbErrorType init_ffms2(EbConfig *app_cfg) {
         app_cfg->config.frame_rate_denominator = props->FPSDenominator;
     }
 
-    app_cfg->config.matrix_coefficients = test_frame->ColorSpace;
-    app_cfg->config.color_primaries = test_frame->ColorPrimaries;
-    app_cfg->config.transfer_characteristics = test_frame->TransferCharateristics;
-
-    if (test_frame->ColorRange == 2) {
-        app_cfg->config.color_range = EB_CR_FULL_RANGE;
-    } else {
-        app_cfg->config.color_range = EB_CR_STUDIO_RANGE;
+    if (app_cfg->config.matrix_coefficients == EB_CICP_MC_UNSPECIFIED && test_frame->ColorSpace != 2) {
+        app_cfg->config.matrix_coefficients = test_frame->ColorSpace;
+    }
+    if (app_cfg->config.color_primaries == EB_CICP_CP_UNSPECIFIED && test_frame->ColorPrimaries != 2) {
+        app_cfg->config.color_primaries = test_frame->ColorPrimaries;
+    }
+    if (app_cfg->config.transfer_characteristics == EB_CICP_TC_UNSPECIFIED && test_frame->TransferCharateristics != 2) {
+        app_cfg->config.transfer_characteristics = test_frame->TransferCharateristics;
     }
 
-    app_cfg->config.color_range_provided = true;
+    if (!app_cfg->config.color_range_provided && test_frame->ColorRange != 0) {
+        if (test_frame->ColorRange == 2) {
+            app_cfg->config.color_range = EB_CR_FULL_RANGE;
+        } else {
+            app_cfg->config.color_range = EB_CR_STUDIO_RANGE;
+        }
+        app_cfg->config.color_range_provided = true;
+    }
 
-    if (test_frame->ChromaLocation == 1) {
-        app_cfg->config.chroma_sample_position = EB_CSP_VERTICAL;
-    } else if (test_frame->ChromaLocation == 3) {
-        app_cfg->config.chroma_sample_position = EB_CSP_COLOCATED;
-    } else {
-        app_cfg->config.chroma_sample_position = EB_CSP_UNKNOWN;
+    if (app_cfg->config.chroma_sample_position == EB_CSP_UNKNOWN && test_frame->ChromaLocation != 0) {
+        if (test_frame->ChromaLocation == 1) {
+            app_cfg->config.chroma_sample_position = EB_CSP_VERTICAL;
+        } else if (test_frame->ChromaLocation == 3) {
+            app_cfg->config.chroma_sample_position = EB_CSP_COLOCATED;
+        }
     }
 
     // HDR
