@@ -2124,7 +2124,11 @@ static void lpd1_detector_post_pd0(PictureControlSet* pcs, ModeDecisionContext* 
                         EbReferenceObject* ref_obj_l0 =
                             (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
                         // flat ipp should not use hierarchical concept
+#if REMOVE_USE_FLAT_IPP
+                        if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index) {
+#else
                         if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#endif
                             l0_was_intra += ref_obj_l0->sb_intra[md_ctx->sb_index];
                             l0_refs++;
                         }
@@ -2138,7 +2142,11 @@ static void lpd1_detector_post_pd0(PictureControlSet* pcs, ModeDecisionContext* 
                         EbReferenceObject* ref_obj_l1 =
                             (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_1][0]->object_ptr;
                         // flat ipp should not use hierarchical concept
+#if REMOVE_USE_FLAT_IPP
+                        if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index) {
+#else
                         if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#endif
                             l1_was_intra += ref_obj_l1->sb_intra[md_ctx->sb_index];
                             l1_refs++;
                         }
@@ -2234,7 +2242,11 @@ static void lpd1_detector_skip_pd0(PictureControlSet* pcs, ModeDecisionContext* 
                         EbReferenceObject* ref_obj_l0 =
                             (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
                         // flat ipp should not use hierarchical concept
+#if REMOVE_USE_FLAT_IPP
+                        if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index) {
+#else
                         if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#endif
                             if (ref_obj_l0->slice_type != I_SLICE) {
                                 if (ref_obj_l0->sb_intra[md_ctx->sb_index]) {
                                     score += 5;
@@ -2264,7 +2276,11 @@ static void lpd1_detector_skip_pd0(PictureControlSet* pcs, ModeDecisionContext* 
                         EbReferenceObject* ref_obj_l1 =
                             (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_1][0]->object_ptr;
                         // flat ipp should not use hierarchical concept
+#if REMOVE_USE_FLAT_IPP
+                        if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index) {
+#else
                         if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#endif
                             if (ref_obj_l1->slice_type != I_SLICE) {
                                 if (ref_obj_l1->sb_intra[md_ctx->sb_index]) {
                                     score += 5;
@@ -2414,7 +2430,11 @@ static void lpd0_detector(PictureControlSet* pcs, ModeDecisionContext* md_ctx, u
                     if (pcs->ppcs->ref_list0_count_try && is_ref_l0_avail) {
                         EbReferenceObject* ref_obj_l0 =
                             (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
+#if REMOVE_USE_FLAT_IPP
+                        if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index) {
+#else
                         if (ref_obj_l0->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#endif
                             l0_was_intra += ref_obj_l0->sb_intra[md_ctx->sb_index];
                             l0_refs++;
                         }
@@ -2427,7 +2447,11 @@ static void lpd0_detector(PictureControlSet* pcs, ModeDecisionContext* md_ctx, u
                     if (pcs->ppcs->ref_list1_count_try && is_ref_l1_avail) {
                         EbReferenceObject* ref_obj_l1 =
                             (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_1][0]->object_ptr;
+#if REMOVE_USE_FLAT_IPP
+                        if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index) {
+#else
                         if (ref_obj_l1->tmp_layer_idx <= pcs->temporal_layer_index || pcs->scs->use_flat_ipp) {
+#endif
                             l1_was_intra += ref_obj_l1->sb_intra[md_ctx->sb_index];
                             l1_refs++;
                         }

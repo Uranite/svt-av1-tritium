@@ -248,7 +248,12 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
         stage1_scaling_num = MD_STAGE_NICS_SCAL_NUM[svt_aom_set_nic_controls(NULL, nic_level)][MD_STAGE_1];
     } else if (rtc_tune) {
 #if TUNE_RTC
+#if REMOVE_USE_FLAT_IPP
+        // When using RTC, hierarchical_levels 0 corresponds to a flat pred structure
+        uint8_t nic_level = svt_aom_get_nic_level_rtc(enc_mode, scs->static_config.hierarchical_levels == 0);
+#else
         uint8_t nic_level = svt_aom_get_nic_level_rtc(enc_mode, scs->use_flat_ipp);
+#endif
 #else
 #if TUNE_SIMPLIFY_SETTINGS
         uint8_t nic_level = svt_aom_get_nic_level_rtc(enc_mode);
@@ -306,8 +311,13 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
             CHROMA_MODE_0;
     } else if (scs->static_config.rtc) {
 #if TUNE_SIMPLIFY_SETTINGS
+#if REMOVE_USE_FLAT_IPP
+        is_chroma_mode_0 = svt_aom_set_chroma_controls(
+            NULL, svt_aom_get_chroma_level_rtc(enc_mode, scs->static_config.rtc && scs->static_config.hierarchical_levels == 0)) == CHROMA_MODE_0;
+#else
         is_chroma_mode_0 = svt_aom_set_chroma_controls(
                                NULL, svt_aom_get_chroma_level_rtc(enc_mode, scs->use_flat_ipp)) == CHROMA_MODE_0;
+#endif
 #else
         for (uint8_t is_i_slice = 0; is_i_slice < 2; is_i_slice++) {
             is_chroma_mode_0 = svt_aom_set_chroma_controls(NULL, svt_aom_get_chroma_level_rtc(enc_mode, is_i_slice)) ==

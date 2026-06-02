@@ -309,8 +309,10 @@ typedef struct SequenceControlSet {
     QpBasedThScaling qp_based_th_scaling_ctrls;
     // If true, intra_period_length is 0 and every frame is coded with intra tools only
     bool allintra;
+#if !REMOVE_USE_FLAT_IPP
     // If true, use a flat IPP pred structure, where each pic uses only the previous frame as ref
     bool use_flat_ipp;
+#endif
     // If true, enables fast anti-alias aware screen detection
     bool fast_aa_aware_screen_detection_mode;
 } SequenceControlSet;

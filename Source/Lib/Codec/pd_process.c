@@ -1279,7 +1279,11 @@ uint8_t svt_aom_ref_mgmt_storeable_slots_mask(const SequenceControlSet* scs) {
     // slot would let the Phase-3 guard freeze a slot the toggle still rotates
     // through, silently dropping a live ref out of the window. Restrict STORE to
     // the top 4 so it never interferes with the regular sliding-window refs.
+#if REMOVE_USE_FLAT_IPP
+    if (scs->static_config.rtc && scs->static_config.hierarchical_levels == 0) {
+#else
     if (scs->use_flat_ipp) {
+#endif
         return 0xF0u;
     }
     if (scs->static_config.pred_structure == LOW_DELAY && scs->static_config.hierarchical_levels >= 1) {
@@ -1400,7 +1404,11 @@ static void apply_ref_mgmt_events(PictureParentControlSet* pcs, PictureDecisionC
                       (unsigned long)pcs->picture_number);
             events_ok = false;
         } else {
+#if REMOVE_USE_FLAT_IPP
+            const bool is_base = pcs->temporal_layer_index == 0;
+#else
             const bool is_base = pcs->scs->use_flat_ipp || pcs->temporal_layer_index == 0;
+#endif
             if (!is_base) {
                 SVT_ERROR("Ref-frame mgmt: ignoring events on non-base frame poc=%lu temporal_layer=%u\n",
                           (unsigned long)pcs->picture_number,
@@ -1830,7 +1838,11 @@ static void set_ref_list_counts(PictureParentControlSet* pcs, PictureDecisionCon
 
     Av1RpsNode*           av1_rps   = &pcs->av1_ref_signal;
     const MrpCtrls* const mrp_ctrls = &pcs->scs->mrp_ctrls;
+#if USE_FRAME_TYPE_BOOST
+    const bool            is_base   = frame_is_boosted(pcs);
+#else
     const bool            is_base   = pcs->temporal_layer_index == 0;
+#endif
 #if !TUNE_SIMPLIFY_SETTINGS
     const bool is_sc = pcs->sc_class1;
 #endif
@@ -1957,18 +1969,30 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
     const uint8_t       hierarchical_levels = pcs->hierarchical_levels;
     const uint8_t       temporal_layer      = pcs->temporal_layer_index;
     const uint8_t       more_5L_refs        = pcs->scs->mrp_ctrls.more_5L_refs;
+
     if (scs->allintra) {
         pcs->is_ref = false;
     } else {
+#if USE_FRAME_TYPE_BOOST
+        pcs->is_ref = svt_aom_is_pic_used_as_ref(
+            hierarchical_levels, temporal_layer, pic_idx, scs->mrp_ctrls.referencing_scheme, pcs->is_overlay);
+#else
+#if REMOVE_USE_FLAT_IPP
+        pcs->is_ref = hierarchical_levels == 0
+#else
         pcs->is_ref = scs->use_flat_ipp
+#endif
             ? true
             : svt_aom_is_pic_used_as_ref(
                   hierarchical_levels, temporal_layer, pic_idx, scs->mrp_ctrls.referencing_scheme, pcs->is_overlay);
+#endif
     }
 
     //Set frame type
     if (pcs->slice_type == I_SLICE) {
+#if !USE_FRAME_TYPE_BOOST
         frm_hdr->frame_type                    = pcs->idr_flag ? KEY_FRAME : INTRA_ONLY_FRAME;
+#endif
         pcs->av1_ref_signal.refresh_frame_mask = 0xFF;
 #if DEBUG_SFRAME
         fprintf(stderr, "\nFrame %d - key frame\n", (int)pcs->picture_number);
@@ -1985,7 +2009,9 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
             return;
         }
     } else {
+#if !USE_FRAME_TYPE_BOOST
         frm_hdr->frame_type = INTER_FRAME;
+#endif
 
         // test s-frame on base layer inter frames
         if (enc_ctx->sf_cfg.sframe_dist > 0 || scs->static_config.sframe_posi.sframe_posis) {
@@ -1996,9 +2022,25 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
     uint8_t*  ref_dpb_index = av1_rps->ref_dpb_index;
     uint64_t* ref_poc_array = av1_rps->ref_poc_array;
 
+#if REMOVE_USE_FLAT_IPP
+    if (scs->static_config.rtc && hierarchical_levels == 0) {
+#else
     if (scs->use_flat_ipp) {
+#endif
         const uint8_t max_refs = scs->mrp_ctrls.flat_max_refs;
+#if ADD_ON_THE_FLY_MG
+        assert(IMPLIES(scs->static_config.hierarchical_levels == 0, max_refs <= 4));
+#else
         assert(max_refs <= 4);
+#endif
+#if ADD_ON_THE_FLY_MG
+        if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2 && pcs->hierarchical_layers_diff != 0) {
+            // If previous MG was L1 or L2, and ld_reduce_ref_buffs is 2, the lay0_toggle was not
+            // incremented. We must increment to point to the right refs because flat RPS assumes
+            // lay0_toggle is always incremented.
+            ctx->lay0_toggle = circ_inc(max_refs, 1, ctx->lay0_toggle);
+        }
+#endif
         uint8_t lay0_toggle = ctx->lay0_toggle;
 
         // Use up to 4 previous frames as refs
@@ -2123,6 +2165,14 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
     } else if (scs->static_config.pred_structure == LOW_DELAY &&
                scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) {
         assert(!pcs->is_overlay && "overlays not supported in LD");
+#if 0//ADD_ON_THE_FLY_MG
+        if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2 && pcs->hierarchical_layers_diff != 0) {
+            // If previous MG was L1 or L2, and ld_reduce_ref_buffs is 2, the lay0_toggle was not
+            // incremented. We must increment to point to the right refs because flat RPS assumes
+            // lay0_toggle is always incremented.
+            ctx->lay0_toggle = circ_inc(max_refs, 1, ctx->lay0_toggle);
+        }
+#endif
         uint8_t lay0_toggle = ctx->lay0_toggle;
         uint8_t lay1_toggle = ctx->lay1_toggle;
 
@@ -2156,6 +2206,11 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT]  = ref_dpb_index[LAST];
 
                 if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+#if ADD_ON_THE_FLY_MG
+                    // Set lay0_toggle to 0 because when using ld_reduce_ref_buffs, it assumes the most recent base pic
+                    // is in slot 0. Setting explicitly is necessary in case we switch  MG sizes.
+                    ctx->lay0_toggle = 0;
+#endif
                     // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
                     av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xfc);
                 } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
@@ -2182,9 +2237,19 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 av1_rps->refresh_frame_mask = 0;
                 if (pcs->is_ref) {
                     if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+#if ADD_ON_THE_FLY_MG
+                        // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                        av1_rps->refresh_frame_mask = 1 << 1 | (0xfc);
+#else
                         av1_rps->refresh_frame_mask = 1 << 1;
+#endif
                     } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
+#if ADD_ON_THE_FLY_MG
+                        // Only 5 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                        av1_rps->refresh_frame_mask = 1 << LAY1_OFF | (0xf0);
+#else
                         av1_rps->refresh_frame_mask = 1 << LAY1_OFF;
+#endif
                     } else {
                         av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
                         // Layer1 toggle 3->4
@@ -2211,6 +2276,11 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT]  = ref_dpb_index[LAST];
 
                 if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+#if ADD_ON_THE_FLY_MG
+                    // Set lay0_toggle to 0 because when using ld_reduce_ref_buffs, it assumes the most recent base pic
+                    // is in slot 0. Setting explicitly is necessary in case we switch  MG sizes.
+                    ctx->lay0_toggle = 0;
+#endif
                     // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
                     av1_rps->refresh_frame_mask = 1 << ctx->lay0_toggle | (0xfc);
                 } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
@@ -2236,9 +2306,19 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT]  = ref_dpb_index[LAST];
 
                 if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+#if ADD_ON_THE_FLY_MG
+                    // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                    av1_rps->refresh_frame_mask = 1 << 1 | (0xfc);
+#else
                     av1_rps->refresh_frame_mask = 1 << 1;
+#endif
                 } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
+#if ADD_ON_THE_FLY_MG
+                    // Only 5 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                    av1_rps->refresh_frame_mask = 1 << LAY1_OFF | (0xf0);
+#else
                     av1_rps->refresh_frame_mask = 1 << LAY1_OFF;
+#endif
                 } else {
                     av1_rps->refresh_frame_mask = 1 << (LAY1_OFF + ctx->lay1_toggle);
                     // Layer1 toggle 3->4
@@ -4429,7 +4509,11 @@ static void send_picture_out(SequenceControlSet* scs, PictureParentControlSet* p
 
 #if OPT_MRP_HME_L0_DETECT
     if (scs->static_config.rtc && mrp_ctrl->early_hme_l0_prune_th && pcs->ref_list0_count_try > 1) {
+#if REMOVE_USE_FLAT_IPP
+        if (pcs->hierarchical_levels == 0) {
+#else
         if (scs->use_flat_ipp) {
+#endif
             EbPictureBufferDesc* ref_last_ds =
                 ((EbPaReferenceObject*)pcs->ref_pa_pic_ptr_array[0][0]->object_ptr)->sixteenth_downsampled_picture_ptr;
             EbPictureBufferDesc* ref_last2_ds =
@@ -4673,7 +4757,11 @@ void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet* pcs);
 void update_count_try(SequenceControlSet* scs, PictureParentControlSet* pcs) {
     MrpCtrls* mrp_ctrl = &scs->mrp_ctrls;
 #if TUNE_SIMPLIFY_SETTINGS
+#if USE_FRAME_TYPE_BOOST
+    if (frame_is_boosted(pcs)) {
+#else
     if (pcs->temporal_layer_index == 0) {
+#endif
         pcs->ref_list0_count_try = MIN(pcs->ref_list0_count, mrp_ctrl->base_ref_list0_count);
         pcs->ref_list1_count_try = MIN(pcs->ref_list1_count, mrp_ctrl->base_ref_list1_count);
     } else {
@@ -4775,13 +4863,19 @@ static void set_layer_depth(PictureParentControlSet* ppcs) {
 * Every MAX_GF_INTERVAL frames, update type is set to GF_UPDATE
 ****************************************************************************************/
 static void set_frame_update_type(PictureParentControlSet* ppcs) {
+#if !ADD_ON_THE_FLY_MG
     SequenceControlSet* scs = ppcs->scs;
+#endif
     if (ppcs->frm_hdr.frame_type == KEY_FRAME) {
         ppcs->update_type = SVT_AV1_KF_UPDATE;
+#if USE_FRAME_TYPE_BOOST
+    } else if (ppcs->hierarchical_levels > 0) {
+#else
 #if ADD_ON_THE_FLY_MG
     } else if (ppcs->hierarchical_levels > 0 && ppcs->pred_structure != LOW_DELAY) {
 #else
     } else if (scs->max_temporal_layers > 0 && ppcs->pred_structure != LOW_DELAY) {
+#endif
 #endif
         if (ppcs->temporal_layer_index == 0) {
             ppcs->update_type = SVT_AV1_ARF_UPDATE;
@@ -4790,11 +4884,22 @@ static void set_frame_update_type(PictureParentControlSet* ppcs) {
         } else {
             ppcs->update_type = SVT_AV1_INTNL_ARF_UPDATE;
         }
+#if USE_FRAME_TYPE_BOOST
+    } else if ((ppcs->frame_offset % MAX(4, 1 << ppcs->hierarchical_levels)) == 0) {
+        ppcs->update_type = SVT_AV1_GF_UPDATE;
+    } else if (ppcs->frame_offset & 0x1) {
+        // frames with odd offset correspond to leaf layer pics in RA structures
+        ppcs->update_type = SVT_AV1_LF_UPDATE;
+    } else {
+        ppcs->update_type = SVT_AV1_INTNL_ARF_UPDATE;
+    }
+#else
     } else if (ppcs->pred_structure == LOW_DELAY && (ppcs->frame_offset % MAX_GF_INTERVAL) == 0) {
         ppcs->update_type = SVT_AV1_GF_UPDATE;
     } else {
         ppcs->update_type = SVT_AV1_LF_UPDATE;
     }
+#endif
 }
 
 static void set_gf_group_param(PictureParentControlSet* ppcs) {
@@ -4938,6 +5043,10 @@ static void set_mini_gop_structure(SequenceControlSet* scs, EncodeContext* enc_c
             if (is_base) {
                 ctx->ld_active_hierarchical_levels     = ctx->ld_new_hierarchical_levels;
                 ctx->ld_hierarchical_levels_change_pending = false;
+            }
+            else {
+                // if not ready to switch MG size, properly set HL for this pic
+                pcs->hierarchical_levels = ctx->ld_active_hierarchical_levels;
             }
         }
         next_mg_hierarchical_levels = ctx->ld_active_hierarchical_levels;
@@ -5109,6 +5218,12 @@ static uint32_t get_pic_idx_in_mg(SequenceControlSet* scs, PictureParentControlS
     if (scs->static_config.pred_structure == RANDOM_ACCESS) {
         pic_idx_in_mg = pic_idx - ctx->mini_gop_start_index[mini_gop_index];
     } else if (scs->static_config.pred_structure == LOW_DELAY) {
+#if ADD_ON_THE_FLY_MG
+        uint64_t distance_to_last_base = pcs->picture_number - ctx->last_base_pic;
+        pic_idx_in_mg = (distance_to_last_base == 0)
+            ? 0
+            : (uint32_t)((distance_to_last_base - 1) % pcs->pred_struct_ptr->pred_struct_entry_count);
+#else
         uint64_t distance_to_last_idr = pcs->picture_number - scs->enc_ctx->last_idr_picture;
         // For low delay P or low delay b case, get the the picture_index by mini_gop size
         if (scs->static_config.intra_period_length >= 0) {
@@ -5122,6 +5237,10 @@ static uint32_t get_pic_idx_in_mg(SequenceControlSet* scs, PictureParentControlS
                 ? 0
                 : (uint32_t)((distance_to_last_idr - 1) % pcs->pred_struct_ptr->pred_struct_entry_count);
         }
+#endif
+#if ADD_ON_THE_FLY_MG
+        uint64_t distance_to_last_idr = pcs->picture_number - scs->enc_ctx->last_idr_picture;
+#endif
         // In S-Frame flexible insertion mode, hierarchical levels are adjusted based on the S-Frame position.
         // Picture indices in the low-delay mini-GOP are calculated from the last saved ARF.
         if (IS_SFRAME_FLEXIBLE_INSERT(scs->static_config.sframe_mode)) {
@@ -5929,6 +6048,15 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                 for (uint32_t pic_i = 0; pic_i < mg_size; ++pic_i) {
                     // Loop over pics in decode order
                     pcs = ctx->mg_pictures_array[pic_i];
+#if USE_FRAME_TYPE_BOOST
+                    if (pcs->slice_type == I_SLICE) {
+                        pcs->frm_hdr.frame_type = pcs->idr_flag ? KEY_FRAME : INTRA_ONLY_FRAME;
+                    }
+                    else {
+                        pcs->frm_hdr.frame_type = INTER_FRAME;
+                    }
+                    set_gf_group_param(pcs);
+#endif
                     av1_generate_rps_info(pcs, enc_ctx, ctx, pcs->pic_idx_in_mg, mini_gop_index);
 
                     if (scs->static_config.sframe_dist != 0 || !pcs->is_not_scaled ||
@@ -5945,7 +6073,9 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                 for (uint32_t pic_i = 0; pic_i < mg_size; ++pic_i) {
                     PictureParentControlSet* pcs_1 = ctx->mg_pictures_array_disp_order[pic_i];
                     pcs_1->first_frame_in_minigop  = !pic_i;
+#if !USE_FRAME_TYPE_BOOST
                     set_gf_group_param(pcs_1);
+#endif
                     if (pcs_1->is_alt_ref) {
                         ctx->mg_pictures_array_disp_order[pic_i - 1]->has_show_existing = false;
                     }

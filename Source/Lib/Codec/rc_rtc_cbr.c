@@ -14,6 +14,9 @@
 #include "entropy_coding.h"
 
 #include "rc_process.h"
+#if REMOVE_USE_FLAT_IPP
+#include "enc_mode_config.h"
+#endif
 
 // Binary search evaluation function type
 typedef double (*arg_eval_fn)(void* ctx, int arg);
@@ -191,15 +194,23 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
     RATE_CONTROL*       rc     = &scs->enc_ctx->rc;
     RateControlCfg*     rc_cfg = &scs->enc_ctx->rc_cfg;
 
+#if USE_FRAME_TYPE_BOOST
+    if (rc->rc_mini_gop_pos == (rc->mini_qop_size - 1)) {
+#else
     if (ppcs->temporal_layer_index == 0 && rc->mini_qop_size > 1) {
+#endif
         double weights[1 + MAX_TEMPORAL_LAYERS] = {0};
         double rcf_tlx[1 + MAX_TEMPORAL_LAYERS] = {0};
 
         // prepare weighted RCFs - core components of layer weights
+#if USE_FRAME_TYPE_BOOST
+        int num_layers = rc->rc_num_layers;
+#else
 #if ADD_ON_THE_FLY_MG
         int num_layers = ppcs->hierarchical_levels + 1;
 #else
         int num_layers = scs->static_config.hierarchical_levels + 1;
+#endif
 #endif
         svt_block_on_mutex(rc->rc_mutex);
         for (int k = 1; k < rc->mini_qop_size + 1; k++) {
@@ -208,7 +219,11 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
         }
         svt_release_mutex(rc->rc_mutex);
 
+#if REMOVE_USE_FLAT_IPP
+        if (ppcs->hierarchical_levels == 0) {
+#else
         if (scs->use_flat_ipp) {
+#endif
             for (int k = 1; k < num_layers + 1; k++) {
                 weights[k] = rcf_tlx[k];
             }
@@ -253,7 +268,12 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
     double one_pct_bits = 1.0 + rc->optimal_buffer_level / 100.0;
 
     // temporal dependency and mode decision modulation
+#if USE_FRAME_TYPE_BOOST
+    int virtual_tl = index2tl(rc->rc_mini_gop_pos + 1, rc->rc_num_layers - 1);
+    frame_target *= rc->target_size_factors[virtual_tl + 1];
+#else
     frame_target *= rc->target_size_factors[ppcs->temporal_layer_index + 1];
+#endif
 
     // buffer adjustment, estimate buffer level after this frame
     buffer_diff += frame_target - rc->avg_frame_bandwidth;
@@ -307,7 +327,11 @@ static void rtc_cyclic_refresh_init(PictureParentControlSet* ppcs) {
     RATE_CONTROL*       rc  = &scs->enc_ctx->rc;
     CyclicRefresh*      cr  = &ppcs->cyclic_refresh;
 
+#if REMOVE_USE_FLAT_IPP // TODO: Remove check
+    bool is_inter_base_layer = ppcs->slice_type != I_SLICE && ppcs->temporal_layer_index == 0 && !frame_is_leaf(ppcs);
+#else
     bool is_inter_base_layer = ppcs->slice_type != I_SLICE && (scs->use_flat_ipp || ppcs->temporal_layer_index == 0);
+#endif
     // Technically it could be used in VBR too, but difference in goals for between CBR and VBR is unclear.
     // Right now VBR forces enormous buffer, which essentially makes it unbounded to set bitrate,
     // while CBR follows set buffer limitation and follows bitrate closely.
@@ -317,11 +341,13 @@ static void rtc_cyclic_refresh_init(PictureParentControlSet* ppcs) {
         cr->apply_cyclic_refresh = 0;
     }
 
+#if !REMOVE_USE_FLAT_IPP
     // TODO: this must be adaptive!
     int cr_num_layers = 2;
     if (ppcs->temporal_layer_index >= cr_num_layers) {
         cr->apply_cyclic_refresh = 0;
     }
+#endif
 
     int qp_min_thresh = AOMMAX(16, rc->best_quality + 4);
     int qp_max_thresh = 118 * MAXQ >> 7;
@@ -378,7 +404,13 @@ static void rtc_cyclic_refresh_init(PictureParentControlSet* ppcs) {
 }
 
 static int get_rcf_index(PictureParentControlSet* ppcs) {
+#if USE_FRAME_TYPE_BOOST
+    if (ppcs->frm_hdr.frame_type == KEY_FRAME) return 0;
+    RATE_CONTROL* rc = &ppcs->scs->enc_ctx->rc;
+    return ((rc->rc_mini_gop_pos + 1) % (1 << (rc->rc_num_layers - 1))) + 1;
+#else
     return ppcs->frm_hdr.frame_type == KEY_FRAME ? 0 : ppcs->pred_struct_index + 1;
+#endif
 }
 
 static double rtc_get_rate_correction_factor(PictureParentControlSet* ppcs, int width, int height) {
@@ -438,7 +470,11 @@ static double calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) 
             min_qindex = MAX(min_qindex, rc->min_ref_base_q_idx - 1 * 4);
         } else {
             EbReferenceObject* ref_obj = get_ref_obj(pcs, REF_LIST_0, 0);
+#if REMOVE_USE_FLAT_IPP // TODO: Remove check
+            bool is_higher_layer = ref_obj->tmp_layer_idx < pcs->temporal_layer_index && (pcs->ppcs->hierarchical_levels != 0);
+#else
             bool is_higher_layer       = ref_obj->tmp_layer_idx < pcs->temporal_layer_index && !scs->use_flat_ipp;
+#endif
             int  min_limit             = is_higher_layer ? 0 : 4;
             int  max_limit             = is_higher_layer ? 32 : 16;
             min_qindex                 = MAX(min_qindex, rc->min_ref_base_q_idx - min_limit * 4);
@@ -504,10 +540,17 @@ void svt_av1_rc_calc_qindex_rtc_cbr(PictureControlSet* pcs) {
             // d) invert current buffer level
             rc->buffer_level = (maximum - starting) * bandwidth / 1000;
 
+#if USE_FRAME_TYPE_BOOST
+            // flat uses virtual 3-layer RC model for adaptive bit distribution
+            rc->rc_num_layers   = pcs->ppcs->hierarchical_levels == 0 ? 3 /*3-layer*/ : pcs->ppcs->hierarchical_levels + 1;
+            rc->rc_mini_gop_pos = 0;
+            int num_layers      = rc->rc_num_layers;
+#else
 #if ADD_ON_THE_FLY_MG
             int num_layers = pcs->ppcs->hierarchical_levels + 1;
 #else
             int num_layers = scs->static_config.hierarchical_levels + 1;
+#endif
 #endif
             for (int k = 0; k < num_layers + 1; k++) {
                 rc->target_size_factors[k] = 1.0; // flat at start
@@ -713,6 +756,9 @@ void svt_av1_rc_postencode_update_rtc_cbr(PictureParentControlSet* ppcs) {
 #if FIX_RTC_M13
         rc->frames_since_cdf_update = 0;
 #endif
+#if USE_FRAME_TYPE_BOOST
+        rc->rc_mini_gop_pos  = 0;
+#endif
     } else if (!ppcs->is_overlay) {
         rc->avg_frame_qindex[INTER_FRAME] = ROUND_POWER_OF_TWO(3 * rc->avg_frame_qindex[INTER_FRAME] + qindex, 2);
         // Maintain last_q for the dynamic-resize decision (its only consumer); the RTC path
@@ -729,5 +775,8 @@ void svt_av1_rc_postencode_update_rtc_cbr(PictureParentControlSet* ppcs) {
         } else {
             rc->avg_frame_low_motion = ROUND_POWER_OF_TWO(3 * rc->avg_frame_low_motion + avg_cnt_zeromv, 2);
         }
+#if USE_FRAME_TYPE_BOOST
+        rc->rc_mini_gop_pos = (rc->rc_mini_gop_pos + 1) % rc->mini_qop_size;
+#endif
     }
 }

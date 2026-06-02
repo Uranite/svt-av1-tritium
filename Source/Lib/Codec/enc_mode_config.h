@@ -170,3 +170,24 @@ uint8_t svt_aom_get_tpl_synthesizer_block_size(int8_t tpl_level, uint32_t pictur
 void svt_aom_set_mfmv_config(SequenceControlSet* scs, int8_t enc_mode);
 void svt_aom_get_qp_based_th_scaling_factors(bool enable_qp_based_th_scaling, uint32_t* ret_q_weight,
                                              uint32_t* ret_q_weight_denom, uint32_t qp);
+
+#if REMOVE_USE_FLAT_IPP || USE_FRAME_TYPE_BOOST
+static INLINE int frame_is_kf_gf_arf(PictureParentControlSet* ppcs) {
+    const SvtAv1FrameUpdateType update_type = ppcs->update_type;
+
+    return frame_is_intra_only(ppcs) || update_type == SVT_AV1_ARF_UPDATE ||
+        update_type == SVT_AV1_GF_UPDATE;
+}
+
+// Intra only frames, golden frames (except alt ref overlays) and
+// alt ref frames tend to be coded at a higher than ambient quality
+static INLINE int frame_is_boosted(PictureParentControlSet* ppcs) {
+    return frame_is_kf_gf_arf(ppcs);
+}
+
+// Leaf layer (highest layer) frames tend to be coded at a lowest quality
+static INLINE int frame_is_leaf(PictureParentControlSet* ppcs) {
+    const SvtAv1FrameUpdateType update_type = ppcs->update_type;
+    return update_type == SVT_AV1_LF_UPDATE;
+}
+#endif

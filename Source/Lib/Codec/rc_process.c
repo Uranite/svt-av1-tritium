@@ -401,8 +401,13 @@ static uint32_t update_lambda(PictureControlSet* pcs, uint8_t q_index, uint8_t m
     PictureParentControlSet* ppcs       = pcs->ppcs;
     FrameType                frame_type = ppcs->frm_hdr.frame_type;
     // To set gf_update_type based on current TL vs. the max TL (e.g. for 5L, max TL is 4)
+#if REMOVE_USE_FLAT_IPP
+    uint8_t temporal_layer_index = ppcs->temporal_layer_index;
+    uint8_t max_temporal_layer   = ppcs->hierarchical_levels;
+#else
     uint8_t temporal_layer_index = pcs->scs->use_flat_ipp ? 0 : ppcs->temporal_layer_index;
     uint8_t max_temporal_layer   = pcs->scs->use_flat_ipp ? 0 : ppcs->hierarchical_levels;
+#endif
 
     // Update rdmult based on the frame's position in the miniGOP
     uint8_t gf_update_type = frame_type == KEY_FRAME ? SVT_AV1_KF_UPDATE

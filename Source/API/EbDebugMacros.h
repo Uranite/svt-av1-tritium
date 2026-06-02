@@ -102,6 +102,8 @@ extern "C" {
 
 #define OPT_USE_HL0_FLAT           1 // Support hierarchical_levels 0 (flat) and 1 in LD CBR and RA 1L referencing
 #define ADD_ON_THE_FLY_MG          1 // Support on-the-fly mini-GOP size changes for LOW_DELAY
+#define REMOVE_USE_FLAT_IPP        1 // Use HL0 instead of a separate use_flat_ipp signal
+#define USE_FRAME_TYPE_BOOST       1 // Boost RTC settings using frame type instead of base checks since all pics are base
 
 
 #define OPT_RA_BITRATE             1 // Optimize bitrate for RA (M3/M4/M5)

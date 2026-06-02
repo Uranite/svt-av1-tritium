@@ -395,7 +395,11 @@ static int cqp_qindex_calc(PictureControlSet* pcs, int qindex) {
     if (scs->allintra) {
         return qindex;
     }
+#if REMOVE_USE_FLAT_IPP
+    if (scs->static_config.rtc && ppcs->hierarchical_levels == 0 && pcs->slice_type != I_SLICE) {
+#else
     if (scs->use_flat_ipp && pcs->slice_type != I_SLICE) {
+#endif
         return qindex;
     }
     int q;

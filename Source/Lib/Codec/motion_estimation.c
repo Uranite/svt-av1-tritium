@@ -28,6 +28,9 @@
 
 #include "svt_log.h"
 #include "resize.h"
+#if USE_FRAME_TYPE_BOOST
+#include "enc_mode_config.h"
+#endif
 
 /********************************************
  * Constants
@@ -1647,7 +1650,11 @@ static void prehme_b64(PictureParentControlSet* pcs, uint32_t org_x, uint32_t or
             }
         } // End ref pic loop
     } // End list loop
+#if USE_FRAME_TYPE_BOOST
+    if (!frame_is_boosted(pcs) && best_sad < me_ctx->me_hme_prune_ctrls.phme_sad_th) {
+#else
     if (me_ctx->temporal_layer_index > 0 && best_sad < me_ctx->me_hme_prune_ctrls.phme_sad_th) {
+#endif
         for (int list_i = REF_LIST_0; list_i < me_ctx->num_of_list_to_search; ++list_i) {
             for (uint8_t ref_i = 0; ref_i < me_ctx->num_of_ref_pic_to_search[list_i]; ++ref_i) {
                 if (!me_ctx->search_results[list_i][ref_i].do_ref) {
@@ -2208,7 +2215,11 @@ static void init_zz_sad(PictureParentControlSet* pcs, MeContext* me_ctx, uint32_
         }
     }
     const uint32_t zz_th = me_ctx->me_hme_prune_ctrls.zz_sad_th;
+#if USE_FRAME_TYPE_BOOST
+    if (!frame_is_boosted(pcs) && best_zz_sad < zz_th) {
+#else
     if (me_ctx->temporal_layer_index > 0 && best_zz_sad < zz_th) {
+#endif
         for (int list_i = REF_LIST_0; list_i < me_ctx->num_of_list_to_search; ++list_i) {
             for (uint8_t ref_i = 0; ref_i < me_ctx->num_of_ref_pic_to_search[list_i]; ++ref_i) {
                 if (ref_i == 0) {
@@ -2227,7 +2238,11 @@ static void init_zz_sad(PictureParentControlSet* pcs, MeContext* me_ctx, uint32_
     if (safe_limit_zz_th) {
         bool me_safe_limit_refs = false;
         if (pcs->hierarchical_levels > 0 && me_ctx->num_of_list_to_search == 2 &&
+#if USE_FRAME_TYPE_BOOST
+            frame_is_leaf(pcs) && pcs->similar_brightness_refs &&
+#else
             pcs->temporal_layer_index >= pcs->hierarchical_levels && pcs->similar_brightness_refs &&
+#endif
             me_ctx->zz_sad[0][0] < safe_limit_zz_th && me_ctx->zz_sad[1][0] < safe_limit_zz_th) {
             me_safe_limit_refs = true;
         }

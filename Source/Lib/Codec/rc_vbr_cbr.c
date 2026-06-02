@@ -385,7 +385,11 @@ static int av1_rc_regulate_q(PictureParentControlSet* ppcs, int active_best_qual
     const SequenceControlSet* scs     = ppcs->scs;
     const EncodeContext*      enc_ctx = scs->enc_ctx;
     if (enc_ctx->rc_cfg.mode == AOM_CBR) {
+#if REMOVE_USE_FLAT_IPP
+        if (scs->static_config.rtc && ppcs->hierarchical_levels == 0) {
+#else
         if (ppcs->scs->use_flat_ipp) {
+#endif
             return adjust_q_cbr_flat(ppcs, q);
         } else {
             return adjust_q_cbr(ppcs, q);
@@ -905,7 +909,11 @@ static int calc_active_best_quality_no_stats_cbr(PictureControlSet* pcs, int act
             active_best_quality += svt_av1_compute_qdelta(q_val, q_val * q_adj_factor, bit_depth);
         }
     } else {
+#if REMOVE_USE_FLAT_IPP
+        if (scs->static_config.rtc && ppcs->hierarchical_levels == 0) {
+#else
         if (scs->use_flat_ipp) {
+#endif
             // Use the lower of active_worst_quality and recent/average Q.
             rc->arf_q = MAX(0, (int)pcs->ref_base_q_idx[REF_LIST_0][0] - 30);
 
@@ -996,7 +1004,11 @@ static void cyclic_refresh_init(PictureParentControlSet* ppcs) {
         cr->percent_refresh += 5;
     }
 
+#if REMOVE_USE_FLAT_IPP
+    cr->apply_cyclic_refresh = (ppcs->slice_type != I_SLICE && ppcs->temporal_layer_index == 0);
+#else
     cr->apply_cyclic_refresh = (ppcs->slice_type != I_SLICE && (scs->use_flat_ipp || ppcs->temporal_layer_index == 0));
+#endif
 
     if (scs->super_block_size != 64) {
         cr->apply_cyclic_refresh = 0;
@@ -1350,7 +1362,11 @@ static int NOINLINE find_min_ref_base_q_idx(PictureControlSet* pcs, RefList k) {
     int cnt            = (k == REF_LIST_0) ? pcs->ppcs->ref_list0_count_try : pcs->ppcs->ref_list1_count_try;
     for (int i = 0; i < cnt; i++) {
         EbReferenceObject* ref_obj  = get_ref_obj(pcs, k, i);
+#if REMOVE_USE_FLAT_IPP // TODO: Remove HL check
+        bool               pic_used = ref_obj->tmp_layer_idx < pcs->temporal_layer_index || (pcs->scs->static_config.rtc && pcs->ppcs->hierarchical_levels == 0);
+#else
         bool               pic_used = ref_obj->tmp_layer_idx < pcs->temporal_layer_index || pcs->scs->use_flat_ipp;
+#endif
         if (pcs->ref_slice_type[k][i] != I_SLICE && pic_used) {
             ref_base_q_idx = MIN(ref_base_q_idx, pcs->ref_base_q_idx[k][i]);
         }
@@ -1377,7 +1393,11 @@ void svt_av1_rc_calc_qindex_rate_control(PictureControlSet* pcs, SequenceControl
     new_qindex = clamp_qindex(scs, new_qindex);
 
     // Limit the qindex based on the qindex of the reference frames
+#if REMOVE_USE_FLAT_IPP
+    if (pcs->temporal_layer_index != 0 && !(scs->static_config.rtc && ppcs->hierarchical_levels == 0)) {
+#else
     if (pcs->temporal_layer_index != 0 && !scs->use_flat_ipp) {
+#endif
         int list0_ref_base_q_idx = find_min_ref_base_q_idx(pcs, REF_LIST_0);
         int list1_ref_base_q_idx = find_min_ref_base_q_idx(pcs, REF_LIST_1);
         int ref_base_q_idx       = MAX(list0_ref_base_q_idx, list1_ref_base_q_idx);

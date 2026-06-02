@@ -821,7 +821,7 @@ static void update_frame_rate_info(ResourceCoordinationContext* ctx, EbBufferHea
 
 // Update the MG size...
 #if ADD_ON_THE_FLY_MG
-static void update_mg_size_info(ResourceCoordinationContext* ctx, EbBufferHeaderType* input_ptr, SequenceControlSet* scs) {
+static void update_mg_size_info(ResourceCoordinationContext* ctx, EbBufferHeaderType* input_ptr) {
     EbPrivDataNode* node = (EbPrivDataNode*)input_ptr->p_app_private;
     while (node) {
         if (node->node_type == MG_SIZE_CHANGE_EVENT) {
@@ -1035,7 +1035,7 @@ EbErrorType svt_aom_resource_coordination_kernel_iter(void* context) {
     update_preset_info(context_ptr, eb_input_ptr, scs);
 #if ADD_ON_THE_FLY_MG
     // Update the minigop size
-    update_mg_size_info(context_ptr, eb_input_ptr, scs);
+    update_mg_size_info(context_ptr, eb_input_ptr);
 #endif
     // If config changes occurred since the last picture began encoding, then
     //   prepare a new scs containing the new changes and update the state

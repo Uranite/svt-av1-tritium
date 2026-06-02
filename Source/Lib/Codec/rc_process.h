@@ -195,11 +195,20 @@ typedef struct RATE_CONTROL {
     // RTC CBR
     int    mini_qop_size;
     int    min_ref_base_q_idx;
+#if USE_FRAME_TYPE_BOOST
+    int    rc_mini_gop_pos; // RC virtual mini-GoP position (0..mini_qop_size-1)
+    int    rc_num_layers;   // RC virtual layer count, independent of encoder pred structure
+#endif
     double target_size_factors[1 + MAX_TEMPORAL_LAYERS];
 
+#if USE_FRAME_TYPE_BOOST
+    // Rate correction factors for RTC CBR are tracked per RC virtual mini-GoP position
+    double rcf_values[1 + MAX_MINIGOP_SIZE]; // RCF per position in RC virtual mini-gop
+#else
     // Rate correction factors for RTC CBR are tracked per pred_struct_index
     // because besides layer index the position in minigop affect compression too
     double rcf_values[1 + MAX_MINIGOP_SIZE]; // RCF per frame in mini-gop
+#endif
     double rcf_kalman_P[1 + MAX_MINIGOP_SIZE]; // estimation variance per layer
     double rcf_kalman_R[1 + MAX_MINIGOP_SIZE]; // adaptive measurement noise per layer
 } RATE_CONTROL;

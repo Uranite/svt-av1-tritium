@@ -158,5 +158,4 @@ typedef struct PictureDecisionContext {
     uint64_t    last_base_pic; // pic number of the previous base frame
 #endif
 } PictureDecisionContext;
-
 #endif // EbPictureDecision_h

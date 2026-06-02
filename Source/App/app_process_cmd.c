@@ -586,17 +586,21 @@ static EbErrorType test_update_mg_size_info(uint64_t pic_num, EbBufferHeaderType
     if (pic_num == 0) {
         return EB_ErrorNone;
     }
-    else if (pic_num % (5 * interval) == 0) {
+    else if (pic_num % (6 * interval) == 0) {
         data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
-        data->hierarchical_levels = 1;
+        data->hierarchical_levels = 2;
     }
-    else if (pic_num % (4 * interval) == 0) {
+    else if (pic_num % (5 * interval) == 0) {
         data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
         data->hierarchical_levels = 0;
     }
-    else if (pic_num % (3 * interval) == 0) {
+    else if (pic_num % (4 * interval) == 0) {
         data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
         data->hierarchical_levels = 1;
+    }
+    else if (pic_num % (3 * interval) == 0) {
+        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+        data->hierarchical_levels = 0;
     }
     else if (pic_num % (2 * interval) == 0) {
         data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
