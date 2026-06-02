@@ -596,12 +596,18 @@ static AOM_FORCE_INLINE void two_level_checks_fast(MacroBlockD* xd, const struct
 
 extern const uint8_t svt_aom_eb_av1_var_offs[MAX_SB_SIZE];
 
+#if OPT_SUBPEL_CTRL
+int svt_av1_find_best_sub_pixel_tree_pruned(void* ictx, MacroBlockD* xd, const struct AV1Common* const cm,
+                                            SUBPEL_MOTION_SEARCH_PARAMS* ms_params, Mv start_mv, Mv* bestmv,
+                                            int* distortion, unsigned int* sse1, BlockSize bsize) {
+#else
 int svt_av1_find_best_sub_pixel_tree_pruned(void* ictx, MacroBlockD* xd, const struct AV1Common* const cm,
                                             SUBPEL_MOTION_SEARCH_PARAMS* ms_params, Mv start_mv, Mv* bestmv,
                                             int* distortion, unsigned int* sse1, int qp, BlockSize bsize,
                                             uint8_t early_neigh_check_exit) {
     (void)ictx;
     (void)cm;
+#endif
     const int                       allow_hp       = ms_params->allow_hp;
     const int                       forced_stop    = ms_params->forced_stop;
     const int                       iters_per_step = ms_params->iters_per_step;
@@ -621,6 +627,12 @@ int svt_av1_find_best_sub_pixel_tree_pruned(void* ictx, MacroBlockD* xd, const s
         ctx->fp_me_dist[ms_params->list_idx][ms_params->ref_idx] = besterr;
     }
 
+#if OPT_SUBPEL_CTRL
+    const uint64_t th_normalizer = (uint64_t)(var_params->w * var_params->h * (uint64_t)ms_params->abs_th_mult);
+    if ((uint64_t)besterr < th_normalizer) {
+        return besterr;
+    }
+#else
     if (early_neigh_check_exit) {
         return besterr;
     }
@@ -629,6 +641,7 @@ int svt_av1_find_best_sub_pixel_tree_pruned(void* ictx, MacroBlockD* xd, const s
     if ((uint64_t)qp * besterr < th_normalizer) {
         return besterr;
     }
+#endif
     // How many steps to take. A round of 0 means fullpel search only, 1 means
     // half-pel, and so on.
     const int round = AOMMIN(FULL_PEL - forced_stop, 3 - !allow_hp);
@@ -687,9 +700,15 @@ int svt_av1_find_best_sub_pixel_tree_pruned(void* ictx, MacroBlockD* xd, const s
     return besterr;
 }
 
+#if OPT_SUBPEL_CTRL
+int svt_av1_find_best_sub_pixel_tree(void* ictx, MacroBlockD* xd, const struct AV1Common* const cm,
+                                     SUBPEL_MOTION_SEARCH_PARAMS* ms_params, Mv start_mv, Mv* bestmv, int* distortion,
+                                     unsigned int* sse1, BlockSize bsize) {
+#else
 int svt_av1_find_best_sub_pixel_tree(void* ictx, MacroBlockD* xd, const struct AV1Common* const cm,
                                      SUBPEL_MOTION_SEARCH_PARAMS* ms_params, Mv start_mv, Mv* bestmv, int* distortion,
                                      unsigned int* sse1, int qp, BlockSize bsize, uint8_t early_neigh_check_exit) {
+#endif
     ModeDecisionContext* ctx            = (ModeDecisionContext*)ictx;
     const int            allow_hp       = ms_params->allow_hp;
     const int            forced_stop    = ms_params->forced_stop;
@@ -711,7 +730,11 @@ int svt_av1_find_best_sub_pixel_tree(void* ictx, MacroBlockD* xd, const struct A
     besterr = svt_upsampled_setup_center_error(bestmv, var_params, mv_cost_params, (unsigned int*)distortion);
     if (ctx != NULL && ms_params->search_stage == SPEL_ME) {
         ctx->fp_me_dist[ms_params->list_idx][ms_params->ref_idx] = besterr;
+#if OPT_SUBPEL_CTRL
+        if (ctx->pd_pass == PD_PASS_1 && ctx->md_subpel_me_ctrls.mvp_th) {
+#else
         if (ctx->pd_pass == PD_PASS_1 && ctx->md_subpel_me_ctrls.mvp_th > 0) {
+#endif
             unsigned int  best_mvperr  = ctx->best_fp_mvp_dist[ms_params->list_idx][ms_params->ref_idx];
             int           best_mvp_idx = ctx->best_fp_mvp_idx[ms_params->list_idx][ms_params->ref_idx];
             const int     mvp_err      = best_mvperr + 1;
@@ -727,14 +750,22 @@ int svt_av1_find_best_sub_pixel_tree(void* ictx, MacroBlockD* xd, const struct A
             }
         }
     }
+#if OPT_SUBPEL_CTRL
+    const uint64_t th_normalizer = (uint64_t)(var_params->w * var_params->h * (uint64_t)ms_params->abs_th_mult);
+    if ((uint64_t)besterr < th_normalizer) {
+        return besterr;
+    }
+#else
     if (early_neigh_check_exit) {
         return besterr;
     }
+
     const uint64_t th_normalizer = (uint64_t)(((var_params->w * var_params->h) << 5) *
                                               (uint64_t)ms_params->abs_th_mult);
     if ((uint64_t)qp * besterr < th_normalizer) {
         return besterr;
     }
+#endif
 
     // If forced_stop is FULL_PEL, return.
     if (!round) {

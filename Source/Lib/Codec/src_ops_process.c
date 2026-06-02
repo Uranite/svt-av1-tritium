@@ -500,7 +500,9 @@ static void tpl_subpel_search(SequenceControlSet* scs, PictureParentControlSet* 
     ms_params->round_dev_th                     = MAX_SIGNED_VALUE;
     ms_params->skip_diag_refinement             = pcs->tpl_ctrls.subpel_diag_refinement;
     ms_params->var_params.bias_fp               = 0;
-    uint8_t early_exit                          = 0;
+#if !OPT_SUBPEL_CTRL
+    uint8_t early_exit = 0;
+#endif
     subpel_search_method(NULL,
                          xd,
                          (const struct AV1Common* const)cm,
@@ -509,9 +511,13 @@ static void tpl_subpel_search(SequenceControlSet* scs, PictureParentControlSet* 
                          &best_sp_mv,
                          &not_used,
                          &pred_sse,
+#if OPT_SUBPEL_CTRL
+                         block_size);
+#else
                          qIndex,
                          block_size,
                          early_exit);
+#endif
 
     // Update the MV to the new best
     best_mv->as_int = best_sp_mv.as_int;

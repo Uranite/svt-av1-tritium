@@ -86,6 +86,8 @@ extern "C" {
 #define OPT_LPD1_GLOBALMV_BYPASS   1 // Skip MDS0-2 (and MVP/ME refinement) for low-residual, zero-MV inter SQ blocks by injecting a forced GLOBALMV (IDENTITY) candidate straight into MDS3. GLOBALMV/GLOBAL_GLOBALMV code no mv_diff (AV1 spec 5.11.24): the decoder derives the MV directly from the frame-header global_motion[] params (IDENTITY -> (0,0)) without consulting the ref_mv_stack, so the MVP table is not needed for MV reconstruction.
 #define OPT_LPD1_FAST_SKIP         1 // Predict skip from luma-only RD after luma TX, force chroma TX bypass
 #define OPT_LPD1_CHROMA_SKIP       1 // Absolute chroma-residual SAD gate before svt_aom_full_loop_chroma_light_pd1
+#define OPT_SUBPEL_FIXED_SEARCH    1 // Improve md_subpel_search_fixed_stage: th_normalizer early-exit, pred_variance_th check, remove ref bounds checks, early-exit in half/qpel loops
+#define OPT_SUBPEL_CTRL            1 // Upgrade subpel-ctrl: new FIXED_STAGE cases 7-10, updated level assignments, remove early_neigh_check_exit param
 
 #define OPT_USE_HL0_FLAT  1 // Support hierarchical_levels 0 (flat) and 1 in LD CBR and RA 1L referencing
 

@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright(c) 2019 Intel Corporation
 * Copyright (c) 2016, Alliance for Open Media. All rights reserved
 *
@@ -2577,11 +2577,13 @@ static int md_subpel_search(SUBPEL_STAGE       search_stage, //ME or PME
     ms_params->abs_th_mult                      = md_subpel_ctrls.abs_th_mult;
     ms_params->round_dev_th                     = md_subpel_ctrls.round_dev_th;
     ms_params->skip_diag_refinement             = md_subpel_ctrls.skip_diag_refinement;
+#if !OPT_SUBPEL_CTRL
     uint8_t early_exit = (ctx->is_intra_bordered && ctx->cand_reduction_ctrls.use_neighbouring_mode_ctrls.enabled) ||
 #if OPT_LPD1
         (ctx->blk_geom->sq_size <= md_subpel_ctrls.min_blk_sz);
 #else
         (md_subpel_ctrls.skip_zz_mv && best_mv.as_int == 0) || (ctx->blk_geom->sq_size <= md_subpel_ctrls.min_blk_sz);
+#endif
 #endif
     ms_params->var_params.bias_fp = md_subpel_ctrls.bias_fp;
     int besterr                   = subpel_search_method(ctx,
@@ -2592,27 +2594,38 @@ static int md_subpel_search(SUBPEL_STAGE       search_stage, //ME or PME
                                        &best_mv,
                                        &not_used,
                                        &pred_sse,
+#if OPT_SUBPEL_CTRL
+                                       ctx->blk_geom->bsize);
+#else
                                        pcs->ppcs->picture_qp,
                                        ctx->blk_geom->bsize,
                                        early_exit);
-    me_mv->x                      = best_mv.x;
-    me_mv->y                      = best_mv.y;
+#endif
+    me_mv->x = best_mv.x;
+    me_mv->y = best_mv.y;
 
     return besterr;
 }
 
 #if OPT_LPD1
+#if OPT_SUBPEL_FIXED_SEARCH
+extern const uint8_t svt_aom_eb_av1_var_offs[MAX_SB_SIZE];
+#endif
 static uint32_t md_subpel_search_fixed_stage(ModeDecisionContext* ctx, const EbPictureBufferDesc* ref_pic,
                                              const uint8_t* src, const int src_stride, Mv* me_mv) {
-    const uint8_t* ref_buf    = ref_pic->y_buffer;
-    const int      blk_org_x  = ctx->blk_org_x;
-    const int      blk_org_y  = ctx->blk_org_y;
-    const int      ref_w      = ref_pic->width;
-    const int      ref_h_px   = ref_pic->height;
-    const int      blk_w      = ctx->blk_geom->bwidth;
-    const int      blk_h      = ctx->blk_geom->bheight;
-    const int      ref_stride = ref_pic->y_stride;
-
+    const uint8_t* ref_buf   = ref_pic->y_buffer;
+    const int      blk_org_x = ctx->blk_org_x;
+    const int      blk_org_y = ctx->blk_org_y;
+#if !OPT_SUBPEL_FIXED_SEARCH
+    const int ref_w    = ref_pic->width;
+    const int ref_h_px = ref_pic->height;
+#endif
+    const int blk_w      = ctx->blk_geom->bwidth;
+    const int blk_h      = ctx->blk_geom->bheight;
+    const int ref_stride = ref_pic->y_stride;
+#if OPT_SUBPEL_FIXED_SEARCH
+    const BlockSize bsize = ctx->blk_geom->bsize;
+#endif
     const AomVarianceFnPtr* fn_ptr  = &svt_aom_mefn_ptr[ctx->blk_geom->bsize];
     const int               mv_x_fp = me_mv->x;
     const int               mv_y_fp = me_mv->y;
@@ -2623,25 +2636,53 @@ static uint32_t md_subpel_search_fixed_stage(ModeDecisionContext* ctx, const EbP
     uint32_t            best_var   = UINT32_MAX;
     int                 best_dx = 0, best_dy = 0;
 
+#if OPT_SUBPEL_FIXED_SEARCH
+    const uint64_t th_normalizer = (uint64_t)(blk_w * blk_h * (uint64_t)ctx->md_subpel_me_ctrls.abs_th_mult);
+#endif
     // integer-pel baseline
     {
         const int fp_x = blk_org_x + (mv_x_fp >> 3);
         const int fp_y = blk_org_y + (mv_y_fp >> 3);
+#if OPT_SUBPEL_FIXED_SEARCH
+        unsigned int sse;
+        best_var = fn_ptr->vf(ref_buf + fp_x + fp_y * ref_stride, ref_stride, src, src_stride, &sse);
+#else
         if (fp_x >= 0 && fp_y >= 0 && fp_x + blk_w <= ref_w && fp_y + blk_h <= ref_h_px) {
             unsigned int sse;
             best_var = fn_ptr->vf(ref_buf + fp_x + fp_y * ref_stride, ref_stride, src, src_stride, &sse);
         }
-    }
+#endif
 
+#if OPT_SUBPEL_FIXED_SEARCH
+        if (best_var < th_normalizer) {
+            return best_var;
+        }
+#endif
+
+#if OPT_SUBPEL_FIXED_SEARCH
+        // Exit subpel search if the variance of the full-pel predicted samples is low (i.e. where likely interpolation will not modify the integer samples)
+        if (ctx->md_subpel_me_ctrls.pred_variance_th) {
+            const unsigned int var = fn_ptr->vf(
+                ref_buf + fp_x + fp_y * ref_stride, ref_stride, svt_aom_eb_av1_var_offs, 0, &sse);
+            int block_var = ROUND_POWER_OF_TWO(var, eb_num_pels_log2_lookup[bsize]);
+
+            if (block_var < ctx->md_subpel_me_ctrls.pred_variance_th) {
+                return best_var;
+            }
+        }
+#endif
+    }
     // half-pel neighbors
     for (int i = 0; i < 4; ++i) {
         const int subx = (mv_x_fp + hpel_dx[i]) & 7;
         const int suby = (mv_y_fp + hpel_dy[i]) & 7;
         const int fp_x = blk_org_x + ((mv_x_fp + hpel_dx[i]) >> 3);
         const int fp_y = blk_org_y + ((mv_y_fp + hpel_dy[i]) >> 3);
+#if !OPT_SUBPEL_FIXED_SEARCH
         if (fp_x < 0 || fp_y < 0 || fp_x + blk_w > ref_w || fp_y + blk_h > ref_h_px) {
             continue;
         }
+#endif
         unsigned int   sse;
         const uint32_t var = fn_ptr->svf(
             ref_buf + fp_x + fp_y * ref_stride, ref_stride, subx, suby, src, src_stride, &sse);
@@ -2652,6 +2693,13 @@ static uint32_t md_subpel_search_fixed_stage(ModeDecisionContext* ctx, const EbP
             best_var = var;
             best_dx  = hpel_dx[i];
             best_dy  = hpel_dy[i];
+#if OPT_SUBPEL_FIXED_SEARCH
+            if (best_var < th_normalizer) {
+                me_mv->x = (int16_t)(mv_x_fp + best_dx);
+                me_mv->y = (int16_t)(mv_y_fp + best_dy);
+                return best_var;
+            }
+#endif
         }
     }
 
@@ -2667,9 +2715,11 @@ static uint32_t md_subpel_search_fixed_stage(ModeDecisionContext* ctx, const EbP
             const int suby   = (mv_y_fp + tot_dy) & 7;
             const int fp_x   = blk_org_x + ((mv_x_fp + tot_dx) >> 3);
             const int fp_y   = blk_org_y + ((mv_y_fp + tot_dy) >> 3);
+#if !OPT_SUBPEL_FIXED_SEARCH
             if (fp_x < 0 || fp_y < 0 || fp_x + blk_w > ref_w || fp_y + blk_h > ref_h_px) {
                 continue;
             }
+#endif
             unsigned int   sse;
             const uint32_t var = fn_ptr->svf(
                 ref_buf + fp_x + fp_y * ref_stride, ref_stride, subx, suby, src, src_stride, &sse);
@@ -2680,6 +2730,13 @@ static uint32_t md_subpel_search_fixed_stage(ModeDecisionContext* ctx, const EbP
                 best_var = var;
                 best_dx  = tot_dx;
                 best_dy  = tot_dy;
+#if OPT_SUBPEL_FIXED_SEARCH
+                if (best_var < th_normalizer) {
+                    me_mv->x = (int16_t)(mv_x_fp + best_dx);
+                    me_mv->y = (int16_t)(mv_y_fp + best_dy);
+                    return best_var;
+                }
+#endif
             }
         }
     }
@@ -9367,7 +9424,13 @@ static void md_encode_block(PictureControlSet* pcs, ModeDecisionContext* ctx, co
             : ctx->updated_enable_pme;
 
         // Read MVPs (rounded-up to the closest integer) for use in md_sq_motion_search() and/or predictive_me_search() and/or perform_md_reference_pruning()
+#if OPT_SUBPEL_CTRL
+        if (((ctx->md_subpel_me_ctrls.enabled && ctx->md_subpel_me_ctrls.subpel_search_method == SUBPEL_TREE_PRUNED &&
+              ctx->md_subpel_me_ctrls.mvp_th) ||
+             ctx->md_sq_me_ctrls.enabled ||
+#else
         if (((ctx->md_subpel_me_ctrls.enabled && ctx->md_subpel_me_ctrls.mvp_th > 0) || ctx->md_sq_me_ctrls.enabled ||
+#endif
              ctx->updated_enable_pme || ctx->ref_pruning_ctrls.enabled)) {
             build_single_ref_mvp_array(pcs, ctx);
         }

@@ -1,4 +1,4 @@
-﻿#include "enc_mode_config.h"
+#include "enc_mode_config.h"
 #include <stdlib.h>
 
 #include "rd_cost.h"
@@ -4732,6 +4732,47 @@ static void md_subpel_me_controls(ModeDecisionContext* ctx, uint8_t md_subpel_me
         md_subpel_me_ctrls->hp_mv_th              = 32;
         md_subpel_me_ctrls->bias_fp               = 110;
         break;
+#if OPT_SUBPEL_CTRL
+    // Cases 7-10: SUBPEL_FIXED_STAGE_SEARCH path. Unused fields (not applicable to
+    // md_subpel_search_fixed_stage): subpel_search_type, subpel_iters_per_step,
+    // round_dev_th, skip_diag_refinement, mvp_th, hp_mv_th.
+    case 7:
+        md_subpel_me_ctrls->enabled              = 1;
+        md_subpel_me_ctrls->max_precision        = QUARTER_PEL;
+        md_subpel_me_ctrls->subpel_search_method = SUBPEL_FIXED_STAGE_SEARCH;
+        md_subpel_me_ctrls->pred_variance_th     = 0;
+        md_subpel_me_ctrls->abs_th_mult          = 0;
+        md_subpel_me_ctrls->min_blk_sz           = 4;
+        md_subpel_me_ctrls->bias_fp              = 110;
+        break;
+    case 8:
+        md_subpel_me_ctrls->enabled              = 1;
+        md_subpel_me_ctrls->max_precision        = QUARTER_PEL;
+        md_subpel_me_ctrls->subpel_search_method = SUBPEL_FIXED_STAGE_SEARCH;
+        md_subpel_me_ctrls->pred_variance_th     = 0;
+        md_subpel_me_ctrls->abs_th_mult          = 10;
+        md_subpel_me_ctrls->min_blk_sz           = 4;
+        md_subpel_me_ctrls->bias_fp              = 110;
+        break;
+    case 9:
+        md_subpel_me_ctrls->enabled              = 1;
+        md_subpel_me_ctrls->max_precision        = QUARTER_PEL;
+        md_subpel_me_ctrls->subpel_search_method = SUBPEL_FIXED_STAGE_SEARCH;
+        md_subpel_me_ctrls->pred_variance_th     = 100;
+        md_subpel_me_ctrls->abs_th_mult          = 20;
+        md_subpel_me_ctrls->min_blk_sz           = 4;
+        md_subpel_me_ctrls->bias_fp              = 110;
+        break;
+    case 10:
+        md_subpel_me_ctrls->enabled              = 1;
+        md_subpel_me_ctrls->max_precision        = QUARTER_PEL;
+        md_subpel_me_ctrls->subpel_search_method = SUBPEL_FIXED_STAGE_SEARCH;
+        md_subpel_me_ctrls->pred_variance_th     = 100;
+        md_subpel_me_ctrls->abs_th_mult          = 25;
+        md_subpel_me_ctrls->min_blk_sz           = 4;
+        md_subpel_me_ctrls->bias_fp              = 110;
+        break;
+#else
     case 7:
         md_subpel_me_ctrls->enabled               = 1;
         md_subpel_me_ctrls->subpel_search_type    = USE_4_TAPS;
@@ -4817,6 +4858,7 @@ static void md_subpel_me_controls(ModeDecisionContext* ctx, uint8_t md_subpel_me
         md_subpel_me_ctrls->max_precision        = HALF_PEL;
         md_subpel_me_ctrls->bias_fp              = 110;
         break;
+#endif
 #endif
 
     default:
@@ -8822,7 +8864,9 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
     PictureParentControlSet* ppcs              = pcs->ppcs;
     const ResolutionRange    input_resolution  = ppcs->input_resolution;
     const SliceType          slice_type        = pcs->slice_type;
-    const bool               is_not_last_layer = !ppcs->is_highest_layer;
+#if !OPT_SUBPEL_CTRL
+    const bool is_not_last_layer = !ppcs->is_highest_layer;
+#endif
     // Get ref info, used to set some feature levels
     const uint32_t picture_qp           = ppcs->picture_qp;
     uint32_t       me_8x8_cost_variance = (uint32_t)~0;
@@ -8912,6 +8956,21 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
     uint8_t me_subpel_level = 0;
 
     if (pcs->me_subpel_level) {
+#if OPT_SUBPEL_CTRL
+        if (lpd1_level <= LPD1_LVL_0) {
+            me_subpel_level = input_resolution <= INPUT_SIZE_480p_RANGE ? 7
+                : input_resolution <= INPUT_SIZE_1080p_RANGE            ? 8
+                                                                        : 10;
+        } else {
+            me_subpel_level = input_resolution <= INPUT_SIZE_480p_RANGE ? 8
+                : input_resolution <= INPUT_SIZE_1080p_RANGE            ? 9
+                                                                        : 10;
+            if (((l0_was_skip && l1_was_skip && ref_skip_perc > 50) || (l0_was_64x64_mvp && l1_was_64x64_mvp)) &&
+                me_8x8_cost_variance < (200 * picture_qp) && me_64x64_distortion < (200 * picture_qp)) {
+                me_subpel_level = 0;
+            }
+        }
+#else
         if (lpd1_level <= LPD1_LVL_0) {
             if (enc_mode <= ENC_M11) {
                 me_subpel_level = input_resolution <= INPUT_SIZE_480p_RANGE ? 6
@@ -8929,6 +8988,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
                 me_subpel_level = 0;
             }
         }
+#endif
 
         // Don't use a more conservative level in LPD1 than the regular path would use
         if (me_subpel_level) {
@@ -9133,9 +9193,17 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
         if (lpd1_level <= LPD1_LVL_0) {
             me_subpel_level = 6;
         } else if (lpd1_level <= LPD1_LVL_3) {
+#if OPT_SUBPEL_CTRL
+            me_subpel_level = 7;
+#else
             me_subpel_level = 11;
+#endif
         } else {
+#if OPT_SUBPEL_CTRL
+            me_subpel_level = 8;
+#else
             me_subpel_level = 11;
+#endif
             if (((l0_was_skip && l1_was_skip && ref_skip_perc > 50) || (l0_was_64x64_mvp && l1_was_64x64_mvp)) &&
                 me_8x8_cost_variance < (200 * picture_qp) && me_64x64_distortion < (200 * picture_qp)) {
                 me_subpel_level = 0;
@@ -12758,9 +12826,17 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
 #if OPT_LPD1
     if (enc_mode <= ENC_M11) {
         pcs->me_subpel_level = 4;
+#if OPT_SUBPEL_CTRL
+    } else if (enc_mode <= ENC_M12) {
+        pcs->me_subpel_level = 6;
+    } else {
+        pcs->me_subpel_level = 10;
+    }
+#else
     } else {
         pcs->me_subpel_level = 6;
     }
+#endif
     pcs->pme_subpel_level = 2;
 #endif
     // Set the level for mds0
