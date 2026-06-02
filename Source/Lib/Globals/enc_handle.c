@@ -1361,14 +1361,6 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.rtc_tune            = scs->static_config.rtc;
         input_data.variance_octile     = scs->static_config.variance_octile;
         input_data.adaptive_film_grain = scs->static_config.adaptive_film_grain;
-        input_data.hbd_mds             = scs->static_config.hbd_mds;
-        input_data.noise_norm_strength = scs->static_config.noise_norm_strength;
-        input_data.kf_tf_strength      = scs->static_config.kf_tf_strength;
-        input_data.alt_lambda_factors  = scs->static_config.alt_lambda_factors;
-        input_data.sharp_tx            = scs->static_config.sharp_tx;
-        input_data.alt_ssim_tuning     = scs->static_config.alt_ssim_tuning;
-        input_data.tx_bias             = scs->static_config.tx_bias;
-        input_data.complex_hvs         = scs->static_config.complex_hvs;
         input_data.static_config       = scs->static_config;
         input_data.allintra            = scs->allintra;
         input_data.use_flat_ipp        = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
