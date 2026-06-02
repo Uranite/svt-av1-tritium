@@ -79,6 +79,7 @@ extern "C" {
 #define FTR_TUNE_VMAF  1 // Implement an unsharp preprocessing filter under TUNE-VMAF (--tune 5)
 #define OPT_TUNE_VMAF  1 // TUNE-VMAF Optimizations: adaptive sharpening (per-QP + spatial MAD), noise gate (Laplacian),
                          // per-pixel High Frequency delta clip (QP-adaptive), chroma QP compensation, SIMD
+
 #define FIX_CR_BAND_WRAPPING       1 // Handle wrapped range: sb_start > sb_end means [sb_start, total) union [0, sb_end)
 #define OPT_CR_MOTION_GATE         1 // Cyclic-refresh motion gate: only boost SBs with low motion (dist < 2*norm_me_dist AND zero MV); disable CR for the frame if all SBs rejected to skip delta_q signaling overhead
 #define OPT_ME_STATIC_B64          1 // Complete ME bypass for static 64x64 blocks: if L0/R0 zero-MV SAD < threshold, skip all HME + integer ME, set all MVs to (0,0), approximate sub-block SADs
@@ -88,6 +89,7 @@ extern "C" {
 #define OPT_LPD1_CHROMA_SKIP       1 // Absolute chroma-residual SAD gate before svt_aom_full_loop_chroma_light_pd1
 #define OPT_SUBPEL_FIXED_SEARCH    1 // Improve md_subpel_search_fixed_stage: th_normalizer early-exit, pred_variance_th check, remove ref bounds checks, early-exit in half/qpel loops
 #define OPT_SUBPEL_CTRL            1 // Upgrade subpel-ctrl: new FIXED_STAGE cases 7-10, updated level assignments, remove early_neigh_check_exit param
+#define OPT_VLPD0_PATH_INTER       1 // Bypass generate_md_stage_0_cand/md_stage_0, evaluate ME candidates directly on ref buffer (bit-exact)
 
 #define OPT_USE_HL0_FLAT  1 // Support hierarchical_levels 0 (flat) and 1 in LD CBR and RA 1L referencing
 

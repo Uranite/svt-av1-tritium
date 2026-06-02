@@ -967,6 +967,7 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer* cand_bf, Pictu
     ModeDecisionCandidate* cand = cand_bf->cand;
     EbPictureBufferDesc*   pred = cand_bf->pred;
 
+#if !OPT_VLPD0_PATH_INTER
     if (ctx->lpd0_ctrls.pd0_level == VERY_LIGHT_PD0) {
         MvReferenceFrame rf[2] = {cand->block_mi.ref_frame[0], cand->block_mi.ref_frame[1]};
 
@@ -991,6 +992,7 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer* cand_bf, Pictu
         uint8_t*                src_y  = input_pic->y_buffer + input_origin_index;
         *(cand_bf->fast_cost)          = fn_ptr->vf(pred_y, ref_pic->y_stride, src_y, input_pic->y_stride, &sse);
     } else {
+#endif
         // intrabc not allowed in light_pd0
         product_prediction_fun_table_light_pd0[is_inter_mode(cand->block_mi.mode)](0, ctx, pcs, cand_bf);
         const AomVarianceFnPtr* fn_ptr = &svt_aom_mefn_ptr[ctx->blk_geom->bsize];
@@ -998,7 +1000,9 @@ static void fast_loop_core_light_pd0(ModeDecisionCandidateBuffer* cand_bf, Pictu
         uint8_t*                pred_y = pred->y_buffer + cu_origin_index;
         uint8_t*                src_y  = input_pic->y_buffer + input_origin_index;
         *(cand_bf->fast_cost)          = fn_ptr->vf(pred_y, pred->y_stride, src_y, input_pic->y_stride, &sse);
+#if !OPT_VLPD0_PATH_INTER
     }
+#endif
 }
 
 // Light PD1 fast loop core; assumes luma only, 8bit only, and that SSD is not used.
@@ -8222,7 +8226,21 @@ static INLINE uint32_t compute_vlpd0_cost_allintra(PictureControlSet* pcs, ModeD
 #if OPT_VLPD0_COST
 // Predict the RD cost of a VLPD0 block from its residual variance and lambda
 #define VLPD0_NOISE_SHIFT 10
+#if OPT_VLPD0_PATH_INTER
+static INLINE uint64_t compute_vlpd0_cost_from_variance(ModeDecisionContext* ctx, uint32_t variance) {
+    const BlockGeom* const               blk_geom    = ctx->blk_geom;
+    const MdRateEstimationContext* const md_rate_est = ctx->md_rate_est_ctx;
 
+    const uint32_t lambda         = ctx->full_sb_lambda_md[EB_8_BIT_MD];
+    const uint32_t area           = (uint32_t)blk_geom->bwidth * (uint32_t)blk_geom->bheight;
+    const uint32_t partition_rate = md_rate_est->partition_fac_bits[0][PARTITION_NONE];
+    const uint32_t noise          = lambda >> VLPD0_NOISE_SHIFT;
+    const uint32_t var_pp         = variance / area;
+    const uint64_t dist           = (uint64_t)((var_pp < noise) ? var_pp : noise) * area;
+
+    return RDCOST(lambda, partition_rate, dist);
+}
+#else
 static INLINE uint64_t compute_vlpd0_cost_from_variance(ModeDecisionContext* ctx, uint32_t variance) {
     const uint32_t lambda         = ctx->full_sb_lambda_md[EB_8_BIT_MD];
     const uint32_t area           = ctx->blk_geom->bwidth * ctx->blk_geom->bheight;
@@ -8237,6 +8255,102 @@ static INLINE uint64_t compute_vlpd0_cost_from_variance(ModeDecisionContext* ctx
     return RDCOST(lambda, partition_rate, dist);
 }
 #endif
+#endif
+
+#if OPT_VLPD0_PATH_INTER
+// Evaluates unipred ME candidates directly on the reference buffer and writes blk_ptr->cost
+// (and pd0_mds0_best_cost). Mirrors compute_vlpd0_cost_allintra.
+// - VLPD0 is not supported on I_SLICE so !I_SLICE is guaranteed.
+// - lpd0_use_src_samples is always 0, so no neighbour copy needed.
+// - BI_PRED is always skipped (see inject_new_candidates_light_pd0).
+// - Bypasses generate_md_stage_0_cand_light_pd0() / md_stage_0_light_pd0() entirely.
+static void compute_vlpd0_cost_inter(PictureControlSet* pcs, ModeDecisionContext* ctx, EbPictureBufferDesc* input_pic) {
+    ctx->me_sb_addr      = ctx->sb_ptr->index;
+    ctx->me_block_offset = svt_aom_get_me_block_offset(
+        ctx->blk_org_x, ctx->blk_org_y, ctx->blk_geom->bsize, pcs->ppcs->enable_me_8x8, pcs->ppcs->enable_me_16x16);
+    ctx->me_cand_offset = ctx->me_block_offset * pcs->ppcs->pa_me_data->max_cand;
+
+    const uint32_t input_origin_index = (ctx->blk_org_y) * input_pic->y_stride + (ctx->blk_org_x);
+    uint8_t* const src_y              = input_pic->y_buffer + input_origin_index;
+
+    const MeSbResults*      me_results       = pcs->ppcs->pa_me_data->me_results[ctx->me_sb_addr];
+    const uint8_t           total_me_cnt     = me_results->total_me_candidate_index[ctx->me_block_offset];
+    const MeCandidate*      me_block_results = &me_results->me_candidate_array[ctx->me_cand_offset];
+    const uint8_t           max_refs         = pcs->ppcs->pa_me_data->max_refs;
+    const uint8_t           max_l0           = pcs->ppcs->pa_me_data->max_l0;
+    const AomVarianceFnPtr* fn_ptr           = &svt_aom_mefn_ptr[ctx->blk_geom->bsize];
+
+    uint64_t best_cost  = (uint64_t)~0;
+    uint8_t  cand_count = 0;
+
+    for (uint8_t me_idx = 0; me_idx < total_me_cnt; ++me_idx) {
+        const MeCandidate* me_cand   = &me_block_results[me_idx];
+        const uint8_t      direction = me_cand->direction;
+
+        if (direction == BI_PRED) {
+            continue;
+        }
+
+        const uint8_t list_idx = direction;
+        const uint8_t ref_idx  = direction ? me_cand->ref_idx_l1 : me_cand->ref_idx_l0;
+
+        const uint32_t mv_arr_idx = ctx->me_block_offset * max_refs + (direction ? max_l0 : 0) + ref_idx;
+        int16_t        mv_x       = me_results->me_mv_array[mv_arr_idx].x * 8;
+        int16_t        mv_y       = me_results->me_mv_array[mv_arr_idx].y * 8;
+
+        const MvReferenceFrame ref_frame = svt_get_ref_frame_type(list_idx, ref_idx);
+        EbReferenceObject*     ref_obj   = (EbReferenceObject*)pcs->ref_pic_ptr_array[list_idx][ref_idx]->object_ptr;
+        EbPictureBufferDesc*   ref_pic   = svt_aom_get_ref_pic_buffer(pcs, ref_frame);
+        svt_aom_use_scaled_rec_refs_if_needed(pcs, input_pic, ref_obj, &ref_pic, 0);
+
+        clip_mv_on_pic_boundary(
+            ctx->blk_org_x, ctx->blk_org_y, ctx->blk_geom->bwidth, ctx->blk_geom->bheight, ref_pic, &mv_x, &mv_y);
+
+        const int32_t ref_origin_index = (ctx->blk_org_x + (mv_x >> 3)) +
+            (ctx->blk_org_y + (mv_y >> 3)) * ref_pic->y_stride;
+
+        unsigned int   sse;
+        const uint64_t cost = fn_ptr->vf(
+            ref_pic->y_buffer + ref_origin_index, ref_pic->y_stride, src_y, input_pic->y_stride, &sse);
+
+        if (cost < best_cost) {
+            best_cost = cost;
+        }
+
+        // Mirror the candidate cap in inject_new_candidates_light_pd0
+        if (++cand_count > 2) {
+            break;
+        }
+    }
+
+    // Fallback: zero-MV on LAST (mirrors inject_zz_backup_candidate) when no candidate found
+    if (best_cost == (uint64_t)~0) {
+        const MvReferenceFrame ref_frame = svt_get_ref_frame_type(REF_LIST_0, 0);
+        EbReferenceObject*     ref_obj   = (EbReferenceObject*)pcs->ref_pic_ptr_array[REF_LIST_0][0]->object_ptr;
+        EbPictureBufferDesc*   ref_pic   = svt_aom_get_ref_pic_buffer(pcs, ref_frame);
+        svt_aom_use_scaled_rec_refs_if_needed(pcs, input_pic, ref_obj, &ref_pic, 0);
+
+        const int32_t ref_origin_index = ctx->blk_org_x + ctx->blk_org_y * ref_pic->y_stride;
+        unsigned int  sse;
+        best_cost = fn_ptr->vf(
+            ref_pic->y_buffer + ref_origin_index, ref_pic->y_stride, src_y, input_pic->y_stride, &sse);
+    }
+
+    // Compute block cost from best variance (same formula as original VLPD0 path)
+#if OPT_VLPD0_COST
+    ctx->blk_ptr->cost = compute_vlpd0_cost_from_variance(ctx, (uint32_t)best_cost);
+#else
+    {
+        const uint32_t rate = ctx->md_rate_est_ctx->partition_fac_bits[0][PARTITION_NONE];
+        ctx->blk_ptr->cost  = RDCOST(ctx->full_sb_lambda_md[EB_8_BIT_MD], rate, best_cost);
+    }
+#endif
+
+#if OPT_LPD1_GLOBALMV_BYPASS
+    ctx->pd0_mds0_best_cost[ctx->blk_ptr->mds_idx] = (uint32_t)best_cost;
+#endif
+}
+#endif // OPT_VLPD0_PATH_INTER
 
 static void md_encode_block_light_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx,
                                       EbPictureBufferDesc* input_pic) {
@@ -8246,6 +8360,12 @@ static void md_encode_block_light_pd0(PictureControlSet* pcs, ModeDecisionContex
         blk_ptr->cost = compute_vlpd0_cost_allintra(pcs, ctx);
         return;
     }
+#if OPT_VLPD0_PATH_INTER
+    if (ctx->lpd0_ctrls.pd0_level == VERY_LIGHT_PD0) {
+        compute_vlpd0_cost_inter(pcs, ctx, input_pic);
+        return;
+    }
+#endif
     uint32_t       fast_candidate_total_count;
     const uint32_t input_origin_index = (ctx->blk_org_y) * input_pic->y_stride + (ctx->blk_org_x);
     const uint32_t blk_origin_index   = 0;
@@ -8297,6 +8417,7 @@ static void md_encode_block_light_pd0(PictureControlSet* pcs, ModeDecisionContex
     ctx->pd0_mds0_best_cost[blk_ptr->mds_idx] = (uint32_t)ctx->mds0_best_cost;
 #endif
 
+#if !OPT_VLPD0_PATH_INTER
     if (ctx->lpd0_ctrls.pd0_level == VERY_LIGHT_PD0) {
 #if OPT_VLPD0_COST
         ctx->blk_ptr->cost = compute_vlpd0_cost_from_variance(ctx, (uint32_t)ctx->mds0_best_cost);
@@ -8306,18 +8427,23 @@ static void md_encode_block_light_pd0(PictureControlSet* pcs, ModeDecisionContex
         ctx->blk_ptr->cost = RDCOST(ctx->full_sb_lambda_md[EB_8_BIT_MD], rate, dist);
 #endif
     } else {
+#endif
         ctx->md_stage = MD_STAGE_3;
         md_stage_3_light_pd0(pcs, ctx, input_pic, input_origin_index, blk_origin_index);
         // Update the cost
         ctx->blk_ptr->cost = *(ctx->cand_bf_ptr_array[ctx->mds0_best_idx]->full_cost);
+#if !OPT_VLPD0_PATH_INTER
     }
+#endif
     assert(ctx->lpd1_ctrls.pd1_level < LPD1_LEVELS);
 
     // Save info needed for depth refinement and/or LPD1
     blk_ptr->block_mi.mode = ctx->cand_bf_ptr_array[ctx->mds0_best_idx]->cand->block_mi.mode;
 
     // Save info used by depth refinemetn and the light-PD1 detector (detector uses 64x64 block info only)
+#if !OPT_VLPD0_PATH_INTER
     if (ctx->lpd0_ctrls.pd0_level != VERY_LIGHT_PD0) {
+#endif // !OPT_VLPD0_PATH_INTER
         // Save info needed only for LPD1 detector
         if (ctx->lpd1_ctrls.pd1_level > REGULAR_PD1 && ctx->lpd1_ctrls.use_lpd1_detector[ctx->lpd1_ctrls.pd1_level] &&
             blk_geom->sq_size == 64) {
@@ -8335,7 +8461,9 @@ static void md_encode_block_light_pd0(PictureControlSet* pcs, ModeDecisionContex
 
         // Save info needed for depth refinement
         ctx->blk_ptr->cnt_nz_coeff = ctx->cand_bf_ptr_array[ctx->mds0_best_idx]->cnt_nz_coeff;
+#if !OPT_VLPD0_PATH_INTER
     }
+#endif
     // If intra is used, generate recon and copy to necessary buffers
     if (!ctx->skip_intra && !ctx->lpd0_use_src_samples) {
         uint32_t                     candidate_index = ctx->mds0_best_idx;
