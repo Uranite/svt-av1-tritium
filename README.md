@@ -86,6 +86,11 @@ For example, `--zones 0,100,20;101,200,40` applies a CRF/CQP value of 20 to fram
 Proposes different CDEF trade-offs, typically resulting in weaker deringing but improved fidelity. May gradually cause higher distortion, especially at high presets.  
 **2** and **3** force the best CDEF quality level which can improve results, at the cost of speed.
 
+- **`--enable-alt-dlf`** *0 to 3*
+
+Proposes different DLF trade-offs, typically resulting in weaker deblocking but improved fidelity. May gradually cause higher distortion, especially at high presets.  
+It is recommended to pair it with `--enable-dlf 3` to force the best DLF quality level, which can improve results at the cost of speed.
+
 - `--low-memory` *0 and 1*
 
 This parameter sets options that reduce RAM usage of the encoding instance significantly.
