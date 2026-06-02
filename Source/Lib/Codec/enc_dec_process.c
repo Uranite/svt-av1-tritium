@@ -2922,6 +2922,13 @@ EbErrorType svt_aom_mode_decision_kernel_iter(void* context) {
                         }
                     }
 
+#if OPT_LPD1_GLOBALMV_BYPASS
+                    if (ed_ctx->md_ctx->lpd1_globalmv_bypass_th) {
+                        memset(ed_ctx->md_ctx->pd0_mds0_best_cost,
+                               0xFF,
+                               (size_t)scs->max_block_cnt * sizeof(ed_ctx->md_ctx->pd0_mds0_best_cost[0]));
+                    }
+#endif
                     // Initialize is_subres_safe
                     ed_ctx->md_ctx->is_subres_safe = (uint8_t)~0;
                     // Signal initialized here; if needed, will be set in md_encode_block before MDS3

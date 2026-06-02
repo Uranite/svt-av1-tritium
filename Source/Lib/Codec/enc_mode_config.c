@@ -8790,6 +8790,9 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
         }
     }
     uint8_t ref_skip_perc = pcs->ref_skip_percentage;
+#if OPT_LPD1_GLOBALMV_BYPASS
+    ctx->lpd1_globalmv_bypass_th = 0;
+#endif
 
     // Set candidate reduction levels
     uint8_t cand_reduction_level = 0;
@@ -9002,6 +9005,13 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
         }
     }
     uint8_t ref_skip_perc = pcs->ref_skip_percentage;
+#if OPT_LPD1_GLOBALMV_BYPASS
+    if (pcs->enc_mode <= ENC_M11) {
+        ctx->lpd1_globalmv_bypass_th = 0;
+    } else {
+        ctx->lpd1_globalmv_bypass_th = 10;
+    }
+#endif
 
     // Set candidate reduction levels
     uint8_t cand_reduction_level = 0;

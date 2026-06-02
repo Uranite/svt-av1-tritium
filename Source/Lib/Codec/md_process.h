@@ -1256,6 +1256,15 @@ typedef struct ModeDecisionContext {
     // 0: OFF (no bypassing)
     // The higher the number, the more aggressive the feature is
     uint8_t lpd1_bypass_tx_th;
+#if OPT_LPD1_GLOBALMV_BYPASS
+    // Per-pixel residual-cost threshold for the LPD1 GLOBALMV (MDS0-2) bypass.
+    // 0: OFF. Otherwise: bypass fires when pd0_mds0_best_cost[mds_idx] < th * blk_area.
+    uint8_t lpd1_globalmv_bypass_th;
+    // Parallel-to-md_blk_arr_nsq array of PD0 MDS0 best costs, consumed by the LPD1
+    // GLOBALMV-bypass classifier. Reset to UINT32_MAX per SB via a single memset; PD0 storage
+    // sites overwrite per block. UINT32_MAX => "not available" => bypass declines (safe fallback).
+    uint32_t* pd0_mds0_best_cost;
+#endif
     // chroma components to compensate at MDS3 of LPD1
     COMPONENT_TYPE lpd1_chroma_comp;
     uint8_t        corrupted_mv_check;

@@ -98,6 +98,9 @@ static void mode_decision_context_dctor(EbPtr p) {
     EB_FREE_ARRAY(obj->tested_blk);
     obj->blocks_to_alloc = 0;
     EB_FREE_ARRAY(obj->md_blk_arr_nsq);
+#if OPT_LPD1_GLOBALMV_BYPASS
+    EB_FREE_ARRAY(obj->pd0_mds0_best_cost);
+#endif
     if (obj->rate_est_table) {
         EB_FREE_ARRAY(obj->rate_est_table);
     }
@@ -429,6 +432,9 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
         EB_MALLOC(ctx->mask_buf, sb_size * sb_size * sizeof(ctx->mask_buf[0]));
     }
     EB_MALLOC_ARRAY(ctx->md_blk_arr_nsq, block_max_count_sb);
+#if OPT_LPD1_GLOBALMV_BYPASS
+    EB_MALLOC_ARRAY(ctx->pd0_mds0_best_cost, block_max_count_sb);
+#endif
     // Fast Candidate Array
     uint16_t max_can_count = svt_aom_get_max_can_count(enc_mode) + ind_uv_cands;
     EB_MALLOC_ARRAY(ctx->fast_cand_array, max_can_count);

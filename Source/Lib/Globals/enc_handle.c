@@ -4527,12 +4527,21 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
             SVT_WARN("Preset M%d is mapped to M9.\n", scs->static_config.enc_mode);
             scs->static_config.enc_mode = ENC_M9;
         }
-    } else if (scs->static_config.rtc) {
+    }
+
+    else if (scs->static_config.rtc) {
 #if TUNE_SHIFT_PRESETS_RTC
+#if FTR_ADD_RTC_M12
+        if (scs->static_config.enc_mode > ENC_M12) {
+            SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);
+            scs->static_config.enc_mode = ENC_M12;
+        }
+#else
         if (scs->static_config.enc_mode > ENC_M11) {
             SVT_WARN("Preset M%d is mapped to M11.\n", scs->static_config.enc_mode);
             scs->static_config.enc_mode = ENC_M11;
         }
+#endif
 #else
         if (scs->static_config.enc_mode > ENC_M12) {
             SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);

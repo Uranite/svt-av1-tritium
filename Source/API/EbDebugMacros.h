@@ -82,6 +82,8 @@ extern "C" {
 #define FIX_CR_BAND_WRAPPING       1 // Handle wrapped range: sb_start > sb_end means [sb_start, total) union [0, sb_end)
 #define OPT_CR_MOTION_GATE         1 // Cyclic-refresh motion gate: only boost SBs with low motion (dist < 2*norm_me_dist AND zero MV); disable CR for the frame if all SBs rejected to skip delta_q signaling overhead
 #define OPT_ME_STATIC_B64          1 // Complete ME bypass for static 64x64 blocks: if L0/R0 zero-MV SAD < threshold, skip all HME + integer ME, set all MVs to (0,0), approximate sub-block SADs
+#define FTR_ADD_RTC_M12            1 // Add M12 as the fastest RTC preset
+#define OPT_LPD1_GLOBALMV_BYPASS   1 // Skip MDS0-2 (and MVP/ME refinement) for low-residual, zero-MV inter SQ blocks by injecting a forced GLOBALMV (IDENTITY) candidate straight into MDS3. GLOBALMV/GLOBAL_GLOBALMV code no mv_diff (AV1 spec 5.11.24): the decoder derives the MV directly from the frame-header global_motion[] params (IDENTITY -> (0,0)) without consulting the ref_mv_stack, so the MVP table is not needed for MV reconstruction.
 
 #define OPT_USE_HL0_FLAT  1 // Support hierarchical_levels 0 (flat) and 1 in LD CBR and RA 1L referencing
 
