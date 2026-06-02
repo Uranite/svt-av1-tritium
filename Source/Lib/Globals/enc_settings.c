@@ -314,6 +314,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("Invalid intra Refresh Type [1-2]\n");
         return_error = EB_ErrorBadParameter;
     }
+    if (config->intra_refresh_type == 1) {
+        SVT_WARN("Open GOP force disables the encoder key frames placement. Its usage can only "
+                 "be recommended in a chunked encoding scenario.\n");
+    }
 
     if (config->enable_dlf_flag > 3) {
         SVT_ERROR("Invalid LoopFilterEnable. LoopFilterEnable must be [0 - 3]\n");
