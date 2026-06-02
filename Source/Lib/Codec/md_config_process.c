@@ -661,7 +661,8 @@ static void derive_inter_coeff_level(PictureControlSet* pcs) {
                                                        input_pic->y_stride);
 
     noise_level_fp16             = svt_aom_noise_log1p_fp16(noise_level_fp16);
-    uint64_t cmplx               = pcs->ppcs->norm_me_dist / MAX(1, pcs->scs->static_config.qp);
+    const uint8_t effective_qp   = svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp;
+    uint64_t cmplx               = pcs->ppcs->norm_me_dist / MAX(1, effective_qp);
     uint64_t coeff_vlow_level_th = COEFF_LVL_INTER_TH_0;
     uint64_t coeff_low_level_th  = COEFF_LVL_INTER_TH_1;
     uint64_t coeff_high_level_th = COEFF_LVL_INTER_TH_2;
@@ -979,7 +980,7 @@ void* svt_aom_mode_decision_configuration_kernel(void* input_ptr) {
                 svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.intra_bc_mesh_qp_scaling,
                                                         &q_weight,
                                                         &q_weight_denom,
-                                                        pcs->scs->static_config.qp);
+                                                        svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
 
                 MeshPattern* mesh_patterns = intraBC_ctrls->mesh_patterns;
 

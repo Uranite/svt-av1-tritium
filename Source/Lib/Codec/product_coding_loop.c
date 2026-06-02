@@ -8082,7 +8082,7 @@ static INLINE uint32_t compute_vlpd0_cost_allintra(PictureControlSet* pcs, ModeD
     svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.lpd0_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
-                                            pcs->scs->static_config.qp);
+                                            svt_av1_get_effective_qp(pcs->scs, pcs->ppcs->picture_number).qp);
 
     // Block variance lookup
     int blk_idx;
