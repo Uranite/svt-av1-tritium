@@ -139,10 +139,10 @@ static int32_t svt_aom_crf_assign_max_rate(PictureParentControlSet* ppcs) {
     }
     // Decrease the active_worse_quality where undershoot happens and active_worst_quality is greater than the input QP
     if (available_bit_ratio > available_frames_ratio + 20 && available_frames_ratio < 10 &&
-        rc->active_worst_quality > quantizer_to_qindex[scs->static_config.qp]) {
+        rc->active_worst_quality > quantizer_to_qindex[svt_av1_get_effective_qp(scs, ppcs->picture_number).qp]) {
         rc->active_worst_quality -= rc->active_worst_quality / 10;
     }
-    rc->active_worst_quality = CLIP3(quantizer_to_qindex[scs->static_config.qp],
+    rc->active_worst_quality = CLIP3(quantizer_to_qindex[svt_av1_get_effective_qp(scs, ppcs->picture_number).qp],
                                      quantizer_to_qindex[scs->static_config.max_qp_allowed],
                                      rc->active_worst_quality);
 
@@ -666,7 +666,7 @@ void capped_crf_reencode(PictureParentControlSet* ppcs, int* const q) {
     }
     // Decrease the active worse quality based on the projected frame size and max frame size
     else if (ppcs->projected_frame_size < ppcs->max_frame_size && ppcs->temporal_layer_index == 0 &&
-             ppcs->loop_count == 0 && rc->active_worst_quality > quantizer_to_qindex[scs->static_config.qp] &&
+             ppcs->loop_count == 0 && rc->active_worst_quality > quantizer_to_qindex[svt_av1_get_effective_qp(scs, ppcs->picture_number).qp] &&
              (available_bit_ratio > available_frames_ratio)) {
         if (ppcs->projected_frame_size < ppcs->max_frame_size / 3) {
             rc->active_worst_quality -= rc->active_worst_quality / 5;
@@ -676,7 +676,7 @@ void capped_crf_reencode(PictureParentControlSet* ppcs, int* const q) {
             rc->active_worst_quality -= rc->active_worst_quality / 12;
         }
 
-        rc->active_worst_quality = CLIP3(quantizer_to_qindex[scs->static_config.qp],
+        rc->active_worst_quality = CLIP3(quantizer_to_qindex[svt_av1_get_effective_qp(scs, ppcs->picture_number).qp],
                                          quantizer_to_qindex[scs->static_config.max_qp_allowed],
                                          rc->active_worst_quality);
     }
