@@ -2836,30 +2836,30 @@ static bool me_static_b64_bypass(MeContext* me_ctx, uint32_t b64_origin_x, uint3
 
     EbPictureBufferDesc* ref_pic = me_ctx->me_ds_ref_array[0][0].picture_ptr;
     uint32_t zz_sad = get_zz_sad(ref_pic, me_ctx, b64_origin_x, b64_origin_y, me_ctx->b64_width, me_ctx->b64_height);
-    // Normalize for incomplete (edge) SBs
-    zz_sad = (zz_sad * 64 * 64) / (me_ctx->b64_width * me_ctx->b64_height);
-    if (zz_sad >= me_ctx->me_static_b64_th) {
+    if ((uint64_t)zz_sad * 64 * 64 >= (uint64_t)me_ctx->me_static_b64_th * me_ctx->b64_width * me_ctx->b64_height) {
         return false;
     }
+    // Normalize to equivalent 64x64 SAD for downstream consumers
+    zz_sad = (uint32_t)((uint64_t)zz_sad * 64 * 64 / (me_ctx->b64_width * me_ctx->b64_height));
 
     me_ctx->zz_sad[0][0]                = zz_sad;
     me_ctx->search_results[0][0].do_ref = 1;
-    svt_memset(me_ctx->p_sb_best_mv[0][0], 0, SQUARE_PU_COUNT * sizeof(uint32_t));
+    memset(me_ctx->p_sb_best_mv[0][0], 0, SQUARE_PU_COUNT * sizeof(uint32_t));
     // 64x64
-    me_ctx->p_sb_best_sad[0][0][0] = zz_sad;
+    me_ctx->p_sb_best_sad[0][0][RASTER_SCAN_CU_INDEX_64x64] = zz_sad;
     // 32x32
     const uint32_t sad32 = zz_sad >> 2;
-    for (int i = 1; i <= 4; i++) {
+    for (int i = RASTER_SCAN_CU_INDEX_32x32_0; i <= RASTER_SCAN_CU_INDEX_32x32_3; i++) {
         me_ctx->p_sb_best_sad[0][0][i] = sad32;
     }
     // 16x16
     const uint32_t sad16 = zz_sad >> 4;
-    for (int i = 5; i <= 20; i++) {
+    for (int i = RASTER_SCAN_CU_INDEX_16x16_0; i <= RASTER_SCAN_CU_INDEX_16x16_15; i++) {
         me_ctx->p_sb_best_sad[0][0][i] = sad16;
     }
     // 8x8
     const uint32_t sad8 = zz_sad >> 6;
-    for (int i = 21; i < SQUARE_PU_COUNT; i++) {
+    for (int i = RASTER_SCAN_CU_INDEX_8x8_0; i < SQUARE_PU_COUNT; i++) {
         me_ctx->p_sb_best_sad[0][0][i] = sad8;
     }
     return true;

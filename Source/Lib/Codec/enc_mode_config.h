@@ -6,9 +6,14 @@
 #include "enc_dec_process.h"
 #include "pd_process.h"
 #include "pic_buffer_desc.h"
+#include "EbDebugMacros.h"
 
+#if OPT_MAX_CAN_COUNT_RTC
+uint16_t svt_aom_get_max_can_count(EncMode enc_mode, bool rtc);
+#else
 uint16_t svt_aom_get_max_can_count(EncMode enc_mode);
-void     svt_aom_md_pme_search_controls(ModeDecisionContext* ctx, uint8_t md_pme_level);
+#endif
+void svt_aom_md_pme_search_controls(ModeDecisionContext* ctx, uint8_t md_pme_level);
 
 void    svt_aom_set_txt_controls(ModeDecisionContext* ctx, uint8_t txt_level);
 void    svt_aom_set_wm_controls(ModeDecisionContext* ctx, uint8_t wm_level);
@@ -37,10 +42,14 @@ uint8_t svt_aom_get_nic_level_default(EncMode enc_mode, uint8_t is_base);
 #else
 uint8_t svt_aom_get_nic_level_default(EncMode enc_mode, uint8_t is_base, uint8_t sc_class1);
 #endif
+#if TUNE_RTC
+uint8_t svt_aom_get_nic_level_rtc(EncMode enc_mode, bool use_flat_ipp);
+#else
 #if TUNE_SIMPLIFY_SETTINGS
 uint8_t svt_aom_get_nic_level_rtc(EncMode enc_mode);
 #else
 uint8_t svt_aom_get_nic_level_rtc(EncMode enc_mode, bool use_flat_ipp);
+#endif
 #endif
 uint8_t svt_aom_get_nic_level_allintra(EncMode enc_mode);
 uint8_t svt_aom_get_enable_me_16x16(EncMode enc_mode);
@@ -137,7 +146,7 @@ uint8_t get_filter_intra_level_rtc(EncMode enc_mode);
 #endif
 uint8_t get_filter_intra_level_allintra(EncMode enc_mode);
 uint8_t svt_aom_get_inter_intra_level(EncMode enc_mode, uint8_t transition_present);
-#if TUNE_SHIFT_PRESETS_RTC
+#if TUNE_SHIFT_PRESETS_RTC && !TUNE_RTC
 uint8_t svt_aom_get_obmc_level(EncMode enc_mode, uint32_t qp, uint8_t seq_qp_mod, bool rtc_tune);
 #else
 uint8_t svt_aom_get_obmc_level(EncMode enc_mode, uint32_t qp, uint8_t seq_qp_mod);

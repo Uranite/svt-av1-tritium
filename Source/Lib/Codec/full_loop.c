@@ -1766,6 +1766,39 @@ void svt_aom_inv_transform_recon_wrapper(PictureControlSet* pcs, ModeDecisionCon
     }
 }
 
+#if OPT_APPROX_COEFF_RATE
+// Computes an EOB-based approximation of chroma coefficient rate.
+// Returns true if the approximation was applied; false if full estimation is required.
+static bool skip_chroma_rate_est(const ModeDecisionContext* ctx, const ModeDecisionCandidateBuffer* cand_bf,
+                                 COMPONENT_TYPE component_type, uint32_t tx_width_uv, uint32_t tx_height_uv,
+                                 uint64_t* cb_coeff_bits, uint64_t* cr_coeff_bits) {
+    // lvl=1 always uses full estimation; lvl=0 and lvl>=2 use approximation
+    if (!(ctx->rate_est_ctrls.coeff_rate_est_lvl >= 2 || ctx->rate_est_ctrls.coeff_rate_est_lvl == 0)) {
+        return false;
+    }
+    const uint64_t th = ((uint64_t)tx_width_uv * tx_height_uv) >> 6;
+    if (component_type == COMPONENT_CHROMA || component_type == COMPONENT_CHROMA_CB) {
+        if (cand_bf->eob.u[0] < th) {
+            *cb_coeff_bits = cand_bf->eob.u[0] ? (3000 + (uint64_t)cand_bf->eob.u[0] * 500) : 0;
+        } else if (ctx->rate_est_ctrls.coeff_rate_est_lvl == 0) {
+            *cb_coeff_bits = cand_bf->eob.u[0] ? (1500 + (uint64_t)cand_bf->eob.u[0] * 50) : 0;
+        } else {
+            return false;
+        }
+    }
+    if (component_type == COMPONENT_CHROMA || component_type == COMPONENT_CHROMA_CR) {
+        if (cand_bf->eob.v[0] < th) {
+            *cr_coeff_bits = cand_bf->eob.v[0] ? (3000 + (uint64_t)cand_bf->eob.v[0] * 500) : 0;
+        } else if (ctx->rate_est_ctrls.coeff_rate_est_lvl == 0) {
+            *cr_coeff_bits = cand_bf->eob.v[0] ? (1500 + (uint64_t)cand_bf->eob.v[0] * 50) : 0;
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
+#endif
+
 /*
   tx path for light PD1 chroma
 */
@@ -1949,31 +1982,7 @@ void svt_aom_full_loop_chroma_light_pd1(PictureControlSet* pcs, ModeDecisionCont
 
     //CHROMA-ONLY
 #if OPT_APPROX_COEFF_RATE
-    // Cheap eob-based chroma coeff-rate (mirrors luma): eob<th -> 3000+eob*500 (0 if eob==0);
-    // eob>=th -> lvl==0: 1500+eob*50, else fall back to the full estimator.
-    bool use_full_rate = !(ctx->rate_est_ctrls.coeff_rate_est_lvl >= 2 || ctx->rate_est_ctrls.coeff_rate_est_lvl == 0);
-    if (!use_full_rate) {
-        const uint64_t th = ((uint64_t)tx_width_uv * tx_height_uv) >> 6;
-        if (component_type == COMPONENT_CHROMA || component_type == COMPONENT_CHROMA_CB) {
-            if (cand_bf->eob.u[0] < th) {
-                *cb_coeff_bits = cand_bf->eob.u[0] ? (3000 + (uint64_t)cand_bf->eob.u[0] * 500) : 0;
-            } else if (ctx->rate_est_ctrls.coeff_rate_est_lvl == 0) {
-                *cb_coeff_bits = cand_bf->eob.u[0] ? (1500 + (uint64_t)cand_bf->eob.u[0] * 50) : 0;
-            } else {
-                use_full_rate = true;
-            }
-        }
-        if (!use_full_rate && (component_type == COMPONENT_CHROMA || component_type == COMPONENT_CHROMA_CR)) {
-            if (cand_bf->eob.v[0] < th) {
-                *cr_coeff_bits = cand_bf->eob.v[0] ? (3000 + (uint64_t)cand_bf->eob.v[0] * 500) : 0;
-            } else if (ctx->rate_est_ctrls.coeff_rate_est_lvl == 0) {
-                *cr_coeff_bits = cand_bf->eob.v[0] ? (1500 + (uint64_t)cand_bf->eob.v[0] * 50) : 0;
-            } else {
-                use_full_rate = true;
-            }
-        }
-    }
-    if (use_full_rate)
+    if (!skip_chroma_rate_est(ctx, cand_bf, component_type, tx_width_uv, tx_height_uv, cb_coeff_bits, cr_coeff_bits))
 #endif
         svt_aom_txb_estimate_coeff_bits(ctx,
                                         0,
@@ -2474,31 +2483,8 @@ void svt_aom_full_loop_uv(PictureControlSet* pcs, ModeDecisionContext* ctx, Mode
         uint64_t cr_txb_coeff_bits = 0;
 
 #if OPT_APPROX_COEFF_RATE
-        // Cheap eob-based chroma coeff-rate; see svt_aom_cuchroma_coding_loop for details.
-        bool use_full_rate = !(ctx->rate_est_ctrls.coeff_rate_est_lvl >= 2 ||
-                               ctx->rate_est_ctrls.coeff_rate_est_lvl == 0);
-        if (!use_full_rate) {
-            const uint64_t th = ((uint64_t)tx_width_uv * tx_height_uv) >> 6;
-            if (component_type == COMPONENT_CHROMA || component_type == COMPONENT_CHROMA_CB) {
-                if (cand_bf->eob.u[0] < th) {
-                    *cb_coeff_bits = cand_bf->eob.u[0] ? (3000 + (uint64_t)cand_bf->eob.u[0] * 500) : 0;
-                } else if (ctx->rate_est_ctrls.coeff_rate_est_lvl == 0) {
-                    *cb_coeff_bits = cand_bf->eob.u[0] ? (1500 + (uint64_t)cand_bf->eob.u[0] * 50) : 0;
-                } else {
-                    use_full_rate = true;
-                }
-            }
-            if (!use_full_rate && (component_type == COMPONENT_CHROMA || component_type == COMPONENT_CHROMA_CR)) {
-                if (cand_bf->eob.v[0] < th) {
-                    *cr_coeff_bits = cand_bf->eob.v[0] ? (3000 + (uint64_t)cand_bf->eob.v[0] * 500) : 0;
-                } else if (ctx->rate_est_ctrls.coeff_rate_est_lvl == 0) {
-                    *cr_coeff_bits = cand_bf->eob.v[0] ? (1500 + (uint64_t)cand_bf->eob.v[0] * 50) : 0;
-                } else {
-                    use_full_rate = true;
-                }
-            }
-        }
-        if (use_full_rate) {
+        if (!skip_chroma_rate_est(
+                ctx, cand_bf, component_type, tx_width_uv, tx_height_uv, cb_coeff_bits, cr_coeff_bits)) {
 #endif
             //CHROMA-ONLY
             svt_aom_txb_estimate_coeff_bits(ctx,

@@ -416,7 +416,7 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                 // dir/var are already populated by the search; if dirinit==0
                 // (use_reference_cdef_fs / use_qp_strength), svt_cdef_filter_fb
                 // must still run to populate dir for subsequent chroma planes.
-                if (level == 0 && sec_strength == 0 && (pli != 0 || dirinit)) {
+                if (level == 0 && sec_strength == 0 && (pli != 0 || dirinit) && fbc == nhfb - 1) {
                     // Save linebuf[pli] (bottom edge for the FB below) from rec_buff.
                     if (fbr < nvfb - 1) {
                         svt_aom_copy_sb8_16(&linebuf[pli][coffset],

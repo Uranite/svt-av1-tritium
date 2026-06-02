@@ -247,10 +247,14 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
         uint8_t nic_level  = svt_aom_get_nic_level_allintra(enc_mode);
         stage1_scaling_num = MD_STAGE_NICS_SCAL_NUM[svt_aom_set_nic_controls(NULL, nic_level)][MD_STAGE_1];
     } else if (rtc_tune) {
+#if TUNE_RTC
+        uint8_t nic_level = svt_aom_get_nic_level_rtc(enc_mode, scs->use_flat_ipp);
+#else
 #if TUNE_SIMPLIFY_SETTINGS
         uint8_t nic_level = svt_aom_get_nic_level_rtc(enc_mode);
 #else
         uint8_t nic_level = svt_aom_get_nic_level_rtc(enc_mode, scs->use_flat_ipp);
+#endif
 #endif
         stage1_scaling_num = MD_STAGE_NICS_SCAL_NUM[svt_aom_set_nic_controls(NULL, nic_level)][MD_STAGE_1];
     } else {
@@ -417,7 +421,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
             if (obmc_allowed) {
                 break;
             }
-#if TUNE_SHIFT_PRESETS_RTC
+#if TUNE_SHIFT_PRESETS_RTC && !TUNE_RTC
             obmc_allowed |= svt_aom_get_obmc_level(enc_mode, qp, seq_qp_mod, rtc_tune);
 #else
             obmc_allowed |= svt_aom_get_obmc_level(enc_mode, qp, seq_qp_mod);
@@ -436,7 +440,11 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
     EB_MALLOC_ARRAY(ctx->pd0_mds0_best_cost, block_max_count_sb);
 #endif
     // Fast Candidate Array
+#if OPT_MAX_CAN_COUNT_RTC
+    uint16_t max_can_count = svt_aom_get_max_can_count(enc_mode, rtc_tune) + ind_uv_cands;
+#else
     uint16_t max_can_count = svt_aom_get_max_can_count(enc_mode) + ind_uv_cands;
+#endif
     EB_MALLOC_ARRAY(ctx->fast_cand_array, max_can_count);
 
     for (cand_index = 0; cand_index < max_can_count; ++cand_index) {

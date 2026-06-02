@@ -83,7 +83,7 @@ extern "C" {
 #define FIX_CR_BAND_WRAPPING       1 // Handle wrapped range: sb_start > sb_end means [sb_start, total) union [0, sb_end)
 #define OPT_CR_MOTION_GATE         1 // Cyclic-refresh motion gate: only boost SBs with low motion (dist < 2*norm_me_dist AND zero MV); disable CR for the frame if all SBs rejected to skip delta_q signaling overhead
 #define OPT_ME_STATIC_B64          1 // Complete ME bypass for static 64x64 blocks: if L0/R0 zero-MV SAD < threshold, skip all HME + integer ME, set all MVs to (0,0), approximate sub-block SADs
-#define FTR_ADD_RTC_M12            1 // Add M12 as the fastest RTC preset
+#define FTR_ADD_RTC_M12_M13        1 // Add M12 and M13 RTC presets, with M12 as the fastest preset and M13 as an experimental faster option
 #define OPT_LPD1_GLOBALMV_BYPASS   1 // Skip MDS0-2 (and MVP/ME refinement) for low-residual, zero-MV inter SQ blocks by injecting a forced GLOBALMV (IDENTITY) candidate straight into MDS3. GLOBALMV/GLOBAL_GLOBALMV code no mv_diff (AV1 spec 5.11.24): the decoder derives the MV directly from the frame-header global_motion[] params (IDENTITY -> (0,0)) without consulting the ref_mv_stack, so the MVP table is not needed for MV reconstruction.
 #define OPT_LPD1_FAST_SKIP         1 // Predict skip from luma-only RD after luma TX, force chroma TX bypass
 #define OPT_LPD1_CHROMA_SKIP       1 // Absolute chroma-residual SAD gate before svt_aom_full_loop_chroma_light_pd1
@@ -95,6 +95,11 @@ extern "C" {
 #define OPT_APPROX_COEFF_RATE      1 // Mirror the existing luma cheap eob-based coeff-rate path on the chroma side (svt_aom_full_loop_uv / svt_aom_cuchroma_coding_loop): both for consistency and to bypass useless rate-estimation operation
 #define OPT_SHAVE_COEFF_LIN        1 // Optimize coeff-shaving processing and restrict to isolated coeff removal (no energy-based skip)
 #define OPT_MRP_HME_L0_DETECT      1 // Prune extra L0 refs in PD (RTC only) when the LAST-to-LAST2 (flat_ipp) or LAST-to-LAST3 (non-flat, base layer) HME-L0 SAD ratio exceeds early_hme_l0_prune_th/100
+#define TUNE_RTC                   1 // Tune RTC
+#define TUNE_RA                    1 // Tune RA
+#define OPT_MAX_CAN_COUNT_RTC      1 // Derive tighter max_can_count from preset assuming 3L prediction structure
+#define OPT_RTC_M13_FAST           1 // Apply aggressive speed optimizations for the experimental M13 preset
+
 
 #define OPT_USE_HL0_FLAT  1 // Support hierarchical_levels 0 (flat) and 1 in LD CBR and RA 1L referencing
 

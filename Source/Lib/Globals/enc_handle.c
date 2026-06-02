@@ -4592,10 +4592,14 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
 
     else if (scs->static_config.rtc) {
 #if TUNE_SHIFT_PRESETS_RTC
-#if FTR_ADD_RTC_M12
-        if (scs->static_config.enc_mode > ENC_M12) {
-            SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);
-            scs->static_config.enc_mode = ENC_M12;
+#if FTR_ADD_RTC_M12_M13
+        if (scs->static_config.enc_mode > ENC_M13) {
+            SVT_WARN("Preset M%d is mapped to M13.\n", scs->static_config.enc_mode);
+            scs->static_config.enc_mode = ENC_M13;
+        }
+
+        if (scs->static_config.enc_mode == ENC_M13) {
+            SVT_WARN("Preset M13 is experimental and intended for speed evaluation\n");
         }
 #else
         if (scs->static_config.enc_mode > ENC_M11) {

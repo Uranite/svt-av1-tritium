@@ -2641,7 +2641,7 @@ static uint32_t md_subpel_search_fixed_stage(ModeDecisionContext* ctx, const EbP
     int                 best_dx = 0, best_dy = 0;
 
 #if OPT_SUBPEL_FIXED_SEARCH
-    const uint64_t th_normalizer = (uint64_t)(blk_w * blk_h * (uint64_t)ctx->md_subpel_me_ctrls.abs_th_mult);
+    const uint32_t th_normalizer = blk_w * blk_h * ctx->md_subpel_me_ctrls.abs_th_mult;
 #endif
     // integer-pel baseline
     {
@@ -9067,7 +9067,7 @@ static bool lpd1_try_mds0_bypass(PictureControlSet* pcs, ModeDecisionContext* ct
     // ME must have picked (0,0)
     const MeSbResults* me_sb = pcs->ppcs->pa_me_data->me_results[ctx->me_sb_addr];
     const Mv           me_mv = me_sb->me_mv_array[ctx->me_block_offset * pcs->ppcs->pa_me_data->max_refs];
-    if (me_mv.x != 0 || me_mv.y != 0) {
+    if (me_mv.as_int != 0) {
         return false;
     }
 
@@ -9152,10 +9152,9 @@ static void md_encode_block_light_pd1(PictureControlSet* pcs, ModeDecisionContex
     BlockLocation loc;
     loc.input_origin_index       = ctx->blk_org_x + (ctx->blk_org_y) * input_pic->y_stride;
     loc.input_cb_origin_in_index = ((ctx->blk_org_x) >> 1) + ((ctx->blk_org_y) >> 1) * input_pic->u_stride;
-
-    BlkStruct* blk_ptr     = ctx->blk_ptr;
-    cand_bf_ptr_array      = &(cand_bf_ptr_array_base[0]);
-    ctx->blk_lambda_tuning = pcs->ppcs->blk_lambda_tuning;
+    BlkStruct* blk_ptr           = ctx->blk_ptr;
+    cand_bf_ptr_array            = &(cand_bf_ptr_array_base[0]);
+    ctx->blk_lambda_tuning       = pcs->ppcs->blk_lambda_tuning;
     if (pcs->ppcs->frm_hdr.segmentation_params.segmentation_enabled) {
         SuperBlock*    sb_ptr  = ctx->sb_ptr;
         const Position blk_org = {.x = ctx->blk_org_x - ctx->sb_origin_x, .y = ctx->blk_org_y - ctx->sb_origin_y};

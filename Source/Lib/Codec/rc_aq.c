@@ -289,10 +289,10 @@ static INLINE int is_in_cr_band(uint32_t b64_idx, uint32_t sb_start, uint32_t sb
 
 #if OPT_CR_MOTION_GATE
 // Returns true if the SB is eligible for cyclic-refresh boost:
-// 8x8 ME distortion below `dist_reject_thresh` AND zero ME MV.
+// 8x8 ME distortion below `dist_reject_thresh` AND ME MV within ±1 full pel.
 static INLINE int is_cr_motion_static(PictureParentControlSet* ppcs, uint32_t b64_idx, uint64_t dist_reject_thresh) {
     Mv mv = ppcs->pa_me_data->me_results[b64_idx]->me_mv_array[0];
-    return ppcs->me_8x8_distortion[b64_idx] < dist_reject_thresh && mv.x == 0 && mv.y == 0;
+    return ppcs->me_8x8_distortion[b64_idx] < dist_reject_thresh && ABS(mv.x) <= 1 && ABS(mv.y) <= 1;
 }
 #endif
 
@@ -308,9 +308,7 @@ void svt_aom_cyclic_refresh_setup(PictureParentControlSet* ppcs) {
     uint64_t seg2_dist      = 0;
     uint64_t avg_me_dist    = ppcs->norm_me_dist;
 #if OPT_CR_MOTION_GATE
-    // When avg_me_dist is 0 (perfectly static scene), use threshold of 1 so that
-    // zero-distortion SBs (the best CR candidates) still pass the < check.
-    uint64_t dist_reject_thresh = avg_me_dist > 0 ? avg_me_dist * 2 : 1;
+    uint64_t dist_reject_thresh = avg_me_dist * 2 + 1;
 #endif
     for (uint32_t b64_idx = 0; b64_idx < ppcs->b64_total_count; ++b64_idx) {
 #if FIX_CR_BAND_WRAPPING || OPT_CR_MOTION_GATE
@@ -359,13 +357,8 @@ void svt_aom_cyclic_refresh_setup(PictureParentControlSet* ppcs) {
 #else
     if (!ppcs->sc_class1 && cr->actual_num_seg2_sbs) {
 #endif
-        seg2_dist = seg2_dist / cr->actual_num_seg2_sbs;
-#if OPT_CR_MOTION_GATE
-        // Guard against division by zero when avg_me_dist is 0 (static scene)
-        uint64_t dev = avg_me_dist > 0 ? (avg_me_dist - seg2_dist) * 100 / avg_me_dist : 0;
-#else
+        seg2_dist    = seg2_dist / cr->actual_num_seg2_sbs;
         uint64_t dev = (avg_me_dist - seg2_dist) * 100 / avg_me_dist;
-#endif
         // Quadratic Scaling; boost = BOOST_MAX * (dev/100)^2
         rate_boost_fac += (int)(BOOST_MAX * dev * dev / (100 * 100));
     }
@@ -388,7 +381,7 @@ static void cyclic_sb_qp_assignment(PictureControlSet* pcs) {
 #if OPT_CR_MOTION_GATE
     // High-motion gate: don't boost SBs with distortion far above average
     // or with large MV (boosting them wastes bits that motion destroys next frame).
-    uint64_t dist_reject_thresh = ppcs->norm_me_dist > 0 ? ppcs->norm_me_dist * 2 : 1;
+    uint64_t dist_reject_thresh = ppcs->norm_me_dist * 2 + 1;
 #endif
     for (uint32_t b64_idx = 0; b64_idx < ppcs->b64_total_count; ++b64_idx) {
         SuperBlock* sb     = pcs->sb_ptr_array[b64_idx];

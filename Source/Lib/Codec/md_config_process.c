@@ -322,7 +322,7 @@ static void init_frame_rate_tables(PictureControlSet* pcs) {
     svt_aom_estimate_mv_rate(pcs, md_rate_est_ctx, &pcs->md_frame_context);
     // Initial Rate Estimation of the quantized coefficients
 #if OPT_APPROX_COEFF_RATE
-    if (pcs->rate_est_level || pcs->cdf_ctrl.update_coef)
+    if (pcs->rdoq_level || pcs->rate_est_level)
 #endif
         svt_aom_estimate_coefficients_rate(md_rate_est_ctx, &pcs->md_frame_context);
 }
