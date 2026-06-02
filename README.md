@@ -96,6 +96,11 @@ It is most effective in CRF/CQP Random Access mode.
 
 Hides the encoder parameters banner that is normally printed at the start of an encode. This helps keep the console output cleaner if you are scripting or wrapping the encoder.
 
+- `--enable-tf 3`
+
+The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  
+The strength can still be adjusted up or down using `--tf-strength`.
+
 ### SVT-AV1-HDR
 
 - `PQ-optimized Variance Boost curve`
