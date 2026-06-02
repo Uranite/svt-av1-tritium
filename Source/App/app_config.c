@@ -234,6 +234,7 @@
 #define AUTO_TILING_TOKEN "--auto-tiling"
 #define ZONES_TOKEN "--zones"
 #define ALT_CDEF_TOKEN "--enable-alt-cdef"
+#define ALT_DLF_TOKEN "--enable-alt-dlf"
 #define ENABLE_DAALA_TOKEN "--enable-daala"
 #define HIDE_BANNER_TOKEN "--hide-banner"
 
@@ -1175,6 +1176,10 @@ ConfigDescription config_entry_psychovisual[] = {
     {ALT_CDEF_TOKEN,
      "Enable alternative CDEF biases."
      "Default is 0 [0-3]."},
+    // Alt DLF
+    {ALT_DLF_TOKEN,
+     "Enable alternative DLF biases."
+     "Default is 0 [0-3]."},
     {ENABLE_DAALA_TOKEN,
      "Enable Daala distortion metric, default is 0 [0-4]"},
     // Termination
@@ -1438,6 +1443,9 @@ ConfigEntry config_entry[] = {
 
     // Alt CDEF
     {ALT_CDEF_TOKEN, "AltCDEF", set_cfg_generic_token},
+
+    // Alt DLF
+    {ALT_DLF_TOKEN, "AltDLF", set_cfg_generic_token},
 
     // Daala
     {ENABLE_DAALA_TOKEN, "EnableDaala", set_cfg_generic_token},
