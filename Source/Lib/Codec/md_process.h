@@ -737,6 +737,22 @@ typedef struct Lpd1Ctrls {
     uint16_t skip_pd0_me_shift[LPD1_LEVELS];
 } Lpd1Ctrls;
 
+#if OPT_LPD1_FAST_SKIP
+typedef struct Lpd1TxCtrls {
+    // skip cost calc and chroma TX/compensation if there are zero luma coeffs
+    uint8_t zero_y_coeff_exit;
+    // Control aggressiveness of chroma detector (used to skip chroma TX when luma has 0 coeffs): 0:
+    // OFF, 1: saftest, 2, 3: medium
+    uint8_t chroma_detector_level;
+    // if (skip_tx_th/QP < TH) skip TX at MDS3; 0: OFF, higher: more aggressive
+    uint16_t skip_tx_th;
+    // if (best_mds0_distortion/QP < TH) use shortcuts for candidate at MDS3; 0: OFF, higher: more
+    // aggressive
+    uint32_t use_mds3_shortcuts_th;
+    // Apply shortcuts to the chroma TX path if luma has few coeffs
+    uint8_t use_uv_shortcuts_on_y_coeffs;
+} Lpd1TxCtrls;
+#else
 typedef struct Lpd1TxCtrls {
     // skip cost calc and chroma TX/compensation if there are zero luma coeffs
     uint8_t zero_y_coeff_exit;
@@ -756,6 +772,7 @@ typedef struct Lpd1TxCtrls {
     // Apply shortcuts to the chroma TX path if luma has few coeffs
     uint8_t use_uv_shortcuts_on_y_coeffs;
 } Lpd1TxCtrls;
+#endif
 
 typedef struct CflCtrls {
     bool enabled;
@@ -1252,6 +1269,12 @@ typedef struct ModeDecisionContext {
     // Signal to skip INTER TX in LPD1; should only be used by M13 as this causes blocking
     // artifacts. 0: OFF, 1: Skip INTER TX if neighs have 0 coeffs, 2: skip all INTER TX
     uint8_t lpd1_skip_inter_tx_level;
+#if OPT_LPD1_FAST_SKIP
+    // Decide whole-block SKIP after the luma TX (LPD1). After the luma TX, compare RD cost of
+    // coding the luma residual against RD cost of forcing skip. If skip_cost * pct < non_skip_cost
+    // * 100 -> commit to SKIP (zero luma coeffs, bypass chroma TX). 0: OFF.
+    uint16_t lpd1_blk_skip_luma_rd_pct; // whole-block SKIP via luma RD signal
+#endif
     // Specifies the threshold to bypass transform in LPD1 based on full cost estimate.
     // 0: OFF (no bypassing)
     // The higher the number, the more aggressive the feature is
@@ -1275,8 +1298,10 @@ typedef struct ModeDecisionContext {
     // non-normative txs
     uint16_t min_nz_h;
     uint16_t min_nz_v;
+#if !OPT_LPD1_FAST_SKIP
     // used to signal when the N4 shortcut can be used for rtc, works in conjunction with use_tx_shortcuts_mds3 flag
     uint8_t rtc_use_N4_dct_dct_shortcut;
+#endif
     // SSIM_LVL_0: off
     // SSIM_LVL_1: use ssim cost to find best candidate in product_full_mode_decision()
     // SSIM_LVL_2: addition to level 1, also use ssim cost to find best tx type in tx_type_search()

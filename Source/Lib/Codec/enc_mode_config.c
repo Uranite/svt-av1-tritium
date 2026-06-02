@@ -7552,6 +7552,66 @@ static uint64_t compute_subres_th(SequenceControlSet* scs, ModeDecisionContext* 
     return use_subres_th;
 }
 
+#if OPT_LPD1_FAST_SKIP
+static void set_lpd1_tx_ctrls(ModeDecisionContext* ctx, uint8_t lpd1_tx_level) {
+    Lpd1TxCtrls* ctrls = &ctx->lpd1_tx_ctrls;
+
+    switch (lpd1_tx_level) {
+    case 0:
+        ctrls->zero_y_coeff_exit            = 0;
+        ctrls->chroma_detector_level        = 0;
+        ctrls->skip_tx_th                   = 0;
+        ctrls->use_uv_shortcuts_on_y_coeffs = 0;
+        ctrls->use_mds3_shortcuts_th        = 0;
+        break;
+    case 1:
+        ctrls->zero_y_coeff_exit            = 1;
+        ctrls->chroma_detector_level        = 1;
+        ctrls->skip_tx_th                   = 0;
+        ctrls->use_uv_shortcuts_on_y_coeffs = 1;
+        ctrls->use_mds3_shortcuts_th        = 30;
+        break;
+    case 2:
+        ctrls->zero_y_coeff_exit            = 1;
+        ctrls->chroma_detector_level        = 1;
+        ctrls->skip_tx_th                   = 30;
+        ctrls->use_uv_shortcuts_on_y_coeffs = 1;
+        ctrls->use_mds3_shortcuts_th        = 30;
+        break;
+    case 3:
+        ctrls->zero_y_coeff_exit            = 1;
+        ctrls->chroma_detector_level        = 2;
+        ctrls->skip_tx_th                   = 30;
+        ctrls->use_uv_shortcuts_on_y_coeffs = 1;
+        ctrls->use_mds3_shortcuts_th        = 30;
+        break;
+    case 4:
+        ctrls->zero_y_coeff_exit            = 1;
+        ctrls->chroma_detector_level        = 3;
+        ctrls->skip_tx_th                   = 30;
+        ctrls->use_uv_shortcuts_on_y_coeffs = 1;
+        ctrls->use_mds3_shortcuts_th        = 30;
+        break;
+    case 5:
+        ctrls->zero_y_coeff_exit            = 1;
+        ctrls->chroma_detector_level        = 4;
+        ctrls->skip_tx_th                   = 30;
+        ctrls->use_uv_shortcuts_on_y_coeffs = 1;
+        ctrls->use_mds3_shortcuts_th        = 30;
+        break;
+    case 6:
+        ctrls->zero_y_coeff_exit            = 1;
+        ctrls->chroma_detector_level        = 0;
+        ctrls->skip_tx_th                   = 30;
+        ctrls->use_uv_shortcuts_on_y_coeffs = 1;
+        ctrls->use_mds3_shortcuts_th        = 30;
+        break;
+    default:
+        assert(0);
+        break;
+    }
+}
+#else
 static void set_lpd1_tx_ctrls(ModeDecisionContext* ctx, uint8_t lpd1_tx_level) {
     Lpd1TxCtrls* ctrls = &ctx->lpd1_tx_ctrls;
 
@@ -7630,6 +7690,7 @@ static void set_lpd1_tx_ctrls(ModeDecisionContext* ctx, uint8_t lpd1_tx_level) {
         break;
     }
 }
+#endif
 
 static void set_cfl_ctrls(ModeDecisionContext* ctx, uint8_t cfl_level) {
     CflCtrls* ctrls = &ctx->cfl_ctrls;
@@ -8888,7 +8949,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
         }
     }
     set_lpd1_tx_ctrls(ctx, lpd1_tx_level);
-
+#if !OPT_LPD1_FAST_SKIP
     /* In modes below M11, only use level 1-3 for chroma detector, as more aggressive levels will cause
     blurring artifacts in certain clips.
 
@@ -8902,6 +8963,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
             ctx->lpd1_tx_ctrls.chroma_detector_level = 0;
         }
     }
+#endif
 
     // Note that aggressive TX skipping may cause blocking artifacts
     if (pcs->enc_mode <= ENC_M9) {
@@ -8918,6 +8980,13 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
             }
         }
     }
+#if OPT_LPD1_FAST_SKIP
+    if (lpd1_level <= LPD1_LVL_2) {
+        ctx->lpd1_blk_skip_luma_rd_pct = 0;
+    } else {
+        ctx->lpd1_blk_skip_luma_rd_pct = 90;
+    }
+#endif
 
     ctx->lpd1_bypass_tx_th = 0;
 
@@ -9077,6 +9146,17 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
     }
     md_subpel_me_controls(ctx, me_subpel_level);
 
+#if OPT_LPD1_FAST_SKIP
+    uint8_t lpd1_tx_level;
+
+    if (lpd1_level <= LPD1_LVL_4) {
+        lpd1_tx_level = 5;
+    } else {
+        lpd1_tx_level = 6;
+    }
+
+    set_lpd1_tx_ctrls(ctx, lpd1_tx_level);
+#else
     // Do not exceed level 3 for RTC, as using more aggressive levels only on non-base pictures can lead to overly
     // concentrated bit allocation on flat RTC regions.
     set_lpd1_tx_ctrls(ctx, 3);
@@ -9092,6 +9172,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
             ctx->lpd1_tx_ctrls.chroma_detector_level = 0;
         }
     }
+#endif
 
     // Note that aggressive TX skipping may cause blocking artifacts
 #if TUNE_SHIFT_PRESETS_RTC
@@ -9136,6 +9217,13 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
     } else {
         ctx->lpd1_bypass_tx_th = 200;
     }
+#if OPT_LPD1_FAST_SKIP
+    if (lpd1_level <= LPD1_LVL_4) {
+        ctx->lpd1_blk_skip_luma_rd_pct = 90;
+    } else {
+        ctx->lpd1_blk_skip_luma_rd_pct = 60;
+    }
+#endif
 
     uint8_t rate_est_level = 0;
     if (pcs->rate_est_level) {

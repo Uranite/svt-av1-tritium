@@ -756,8 +756,10 @@ static void av1_lambda_assign_md(PictureControlSet* pcs, ModeDecisionContext* ct
 
 void svt_aom_reset_mode_decision(SequenceControlSet* scs, ModeDecisionContext* ctx, PictureControlSet* pcs,
                                  uint16_t tile_group_idx, uint32_t segment_index) {
+#if !OPT_LPD1_FAST_SKIP
     const bool rtc_tune = scs->static_config.rtc;
-    ctx->hbd_md         = pcs->hbd_md;
+#endif
+    ctx->hbd_md = pcs->hbd_md;
     // Reset MD rate Estimation table to initial values by copying from md_rate_est_ctx
     ctx->md_rate_est_ctx = pcs->md_rate_est_ctx;
     // Reset CABAC Contexts
@@ -778,12 +780,13 @@ void svt_aom_reset_mode_decision(SequenceControlSet* scs, ModeDecisionContext* c
     }
     //each segment enherits the bypass encdec from the picture level
     ctx->bypass_encdec = pcs->pic_bypass_encdec;
-
+#if !OPT_LPD1_FAST_SKIP
     if (!rtc_tune && (pcs->enc_mode <= ENC_M11 || pcs->temporal_layer_index != 0)) {
         ctx->rtc_use_N4_dct_dct_shortcut = 1;
     } else {
         ctx->rtc_use_N4_dct_dct_shortcut = 0;
     }
+#endif
     return;
 }
 
