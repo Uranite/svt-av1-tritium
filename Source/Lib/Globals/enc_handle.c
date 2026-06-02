@@ -4131,6 +4131,10 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         SVT_WARN("alt-cdef is enabled; cdef-scaling will be ignored.\n");
         scs->static_config.cdef_scaling = 15;
     }
+    if (scs->static_config.enable_dlf_flag != 0 && scs->static_config.alt_dlf > 1 && !(scs->static_config.pred_structure == LOW_DELAY)) {
+        SVT_WARN("DLF level is set to 1, or full DLF decision, when alt-dlf is >= 2\n");
+        scs->static_config.enable_dlf_flag = 3;
+    }
     if (scs->static_config.max_tx_size == 32 && scs->static_config.qp >= 25 && scs->static_config.tune != 3) {
         SVT_WARN(
             "Restricting transform sizes to a max of 32x32 might reduce coding efficiency at low to medium fidelity "
@@ -4926,6 +4930,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
 
     // Alt CDEF
     scs->static_config.alt_cdef = config_struct->alt_cdef;
+
+    // Alt DLF
+    scs->static_config.alt_dlf = config_struct->alt_dlf;
 
     // Daala
     scs->static_config.enable_daala = config_struct->enable_daala;

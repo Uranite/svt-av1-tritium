@@ -1208,6 +1208,14 @@ typedef struct EbSvtAv1EncConfiguration {
     uint8_t alt_cdef;
 
     /**
+     * @brief Enable alternative DLF biases
+     * 0: disabled
+     * 1-3: enabled
+     * Default is 0
+     */
+    uint8_t alt_dlf;
+
+    /**
      * @brief Enable Daala distortion metric.
      * 0 = OFF
      * 1 = CDEF
@@ -1240,7 +1248,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(bool) // enable_intrabc
         - sizeof(uint8_t) // max_managed_refs (ref-frame mgmt)
         /* SVT-AV1-HDR additions */
-        - (sizeof(uint8_t) * 11) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength, noise_chroma_from_luma, alt_cdef, enable_daala
+        - (sizeof(uint8_t) * 12) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength, noise_chroma_from_luma, alt_cdef, enable_daala, alt_dlf
         - sizeof(int8_t)        // noise_size
         - (sizeof(int32_t) * 2) // noise_strength_chroma, min_intra_period_length
         - (sizeof(bool) * 6)    // alt_lambda_factors, alt_ssim_tuning, color_range_provided, auto_tiling, low_memory, hide_banner
