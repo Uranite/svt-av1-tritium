@@ -660,6 +660,7 @@ typedef struct EbSvtAv1EncConfiguration {
      * 0 = off
      * 1 = on
      * 2 = adaptive
+     * 3 = full
      * Default is 1. */
     uint8_t enable_tf;
 
