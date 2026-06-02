@@ -86,6 +86,12 @@ For example, `--zones 0,100,20;101,200,40` applies a CRF/CQP value of 20 to fram
 Proposes different CDEF trade-offs, typically resulting in weaker deringing but improved fidelity. May gradually cause higher distortion, especially at high presets.  
 **2** and **3** force the best CDEF quality level which can improve results, at the cost of speed.
 
+- `--low-memory` *0 and 1*
+
+This parameter sets options that reduce RAM usage of the encoding instance significantly.
+Enabling low-memory can have some impact on encoding speeds and perceptual quality.
+It is most effective in CRF/CQP Random Access mode.
+
 ### SVT-AV1-HDR
 
 - `PQ-optimized Variance Boost curve`

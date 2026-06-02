@@ -4332,6 +4332,8 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         }
     }
 
+    scs->static_config.low_memory = config_struct->low_memory;
+
     // Rate Control
     scs->static_config.scene_change_detection = config_struct->scene_change_detection;
     if (config_struct->lossless && config_struct->rate_control_mode) {
@@ -4354,7 +4356,17 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         // Mimic flat prediction structure
         scs->use_flat_ipp = 1;
     }
-    // Set the default hierarchical levels
+    // Set hierarchical_levels to 2 to reduce memory allocation; 2 is the minimum currently supported
+    if (scs->allintra) {
+        scs->static_config.hierarchical_levels = 2;
+    } else if (scs->static_config.low_memory) {
+        scs->lad_mg = 0;
+        if (scs->static_config.hierarchical_levels == HIERARCHICAL_LEVELS_AUTO) {
+            scs->static_config.hierarchical_levels = 4;
+        }
+        SVT_WARN("Low memory mode active. Reducing --lp can decrease memory usage further at the cost of speed.\n");
+    }
+    // Set the default hierarchical levels otherwise
     if (scs->static_config.hierarchical_levels == HIERARCHICAL_LEVELS_AUTO) {
         scs->static_config.hierarchical_levels = scs->static_config.pred_structure == LOW_DELAY &&
                 (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR ||
@@ -4374,10 +4386,6 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
             scs->static_config.hierarchical_levels = 2;
             SVT_WARN("Forced Low delay CBR mode to use HierarchicalLevels = 2\n");
         }
-    }
-    // Set hierarchical_levels to 2 to reduce memory allocation; 2 is the minimum currently supported
-    if (scs->allintra) {
-        scs->static_config.hierarchical_levels = 2;
     }
     scs->max_temporal_layers                  = scs->static_config.hierarchical_levels;
     scs->static_config.look_ahead_distance    = config_struct->look_ahead_distance;
