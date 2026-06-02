@@ -263,6 +263,44 @@ void svt_aom_yv12_copy_v_c(const Yv12BufferConfig* src_bc, Yv12BufferConfig* dst
 /** svt_aom_generate_padding()
         is used to pad the target picture. The horizontal padding happens first and then the vertical padding.
  */
+#if OPT_PADDING
+void svt_aom_generate_padding(EbByte src_pic, uint32_t src_stride, uint32_t original_src_width,
+                              uint32_t original_src_height, uint32_t padding_width, uint32_t padding_height) {
+    if (!src_pic) {
+        SVT_ERROR("padding NULL pointers\n");
+        return;
+    }
+
+    const uint32_t row_bytes = src_stride;
+
+    /* Horizontal padding: extend each active row left and right */
+    EbByte row = src_pic;
+    for (uint32_t y = 0; y < original_src_height; ++y) {
+        const uint8_t left_pixel  = row[0];
+        const uint8_t right_pixel = row[original_src_width - 1];
+
+        svt_memset(row - padding_width, left_pixel, padding_width);
+        svt_memset(row + original_src_width, right_pixel, padding_width);
+
+        row += src_stride;
+    }
+
+    /* Vertical padding: replicate the fully padded first and last rows */
+    EbByte const top_src_row    = src_pic - padding_width;
+    EbByte const bottom_src_row = src_pic - padding_width + (original_src_height - 1) * src_stride;
+
+    EbByte top_dst_row    = top_src_row;
+    EbByte bottom_dst_row = bottom_src_row;
+
+    for (uint32_t y = 0; y < padding_height; ++y) {
+        top_dst_row -= src_stride;
+        bottom_dst_row += src_stride;
+
+        svt_memcpy(top_dst_row, top_src_row, row_bytes);
+        svt_memcpy(bottom_dst_row, bottom_src_row, row_bytes);
+    }
+}
+#else
 void svt_aom_generate_padding(
     EbByte   src_pic, //output paramter, pointer to the source picture to be padded.
     uint32_t src_stride, //input paramter, the stride of the source picture to be padded.
@@ -308,6 +346,7 @@ void svt_aom_generate_padding(
         --vertical_idx;
     }
 }
+#endif
 
 void svt_aom_generate_padding_compressed_10bit(
     EbByte   src_pic, //output paramter, pointer to the source picture to be padded.

@@ -90,6 +90,7 @@ extern "C" {
 #define OPT_SUBPEL_FIXED_SEARCH    1 // Improve md_subpel_search_fixed_stage: th_normalizer early-exit, pred_variance_th check, remove ref bounds checks, early-exit in half/qpel loops
 #define OPT_SUBPEL_CTRL            1 // Upgrade subpel-ctrl: new FIXED_STAGE cases 7-10, updated level assignments, remove early_neigh_check_exit param
 #define OPT_VLPD0_PATH_INTER       1 // Bypass generate_md_stage_0_cand/md_stage_0, evaluate ME candidates directly on ref buffer (bit-exact)
+#define OPT_PADDING                1 // Rewrite svt_aom_generate_padding: use svt_memset per-row for horizontal padding and svt_memcpy for vertical row replication; reduces 4 temp pointers to 2, eliminates sizeof(uint8_t) multiplier.
 
 #define OPT_USE_HL0_FLAT  1 // Support hierarchical_levels 0 (flat) and 1 in LD CBR and RA 1L referencing
 
