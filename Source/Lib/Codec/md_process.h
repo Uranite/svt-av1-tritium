@@ -1275,6 +1275,12 @@ typedef struct ModeDecisionContext {
     // * 100 -> commit to SKIP (zero luma coeffs, bypass chroma TX). 0: OFF.
     uint16_t lpd1_blk_skip_luma_rd_pct; // whole-block SKIP via luma RD signal
 #endif
+#if OPT_LPD1_CHROMA_SKIP
+    // Decide chroma-plane SKIP BEFORE the chroma TX (LPD1). Per-pixel (Cb / Cr) SAD threshold:
+    // when plane_residual_sad < th * blk_area_uv -> skip that plane's TX/Q/RDOQ. Evaluated
+    // per-plane; can collapse to whole-block SKIP if luma also has zero coeffs. 0: OFF.
+    uint16_t lpd1_chroma_skip_energy_th; // skip chroma via chroma residual energy
+#endif
     // Specifies the threshold to bypass transform in LPD1 based on full cost estimate.
     // 0: OFF (no bypassing)
     // The higher the number, the more aggressive the feature is

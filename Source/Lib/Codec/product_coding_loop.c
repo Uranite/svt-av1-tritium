@@ -6374,6 +6374,103 @@ static bool lpd1_blk_skip_luma_rd(ModeDecisionContext* ctx, ModeDecisionCandidat
 }
 #endif
 
+#if OPT_LPD1_CHROMA_SKIP
+// Per-plane absolute chroma-residual SAD gate for LPD1.
+// The outcome is encoded in *chroma_component:
+//  - COMPONENT_LUMA      -> both planes skipped (full SKIP when y_has_coeff==0 -> returns true)
+//  - COMPONENT_CHROMA_CB -> Cr skipped, run TX for Cb only
+//  - COMPONENT_CHROMA_CR -> Cb skipped, run TX for Cr only
+//  - COMPONENT_CHROMA    -> unchanged, run TX for both planes
+// Strictly additive towards skip: a plane already dropped by chroma_complexity_check stays
+// dropped; this function never re-introduces a plane. Reading pred for any plane in chroma_component is
+// safe because lpd1_chroma_comp is always a superset of chroma_component.
+// Returns true when the caller should return immediately (full block SKIP committed).
+static bool lpd1_chroma_energy_skip(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
+                                    const EbPictureBufferDesc* input_pic, uint32_t cb_origin_in_index,
+                                    COMPONENT_TYPE* chroma_component, uint64_t* cb_dist, uint64_t* cr_dist,
+                                    uint64_t* cb_coeff_bits, uint64_t* cr_coeff_bits) {
+    const bool     cb_in_tx    = (*chroma_component == COMPONENT_CHROMA || *chroma_component == COMPONENT_CHROMA_CB);
+    const bool     cr_in_tx    = (*chroma_component == COMPONENT_CHROMA || *chroma_component == COMPONENT_CHROMA_CR);
+    const uint32_t blk_area_uv = (uint32_t)(ctx->blk_geom->bwidth_uv * ctx->blk_geom->bheight_uv);
+    const uint32_t th_total    = (uint32_t)(ctx->lpd1_chroma_skip_energy_th * blk_area_uv) >> 3;
+    uint32_t       cb_sad      = 0;
+    uint32_t       cr_sad      = 0;
+    if (cb_in_tx) {
+        cb_sad = svt_nxm_sad_kernel(input_pic->u_buffer + cb_origin_in_index,
+                                    input_pic->u_stride << 1,
+                                    cand_bf->pred->u_buffer,
+                                    cand_bf->pred->u_stride << 1,
+                                    ctx->blk_geom->bheight_uv >> 1,
+                                    ctx->blk_geom->bwidth_uv);
+    }
+    if (cr_in_tx) {
+        cr_sad = svt_nxm_sad_kernel(input_pic->v_buffer + cb_origin_in_index,
+                                    input_pic->v_stride << 1,
+                                    cand_bf->pred->v_buffer,
+                                    cand_bf->pred->v_stride << 1,
+                                    ctx->blk_geom->bheight_uv >> 1,
+                                    ctx->blk_geom->bwidth_uv);
+    }
+    // A plane "passes" (-> gets skipped) only when it was in TX and below threshold.
+    // Planes already dropped by chroma_complexity_check are treated as passed so branch logic collapses cleanly.
+    const bool cb_pass = cb_in_tx ? (cb_sad < th_total) : true;
+    const bool cr_pass = cr_in_tx ? (cr_sad < th_total) : true;
+
+    if (cb_pass && cr_pass) {
+        if (!cand_bf->y_has_coeff) {
+            cand_bf->u_has_coeff = cand_bf->v_has_coeff = 0;
+            if (cand_bf->cand->skip_mode_allowed) {
+                cand_bf->cand->block_mi.skip_mode = true;
+            }
+            return true; // caller should return: full SKIP committed
+        }
+        // Luma has coeffs -> bypass chroma TX only; skip_mode stays false.
+        if (cb_in_tx) {
+            cand_bf->u_has_coeff          = 0;
+            cand_bf->eob.u[0]             = 0;
+            cand_bf->quant_dc.u[0]        = 0;
+            cb_dist[DIST_CALC_RESIDUAL]   = 0;
+            cb_dist[DIST_CALC_PREDICTION] = 0;
+            *cb_coeff_bits                = 0;
+        }
+        if (cr_in_tx) {
+            cand_bf->v_has_coeff          = 0;
+            cand_bf->eob.v[0]             = 0;
+            cand_bf->quant_dc.v[0]        = 0;
+            cr_dist[DIST_CALC_RESIDUAL]   = 0;
+            cr_dist[DIST_CALC_PREDICTION] = 0;
+            *cr_coeff_bits                = 0;
+        }
+        if (is_inter_mode(cand_bf->cand->block_mi.mode)) {
+            cand_bf->cand->transform_type_uv = DCT_DCT;
+        }
+        *chroma_component      = COMPONENT_LUMA;
+        ctx->chroma_complexity = COMPONENT_LUMA;
+    } else if (cb_pass && cb_in_tx) {
+        // Cb clears threshold -> skip Cb TX, run Cr only.
+        cand_bf->u_has_coeff          = 0;
+        cand_bf->eob.u[0]             = 0;
+        cand_bf->quant_dc.u[0]        = 0;
+        cb_dist[DIST_CALC_RESIDUAL]   = 0;
+        cb_dist[DIST_CALC_PREDICTION] = 0;
+        *cb_coeff_bits                = 0;
+        *chroma_component             = COMPONENT_CHROMA_CR;
+        ctx->chroma_complexity        = COMPONENT_CHROMA_CR;
+    } else if (cr_pass && cr_in_tx) {
+        // Cr clears threshold -> skip Cr TX, run Cb only.
+        cand_bf->v_has_coeff          = 0;
+        cand_bf->eob.v[0]             = 0;
+        cand_bf->quant_dc.v[0]        = 0;
+        cr_dist[DIST_CALC_RESIDUAL]   = 0;
+        cr_dist[DIST_CALC_PREDICTION] = 0;
+        *cr_coeff_bits                = 0;
+        *chroma_component             = COMPONENT_CHROMA_CB;
+        ctx->chroma_complexity        = COMPONENT_CHROMA_CB;
+    }
+    return false;
+}
+#endif
+
 /*
    full loop core for light PD1 path
 */
@@ -6476,26 +6573,47 @@ static void full_loop_core_light_pd1(PictureControlSet* pcs, ModeDecisionContext
         }
         //Chroma Prediction
         product_prediction_fun_table_light_pd1[is_inter_mode(cand->block_mi.mode)](ctx->hbd_md, ctx, pcs, cand_bf);
-        // Perform additional check to detect complex chroma blocks
-        if (ctx->lpd1_tx_ctrls.chroma_detector_level && ctx->lpd1_tx_ctrls.chroma_detector_level <= 3 &&
-            ctx->chroma_complexity != COMPONENT_CHROMA &&
-            (ctx->use_tx_shortcuts_mds3 || ctx->lpd1_tx_ctrls.use_uv_shortcuts_on_y_coeffs)) {
-            chroma_complexity_check_pred(ctx, cand_bf, input_pic, loc, 0 /*use_var*/);
+#if OPT_LPD1_CHROMA_SKIP
+        // Per-plane absolute chroma-residual SAD gate (decision encoded in chroma_component; strictly additive towards skip)
+        if (ctx->lpd1_chroma_skip_energy_th && !ctx->hbd_md && is_inter_mode(cand->block_mi.mode)) {
+            if (lpd1_chroma_energy_skip(ctx,
+                                        cand_bf,
+                                        input_pic,
+                                        loc->input_cb_origin_in_index,
+                                        &chroma_component,
+                                        cb_full_distortion[DIST_SSD],
+                                        cr_full_distortion[DIST_SSD],
+                                        &cb_coeff_bits,
+                                        &cr_coeff_bits)) {
+                return;
+            }
         }
+        if (chroma_component > COMPONENT_LUMA) {
+            // Relative chroma complexity (BD-rate oriented). Skipped when lpd1_chroma_energy_skip() fully bypassed chroma
+#endif
+            // Perform additional check to detect complex chroma blocks
+            if (ctx->lpd1_tx_ctrls.chroma_detector_level && ctx->lpd1_tx_ctrls.chroma_detector_level <= 3 &&
+                ctx->chroma_complexity != COMPONENT_CHROMA &&
+                (ctx->use_tx_shortcuts_mds3 || ctx->lpd1_tx_ctrls.use_uv_shortcuts_on_y_coeffs)) {
+                chroma_complexity_check_pred(ctx, cand_bf, input_pic, loc, 0 /*use_var*/);
+            }
 
-        //CHROMA
-        svt_aom_full_loop_chroma_light_pd1(pcs,
-                                           ctx,
-                                           cand_bf,
-                                           input_pic,
-                                           loc->input_cb_origin_in_index,
-                                           0,
-                                           chroma_component,
-                                           ctx->qp_index,
-                                           cb_full_distortion[DIST_SSD],
-                                           cr_full_distortion[DIST_SSD],
-                                           &cb_coeff_bits,
-                                           &cr_coeff_bits);
+            //CHROMA
+            svt_aom_full_loop_chroma_light_pd1(pcs,
+                                               ctx,
+                                               cand_bf,
+                                               input_pic,
+                                               loc->input_cb_origin_in_index,
+                                               0,
+                                               chroma_component,
+                                               ctx->qp_index,
+                                               cb_full_distortion[DIST_SSD],
+                                               cr_full_distortion[DIST_SSD],
+                                               &cb_coeff_bits,
+                                               &cr_coeff_bits);
+#if OPT_LPD1_CHROMA_SKIP
+        } // chroma_component > COMPONENT_LUMA
+#endif
         cand_bf->block_has_coeff = (cand_bf->y_has_coeff || cand_bf->u_has_coeff || cand_bf->v_has_coeff) ? true
                                                                                                           : false;
         svt_aom_full_cost(pcs,

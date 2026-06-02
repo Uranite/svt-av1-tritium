@@ -8987,6 +8987,9 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
         ctx->lpd1_blk_skip_luma_rd_pct = 90;
     }
 #endif
+#if OPT_LPD1_CHROMA_SKIP
+    ctx->lpd1_chroma_skip_energy_th = 0;
+#endif
 
     ctx->lpd1_bypass_tx_th = 0;
 
@@ -9223,6 +9226,9 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
     } else {
         ctx->lpd1_blk_skip_luma_rd_pct = 60;
     }
+#endif
+#if OPT_LPD1_CHROMA_SKIP
+    ctx->lpd1_chroma_skip_energy_th = 5;
 #endif
 
     uint8_t rate_est_level = 0;
