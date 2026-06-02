@@ -181,7 +181,10 @@ typedef struct EncodeContext {
     // reference scaling random access event
     EbRefFrameScale resize_evt;
     //Superblock end index for cycling refresh through the frame.
-    uint32_t         cr_sb_end;
+    uint32_t cr_sb_end;
+#if FIX_CR_BAND_WRAPPING
+    uint32_t cr_sb_index; // SB cycling index (persists across frames)
+#endif
     SvtAv1RoiMapEvt* roi_map_evt;
     Quants           quants_bd; // follows input bit depth
     Dequants         deq_bd; // follows input bit depth

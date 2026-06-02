@@ -267,6 +267,37 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
     return AOMMAX(min_frame_target, frame_target);
 }
 
+#if FIX_CR_BAND_WRAPPING
+// Select SBs for cyclic refresh by advancing the persisted cycling index (with wrapping).
+static void cr_select_sbs(PictureParentControlSet* ppcs) {
+    SequenceControlSet* scs     = ppcs->scs;
+    EncodeContext*      enc_ctx = scs->enc_ctx;
+    CyclicRefresh*      cr      = &ppcs->cyclic_refresh;
+
+    const int sbs_in_frame = scs->sb_total_count;
+    const int sb_target    = cr->percent_refresh * sbs_in_frame / 100;
+
+    if (sb_target <= 0) {
+        cr->sb_start = 0;
+        cr->sb_end   = 0;
+        return;
+    }
+
+    if ((int)enc_ctx->cr_sb_index >= sbs_in_frame) {
+        enc_ctx->cr_sb_index = 0;
+    }
+
+    cr->sb_start = (uint32_t)enc_ctx->cr_sb_index;
+    int sb_end   = enc_ctx->cr_sb_index + sb_target;
+    if (sb_end >= sbs_in_frame) {
+        sb_end -= sbs_in_frame;
+    }
+    cr->sb_end = (uint32_t)sb_end;
+
+    enc_ctx->cr_sb_index = sb_end;
+}
+#endif
+
 static void rtc_cyclic_refresh_init(PictureParentControlSet* ppcs) {
     SequenceControlSet* scs = ppcs->scs;
     RATE_CONTROL*       rc  = &scs->enc_ctx->rc;
@@ -313,10 +344,19 @@ static void rtc_cyclic_refresh_init(PictureParentControlSet* ppcs) {
         return;
     }
 
+#if FIX_CR_BAND_WRAPPING
+    // Select SBs for refresh by cycling through the frame
+    cr_select_sbs(ppcs);
+    if (cr->sb_start == 0 && cr->sb_end == 0) {
+        cr->apply_cyclic_refresh = 0;
+        return;
+    }
+#else
     uint16_t sb_cnt         = scs->sb_total_count;
     cr->sb_start            = scs->enc_ctx->cr_sb_end;
     cr->sb_end              = AOMMIN(cr->sb_start + sb_cnt * cr->percent_refresh / 100, sb_cnt);
     scs->enc_ctx->cr_sb_end = cr->sb_end >= sb_cnt ? 0 : cr->sb_end;
+#endif
 
     // Quantizer-based multiplicative adjustment
     double avg_q = svt_av1_convert_qindex_to_q(rc->avg_frame_qindex[INTER_FRAME], scs->encoder_bit_depth);
