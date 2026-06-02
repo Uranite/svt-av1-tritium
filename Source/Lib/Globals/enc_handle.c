@@ -4689,6 +4689,8 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     }
     scs->static_config.num_zones = config_struct->num_zones;
 
+    scs->static_config.hide_banner = config_struct->hide_banner;
+
     // Override settings for Still IQ tune
     if (scs->static_config.tune == TUNE_IQ) {
         SVT_WARN(
@@ -4801,7 +4803,9 @@ EB_API EbErrorType svt_av1_enc_set_parameter(EbComponentType*          svt_enc_c
     }
     return_error = load_default_buffer_configuration_settings(scs);
 
-    svt_av1_print_lib_params(scs);
+    if (!scs->static_config.hide_banner) {
+        svt_av1_print_lib_params(scs);
+    }
 
     // free frame scale events after copy to encoder
     if (config_struct->frame_scale_evts.resize_denoms) {
