@@ -1329,7 +1329,7 @@ EbErrorType svt_aom_txb_estimate_coeff_bits(ModeDecisionContext* ctx, uint8_t al
 
 EbErrorType svt_aom_full_cost_light_pd0(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
                                         uint64_t* y_distortion, uint64_t lambda, uint64_t* y_coeff_bits,
-                                        DistType dist_type) {
+                                        DistType dist_type, uint64_t y_daala_dist) {
     (void)dist_type;
     EbErrorType return_error = EB_ErrorNone;
 
@@ -1339,8 +1339,12 @@ EbErrorType svt_aom_full_cost_light_pd0(ModeDecisionContext* ctx, ModeDecisionCa
     // Use context index 0 for the partition rate as an approximation to skip call to
     // av1_partition_rate_cost Partition cost is only needed for > 4x4 blocks, but light-PD0 assumes
     // 4x4 blocks are disallowed
+    uint64_t distortion = y_distortion[0];
+    if (y_daala_dist) {
+        distortion += y_daala_dist;
+    }
     *(cand_bf->full_cost) = RDCOST(
-        lambda, coeff_rate + ctx->md_rate_est_ctx->partition_fac_bits[0][PARTITION_NONE], y_distortion[0]);
+        lambda, coeff_rate + ctx->md_rate_est_ctx->partition_fac_bits[0][PARTITION_NONE], distortion);
     return return_error;
 }
 
@@ -1478,7 +1482,11 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
     // Assign full cost
     *(cand_bf->full_cost) = mode_cost;
     cand_bf->total_rate   = mode_rate;
-    cand_bf->full_dist    = (uint32_t)mode_distortion;
+    if (pcs->scs->static_config.enable_daala_rd && dist_type == DIST_DAALA) {
+        cand_bf->full_dist = (uint32_t)mode_daala_distortion;
+    } else {
+        cand_bf->full_dist = (uint32_t)mode_distortion;
+    }
     if (update_full_cost_ssim) {
         assert(ctx->pd_pass == PD_PASS_1);
         assert(ctx->md_stage == MD_STAGE_3);

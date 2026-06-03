@@ -5861,7 +5861,7 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
                                                                                        ctx->hbd_md,
                                                                                        effective_ac_bias);
         }
-        if (ctx->tune_daala_level >= 3) {
+        if (ctx->tune_daala_level >= 3 || pcs->scs->static_config.enable_daala_rd) {
             const uint32_t qindex                               = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
             y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = svt_spatial_full_distortion_daala_kernel(
                 input_pic->y_buffer,
@@ -5904,7 +5904,7 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
                                                                                      ctx->hbd_md,
                                                                                      effective_ac_bias);
         }
-        if (ctx->tune_daala_level >= 3) {
+        if (ctx->tune_daala_level >= 3 || pcs->scs->static_config.enable_daala_rd) {
             const uint32_t qindex                             = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
             y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL] = svt_spatial_full_distortion_daala_kernel(
                 input_pic->y_buffer,
@@ -5921,7 +5921,7 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
         }
         y_full_distortion[DIST_SSD][DIST_CALC_PREDICTION] <<= 4;
         y_full_distortion[DIST_SSD][DIST_CALC_RESIDUAL] <<= 4;
-        if (ctx->tune_daala_level >= 3) {
+        if (ctx->tune_daala_level >= 3 || pcs->scs->static_config.enable_daala_rd) {
             y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] <<= 4;
             y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL] <<= 4;
         }
@@ -6090,7 +6090,26 @@ static void full_loop_core_light_pd0(PictureControlSet* pcs, ModeDecisionContext
 
     perform_tx_light_pd0(pcs, ctx, cand_bf, ctx->blk_ptr->qindex, &y_coeff_bits, &y_full_distortion[0]);
     cand_bf->cnt_nz_coeff = cand_bf->eob.y[0];
-    svt_aom_full_cost_light_pd0(ctx, cand_bf, y_full_distortion, full_lambda, &y_coeff_bits, DIST_SSD);
+    uint64_t y_daala_dist = 0;
+    if (pcs->scs->static_config.enable_daala_rd && ctx->blk_geom->bsize >= BLOCK_8X8) {
+        const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+        y_daala_dist = svt_spatial_full_distortion_daala_kernel(
+            input_pic->y_buffer,
+            input_origin_index,
+            input_pic->y_stride << ctx->mds_subres_step,
+            cand_bf->pred->y_buffer,
+            blk_origin_index,
+            cand_bf->pred->y_stride << ctx->mds_subres_step,
+            ctx->blk_geom->bwidth,
+            ctx->blk_geom->bheight >> ctx->mds_subres_step,
+            pcs->scs->static_config.encoder_bit_depth,
+            qindex,
+            1);
+        if (pcs->scs->static_config.encoder_bit_depth > EB_EIGHT_BIT) {
+            y_daala_dist <<= 4;
+        }
+    }
+    svt_aom_full_cost_light_pd0(ctx, cand_bf, y_full_distortion, full_lambda, &y_coeff_bits, DIST_SSD, y_daala_dist);
 }
 
 extern const uint8_t  svt_aom_eb_av1_var_offs[MAX_SB_SIZE];
@@ -6591,7 +6610,9 @@ static void full_loop_core_light_pd1(PictureControlSet* pcs, ModeDecisionContext
                           &y_coeff_bits,
                           &cb_coeff_bits,
                           &cr_coeff_bits,
-                          ctx->tune_daala_level >= 2 ? DIST_DAALA : DIST_SSD);
+                          (ctx->tune_daala_level >= 2 || pcs->scs->static_config.enable_daala_rd)
+                              ? DIST_DAALA
+                              : DIST_SSD);
     } else {
         // Only need chroma pred if generating recon
         if (ctx->lpd1_chroma_comp > COMPONENT_LUMA) {
@@ -6929,7 +6950,9 @@ static void full_loop_core(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
                       &y_coeff_bits,
                       &cb_coeff_bits,
                       &cr_coeff_bits,
-                      ctx->tune_daala_level >= 2 ? DIST_DAALA : DIST_SSD);
+                      (ctx->tune_daala_level >= 2 || pcs->scs->static_config.enable_daala_rd)
+                          ? DIST_DAALA
+                          : DIST_SSD);
 }
 
 static void md_stage_1(PictureControlSet* pcs, ModeDecisionContext* ctx, EbPictureBufferDesc* input_pic,
