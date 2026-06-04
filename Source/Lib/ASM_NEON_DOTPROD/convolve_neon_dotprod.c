@@ -284,7 +284,6 @@ static inline int16x8_t convolve4_8_2d_h(const uint8x16_t samples, const int8x8_
 
 static inline void convolve_2d_sr_horiz_4tap_neon_dotprod(const uint8_t* src, ptrdiff_t src_stride, int16_t* dst,
                                                           ptrdiff_t dst_stride, int w, int h, const int16_t* filter_x) {
-    const int       bd       = 8;
     const int16x4_t x_filter = vld1_s16(filter_x + 2);
     // All 4-tap and bilinear filter values are even, so halve them to reduce
     // intermediate precision requirements.
@@ -472,7 +471,6 @@ static inline void convolve_2d_sr_6tap_neon_dotprod(const uint8_t* src, int src_
     // Halve the total because we halved the filter values.
     const int32x4_t    correction  = vdupq_n_s32(((128 << FILTER_BITS) + horiz_const) / 2);
     const uint8x16x3_t permute_tbl = vld1q_u8_x3(svt_kDotProdPermuteTbl);
-    (void)y_filter_ptr;
 
     do {
         const uint8_t* s      = src;
@@ -524,8 +522,6 @@ static inline void convolve_2d_sr_6tap_neon_dotprod(const uint8_t* src, int src_
 static inline void convolve_2d_sr_4tap_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst, int dst_stride,
                                                     int w, int h, const int16_t* x_filter_ptr,
                                                     const int16_t* y_filter_ptr) {
-    const int bd = 8;
-
     const int16x4_t y_filter     = vld1_s16(y_filter_ptr + 2);
     const int16x4_t x_filter_s16 = vld1_s16(x_filter_ptr + 2);
     // All 4-tap and bilinear filter values are even, so halve them to reduce

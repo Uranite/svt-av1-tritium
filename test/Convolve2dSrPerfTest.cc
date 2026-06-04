@@ -249,7 +249,13 @@ static const int kQuarterSubpels[] = {4, 8, 12};
 
 // Shapes used by M11QuarterPelHotCells (the majority of M11 cells).
 static const std::pair<int, int> kQuarterHotShapes[] = {
-    {8, 8}, {16, 8}, {8, 16}, {16, 16}, {32, 16}, {16, 32}, {32, 32},
+    {8, 8},
+    {16, 8},
+    {8, 16},
+    {16, 16},
+    {32, 16},
+    {16, 32},
+    {32, 32},
 };
 
 // --- Test fixture -----------------------------------------------------------
@@ -426,8 +432,10 @@ TEST_F(Convolve2dSrPerf, DISABLED_M11HotCells) {
 TEST_F(Convolve2dSrPerf, DISABLED_M11QuarterPelHotCells) {
     const auto variants = available_variants();
     print_section("M11 quarter-pel hot cells (REGULAR, subpel ∈ {4,8,12})");
-    std::cout << "  shapes=" << (sizeof(kQuarterHotShapes) / sizeof(kQuarterHotShapes[0]))
-              << "  subpels=" << (sizeof(kQuarterSubpels) / sizeof(kQuarterSubpels[0]))
+    std::cout << "  shapes="
+              << (sizeof(kQuarterHotShapes) / sizeof(kQuarterHotShapes[0]))
+              << "  subpels="
+              << (sizeof(kQuarterSubpels) / sizeof(kQuarterSubpels[0]))
               << "  variants=" << variants.size() << std::endl;
 
     double tot_ns[FN_COUNT][VAR_COUNT] = {{0}};
