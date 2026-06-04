@@ -870,6 +870,9 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::ValuesIn(TEST_SAD_PATTERNS),
         ::testing::Values(svt_ext_all_sad_calculation_8x8_16x16_neon)));
 
+// Not registered in RTCD (NEON is used on dotprod CPUs too), but kept and
+// tested so the implementation stays correct if it is ever re-enabled. LTO
+// strips it from the encoder binary since nothing references it.
 #if HAVE_NEON_DOTPROD
 INSTANTIATE_TEST_SUITE_P(
     NEON_DOTPROD, Allsad8x8_CalculationTest,
@@ -887,6 +890,122 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::ValuesIn(TEST_SAD_PATTERNS),
         ::testing::Values(svt_ext_all_sad_calculation_8x8_16x16_sve)));
 #endif  // HAVE_SVE
+
+// Microbenchmark for svt_ext_all_sad_calculation_8x8_16x16. Measures ns/call at
+// the production stride (504) in warm (cache-resident) and cold (hot src / cold
+// ref, as in the encoder) states. Disabled by default; run with:
+//   SvtAv1UnitTests --gtest_also_run_disabled_tests \
+//       --gtest_filter=*ExtAllSadSpeedTest*
+class ExtAllSadSpeedTest : public SADTestBase {
+  public:
+    ExtAllSadSpeedTest() : SADTestBase(RANDOM, BUF_RANDOM) {
+        src_stride_ = ref1_stride_ = MAX_SB_SIZE;
+    }
+
+    void check_sad(int, int) override {
+    }
+
+  protected:
+    void run_perf(const char *name, svt_ext_all_sad_calculation_8x8_16x16_fn fn,
+                  bool sub_sad, uint32_t stride, bool cold) {
+        const uint64_t num_loop = 200000;
+        const uint32_t mv = 0x00100010;  // arbitrary non-zero (x=16, y=16)
+        uint64_t start_s, start_u, finish_s, finish_u;
+
+        // One SB worth of src/ref (64 rows + horizontal slack for ref).
+        const size_t slot = (size_t)stride * 64;
+        const size_t ref_slack = 128;
+        // src is the current SB: reused across all reference searches, so it
+        // stays hot -> always a single warm buffer (never cycled/prefetched).
+        // ref is the reference picture. Cold mode cycles a pool >> last-level
+        // cache in scrambled order so each call's ref window is freshly
+        // evicted, matching the encoder (hot src, cold ref) and defeating the
+        // HW prefetcher.
+        const size_t ref_pool_bytes =
+            cold ? ((size_t)256 << 20) : (slot + ref_slack);
+        const size_t nslots = cold ? (ref_pool_bytes / slot) : 1;
+
+        uint8_t *src_buf = (uint8_t *)svt_aom_memalign(64, slot + ref_slack);
+        uint8_t *ref_pool =
+            (uint8_t *)svt_aom_memalign(64, ref_pool_bytes + ref_slack);
+        uint32_t lcg =
+            12345;  // cheap non-uniform fill (values don't affect timing)
+        for (size_t i = 0; i < slot + ref_slack; i++) {
+            lcg = lcg * 1664525u + 1013904223u;
+            src_buf[i] = (uint8_t)(lcg >> 24);
+        }
+        for (size_t i = 0; i < ref_pool_bytes + ref_slack; i++) {
+            lcg = lcg * 1664525u + 1013904223u;
+            ref_pool[i] = (uint8_t)(lcg >> 24);
+        }
+
+        uint32_t best_sad8x8[64], best_mv8x8[64] = {0};
+        uint32_t best_sad16x16[16], best_mv16x16[16] = {0};
+        uint32_t eight_sad16x16[16][8];
+        uint32_t eight_sad8x8[64][8];
+        fill_buf_with_value(best_sad8x8, 64, BEST_SAD_MAX);
+        fill_buf_with_value(best_sad16x16, 16, UINT_MAX);
+
+        for (int i = 0; i < 1000; i++)  // warmup (i-cache / predictors)
+            fn(src_buf,
+               stride,
+               ref_pool,
+               stride,
+               mv,
+               best_sad8x8,
+               best_sad16x16,
+               best_mv8x8,
+               best_mv16x16,
+               eight_sad16x16,
+               eight_sad8x8,
+               sub_sad);
+
+        svt_av1_get_time(&start_s, &start_u);
+        for (uint64_t i = 0; i < num_loop; i++) {
+            const size_t slot_idx = cold ? ((i * 7919u) % nslots) : 0;
+            const size_t off = slot_idx * slot;
+            fn(src_buf,
+               stride,
+               ref_pool + off,
+               stride,
+               mv,
+               best_sad8x8,
+               best_sad16x16,
+               best_mv8x8,
+               best_mv16x16,
+               eight_sad16x16,
+               eight_sad8x8,
+               sub_sad);
+        }
+        svt_av1_get_time(&finish_s, &finish_u);
+
+        double ms = svt_av1_compute_overall_elapsed_time_ms(
+            start_s, start_u, finish_s, finish_u);
+        std::cerr << "    " << name << " sub_sad=" << sub_sad
+                  << " stride=" << stride << (cold ? " COLD" : " warm") << ": "
+                  << (ms * 1.0e6 / num_loop) << " ns/call\n";
+
+        svt_aom_free(src_buf);
+        svt_aom_free(ref_pool);
+    }
+};
+
+TEST_F(ExtAllSadSpeedTest, DISABLED_ExtAllSadSpeedTest) {
+    const uint32_t stride = 504;  // production HME stride (non-power-of-2)
+    std::cerr << "  -- warm (cache-resident) --\n";
+    run_perf(
+        "C   ", svt_ext_all_sad_calculation_8x8_16x16_c, true, stride, false);
+    run_perf("NEON",
+             svt_ext_all_sad_calculation_8x8_16x16_neon,
+             true,
+             stride,
+             false);
+    std::cerr << "  -- cold (hot src / cold ref) --\n";
+    run_perf(
+        "C   ", svt_ext_all_sad_calculation_8x8_16x16_c, true, stride, true);
+    run_perf(
+        "NEON", svt_ext_all_sad_calculation_8x8_16x16_neon, true, stride, true);
+}
 #endif  // ARCH_AARCH64
 
 typedef void (*svt_ext_eight_sad_calculation_32x32_64x64_fn)(
