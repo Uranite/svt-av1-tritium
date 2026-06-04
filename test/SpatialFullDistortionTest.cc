@@ -311,31 +311,45 @@ using FullDistortionKernel32Bits =
 TEST_P(FullDistortionKernel32Bits, CheckOutput) {
     std::array<uint64_t, DIST_CALC_TOTAL> result_ref;
     std::array<uint64_t, DIST_CALC_TOTAL> result_mod;
-    const auto coeff_stride{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
-    const auto recon_stride{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
-    std::vector<int32_t> coeff(MAX_SB_SIZE * coeff_stride);
-    std::vector<int32_t> recon(MAX_SB_SIZE * recon_stride);
+    const auto stride{svt_create_random_aligned_stride(MAX_SB_SIZE, 64)};
+    std::vector<int32_t> coeff(MAX_SB_SIZE * stride);
+    std::vector<int32_t> recon(MAX_SB_SIZE * stride);
     const auto func{GetParam()};
+    // The kernel is only ever called with AV1 transform widths 4/8/16/32
+    // (64-wide transforms pass 32) -- independent of bit depth. Heights are the
+    // same set, but pf_shape (N2/N4) can additionally halve/quarter the height
+    // (no clamp), so heights of 1 and 2 also occur. Only the coefficient
+    // magnitude differs by bit depth: 8-bit fits int16, HBD spans "bd + 8".
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    const int32_t max_abs = 1 << 17;
+#else
+    // int16 range so (coeff - recon)^2 stays < 2^32 for the 8-bit kernel.
+    const int32_t max_abs = (1 << 15) - 1;
+#endif
+    const std::array<uint32_t, 4> widths = {4, 8, 16, 32};
+    const std::array<uint32_t, 6> heights = {1, 2, 4, 8, 16, 32};
     for (int i = 0; i < 10; i++) {
-        svt_buf_random_s32_with_max(coeff.data(), coeff.size(), 1 << 17);
-        svt_buf_random_s32_with_max(recon.data(), recon.size(), 1 << 17);
-        for (uint32_t area_width = 4; area_width <= 128; area_width += 4) {
-            for (uint32_t area_height = 4; area_height <= 128;
-                 area_height += 4) {
+        svt_buf_random_s32_with_max(coeff.data(), coeff.size(), max_abs);
+        svt_buf_random_s32_with_max(recon.data(), recon.size(), max_abs);
+        for (uint32_t area_width : widths) {
+            for (uint32_t area_height : heights) {
+                // Height is always a power of two, so the only odd height is 1,
+                // and it only occurs for width 4 (a 4-tall TX reduced by
+                // pf_shape N4). Width 8/16/32 always get an even height >= 2.
+                if (area_height == 1 && area_width != 4)
+                    continue;
                 svt_full_distortion_kernel32_bits_c(coeff.data(),
-                                                    coeff_stride,
                                                     recon.data(),
-                                                    recon_stride,
-                                                    result_ref.data(),
+                                                    stride,
                                                     area_width,
-                                                    area_height);
+                                                    area_height,
+                                                    result_ref.data());
                 func(coeff.data(),
-                     coeff_stride,
                      recon.data(),
-                     recon_stride,
-                     result_mod.data(),
+                     stride,
                      area_width,
-                     area_height);
+                     area_height,
+                     result_mod.data());
 
                 EXPECT_EQ(result_ref, result_mod);
             }

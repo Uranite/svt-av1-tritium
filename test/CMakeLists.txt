@@ -90,6 +90,7 @@ set(multi_arch_files
     DeblockTest.cc
     EncodeTxbAsmTest.cc
     FilterIntraPredTest.cc
+    FullDistortionPerfTest.cc
     FwdTxfm2dAsmTest.cc
     HbdVarianceTest.cc
     InvTxfm2dAsmTest.cc

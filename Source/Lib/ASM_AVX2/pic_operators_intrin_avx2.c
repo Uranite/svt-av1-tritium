@@ -627,9 +627,8 @@ void svt_enc_msb_pack2d_avx2_intrin_al(uint8_t* in8_bit_buffer, uint32_t in8_str
     }
 }
 
-void svt_full_distortion_kernel32_bits_avx2(int32_t* coeff, uint32_t coeff_stride, int32_t* recon_coeff,
-                                            uint32_t recon_coeff_stride, uint64_t distortion_result[DIST_CALC_TOTAL],
-                                            uint32_t area_width, uint32_t area_height) {
+void svt_full_distortion_kernel32_bits_avx2(int32_t* coeff, int32_t* recon_coeff, uint32_t stride, uint32_t area_width,
+                                            uint32_t area_height, uint64_t distortion_result[DIST_CALC_TOTAL]) {
     uint32_t row_count;
     __m256i  sum1 = _mm256_setzero_si256();
     __m256i  sum2 = _mm256_setzero_si256();
@@ -657,8 +656,8 @@ void svt_full_distortion_kernel32_bits_avx2(int32_t* coeff, uint32_t coeff_strid
             recon_coeff_temp += 4;
         } while (--col_count);
 
-        coeff += coeff_stride;
-        recon_coeff += recon_coeff_stride;
+        coeff += stride;
+        recon_coeff += stride;
         row_count -= 1;
     } while (row_count > 0);
 

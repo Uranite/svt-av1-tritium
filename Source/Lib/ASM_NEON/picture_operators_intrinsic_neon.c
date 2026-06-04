@@ -158,9 +158,9 @@ void svt_residual_kernel8bit_neon(uint8_t* input, uint32_t input_stride, uint8_t
     }
 }
 
-void svt_full_distortion_kernel32_bits_neon(int32_t* coeff, uint32_t coeff_stride, int32_t* recon_coeff,
-                                            uint32_t recon_coeff_stride, uint64_t distortion_result[DIST_CALC_TOTAL],
-                                            uint32_t area_width, uint32_t area_height) {
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+void svt_full_distortion_kernel32_bits_neon(int32_t* coeff, int32_t* recon_coeff, uint32_t stride, uint32_t area_width,
+                                            uint32_t area_height, uint64_t distortion_result[DIST_CALC_TOTAL]) {
     int64x2_t residual_distortion = vdupq_n_s64(0);
     int64x2_t residual_prediction = vdupq_n_s64(0);
 
@@ -192,12 +192,118 @@ void svt_full_distortion_kernel32_bits_neon(int32_t* coeff, uint32_t coeff_strid
             col_count -= 4;
         } while (col_count != 0);
 
-        coeff += coeff_stride;
-        recon_coeff += recon_coeff_stride;
+        coeff += stride;
+        recon_coeff += stride;
     } while (--area_height != 0);
 
     vst1q_s64((int64_t*)distortion_result, vpaddq_s64(residual_distortion, residual_prediction));
 }
+#else
+// 8 bit depth variant that assumes the coefficient buffers hold 8-bit-depth
+// transform coefficients, i.e. every element fits in the int16 range
+// [-32768, 32767] (see the AV1 "bd + 8" coefficient clamp). Under that
+// assumption:
+//   - coeff^2            <= 32768^2 = 2^30  -> fits in 32 bits (signed).
+//   - (coeff-recon)^2    <= 65535^2 < 2^32  -> fits in 32 bits (unsigned).
+// So each square equals the low 32 bits of a 32x32->32 multiply (vmulq_s32),
+// letting us square 4 lanes per instruction instead of the 2-lane widening
+// vmlal_s32 used by the generic kernel. The 32-bit squares are then widened
+// and accumulated into 64-bit lanes with vpadalq_u32 (UADALP).
+static inline void full_dist_sqacc_8bd_neon(const int32_t* coeff, const int32_t* recon_coeff, uint64x2_t* p_dist,
+                                            uint64x2_t* r_dist) {
+    int32x4_t c = vld1q_s32(coeff);
+    int32x4_t r = vld1q_s32(recon_coeff);
+    int32x4_t d = vsubq_s32(c, r);
+    // Low 32 bits of the 32x32 product = exact square under the 8bd range.
+    *p_dist = vpadalq_u32(*p_dist, vreinterpretq_u32_s32(vmulq_s32(c, c)));
+    *r_dist = vpadalq_u32(*r_dist, vreinterpretq_u32_s32(vmulq_s32(d, d)));
+}
+
+void svt_full_distortion_kernel32_bits_neon(int32_t* coeff, int32_t* recon_coeff, uint32_t stride, uint32_t area_width,
+                                            uint32_t area_height, uint64_t distortion_result[DIST_CALC_TOTAL]) {
+    // The caller (svt_aom_picture_full_distortion32_bits_single) uses one stride
+    // for both buffers, so this kernel takes a single stride.
+    // The kernel is only ever called with a transform-block width of 4, 8, 16
+    // or 32 (64-wide transforms pass width 32). Specializing per width lets the
+    // compiler fully unroll each row, dropping the inner column loop and tail.
+    assert(area_width == 4 || area_width == 8 || area_width == 16 || area_width == 32);
+
+    // Two accumulators per term to break the UADALP serial dependency chain
+    // (lets the out-of-order core run both halves of a row in parallel).
+    uint64x2_t p_dist0 = vdupq_n_u64(0);
+    uint64x2_t p_dist1 = vdupq_n_u64(0);
+    uint64x2_t r_dist0 = vdupq_n_u64(0);
+    uint64x2_t r_dist1 = vdupq_n_u64(0);
+
+    switch (area_width) {
+    case 4:
+        // Width 4 = one vector per row; unroll 2 rows (alternating the two
+        // accumulator pairs for 2-way ILP). Heights are always powers of two,
+        // so the only odd value is 1 -- which occurs when a 4-tall TX (4x4/8x4/
+        // 16x4) is reduced by pf_shape N4 (>>2). Handle that single row up front,
+        // leaving an even count for the 2-row loop (no trailing remainder).
+        if (area_height == 1) {
+            full_dist_sqacc_8bd_neon(coeff, recon_coeff, &p_dist0, &r_dist0);
+            coeff += stride;
+            recon_coeff += stride;
+            --area_height;
+        } else {
+            do {
+                full_dist_sqacc_8bd_neon(coeff + 0 * stride, recon_coeff + 0 * stride, &p_dist0, &r_dist0);
+                full_dist_sqacc_8bd_neon(coeff + 1 * stride, recon_coeff + 1 * stride, &p_dist1, &r_dist1);
+                coeff += 2 * stride;
+                recon_coeff += 2 * stride;
+                area_height -= 2;
+            } while (area_height != 0);
+        }
+        break;
+    case 8:
+        // Width 8 = two vectors per row; unroll 2 rows. Width 8 only arises from
+        // >=2:1 transforms, so its height is always even (>=2) -- no remainder.
+        do {
+            full_dist_sqacc_8bd_neon(coeff + 0, recon_coeff + 0, &p_dist0, &r_dist0);
+            full_dist_sqacc_8bd_neon(coeff + 4, recon_coeff + 4, &p_dist1, &r_dist1);
+            full_dist_sqacc_8bd_neon(coeff + stride + 0, recon_coeff + stride + 0, &p_dist0, &r_dist0);
+            full_dist_sqacc_8bd_neon(coeff + stride + 4, recon_coeff + stride + 4, &p_dist1, &r_dist1);
+            coeff += 2 * stride;
+            recon_coeff += 2 * stride;
+            area_height -= 2;
+        } while (area_height != 0);
+        break;
+    case 16:
+        do {
+            full_dist_sqacc_8bd_neon(coeff + 0, recon_coeff + 0, &p_dist0, &r_dist0);
+            full_dist_sqacc_8bd_neon(coeff + 4, recon_coeff + 4, &p_dist1, &r_dist1);
+            full_dist_sqacc_8bd_neon(coeff + 8, recon_coeff + 8, &p_dist0, &r_dist0);
+            full_dist_sqacc_8bd_neon(coeff + 12, recon_coeff + 12, &p_dist1, &r_dist1);
+            coeff += stride;
+            recon_coeff += stride;
+        } while (--area_height != 0);
+        break;
+    case 32:
+        do {
+            full_dist_sqacc_8bd_neon(coeff + 0, recon_coeff + 0, &p_dist0, &r_dist0);
+            full_dist_sqacc_8bd_neon(coeff + 4, recon_coeff + 4, &p_dist1, &r_dist1);
+            full_dist_sqacc_8bd_neon(coeff + 8, recon_coeff + 8, &p_dist0, &r_dist0);
+            full_dist_sqacc_8bd_neon(coeff + 12, recon_coeff + 12, &p_dist1, &r_dist1);
+            full_dist_sqacc_8bd_neon(coeff + 16, recon_coeff + 16, &p_dist0, &r_dist0);
+            full_dist_sqacc_8bd_neon(coeff + 20, recon_coeff + 20, &p_dist1, &r_dist1);
+            full_dist_sqacc_8bd_neon(coeff + 24, recon_coeff + 24, &p_dist0, &r_dist0);
+            full_dist_sqacc_8bd_neon(coeff + 28, recon_coeff + 28, &p_dist1, &r_dist1);
+            coeff += stride;
+            recon_coeff += stride;
+        } while (--area_height != 0);
+        break;
+    }
+
+    uint64x2_t prediction_distortion = vaddq_u64(p_dist0, p_dist1);
+    uint64x2_t residual_distortion   = vaddq_u64(r_dist0, r_dist1);
+
+    // distortion_result[DIST_CALC_RESIDUAL]   = sum (coeff - recon)^2
+    // distortion_result[DIST_CALC_PREDICTION] = sum  coeff^2
+    vst1q_u64((uint64_t*)distortion_result, vpaddq_u64(residual_distortion, prediction_distortion));
+}
+#endif
 
 static inline void unpack_and_2bcompress_32_neon(uint16_t* in16b_buffer, uint8_t* out8b_buffer, uint8_t* out2b_buffer,
                                                  uint32_t width_rep) {

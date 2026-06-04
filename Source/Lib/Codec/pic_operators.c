@@ -74,9 +74,8 @@ void svt_residual_kernel8bit_c(uint8_t* input, uint32_t input_stride, uint8_t* p
 *  Used in the Full Mode Decision Loop for the only case of a MVP-SKIP candidate
 *******************************************/
 
-void svt_full_distortion_kernel32_bits_c(int32_t* coeff, uint32_t coeff_stride, int32_t* recon_coeff,
-                                         uint32_t recon_coeff_stride, uint64_t distortion_result[DIST_CALC_TOTAL],
-                                         uint32_t area_width, uint32_t area_height) {
+void svt_full_distortion_kernel32_bits_c(int32_t* coeff, int32_t* recon_coeff, uint32_t stride, uint32_t area_width,
+                                         uint32_t area_height, uint64_t distortion_result[DIST_CALC_TOTAL]) {
     uint32_t row_index             = 0;
     uint64_t residual_distortion   = 0;
     uint64_t prediction_distortion = 0;
@@ -89,8 +88,8 @@ void svt_full_distortion_kernel32_bits_c(int32_t* coeff, uint32_t coeff_stride, 
             ++column_index;
         }
 
-        coeff += coeff_stride;
-        recon_coeff += recon_coeff_stride;
+        coeff += stride;
+        recon_coeff += stride;
         ++row_index;
     }
 
@@ -154,7 +153,7 @@ void svt_aom_picture_full_distortion32_bits_single(int32_t* coeff, int32_t* reco
     distortion[1] = 0;
 
     if (cnt_nz_coeff) {
-        svt_full_distortion_kernel32_bits(coeff, stride, recon_coeff, stride, distortion, bwidth, bheight);
+        svt_full_distortion_kernel32_bits(coeff, recon_coeff, stride, bwidth, bheight, distortion);
     } else {
         svt_full_distortion_kernel_cbf_zero32_bits(coeff, stride, distortion, bwidth, bheight);
     }

@@ -141,7 +141,7 @@ RTCD_EXTERN void(*svt_residual_kernel8bit)(uint8_t *input, uint32_t input_stride
 RTCD_EXTERN uint64_t(*compute8x8_satd_u8)(uint8_t *diff, uint64_t *dc_value, uint32_t src_stride);
 RTCD_EXTERN int32_t(*sum_residual8bit)(int16_t *in_ptr, uint32_t size, uint32_t stride_in);
 RTCD_EXTERN void(*svt_full_distortion_kernel_cbf_zero32_bits)(int32_t *coeff, uint32_t coeff_stride, uint64_t distortion_result[DIST_CALC_TOTAL], uint32_t area_width, uint32_t area_height);
-RTCD_EXTERN void(*svt_full_distortion_kernel32_bits)(int32_t *coeff, uint32_t coeff_stride, int32_t *recon_coeff, uint32_t recon_coeff_stride, uint64_t distortion_result[DIST_CALC_TOTAL], uint32_t area_width, uint32_t area_height);
+RTCD_EXTERN void(*svt_full_distortion_kernel32_bits)(int32_t *coeff, int32_t *recon_coeff, uint32_t stride, uint32_t area_width, uint32_t area_height, uint64_t distortion_result[DIST_CALC_TOTAL]);
 uint64_t svt_spatial_full_distortion_kernel_c(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
 RTCD_EXTERN uint64_t(*svt_spatial_full_distortion_kernel)(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
 uint64_t svt_full_distortion_kernel16_bits_c(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
@@ -1654,7 +1654,7 @@ void svt_aom_paeth_predictor_64x64_neon(uint8_t *dst, ptrdiff_t stride, const ui
 
 uint64_t svt_full_distortion_kernel16_bits_neon(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
 uint64_t svt_full_distortion_kernel16_bits_sve(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
-void svt_full_distortion_kernel32_bits_neon(int32_t *coeff, uint32_t coeff_stride, int32_t *recon_coeff, uint32_t recon_coeff_stride, uint64_t distortion_result[DIST_CALC_TOTAL], uint32_t area_width, uint32_t area_height);
+void svt_full_distortion_kernel32_bits_neon(int32_t *coeff, int32_t *recon_coeff, uint32_t stride, uint32_t area_width, uint32_t area_height, uint64_t distortion_result[DIST_CALC_TOTAL]);
 
 void svt_full_distortion_kernel_cbf_zero32_bits_neon(int32_t *coeff, uint32_t coeff_stride,
                                                         uint64_t distortion_result[DIST_CALC_TOTAL], uint32_t area_width,
@@ -1858,14 +1858,12 @@ void svt_full_distortion_kernel_cbf_zero32_bits_avx2(int32_t *coeff, uint32_t co
 void svt_full_distortion_kernel_cbf_zero32_bits_sse4_1(int32_t *coeff, uint32_t coeff_stride,
     uint64_t distortion_result[DIST_CALC_TOTAL],
     uint32_t area_width, uint32_t area_height);
-void svt_full_distortion_kernel32_bits_sse4_1(int32_t *coeff, uint32_t coeff_stride, int32_t *recon_coeff,
-    uint32_t recon_coeff_stride,
-    uint64_t distortion_result[DIST_CALC_TOTAL],
-    uint32_t area_width, uint32_t area_height);
-void svt_full_distortion_kernel32_bits_avx2(int32_t *coeff, uint32_t coeff_stride, int32_t *recon_coeff,
-    uint32_t recon_coeff_stride,
-    uint64_t distortion_result[DIST_CALC_TOTAL],
-    uint32_t area_width, uint32_t area_height);
+void svt_full_distortion_kernel32_bits_sse4_1(int32_t *coeff, int32_t *recon_coeff, uint32_t stride,
+    uint32_t area_width, uint32_t area_height,
+    uint64_t distortion_result[DIST_CALC_TOTAL]);
+void svt_full_distortion_kernel32_bits_avx2(int32_t *coeff, int32_t *recon_coeff, uint32_t stride,
+    uint32_t area_width, uint32_t area_height,
+    uint64_t distortion_result[DIST_CALC_TOTAL]);
 uint64_t svt_spatial_full_distortion_kernel_sse4_1(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
 uint64_t svt_spatial_full_distortion_kernel_avx2(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
 uint64_t svt_spatial_full_distortion_kernel_avx512(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
