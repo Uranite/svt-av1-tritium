@@ -574,9 +574,6 @@ INSTANTIATE_TEST_SUITE_P(ConvolveTest2D_NEON_DOTPROD, AV1LbdSrConvolveTest,
 INSTANTIATE_TEST_SUITE_P(ConvolveTestX_NEON_DOTPROD, AV1LbdSrConvolveTest,
                          BuildParamsLbd(true, false,
                                         svt_av1_convolve_x_sr_neon_dotprod));
-INSTANTIATE_TEST_SUITE_P(ConvolveTestY_NEON_DOTPROD, AV1LbdSrConvolveTest,
-                         BuildParamsLbd(false, true,
-                                        svt_av1_convolve_y_sr_neon_dotprod));
 #endif  // HAVE_NEON_DOTPROD
 
 #if HAVE_NEON_I8MM

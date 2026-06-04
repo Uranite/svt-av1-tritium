@@ -738,7 +738,6 @@ static inline int16x8_t convolve4_8_2d_h(const int16x8_t s0, const int16x8_t s1,
 
 static inline void convolve_2d_sr_horiz_4tap_neon(const uint8_t* src, ptrdiff_t src_stride, int16_t* dst,
                                                   ptrdiff_t dst_stride, int w, int h, const int16_t* filter_x) {
-    const int bd = 8;
     // All filter values are even, halve to reduce intermediate precision
     // requirements.
     const int16x4_t filter = vshr_n_s16(vld1_s16(filter_x + 2), 1);
@@ -746,7 +745,7 @@ static inline void convolve_2d_sr_horiz_4tap_neon(const uint8_t* src, ptrdiff_t 
     // A shim of 1 << ((ROUND0_BITS - 1) - 1) enables us to use non-rounding
     // shifts - which are generally faster than rounding shifts on modern CPUs.
     // (The extra -1 is needed because we halved the filter values.)
-    const int16x8_t horiz_const = vdupq_n_s16((1 << (bd + FILTER_BITS - 2)) + (1 << ((ROUND0_BITS - 1) - 1)));
+    const int16x8_t horiz_const = vdupq_n_s16((1 << ((ROUND0_BITS - 1) - 1)));
 
     if (w == 4) {
         do {
@@ -858,8 +857,6 @@ static inline int16x8_t convolve8_8_2d_h(const int16x8_t s0, const int16x8_t s1,
 
 static inline void convolve_2d_sr_horiz_8tap_neon(const uint8_t* src, int src_stride, int16_t* im_block, int im_stride,
                                                   int w, int im_h, const int16_t* x_filter_ptr) {
-    const int bd = 8;
-
     const uint8_t* src_ptr    = src;
     int16_t*       dst_ptr    = im_block;
     int            dst_stride = im_stride;
@@ -868,7 +865,7 @@ static inline void convolve_2d_sr_horiz_8tap_neon(const uint8_t* src, int src_st
     // A shim of 1 << ((ROUND0_BITS - 1) - 1) enables us to use non-rounding
     // shifts - which are generally faster than rounding shifts on modern CPUs.
     // (The extra -1 is needed because we halved the filter values.)
-    const int16x8_t horiz_const = vdupq_n_s16((1 << (bd + FILTER_BITS - 2)) + (1 << ((ROUND0_BITS - 1) - 1)));
+    const int16x8_t horiz_const = vdupq_n_s16((1 << ((ROUND0_BITS - 1) - 1)));
     // Filter values are even, so halve to reduce intermediate precision reqs.
     const int16x8_t x_filter = vshrq_n_s16(vld1q_s16(x_filter_ptr), 1);
 
@@ -1017,7 +1014,7 @@ void svt_av1_convolve_2d_sr_neon(const uint8_t* src, int32_t src_stride, uint8_t
     if (clamped_y_taps <= 4) {
         convolve_2d_sr_vert_4tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter_ptr);
     } else if (clamped_y_taps == 6) {
-        convolve_2d_sr_vert_6tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter);
+        convolve_2d_sr_vert_6tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter_ptr);
     } else {
         convolve_2d_sr_vert_8tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter);
     }

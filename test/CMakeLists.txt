@@ -87,6 +87,7 @@ set(multi_arch_files
     CdefTest.cc
     CompoundUtilTest.cc
     Convolve8Test.cc
+    Convolve2dSrPerfTest.cc
     DeblockTest.cc
     EncodeTxbAsmTest.cc
     FilterIntraPredTest.cc
