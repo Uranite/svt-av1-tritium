@@ -1379,9 +1379,9 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.static_config       = scs->static_config;
         input_data.allintra            = scs->allintra;
 #if REMOVE_USE_FLAT_IPP
-        input_data.use_flat_ipp        = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
+        input_data.use_flat_ipp = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
 #else
-        input_data.use_flat_ipp        = scs->use_flat_ipp;
+        input_data.use_flat_ipp = scs->use_flat_ipp;
 #endif
         EB_NEW(enc_handle_ptr->picture_parent_control_set_pool_ptr,
                svt_system_resource_ctor,
@@ -1442,8 +1442,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.is_scale         = scs->static_config.superres_mode > SUPERRES_NONE ||
             scs->static_config.resize_mode > RESIZE_NONE;
 
-        input_data.rtc_tune     = scs->static_config.rtc;
-        input_data.allintra     = scs->allintra;
+        input_data.rtc_tune = scs->static_config.rtc;
+        input_data.allintra = scs->allintra;
 #if REMOVE_USE_FLAT_IPP
         input_data.use_flat_ipp = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
 #else
@@ -1492,8 +1492,8 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.is_scale         = scs->static_config.superres_mode > SUPERRES_NONE ||
             scs->static_config.resize_mode > RESIZE_NONE;
 
-        input_data.rtc_tune     = scs->static_config.rtc;
-        input_data.allintra     = scs->allintra;
+        input_data.rtc_tune = scs->static_config.rtc;
+        input_data.allintra = scs->allintra;
 #if REMOVE_USE_FLAT_IPP
         input_data.use_flat_ipp = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
 #else
@@ -3637,6 +3637,7 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
             mrp_ctrl->use_best_references = 0;
         }
     }
+
     if (scs->static_config.pred_structure == LOW_DELAY) {
 #if REMOVE_USE_FLAT_IPP
         if (scs->static_config.rtc && scs->static_config.hierarchical_levels == 0) {
@@ -4825,7 +4826,7 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         scs->static_config.hierarchical_levels = 2;
     }
 #if !ADD_ON_THE_FLY_MG
-    scs->max_temporal_layers                  = scs->static_config.hierarchical_levels;
+    scs->max_temporal_layers = scs->static_config.hierarchical_levels;
 #endif
     scs->static_config.look_ahead_distance    = config_struct->look_ahead_distance;
     scs->static_config.frame_rate_denominator = config_struct->frame_rate_denominator;

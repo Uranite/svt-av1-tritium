@@ -3934,14 +3934,14 @@ EbErrorType svt_av1_init_temporal_filtering(PictureParentControlSet** pcs_list, 
 
         // save original source picture (to be replaced by the temporally filtered pic)
         // if PSNR or SSIM computation needed or if superres recode is enabled
-        SUPERRES_MODE             superres_mode           = centre_pcs->scs->static_config.superres_mode;
-        SUPERRES_AUTO_SEARCH_TYPE search_type             = centre_pcs->scs->static_config.superres_auto_search_type;
+        SUPERRES_MODE             superres_mode = centre_pcs->scs->static_config.superres_mode;
+        SUPERRES_AUTO_SEARCH_TYPE search_type   = centre_pcs->scs->static_config.superres_auto_search_type;
 #if ADD_ON_THE_FLY_MG
-        uint32_t                  frame_update_type = svt_aom_get_frame_update_type(centre_pcs);
+        uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs);
 #else
-        uint32_t                  frame_update_type       = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
+        uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
 #endif
-        bool                      superres_recode_enabled = (superres_mode == SUPERRES_AUTO) &&
+        bool superres_recode_enabled = (superres_mode == SUPERRES_AUTO) &&
             ((search_type == SUPERRES_AUTO_DUAL) || (search_type == SUPERRES_AUTO_ALL)) // auto-dual or auto-all
             && ((frame_update_type == SVT_AV1_KF_UPDATE) ||
                 (frame_update_type == SVT_AV1_ARF_UPDATE)); // recode only applies to key and arf

@@ -585,45 +585,37 @@ static EbErrorType test_update_mg_size_info(uint64_t pic_num, EbBufferHeaderType
     int               interval = 20;
     if (pic_num == 0) {
         return EB_ErrorNone;
-    }
-    else if (pic_num % (6 * interval) == 0) {
-        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+    } else if (pic_num % (6 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
         data->hierarchical_levels = 2;
-    }
-    else if (pic_num % (5 * interval) == 0) {
-        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+    } else if (pic_num % (5 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
         data->hierarchical_levels = 0;
-    }
-    else if (pic_num % (4 * interval) == 0) {
-        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+    } else if (pic_num % (4 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
         data->hierarchical_levels = 1;
-    }
-    else if (pic_num % (3 * interval) == 0) {
-        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+    } else if (pic_num % (3 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
         data->hierarchical_levels = 0;
-    }
-    else if (pic_num % (2 * interval) == 0) {
-        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+    } else if (pic_num % (2 * interval) == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
         data->hierarchical_levels = 2;
-    }
-    else if (pic_num % interval == 0) {
-        data = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
+    } else if (pic_num % interval == 0) {
+        data                      = (SvtAv1MgSizeInfo*)malloc(sizeof(SvtAv1MgSizeInfo));
         data->hierarchical_levels = 1;
-    }
-    else {
+    } else {
         return EB_ErrorNone;
     }
     EbPrivDataNode* new_node = (EbPrivDataNode*)malloc(sizeof(EbPrivDataNode));
-    new_node->size = sizeof(SvtAv1MgSizeInfo);
-    new_node->node_type = MG_SIZE_CHANGE_EVENT;
-    new_node->data = data;
-    new_node->next = NULL;
+    new_node->size           = sizeof(SvtAv1MgSizeInfo);
+    new_node->node_type      = MG_SIZE_CHANGE_EVENT;
+    new_node->data           = data;
+    new_node->next           = NULL;
 
     // append to tail
     if (header_ptr->p_app_private == NULL) {
         header_ptr->p_app_private = new_node;
-    }
-    else {
+    } else {
         EbPrivDataNode* last = header_ptr->p_app_private;
         while (last->next != NULL) {
             last = last->next;

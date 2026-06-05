@@ -143,7 +143,7 @@ EbErrorType svt_aom_resource_coordination_context_ctor(EbThreadContext* thread_c
     context_ptr->runtime_frame_rate_numerator   = init_scs->static_config.frame_rate_numerator;
     context_ptr->runtime_frame_rate_denominator = init_scs->static_config.frame_rate_denominator;
 #if ADD_ON_THE_FLY_MG
-    context_ptr->new_hierarchical_layers        = init_scs->static_config.hierarchical_levels;
+    context_ptr->new_hierarchical_layers = init_scs->static_config.hierarchical_levels;
 #endif
 
     return EB_ErrorNone;
@@ -826,8 +826,8 @@ static void update_mg_size_info(ResourceCoordinationContext* ctx, EbBufferHeader
     while (node) {
         if (node->node_type == MG_SIZE_CHANGE_EVENT) {
             svt_aom_assert_err(node->size == sizeof(SvtAv1MgSizeInfo) && node->data,
-                "invalid private data of type MG_SIZE_CHANGE_EVENT");
-            SvtAv1MgSizeInfo* info = (SvtAv1MgSizeInfo*)node->data;
+                               "invalid private data of type MG_SIZE_CHANGE_EVENT");
+            SvtAv1MgSizeInfo* info       = (SvtAv1MgSizeInfo*)node->data;
             ctx->new_hierarchical_layers = info->hierarchical_levels;
         }
         node = node->next;

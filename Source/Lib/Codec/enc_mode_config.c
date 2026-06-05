@@ -941,14 +941,14 @@ void svt_aom_sig_deriv_me(SequenceControlSet* scs, PictureParentControlSet* pcs,
     ResolutionRange input_resolution = scs->input_resolution;
     const bool      rtc_tune         = scs->static_config.rtc;
 #if USE_FRAME_TYPE_BOOST
-    const bool      is_base          = frame_is_boosted(pcs);
+    const bool is_base = frame_is_boosted(pcs);
 #else
-    const bool      is_base          = pcs->temporal_layer_index == 0;
+    const bool is_base = pcs->temporal_layer_index == 0;
 #endif
 #if REMOVE_USE_FLAT_IPP
-    const bool      use_flat_ipp     = rtc_tune && pcs->hierarchical_levels == 0;
+    const bool use_flat_ipp = rtc_tune && pcs->hierarchical_levels == 0;
 #else
-    const bool      use_flat_ipp     = rtc_tune && scs->use_flat_ipp;
+    const bool use_flat_ipp = rtc_tune && scs->use_flat_ipp;
 #endif
     // Set ME search area
     set_me_search_params(scs, pcs, me_ctx, input_resolution);
@@ -1326,15 +1326,15 @@ void svt_aom_sig_deriv_me_tf(PictureParentControlSet* pcs, MeContext* me_ctx) {
 };
 
 static void set_cdef_search_controls(PictureParentControlSet* pcs, uint8_t cdef_search_level) {
-    CdefSearchControls* cdef_ctrls           = &pcs->cdef_search_ctrls;
+    CdefSearchControls* cdef_ctrls = &pcs->cdef_search_ctrls;
 #if USE_FRAME_TYPE_BOOST
-    const bool          is_base              = frame_is_boosted(pcs);
-    const bool          is_not_highest_layer = !frame_is_leaf(pcs);
+    const bool is_base              = frame_is_boosted(pcs);
+    const bool is_not_highest_layer = !frame_is_leaf(pcs);
 #else
-    const bool          is_base              = pcs->temporal_layer_index == 0;
-    const bool          is_not_highest_layer = !pcs->is_highest_layer;
+    const bool is_base              = pcs->temporal_layer_index == 0;
+    const bool is_not_highest_layer = !pcs->is_highest_layer;
 #endif
-    int                 i, j, sf_idx, second_pass_fs_num;
+    int i, j, sf_idx, second_pass_fs_num;
     switch (cdef_search_level) {
         // OFF
     case 0:
@@ -2965,9 +2965,9 @@ void svt_aom_sig_deriv_multi_processes_rtc(SequenceControlSet* scs, PictureParen
     const uint8_t fast_decode  = scs->static_config.fast_decode;
     const uint8_t sc_class5    = pcs->sc_class5;
 #if REMOVE_USE_FLAT_IPP
-    const bool    use_flat_ipp = pcs->hierarchical_levels == 0; // rtc path, so rtc is true
+    const bool use_flat_ipp = pcs->hierarchical_levels == 0; // rtc path, so rtc is true
 #else
-    const bool    use_flat_ipp = scs->use_flat_ipp;
+    const bool use_flat_ipp = scs->use_flat_ipp;
 #endif
     // Set GM ctrls assuming super-res is off for gm-pp need
     svt_aom_set_gm_controls(pcs, svt_aom_derive_gm_level(pcs, true));
@@ -5481,14 +5481,14 @@ static void set_cand_reduction_ctrls(PictureControlSet* pcs, ModeDecisionContext
     CandReductionCtrls* cand_reduction_ctrls = &ctx->cand_reduction_ctrls;
     const bool          is_lpd1              = ctx->lpd1_ctrls.pd1_level > REGULAR_PD1;
 #if USE_FRAME_TYPE_BOOST
-    const bool          is_not_last_layer    = !frame_is_leaf(pcs->ppcs);
-    const bool          use_flat_ipp         = pcs->scs->static_config.rtc && pcs->ppcs->hierarchical_levels == 0;
+    const bool is_not_last_layer = !frame_is_leaf(pcs->ppcs);
+    const bool use_flat_ipp      = pcs->scs->static_config.rtc && pcs->ppcs->hierarchical_levels == 0;
 #else
-    const bool          is_not_last_layer    = !pcs->ppcs->is_highest_layer;
+    const bool is_not_last_layer = !pcs->ppcs->is_highest_layer;
 #if REMOVE_USE_FLAT_IPP
-    const bool          use_flat_ipp         = pcs->scs->static_config.rtc && pcs->scs->static_config.hierarchical_levels == 0;
+    const bool use_flat_ipp = pcs->scs->static_config.rtc && pcs->scs->static_config.hierarchical_levels == 0;
 #else
-    const bool          use_flat_ipp         = pcs->scs->use_flat_ipp;
+    const bool use_flat_ipp = pcs->scs->use_flat_ipp;
 #endif
 #endif
     switch (cand_reduction_level) {
@@ -8690,9 +8690,9 @@ static void get_max_block_size_allintra(PictureControlSet* pcs, ModeDecisionCont
  * Generate per-SB MD settings (do not change per-PD)
  */
 void svt_aom_sig_deriv_enc_dec_common(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx) {
-    EncMode    enc_mode          = pcs->enc_mode;
-    const bool rtc_tune          = scs->static_config.rtc;
-    const bool allintra          = scs->allintra;
+    EncMode    enc_mode = pcs->enc_mode;
+    const bool rtc_tune = scs->static_config.rtc;
+    const bool allintra = scs->allintra;
 #if USE_FRAME_TYPE_BOOST
     const bool is_not_last_layer = !frame_is_leaf(pcs->ppcs);
     const bool use_flat_ipp      = rtc_tune && pcs->ppcs->hierarchical_levels == 0;
@@ -8914,13 +8914,13 @@ void svt_aom_sig_deriv_enc_dec_light_pd0(SequenceControlSet* scs, PictureControl
 #if !TUNE_SIMPLIFY_SETTINGS
     const uint8_t sc_class1 = ppcs->sc_class1;
 #endif
-    const bool rtc_tune          = scs->static_config.rtc;
+    const bool rtc_tune = scs->static_config.rtc;
 #if USE_FRAME_TYPE_BOOST
     const bool is_not_last_layer = !frame_is_leaf(ppcs);
 #else
     const bool is_not_last_layer = !ppcs->is_highest_layer;
 #endif
-    ctx->md_disallow_nsq_search  = 1;
+    ctx->md_disallow_nsq_search = 1;
 
     // Use coeff rate and slit flag rate only (i.e. no fast rate)
     ctx->shut_fast_rate = true;
@@ -11411,14 +11411,14 @@ static void set_pic_lpd0_lvl_default(PictureControlSet* pcs, EncMode enc_mode) {
 }
 
 static void set_pic_lpd0_lvl_rtc(PictureControlSet* pcs, EncMode enc_mode) {
-    PictureParentControlSet* ppcs               = pcs->ppcs;
+    PictureParentControlSet* ppcs = pcs->ppcs;
 #if USE_FRAME_TYPE_BOOST
-    const uint8_t            is_base = frame_is_boosted(ppcs);
+    const uint8_t is_base = frame_is_boosted(ppcs);
 #else
-    const uint8_t            is_base            = ppcs->temporal_layer_index == 0;
+    const uint8_t is_base = ppcs->temporal_layer_index == 0;
 #endif
-    const uint8_t            is_islice          = pcs->slice_type == I_SLICE;
-    const bool               transition_present = (ppcs->transition_present == 1);
+    const uint8_t is_islice          = pcs->slice_type == I_SLICE;
+    const bool    transition_present = (ppcs->transition_present == 1);
 #if !TUNE_SIMPLIFY_SETTINGS
     const uint8_t sc_class1 = ppcs->sc_class1;
 #endif
@@ -12429,9 +12429,9 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
     const uint8_t is_ref = ppcs->is_ref;
 #endif
 #if USE_FRAME_TYPE_BOOST
-    const uint8_t         is_base            = frame_is_boosted(ppcs);
+    const uint8_t is_base = frame_is_boosted(ppcs);
 #else
-    const uint8_t         is_base            = ppcs->temporal_layer_index == 0;
+    const uint8_t is_base = ppcs->temporal_layer_index == 0;
 #endif
     const ResolutionRange input_resolution   = ppcs->input_resolution;
     const uint8_t         is_islice          = pcs->slice_type == I_SLICE;
@@ -12440,12 +12440,12 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
     const bool            transition_present = (ppcs->transition_present == 1);
     const uint32_t        sq_qp              = scs->static_config.qp;
 #if USE_FRAME_TYPE_BOOST
-    const bool            use_flat_ipp       = ppcs->hierarchical_levels == 0; // rtc path, so rtc is true
+    const bool use_flat_ipp = ppcs->hierarchical_levels == 0; // rtc path, so rtc is true
 #else
 #if REMOVE_USE_FLAT_IPP
-    const bool            use_flat_ipp = scs->static_config.hierarchical_levels == 0; // rtc path, so rtc is true
+    const bool use_flat_ipp = scs->static_config.hierarchical_levels == 0; // rtc path, so rtc is true
 #else
-    const bool            use_flat_ipp       = scs->use_flat_ipp;
+    const bool use_flat_ipp = scs->use_flat_ipp;
 #endif
 #endif
     //MFMV

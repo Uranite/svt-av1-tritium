@@ -1361,11 +1361,12 @@ static int NOINLINE find_min_ref_base_q_idx(PictureControlSet* pcs, RefList k) {
     int ref_base_q_idx = INT_MAX;
     int cnt            = (k == REF_LIST_0) ? pcs->ppcs->ref_list0_count_try : pcs->ppcs->ref_list1_count_try;
     for (int i = 0; i < cnt; i++) {
-        EbReferenceObject* ref_obj  = get_ref_obj(pcs, k, i);
+        EbReferenceObject* ref_obj = get_ref_obj(pcs, k, i);
 #if REMOVE_USE_FLAT_IPP // TODO: Remove HL check
-        bool               pic_used = ref_obj->tmp_layer_idx < pcs->temporal_layer_index || (pcs->scs->static_config.rtc && pcs->ppcs->hierarchical_levels == 0);
+        bool pic_used = ref_obj->tmp_layer_idx < pcs->temporal_layer_index ||
+            (pcs->scs->static_config.rtc && pcs->ppcs->hierarchical_levels == 0);
 #else
-        bool               pic_used = ref_obj->tmp_layer_idx < pcs->temporal_layer_index || pcs->scs->use_flat_ipp;
+        bool pic_used = ref_obj->tmp_layer_idx < pcs->temporal_layer_index || pcs->scs->use_flat_ipp;
 #endif
         if (pcs->ref_slice_type[k][i] != I_SLICE && pic_used) {
             ref_base_q_idx = MIN(ref_base_q_idx, pcs->ref_base_q_idx[k][i]);

@@ -193,11 +193,11 @@ typedef struct RATE_CONTROL {
     uint32_t prev_avg_base_me_dist;
 
     // RTC CBR
-    int    mini_qop_size;
-    int    min_ref_base_q_idx;
+    int mini_qop_size;
+    int min_ref_base_q_idx;
 #if USE_FRAME_TYPE_BOOST
-    int    rc_mini_gop_pos; // RC virtual mini-GoP position (0..mini_qop_size-1)
-    int    rc_num_layers;   // RC virtual layer count, independent of encoder pred structure
+    int rc_mini_gop_pos; // RC virtual mini-GoP position (0..mini_qop_size-1)
+    int rc_num_layers; // RC virtual layer count, independent of encoder pred structure
 #endif
     double target_size_factors[1 + MAX_TEMPORAL_LAYERS];
 

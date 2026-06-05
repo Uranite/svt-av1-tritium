@@ -313,7 +313,10 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
 #if TUNE_SIMPLIFY_SETTINGS
 #if REMOVE_USE_FLAT_IPP
         is_chroma_mode_0 = svt_aom_set_chroma_controls(
-            NULL, svt_aom_get_chroma_level_rtc(enc_mode, scs->static_config.rtc && scs->static_config.hierarchical_levels == 0)) == CHROMA_MODE_0;
+                               NULL,
+                               svt_aom_get_chroma_level_rtc(
+                                   enc_mode, scs->static_config.rtc && scs->static_config.hierarchical_levels == 0)) ==
+            CHROMA_MODE_0;
 #else
         is_chroma_mode_0 = svt_aom_set_chroma_controls(
                                NULL, svt_aom_get_chroma_level_rtc(enc_mode, scs->use_flat_ipp)) == CHROMA_MODE_0;

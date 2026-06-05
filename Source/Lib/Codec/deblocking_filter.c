@@ -959,11 +959,13 @@ static void me_based_dlf_skip(PictureControlSet* pcs, uint16_t prev_dlf_dist_th,
         return;
     }
 
-    const uint8_t  in_res               = pcs->ppcs->input_resolution;
+    const uint8_t in_res = pcs->ppcs->input_resolution;
 #if USE_FRAME_TYPE_BOOST
     // For flat, mult should be based on update_type since all pics are temporal layer 0
-    const int mult = pcs->ppcs->hierarchical_levels ? (pcs->temporal_layer_index + 1) :
-        frame_is_boosted(pcs->ppcs) ? 1 : frame_is_leaf(pcs->ppcs) ? 3 : 2;
+    const int      mult                 = pcs->ppcs->hierarchical_levels ? (pcs->temporal_layer_index + 1)
+                             : frame_is_boosted(pcs->ppcs)               ? 1
+                             : frame_is_leaf(pcs->ppcs)                  ? 3
+                                                                         : 2;
     const uint32_t use_zero_strength_th = disable_dlf_th[pcs->ppcs->dlf_ctrls.zero_filter_strength_lvl][in_res] * mult;
 #else
     const uint32_t use_zero_strength_th = disable_dlf_th[pcs->ppcs->dlf_ctrls.zero_filter_strength_lvl][in_res] *

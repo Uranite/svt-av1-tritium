@@ -405,7 +405,9 @@ static void rtc_cyclic_refresh_init(PictureParentControlSet* ppcs) {
 
 static int get_rcf_index(PictureParentControlSet* ppcs) {
 #if USE_FRAME_TYPE_BOOST
-    if (ppcs->frm_hdr.frame_type == KEY_FRAME) return 0;
+    if (ppcs->frm_hdr.frame_type == KEY_FRAME) {
+        return 0;
+    }
     RATE_CONTROL* rc = &ppcs->scs->enc_ctx->rc;
     return ((rc->rc_mini_gop_pos + 1) % (1 << (rc->rc_num_layers - 1))) + 1;
 #else
@@ -471,14 +473,15 @@ static double calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) 
         } else {
             EbReferenceObject* ref_obj = get_ref_obj(pcs, REF_LIST_0, 0);
 #if REMOVE_USE_FLAT_IPP // TODO: Remove check
-            bool is_higher_layer = ref_obj->tmp_layer_idx < pcs->temporal_layer_index && (pcs->ppcs->hierarchical_levels != 0);
+            bool is_higher_layer = ref_obj->tmp_layer_idx < pcs->temporal_layer_index &&
+                (pcs->ppcs->hierarchical_levels != 0);
 #else
-            bool is_higher_layer       = ref_obj->tmp_layer_idx < pcs->temporal_layer_index && !scs->use_flat_ipp;
+            bool is_higher_layer = ref_obj->tmp_layer_idx < pcs->temporal_layer_index && !scs->use_flat_ipp;
 #endif
-            int  min_limit             = is_higher_layer ? 0 : 4;
-            int  max_limit             = is_higher_layer ? 32 : 16;
-            min_qindex                 = MAX(min_qindex, rc->min_ref_base_q_idx - min_limit * 4);
-            max_qindex                 = MIN(max_qindex, rc->min_ref_base_q_idx + max_limit * 4);
+            int min_limit = is_higher_layer ? 0 : 4;
+            int max_limit = is_higher_layer ? 32 : 16;
+            min_qindex    = MAX(min_qindex, rc->min_ref_base_q_idx - min_limit * 4);
+            max_qindex    = MIN(max_qindex, rc->min_ref_base_q_idx + max_limit * 4);
         }
         ppcs->base_frame_target = calc_pframe_target_size(ppcs);
 
@@ -542,7 +545,8 @@ void svt_av1_rc_calc_qindex_rtc_cbr(PictureControlSet* pcs) {
 
 #if USE_FRAME_TYPE_BOOST
             // flat uses virtual 3-layer RC model for adaptive bit distribution
-            rc->rc_num_layers   = pcs->ppcs->hierarchical_levels == 0 ? 3 /*3-layer*/ : pcs->ppcs->hierarchical_levels + 1;
+            rc->rc_num_layers =
+                pcs->ppcs->hierarchical_levels == 0 ? 3 /*3-layer*/ : pcs->ppcs->hierarchical_levels + 1;
             rc->rc_mini_gop_pos = 0;
             int num_layers      = rc->rc_num_layers;
 #else
@@ -757,7 +761,7 @@ void svt_av1_rc_postencode_update_rtc_cbr(PictureParentControlSet* ppcs) {
         rc->frames_since_cdf_update = 0;
 #endif
 #if USE_FRAME_TYPE_BOOST
-        rc->rc_mini_gop_pos  = 0;
+        rc->rc_mini_gop_pos = 0;
 #endif
     } else if (!ppcs->is_overlay) {
         rc->avg_frame_qindex[INTER_FRAME] = ROUND_POWER_OF_TWO(3 * rc->avg_frame_qindex[INTER_FRAME] + qindex, 2);

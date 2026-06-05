@@ -175,8 +175,7 @@ void svt_aom_get_qp_based_th_scaling_factors(bool enable_qp_based_th_scaling, ui
 static INLINE int frame_is_kf_gf_arf(PictureParentControlSet* ppcs) {
     const SvtAv1FrameUpdateType update_type = ppcs->update_type;
 
-    return frame_is_intra_only(ppcs) || update_type == SVT_AV1_ARF_UPDATE ||
-        update_type == SVT_AV1_GF_UPDATE;
+    return frame_is_intra_only(ppcs) || update_type == SVT_AV1_ARF_UPDATE || update_type == SVT_AV1_GF_UPDATE;
 }
 
 // Intra only frames, golden frames (except alt ref overlays) and
