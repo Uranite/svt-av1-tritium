@@ -894,8 +894,7 @@ INSTANTIATE_TEST_SUITE_P(
 // Microbenchmark for svt_ext_all_sad_calculation_8x8_16x16. Measures ns/call at
 // the production stride (504) in warm (cache-resident) and cold (hot src / cold
 // ref, as in the encoder) states. Disabled by default; run with:
-//   SvtAv1UnitTests --gtest_also_run_disabled_tests \
-//       --gtest_filter=*ExtAllSadSpeedTest*
+// --gtest_also_run_disabled_tests --gtest_filter=*ExtAllSadSpeedTest*
 class ExtAllSadSpeedTest : public SADTestBase {
   public:
     ExtAllSadSpeedTest() : SADTestBase(RANDOM, BUF_RANDOM) {

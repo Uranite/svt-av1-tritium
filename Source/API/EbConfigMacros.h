@@ -29,9 +29,6 @@
 #if RTC_BUILD
 #define CONFIG_LOG_QUIET                    1
 
-#define CONFIG_ARM_NEON_IS_GUARANTEED       1
-#define CONFIG_X86_AVX2_IS_GUARANTEED       0
-
 #define CONFIG_ENABLE_QUANT_MATRIX          0
 #define CONFIG_ENABLE_OBMC                  0
 #define CONFIG_ENABLE_FILM_GRAIN            0
@@ -51,6 +48,10 @@
 // Neon is mandatory in Armv8.0-A (AArch64), which is our minimum Arm target,
 // so it is guaranteed for deployment builds, however tests use C functions,
 // and hence for development builds this must stay at 0.
+#if defined(__aarch64__) || defined(_M_ARM64)
+#define CONFIG_ARM_NEON_IS_GUARANTEED       1
+#endif
+
 #ifndef CONFIG_ARM_NEON_IS_GUARANTEED
 #define CONFIG_ARM_NEON_IS_GUARANTEED       0
 #endif
@@ -60,6 +61,10 @@
 // processors since support it.
 // You can set it to 1 to reduce binary size if deployment platforms are
 // guaranteed to be not older than Haswell.
+#if 0
+#define CONFIG_X86_AVX2_IS_GUARANTEED       0
+#endif
+
 #ifndef CONFIG_X86_AVX2_IS_GUARANTEED
 #define CONFIG_X86_AVX2_IS_GUARANTEED       0
 #endif
