@@ -1920,8 +1920,7 @@ static int32_t get_q_ctx(int32_t q) {
 void svt_av1_default_coef_probs(FRAME_CONTEXT* fc, int32_t base_qindex) {
     const int32_t index = get_q_ctx(base_qindex);
 
-    void (*memcpy_fn)(void*, const void*, size_t) = svt_memcpy ? svt_memcpy : svt_memcpy_c;
-#define COPY_CDF(dst_cdf, src_cdf) memcpy_fn(fc->dst_cdf, src_cdf[index], sizeof(src_cdf[index]))
+#define COPY_CDF(dst_cdf, src_cdf) SVT_MEMCPY(fc->dst_cdf, src_cdf[index], sizeof(src_cdf[index]))
     COPY_CDF(txb_skip_cdf, av1_default_txb_skip_cdfs);
     COPY_CDF(eob_extra_cdf, av1_default_eob_extra_cdfs);
     COPY_CDF(dc_sign_cdf, av1_default_dc_sign_cdfs);

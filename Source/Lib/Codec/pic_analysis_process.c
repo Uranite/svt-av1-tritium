@@ -485,11 +485,7 @@ static EbErrorType apply_film_grain_table(SequenceControlSet* scs_ptr, PicturePa
 
     AomFilmGrain* src_grain = scs_ptr->static_config.fgs_table;
 
-    if (svt_memcpy != NULL) {
-        svt_memcpy(dst_grain, src_grain, sizeof(*dst_grain));
-    } else {
-        svt_memcpy_c(dst_grain, src_grain, sizeof(*dst_grain));
-    }
+    SVT_MEMCPY(dst_grain, src_grain, sizeof(*dst_grain));
 
     frm_hdr->film_grain_params.apply_grain        = 1;
     frm_hdr->film_grain_params.random_seed        = random_seed;

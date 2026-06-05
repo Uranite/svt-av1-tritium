@@ -805,11 +805,7 @@ void svt_aom_fgn_copy_rect(uint8_t* src, int32_t src_stride, uint8_t* dst, int32
 static void copy_area(int32_t* src, int32_t src_stride, int32_t* dst, int32_t dst_stride, int32_t width,
                       int32_t height) {
     while (height) {
-        if (svt_memcpy != NULL) {
-            svt_memcpy(dst, src, width * sizeof(*src));
-        } else {
-            svt_memcpy_c(dst, src, width * sizeof(*src));
-        }
+        SVT_MEMCPY(dst, src, width * sizeof(*src));
         src += src_stride;
         dst += dst_stride;
         --height;

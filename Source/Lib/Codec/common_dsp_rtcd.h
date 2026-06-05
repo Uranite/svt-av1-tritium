@@ -2900,6 +2900,16 @@ void svt_aom_highbd_hadamard_8x8_avx2(const int16_t *src_diff, ptrdiff_t src_str
 #include "common_dsp_rtcd_neon_devirt.h"
 #endif
 
+// `svt_memcpy` is NULL until svt_aom_setup_common_rtcd_internal() runs, so call
+// sites dispatch to `svt_memcpy_c` when the optimized pointer is not yet set.
+// Under NEON devirtualization `svt_memcpy` expands to a concrete function whose
+// address is never NULL (which trips -Werror=address), so resolve directly to it.
+#if CONFIG_ARM_NEON_IS_GUARANTEED && !defined(RTCD_C)
+#define SVT_MEMCPY svt_memcpy
+#else
+#define SVT_MEMCPY (svt_memcpy ? svt_memcpy : svt_memcpy_c)
+#endif
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif
