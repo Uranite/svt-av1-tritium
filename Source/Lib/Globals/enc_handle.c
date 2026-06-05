@@ -5895,6 +5895,22 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
                 }
             }
         }
+#if ADD_ON_THE_FLY_MG
+        else if (node->node_type == MG_SIZE_CHANGE_EVENT) {
+            SvtAv1MgSizeInfo* node_data = (SvtAv1MgSizeInfo*)node->data;
+            if (!((scs->static_config.pred_structure == LOW_DELAY) &&
+                  (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) && scs->static_config.rtc)) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("MG size change on the fly not supported for any mode other than RTC Low-Delay CBR.\n");
+                return EB_ErrorBadParameter;
+            }
+            if (node_data->hierarchical_levels > 2) {
+                input_ptr->flags = EB_BUFFERFLAG_EOS;
+                SVT_ERROR("Low delay CBR supports hierarchical_levels [0-2].\n");
+                return EB_ErrorBadParameter;
+            }
+        }
+#endif
         node = node->next;
     }
     return EB_ErrorNone;
