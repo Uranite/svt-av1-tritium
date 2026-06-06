@@ -229,6 +229,14 @@ option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
 message(STATUS "BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
 
 option(BUILD_TESTING "Build SvtAv1UnitTests, SvtAv1ApiTests, and SvtAv1E2ETests unit tests")
+if(BUILD_TESTING)
+    # Unit tests rely on C reference functions (they call
+    # svt_aom_setup_*_rtcd_internal(0) to populate the C path), so the
+    # guaranteed-SIMD C-stripping/devirtualization must be disabled here.
+    # Applied globally and before add_subdirectory(Source/Lib) so it reaches
+    # the SvtAv1Enc library compile that the tests link against.
+    add_definitions(-DSVT_AV1_UNIT_TEST_BUILD=1)
+endif()
 option(COVERAGE "Generate coverage report")
 if(NOT MSVC)
     option(SVT_AV1_PGO "Enable profile guided optimization. Creates the RunPGO and CompilePGO targets")

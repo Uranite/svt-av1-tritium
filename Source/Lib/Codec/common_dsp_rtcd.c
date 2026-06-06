@@ -452,6 +452,17 @@ EbCpuFlags svt_aom_get_cpu_flags_to_use() { return 0; }
 // Thread-safe RTCD initialization using lazily-initialized mutex
 DEFINE_ONCE_MUTEX(common_rtcd_init_mutex);
 
+// Build-mode handshake for the unit-test harness. Reflects how THIS library
+// translation unit was compiled, so the tests can detect a mismatched
+// (deployment) library at runtime. See common_dsp_rtcd.h.
+int svt_aom_library_built_for_unit_tests(void) {
+#ifdef SVT_AV1_UNIT_TEST_BUILD
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     RUN_ONCE_MUTEX(common_rtcd_init_mutex);
     svt_block_on_mutex(common_rtcd_init_mutex);

@@ -47,8 +47,9 @@
 // reduce final binary size.
 // Neon is mandatory in Armv8.0-A (AArch64), which is our minimum Arm target,
 // so it is guaranteed for deployment builds, however tests use C functions,
-// and hence for development builds this must stay at 0.
-#if defined(__aarch64__) || defined(_M_ARM64)
+// and hence for unit-test builds (SVT_AV1_UNIT_TEST_BUILD, set by CMake when
+// BUILD_TESTING is ON) this must stay at 0.
+#if (defined(__aarch64__) || defined(_M_ARM64)) && !defined(SVT_AV1_UNIT_TEST_BUILD)
 #define CONFIG_ARM_NEON_IS_GUARANTEED       1
 #endif
 

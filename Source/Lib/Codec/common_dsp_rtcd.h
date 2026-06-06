@@ -43,6 +43,15 @@ EbCpuFlags svt_aom_get_cpu_flags_to_use();
 #endif
 void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags);
 
+// Returns 1 if the library was compiled with SVT_AV1_UNIT_TEST_BUILD defined,
+// 0 otherwise. The unit-test harness calls this at startup to verify it is
+// linked against a test-mode library. A test-mode library keeps the C
+// reference functions (CONFIG_ARM_NEON_IS_GUARANTEED stays 0), which the tests
+// require because they call svt_aom_setup_*_rtcd_internal(0). Linking a
+// deployment library here would silently strip the C path and leave the RTCD
+// table unassigned. See EbConfigMacros.h.
+int svt_aom_library_built_for_unit_tests(void);
+
 void svt_av1_copy_wxh_8bit_c(uint8_t *src, uint32_t src_stride, uint8_t *dst, uint32_t dst_stride, uint32_t height, uint32_t width);
 RTCD_EXTERN void(*svt_av1_copy_wxh_8bit)(uint8_t *src, uint32_t src_stride, uint8_t *dst, uint32_t dst_stride, uint32_t height, uint32_t width);
 void svt_av1_copy_wxh_16bit_c(uint16_t *src, uint32_t src_stride, uint16_t *dst, uint32_t dst_stride, uint32_t height, uint32_t width);
