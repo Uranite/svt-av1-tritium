@@ -573,7 +573,6 @@ class QuantizeQmTest : public QuantizeTest<QuantizeQmParam, QuantizeQmFunc> {
     const int qm_level_{8};
 };
 
-#ifdef ARCH_X86_64
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(QuantizeQmTest);
 
 TEST_P(QuantizeQmTest, ZeroInput) {
@@ -643,6 +642,7 @@ TEST_P(QuantizeQmHbdTest, CoeffHalfDequant) {
     QuantizeRun<false>(25, 1);
 }
 
+#ifdef ARCH_X86_64
 const QuantizeParam kQParamArrayAvx2[] = {
     make_tuple(&svt_av1_quantize_fp_c, &svt_av1_quantize_fp_sse4_1, TX_16X16,
                TYPE_FP, EB_EIGHT_BIT),
@@ -848,7 +848,39 @@ const QuantizeParam kQParamArrayNeon[] = {
 INSTANTIATE_TEST_SUITE_P(NEON, QuantizeLbdTest,
                          ::testing::ValuesIn(kQParamArrayNeon));
 
+const QuantizeQmParam kQmParamArrayNeon[] = {
+    make_tuple(&svt_av1_quantize_fp_qm_c, &svt_av1_quantize_fp_qm_neon,
+               TX_16X16, TYPE_FP, EB_EIGHT_BIT),
+    make_tuple(&svt_av1_quantize_fp_qm_c, &svt_av1_quantize_fp_qm_neon, TX_4X16,
+               TYPE_FP, EB_EIGHT_BIT),
+    make_tuple(&svt_av1_quantize_fp_qm_c, &svt_av1_quantize_fp_qm_neon, TX_16X4,
+               TYPE_FP, EB_EIGHT_BIT),
+    make_tuple(&svt_av1_quantize_fp_qm_c, &svt_av1_quantize_fp_qm_neon, TX_32X8,
+               TYPE_FP, EB_EIGHT_BIT),
+    make_tuple(&svt_av1_quantize_fp_qm_c, &svt_av1_quantize_fp_qm_neon, TX_8X32,
+               TYPE_FP, EB_EIGHT_BIT)};
+
+INSTANTIATE_TEST_SUITE_P(NEON, QuantizeQmTest,
+                         ::testing::ValuesIn(kQmParamArrayNeon));
+
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
+const QuantizeQmParam kQmParamHbdArrayNeon[] = {
+    make_tuple(&svt_av1_highbd_quantize_fp_qm_c,
+               &svt_av1_highbd_quantize_fp_qm_neon, TX_16X16, TYPE_FP,
+               EB_TEN_BIT),
+    make_tuple(&svt_av1_highbd_quantize_fp_qm_c,
+               &svt_av1_highbd_quantize_fp_qm_neon, TX_32X8, TYPE_FP,
+               EB_TEN_BIT),
+    make_tuple(&svt_av1_highbd_quantize_fp_qm_c,
+               &svt_av1_highbd_quantize_fp_qm_neon, TX_8X32, TYPE_FP,
+               EB_TWELVE_BIT),
+    make_tuple(&svt_av1_highbd_quantize_fp_qm_c,
+               &svt_av1_highbd_quantize_fp_qm_neon, TX_16X16, TYPE_FP,
+               EB_TWELVE_BIT)};
+
+INSTANTIATE_TEST_SUITE_P(NEON, QuantizeQmHbdTest,
+                         ::testing::ValuesIn(kQmParamHbdArrayNeon));
+
 const QuantizeHbdParam kQHbdParamArrayNeon[] = {
     make_tuple(&svt_av1_highbd_quantize_fp_c, &svt_av1_highbd_quantize_fp_neon,
                TX_16X16, TYPE_FP, EB_EIGHT_BIT),
