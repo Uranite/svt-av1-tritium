@@ -2525,7 +2525,7 @@ static void enc_make_inter_predictor_light_pd0(uint8_t* src, uint8_t* dst, Subpe
     svt_inter_predictor_light_pd0(src, src_stride, dst, dst_stride, blk_width, blk_height, subpel_params, conv_params);
 }
 
-void NOINLINE svt_aom_enc_make_inter_predictor(
+void svt_aom_enc_make_inter_predictor(
     SequenceControlSet* scs, uint8_t* src_ptr, uint8_t* src_ptr_2b, uint8_t* dst_ptr, int16_t pre_y, int16_t pre_x,
     Mv mv, const struct ScaleFactors* const sf, ConvolveParams* conv_params, InterpFilters interp_filters,
     const InterInterCompoundData* const interinter_comp, uint8_t* seg_mask, uint16_t frame_width, uint16_t frame_height,
