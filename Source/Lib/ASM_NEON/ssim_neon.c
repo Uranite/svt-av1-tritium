@@ -12,14 +12,7 @@
 #include <arm_neon.h>
 
 #include "aom_dsp_rtcd.h"
-
-// Implemented in C (mode_decision.c / enc_dec_process.c); turns the five integer
-// sums into the final SSIM score. The NEON kernels below only vectorize the
-// accumulation, so the integer sums (and hence the returned double) are
-// bit-identical to the C reference. The low-bit-depth kernels live in
-// ssim_neon_dotprod.c (UDOT); high-bit-depth uses widening multiplies here.
-extern double similarity(uint32_t sum_s, uint32_t sum_r, uint32_t sum_sq_s, uint32_t sum_sq_r, uint32_t sum_sxr,
-                         int count, int bd);
+#include "enc_dec_process.h"
 
 static AOM_FORCE_INLINE void ssim_hbd_row(uint16x8_t vs, uint16x8_t vr, uint32x4_t* acc_s, uint32x4_t* acc_r,
                                           uint32x4_t* acc_sq_s, uint32x4_t* acc_sq_r, uint32x4_t* acc_sxr) {
@@ -38,7 +31,7 @@ double svt_ssim_8x8_hbd_neon(const uint16_t* s, uint32_t sp, const uint16_t* r, 
         s += sp;
         r += rp;
     }
-    return similarity(
+    return svt_aom_similarity(
         vaddvq_u32(acc_s), vaddvq_u32(acc_r), vaddvq_u32(acc_sq_s), vaddvq_u32(acc_sq_r), vaddvq_u32(acc_sxr), 64, 10);
 }
 
@@ -56,6 +49,6 @@ double svt_ssim_4x4_hbd_neon(const uint16_t* s, uint32_t sp, const uint16_t* r, 
         s += sp;
         r += rp;
     }
-    return similarity(
+    return svt_aom_similarity(
         vaddvq_u32(acc_s), vaddvq_u32(acc_r), vaddvq_u32(acc_sq_s), vaddvq_u32(acc_sq_r), vaddvq_u32(acc_sxr), 16, 10);
 }
