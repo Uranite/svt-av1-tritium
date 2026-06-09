@@ -14,6 +14,8 @@
 #include "gtest/gtest.h"
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <cstdio>
 #include <memory>
 #include <vector>
 #include "aom_dsp_rtcd.h"
@@ -272,7 +274,84 @@ class QuantizeLbdTest : public QuantizeTest<QuantizeParam, QuantizeFunc> {
                 << "eobs mismatch on test: " << i << " Q: " << q;
         }
     }
+
+    // Microbenchmark for the flat (no quantization matrix) quantizer: C
+    // reference vs SIMD on a dense coefficient block. Provides context for the
+    // qm-kernel speedups. Disabled by default.
+    void RunSpeedTest() {
+        const auto quant_ref = TEST_GET_PARAM(0);
+        const auto quant_tst = TEST_GET_PARAM(1);
+        const auto type = TEST_GET_PARAM(3);
+
+        TranLow *coeff_ptr = coeff_.data();
+        const intptr_t n_coeffs = coeff_num();
+        TranLow *qcoeff_ref = coeff_ptr + n_coeffs;
+        TranLow *dqcoeff_ref = qcoeff_ref + n_coeffs;
+        TranLow *qcoeff = dqcoeff_ref + n_coeffs;
+        TranLow *dqcoeff = qcoeff + n_coeffs;
+        uint16_t *eob = reinterpret_cast<uint16_t *>(dqcoeff + n_coeffs);
+
+        const ScanOrder *const sc = get_scan_order(tx_size_, DCT_DCT);
+        const int q = 0;
+        const int16_t *zbin = qtab_.quant.y_zbin[q];
+        const int16_t *round = (type == TYPE_B) ? qtab_.quant.y_round[q]
+                                                : qtab_.quant.y_round_fp[q];
+        const int16_t *quant = (type == TYPE_B) ? qtab_.quant.y_quant[q]
+                                                : qtab_.quant.y_quant_fp[q];
+        const int16_t *quant_shift = qtab_.quant.y_quant_shift[q];
+        const int16_t *dequant = qtab_.dequant.y_dequant_qtx[q];
+
+        FillCoeffRandomRows(static_cast<int>(n_coeffs));  // dense block
+        std::fill_n(qcoeff_ref, 5 * n_coeffs, 0);
+
+        auto run =
+            [&](QuantizeFunc fn, TranLow *qc, TranLow *dqc, uint16_t *e) {
+                fn(coeff_ptr,
+                   n_coeffs,
+                   zbin,
+                   round,
+                   quant,
+                   quant_shift,
+                   qc,
+                   dqc,
+                   dequant,
+                   e,
+                   sc->scan,
+                   sc->iscan);
+            };
+        const uint64_t num_loop = 300000;
+        for (int i = 0; i < 4000; ++i) {
+            run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
+            run(quant_tst, qcoeff, dqcoeff, &eob[1]);
+        }
+        auto t0 = std::chrono::steady_clock::now();
+        for (uint64_t i = 0; i < num_loop; ++i)
+            run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
+        auto t1 = std::chrono::steady_clock::now();
+        for (uint64_t i = 0; i < num_loop; ++i)
+            run(quant_tst, qcoeff, dqcoeff, &eob[1]);
+        auto t2 = std::chrono::steady_clock::now();
+        const double c_ns =
+            std::chrono::duration<double, std::nano>(t1 - t0).count() /
+            num_loop;
+        const double n_ns =
+            std::chrono::duration<double, std::nano>(t2 - t1).count() /
+            num_loop;
+        printf(
+            "[ SPEED    ] tx=%2d bd=%2d n=%4d : C %8.1f ns  SIMD %8.1f ns  "
+            "speedup %.2fx (flat)\n",
+            static_cast<int>(tx_size_),
+            static_cast<int>(bd_),
+            static_cast<int>(n_coeffs),
+            c_ns,
+            n_ns,
+            c_ns / n_ns);
+    }
 };
+
+TEST_P(QuantizeLbdTest, DISABLED_Speed) {
+    RunSpeedTest();
+}
 
 TEST_P(QuantizeLbdTest, ZeroInput) {
     FillCoeffZero();
@@ -556,6 +635,95 @@ class QuantizeQmTest : public QuantizeTest<QuantizeQmParam, QuantizeQmFunc> {
         }
     }
 
+    // Microbenchmark: per-call latency of the C reference vs the SIMD kernel on
+    // a dense (fully populated) coefficient block, qm_level_ = 8 (a non-flat
+    // matrix). Disabled by default; run with --gtest_also_run_disabled_tests.
+    void RunSpeedTest() {
+        const auto quant_ref = TEST_GET_PARAM(0);
+        const auto quant_tst = TEST_GET_PARAM(1);
+
+        TranLow *coeff_ptr = coeff_.data();
+        const intptr_t n_coeffs = coeff_num();
+        TranLow *qcoeff_ref = coeff_ptr + n_coeffs;
+        TranLow *dqcoeff_ref = qcoeff_ref + n_coeffs;
+        TranLow *qcoeff = dqcoeff_ref + n_coeffs;
+        TranLow *dqcoeff = qcoeff + n_coeffs;
+        uint16_t *eob = reinterpret_cast<uint16_t *>(dqcoeff + n_coeffs);
+
+        const ScanOrder *const sc = get_scan_order(tx_size_, DCT_DCT);
+        const int q = 0;
+        const int16_t *zbin = qtab_.quant.y_zbin[q];
+        const int16_t *round = qtab_.quant.y_round_fp[q];
+        const int16_t *quant = qtab_.quant.y_quant_fp[q];
+        const int16_t *quant_shift = qtab_.quant.y_quant_shift[q];
+        const int16_t *dequant = qtab_.dequant.y_dequant_qtx[q];
+        const TxSize qm_tx_size = av1_get_adjusted_tx_size(tx_size_);
+        const QmVal *qm_ptr = qmatrix_[qm_level_][0][qm_tx_size];
+        const QmVal *iqm_ptr = iqmatrix_[qm_level_][0][qm_tx_size];
+        const int log_scale = av1_get_tx_scale(tx_size_);
+
+        // quant_ref / quant_tst are opaque function pointers, so the indirect
+        // calls (and their stores) cannot be hoisted or eliminated.
+        auto run =
+            [&](QuantizeQmFunc fn, TranLow *qc, TranLow *dqc, uint16_t *e) {
+                fn(coeff_ptr,
+                   n_coeffs,
+                   zbin,
+                   round,
+                   quant,
+                   quant_shift,
+                   qc,
+                   dqc,
+                   dequant,
+                   e,
+                   sc->scan,
+                   sc->iscan,
+                   qm_ptr,
+                   iqm_ptr,
+                   log_scale);
+            };
+        const uint64_t num_loop = 300000;
+        // Measure across coefficient densities (full / quarter / eighth), since
+        // sparser blocks shorten the eob-bounded loop and shrink the SIMD
+        // margin.
+        const int densities[] = {static_cast<int>(n_coeffs),
+                                 static_cast<int>(n_coeffs) / 4,
+                                 static_cast<int>(n_coeffs) / 8};
+        for (int nz : densities) {
+            if (nz < 1)
+                nz = 1;
+            FillCoeffRandomRows(nz);
+            std::fill_n(qcoeff_ref, 5 * n_coeffs, 0);
+            for (int i = 0; i < 4000; ++i) {  // warm
+                run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
+                run(quant_tst, qcoeff, dqcoeff, &eob[1]);
+            }
+            auto t0 = std::chrono::steady_clock::now();
+            for (uint64_t i = 0; i < num_loop; ++i)
+                run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
+            auto t1 = std::chrono::steady_clock::now();
+            for (uint64_t i = 0; i < num_loop; ++i)
+                run(quant_tst, qcoeff, dqcoeff, &eob[1]);
+            auto t2 = std::chrono::steady_clock::now();
+            const double c_ns =
+                std::chrono::duration<double, std::nano>(t1 - t0).count() /
+                num_loop;
+            const double n_ns =
+                std::chrono::duration<double, std::nano>(t2 - t1).count() /
+                num_loop;
+            printf(
+                "[ SPEED    ] tx=%2d bd=%2d n=%4d nz=%4d : C %8.1f ns  "
+                "SIMD %8.1f ns  speedup %.2fx\n",
+                static_cast<int>(tx_size_),
+                static_cast<int>(bd_),
+                static_cast<int>(n_coeffs),
+                nz,
+                c_ns,
+                n_ns,
+                c_ns / n_ns);
+        }
+    }
+
   private:
     static TxSize av1_get_adjusted_tx_size(TxSize tx_size) {
         switch (tx_size) {
@@ -607,6 +775,10 @@ TEST_P(QuantizeQmTest, CoeffHalfDequant) {
     QuantizeRun<false>(25, 1);
 }
 
+TEST_P(QuantizeQmTest, DISABLED_Speed) {
+    RunSpeedTest();
+}
+
 using QuantizeQmHbdTest = QuantizeQmTest;
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(QuantizeQmHbdTest);
 
@@ -640,6 +812,10 @@ TEST_P(QuantizeQmHbdTest, MultipleQ) {
 TEST_P(QuantizeQmHbdTest, CoeffHalfDequant) {
     FillCoeff(16);
     QuantizeRun<false>(25, 1);
+}
+
+TEST_P(QuantizeQmHbdTest, DISABLED_Speed) {
+    RunSpeedTest();
 }
 
 #ifdef ARCH_X86_64
