@@ -200,7 +200,11 @@ uint8_t svt_aom_get_gm_core_level(EncMode enc_mode, bool super_res_off) {
     if (super_res_off) {
         if (enc_mode <= ENC_MR) {
             gm_level = 2;
+#if OPT_RA_BITRATE
+        } else if (enc_mode <= ENC_M4) {
+#else
         } else if (enc_mode <= ENC_M5) {
+#endif
             gm_level = 4;
         } else {
             gm_level = 0;
@@ -405,7 +409,11 @@ static void set_me_search_params(SequenceControlSet* scs, PictureParentControlSe
     } else if (enc_mode <= ENC_M3) {
         me_ctx->me_sa.sa_min = (SearchArea){24, 24};
         me_ctx->me_sa.sa_max = (SearchArea){88, 88};
+#if OPT_RA_BITRATE
+    } else if (enc_mode <= ENC_M4) {
+#else
     } else if (enc_mode <= ENC_M5) {
+#endif
         me_ctx->me_sa.sa_min = (SearchArea){24, 12};
         me_ctx->me_sa.sa_max = (SearchArea){48, 32};
     } else if (enc_mode <= ENC_M7) {
@@ -999,7 +1007,11 @@ void svt_aom_sig_deriv_me(SequenceControlSet* scs, PictureParentControlSet* pcs,
             me_ref_prune_level = 0;
         } else if (enc_mode <= ENC_M0) {
             me_ref_prune_level = is_base ? 1 : 4;
+#if OPT_RA_BITRATE
+        } else if (enc_mode <= ENC_M4) {
+#else
         } else if (enc_mode <= ENC_M5) {
+#endif
             me_ref_prune_level = is_base ? 1 : 5;
         } else if (enc_mode <= ENC_M8) {
             me_ref_prune_level = is_base ? 1 : 6;
@@ -5793,7 +5805,11 @@ uint8_t svt_aom_get_nic_level_default(EncMode enc_mode, uint8_t is_base) {
         nic_level = is_base ? 4 : 5;
     } else if (enc_mode <= ENC_M3) {
         nic_level = is_base ? 5 : 6;
+#if OPT_RA_BITRATE
+    } else if (enc_mode <= ENC_M5) {
+#else
     } else if (enc_mode <= ENC_M4) {
+#endif
         nic_level = 7;
     } else if (enc_mode <= ENC_M6) {
         nic_level = 8;
@@ -11185,10 +11201,17 @@ static void set_pic_lpd0_lvl_default(PictureControlSet* pcs, EncMode enc_mode) {
         qp_band_idx = 3;
     }
 
+#if OPT_RA_BITRATE
+    if (enc_mode <= ENC_M2) {
+        pcs->pic_lpd0_lvl = 0;
+    } else if (enc_mode <= ENC_M3) {
+        pcs->pic_lpd0_lvl = 1;
+#else
     if (enc_mode <= ENC_M3) {
         pcs->pic_lpd0_lvl = 0;
     } else if (enc_mode <= ENC_M4) {
         pcs->pic_lpd0_lvl = 1;
+#endif
     } else if (enc_mode <= ENC_M7) {
         if (input_resolution <= INPUT_SIZE_360p_RANGE) {
             pcs->pic_lpd0_lvl = 3;

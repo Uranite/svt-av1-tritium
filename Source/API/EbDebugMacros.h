@@ -103,6 +103,8 @@ extern "C" {
 
 #define OPT_USE_HL0_FLAT  1 // Support hierarchical_levels 0 (flat) and 1 in LD CBR and RA 1L referencing
 
+#define OPT_RA_BITRATE             1 // Optimize bitrate for RA (M3/M4/M5)
+
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL
