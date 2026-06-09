@@ -434,21 +434,37 @@ static AOM_FORCE_INLINE uint32x4_t quantize_b_qm_4(int32x4_t v_coeff, int32x4_t 
     const uint32x4_t v_below  = vcgtq_s32(v_zbin_thr, v_abs_wt);
 
     int32x4_t v_q = vaddq_s32(v_abs, v_round);
+    int32x4_t v_qcoeff;
     if (!highbd) {
-        // (abs_coeff + round) is non-negative, so only the INT16_MAX bound can bind.
-        v_q = vminq_s32(v_q, vdupq_n_s32(32767));
+        // 8-bit: (abs_coeff + round) is clamped to INT16_MAX, so q_wt = q*wt is at
+        // most 2^15*34 < 2^21 and the whole two-step quantizer fits 32-bit lanes.
+        // Each "(x * y) >> n" step is a doubling multiply-high, avoiding the widen
+        // to 64 bits:
+        //   step1: (q_wt * quant) >> 16        == vqdmulhq_s32(q_wt, quant << 15)
+        //   abs_q: (q2 * quant_shift) >> S      == vqdmulhq_s32(q2, quant_shift << (31 - S))
+        // quant is int16 so quant << 15 fits s32; quant_shift << (31 - S) <= 2^27.
+        // quant can be negative, but SQDMULH's high-half is an arithmetic shift,
+        // matching the C >>; q2 = step1 + q_wt stays non-negative.
+        v_q                          = vminq_s32(v_q, vdupq_n_s32(32767));
+        const int32x4_t v_q_wt       = vmulq_s32(v_q, v_qm);
+        const int32x4_t v_step1      = vqdmulhq_s32(v_q_wt, vshlq_s32(v_quant, vdupq_n_s32(15)));
+        const int32x4_t v_q2         = vaddq_s32(v_step1, v_q_wt);
+        const int32x4_t v_qshift_scl = vshlq_s32(v_quant_shift, vdupq_n_s32(31 - shift_q));
+        v_qcoeff                     = vqdmulhq_s32(v_q2, v_qshift_scl);
+    } else {
+        // 10/12-bit: abs_coeff is not int16-clamped, so the two-step products
+        // exceed 32 bits -- keep the quantizer in 64-bit lanes.
+        const int32x4_t v_q_wt = vmulq_s32(v_q, v_qm);
+        // tmp = (q_wt * quant) >> 16; q2 = tmp + q_wt
+        const int64x2_t t_lo = vshrq_n_s64(vmull_s32(vget_low_s32(v_q_wt), vget_low_s32(v_quant)), 16);
+        const int64x2_t t_hi = vshrq_n_s64(vmull_high_s32(v_q_wt, v_quant), 16);
+        const int32x4_t v_q2 = vaddq_s32(vcombine_s32(vmovn_s64(t_lo), vmovn_s64(t_hi)), v_q_wt);
+        // abs_qcoeff = (q2 * quant_shift) >> (16 - log_scale + AOM_QM_BITS)
+        const int64x2_t a_lo = vshlq_s64(vmull_s32(vget_low_s32(v_q2), vget_low_s32(v_quant_shift)),
+                                         vdupq_n_s64(-shift_q));
+        const int64x2_t a_hi = vshlq_s64(vmull_high_s32(v_q2, v_quant_shift), vdupq_n_s64(-shift_q));
+        v_qcoeff             = vcombine_s32(vmovn_s64(a_lo), vmovn_s64(a_hi));
     }
-    const int32x4_t v_q_wt = vmulq_s32(v_q, v_qm);
-
-    // tmp = (q_wt * quant) >> 16 (64-bit); q2 = tmp + q_wt
-    const int64x2_t t_lo = vshrq_n_s64(vmull_s32(vget_low_s32(v_q_wt), vget_low_s32(v_quant)), 16);
-    const int64x2_t t_hi = vshrq_n_s64(vmull_high_s32(v_q_wt, v_quant), 16);
-    const int32x4_t v_q2 = vaddq_s32(vcombine_s32(vmovn_s64(t_lo), vmovn_s64(t_hi)), v_q_wt);
-
-    // abs_qcoeff = (q2 * quant_shift) >> (16 - log_scale + AOM_QM_BITS) (64-bit)
-    const int64x2_t a_lo = vshlq_s64(vmull_s32(vget_low_s32(v_q2), vget_low_s32(v_quant_shift)), vdupq_n_s64(-shift_q));
-    const int64x2_t a_hi = vshlq_s64(vmull_high_s32(v_q2, v_quant_shift), vdupq_n_s64(-shift_q));
-    int32x4_t       v_qcoeff = vcombine_s32(vmovn_s64(a_lo), vmovn_s64(a_hi));
 
     // dequant_qm = (dequant * iqm + (1 << (AOM_QM_BITS - 1))) >> AOM_QM_BITS; abs_dqcoeff = (abs_qcoeff * dequant_qm) >> log_scale
     int32x4_t v_dqf = vmulq_s32(v_dequant, v_iqm);
