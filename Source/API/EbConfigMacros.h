@@ -49,7 +49,7 @@
 // so it is guaranteed for deployment builds, however tests use C functions,
 // and hence for unit-test builds (SVT_AV1_UNIT_TEST_BUILD, set by CMake when
 // BUILD_TESTING is ON) this must stay at 0.
-#if (defined(__aarch64__) || defined(_M_ARM64)) && !defined(SVT_AV1_UNIT_TEST_BUILD)
+#if defined(ARCH_AARCH64) && !defined(SVT_AV1_UNIT_TEST_BUILD)
 #define CONFIG_ARM_NEON_IS_GUARANTEED       1
 #endif
 
@@ -103,6 +103,13 @@
 // per frame and all inter-stage semaphore/mutex overhead.
 #ifndef CONFIG_SINGLE_THREAD_KERNEL
 #define CONFIG_SINGLE_THREAD_KERNEL         1
+#endif
+
+// Native 8-bit CDEF NEON path (interior blocks in uint8 lanes). ARM-only.
+#if defined(ARCH_AARCH64)
+#define CDEF_8BITS_PATH 1
+#else
+#define CDEF_8BITS_PATH 0
 #endif
 
 // clang-format on

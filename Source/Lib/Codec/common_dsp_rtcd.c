@@ -836,6 +836,9 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_SSE41_AVX2(svt_aom_cdef_find_dir, svt_aom_cdef_find_dir_c, svt_aom_cdef_find_dir_sse4_1, svt_aom_cdef_find_dir_avx2);
     SET_SSE41_AVX2(svt_aom_cdef_find_dir_dual, svt_aom_cdef_find_dir_dual_c, svt_aom_cdef_find_dir_dual_sse4_1, svt_aom_cdef_find_dir_dual_avx2);
     SET_SSE41_AVX2(svt_cdef_filter_block, svt_cdef_filter_block_c, svt_av1_cdef_filter_block_sse4_1, svt_cdef_filter_block_avx2);
+    SET_ONLY_C(svt_cdef_filter_block_8bit, svt_cdef_filter_block_8bit_c);
+    SET_ONLY_C(svt_aom_cdef_find_dir_8bit, svt_aom_cdef_find_dir_8bit_c);
+    SET_ONLY_C(svt_aom_cdef_find_dir_dual_8bit, svt_aom_cdef_find_dir_dual_8bit_c);
     /* No C version, use only internal in kerneal: svt_cdef_filter_block_avx2() */
     if (flags & EB_CPU_FLAGS_AVX2)    svt_cdef_filter_block_8xn_16 = svt_cdef_filter_block_8xn_16_avx2;
 #if EN_AVX512_SUPPORT
@@ -1391,6 +1394,9 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_NEON(svt_aom_cdef_find_dir, svt_aom_cdef_find_dir_c, svt_aom_cdef_find_dir_neon);
     SET_NEON(svt_aom_cdef_find_dir_dual, svt_aom_cdef_find_dir_dual_c, svt_aom_cdef_find_dir_dual_neon);
     SET_NEON(svt_cdef_filter_block, svt_cdef_filter_block_c, svt_cdef_filter_block_neon);
+    SET_NEON(svt_cdef_filter_block_8bit, svt_cdef_filter_block_8bit_c, svt_cdef_filter_block_8bit_neon);
+    SET_NEON(svt_aom_cdef_find_dir_8bit, svt_aom_cdef_find_dir_8bit_c, svt_aom_cdef_find_dir_8bit_neon);
+    SET_NEON(svt_aom_cdef_find_dir_dual_8bit, svt_aom_cdef_find_dir_dual_8bit_c, svt_aom_cdef_find_dir_dual_8bit_neon);
 
     SET_NEON(svt_aom_copy_rect8_8bit_to_16bit, svt_aom_copy_rect8_8bit_to_16bit_c, svt_aom_copy_rect8_8bit_to_16bit_neon);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
@@ -1937,6 +1943,9 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_ONLY_C(svt_aom_cdef_find_dir, svt_aom_cdef_find_dir_c);
     SET_ONLY_C(svt_aom_cdef_find_dir_dual, svt_aom_cdef_find_dir_dual_c);
     SET_ONLY_C(svt_cdef_filter_block, svt_cdef_filter_block_c);
+    SET_ONLY_C(svt_cdef_filter_block_8bit, svt_cdef_filter_block_8bit_c);
+    SET_ONLY_C(svt_aom_cdef_find_dir_8bit, svt_aom_cdef_find_dir_8bit_c);
+    SET_ONLY_C(svt_aom_cdef_find_dir_dual_8bit, svt_aom_cdef_find_dir_dual_8bit_c);
     SET_ONLY_C(svt_aom_copy_rect8_8bit_to_16bit, svt_aom_copy_rect8_8bit_to_16bit_c);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_ONLY_C(svt_av1_highbd_warp_affine, svt_av1_highbd_warp_affine_c);

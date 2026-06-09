@@ -14,6 +14,9 @@
 #include <string.h>
 
 #include "enc_cdef.h"
+#if CDEF_8BITS_PATH
+#include "cdef_inl.h"
+#endif
 #include <stdint.h>
 #include "aom_dsp_rtcd.h"
 #include "svt_log.h"
@@ -231,6 +234,116 @@ static inline void svt_aom_copy_rect(uint16_t* dst, int32_t dstride, const uint1
 Loop over all 64x64 filter blocks and perform the CDEF filtering for each block, using
 the filter strength pairs chosen in finish_cdef_search().
 */
+#if CDEF_8BITS_PATH
+// svt_cdef_narrow_rect / svt_cdef_filter_fb_hybrid are declared in cdef.h (via enc_cdef.h).
+// Interior fb (no frame border): build the 8-bit src8 buffer DIRECTLY from recon +
+// 8-bit-narrowed line/col buffers (no 8->16 widen, no full narrow), then filter all
+// blocks natively, writing recon in place. linebuf/colbuf stay uint16 (HBD builds need
+// that); we narrow on read and widen on the colbuf save.
+static inline void cdef_apply_fb_interior_neon(
+    uint8_t* rec_buff, uint32_t rec_stride, uint8_t* src8, uint16_t* linebuf_pli, uint16_t* colbuf_pli,
+    const uint8_t* prev_row_cdef, int fbr, int fbc, int nvfb, int nhfb, int coffset, int mhl2, int mwl2, int nhb,
+    int nvb, int stride, int rend, int cend, int cstart, int cdef_left, uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS],
+    int* dirinit, int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int pli, CdefList* dlist, int cdef_count, int level,
+    int sec_strength, int pri_damping, int sec_damping, int coeff_shift, int xdec, int ydec) {
+    const int vsz = nvb << mhl2;
+    const int hsz = nhb << mwl2;
+    // Body.
+    svt_cdef_copy_rect8(&src8[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER + cstart],
+                        CDEF_BSTRIDE,
+                        rec_buff,
+                        (MI_SIZE_64X64 << mhl2) * fbr,
+                        coffset + cstart,
+                        rec_stride,
+                        rend,
+                        cend - cstart);
+    // Top.
+    if (!prev_row_cdef[fbc]) {
+        svt_cdef_copy_rect8(&src8[CDEF_HBORDER],
+                            CDEF_BSTRIDE,
+                            rec_buff,
+                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_VBORDER,
+                            coffset,
+                            rec_stride,
+                            CDEF_VBORDER,
+                            hsz);
+    } else {
+        svt_cdef_narrow_rect(&src8[CDEF_HBORDER], CDEF_BSTRIDE, &linebuf_pli[coffset], stride, CDEF_VBORDER, hsz);
+    }
+    // Top-left.
+    if (!prev_row_cdef[fbc - 1]) {
+        svt_cdef_copy_rect8(src8,
+                            CDEF_BSTRIDE,
+                            rec_buff,
+                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_VBORDER,
+                            coffset - CDEF_HBORDER,
+                            rec_stride,
+                            CDEF_VBORDER,
+                            CDEF_HBORDER);
+    } else {
+        svt_cdef_narrow_rect(
+            src8, CDEF_BSTRIDE, &linebuf_pli[coffset - CDEF_HBORDER], stride, CDEF_VBORDER, CDEF_HBORDER);
+    }
+    // Top-right.
+    if (!prev_row_cdef[fbc + 1]) {
+        svt_cdef_copy_rect8(&src8[CDEF_HBORDER + (nhb << mwl2)],
+                            CDEF_BSTRIDE,
+                            rec_buff,
+                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_VBORDER,
+                            coffset + hsz,
+                            rec_stride,
+                            CDEF_VBORDER,
+                            CDEF_HBORDER);
+    } else {
+        svt_cdef_narrow_rect(
+            &src8[hsz + CDEF_HBORDER], CDEF_BSTRIDE, &linebuf_pli[coffset + hsz], stride, CDEF_VBORDER, CDEF_HBORDER);
+    }
+    // Left (from colbuf, if the left fb was filtered).
+    if (cdef_left) {
+        svt_cdef_narrow_rect(src8, CDEF_BSTRIDE, colbuf_pli, CDEF_HBORDER, rend + CDEF_VBORDER, CDEF_HBORDER);
+    }
+    // Save right edge to colbuf (uint16) for the fb to the right.
+    if (fbc < nhfb - 1) {
+        svt_cdef_widen_rect(colbuf_pli, CDEF_HBORDER, &src8[hsz], CDEF_BSTRIDE, rend + CDEF_VBORDER, CDEF_HBORDER);
+    }
+    // Save bottom edge to linebuf (uint16) for the fb below.
+    if (fbr < nvfb - 1) {
+        svt_cdef_widen_rect(&linebuf_pli[coffset],
+                            stride,
+                            &rec_buff[((MI_SIZE_64X64 << mhl2) * (fbr + 1) - CDEF_VBORDER) * rec_stride + coffset],
+                            rec_stride,
+                            CDEF_VBORDER,
+                            hsz);
+    }
+    if (level || sec_strength || !*dirinit) {
+        svt_cdef_filter_fb_hybrid(&rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mhl2) + (fbc * MI_SIZE_64X64 << mwl2)],
+                                  rec_stride,
+                                  NULL,
+                                  &src8[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
+                                  0,
+                                  0,
+                                  0,
+                                  0,
+                                  vsz,
+                                  hsz,
+                                  xdec,
+                                  ydec,
+                                  dir,
+                                  dirinit,
+                                  var,
+                                  pli,
+                                  dlist,
+                                  cdef_count,
+                                  level,
+                                  sec_strength,
+                                  pri_damping,
+                                  sec_damping,
+                                  coeff_shift,
+                                  1);
+    }
+}
+#endif
+
 void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
     PictureParentControlSet* ppcs     = pcs->ppcs;
     Av1Common*               cm       = ppcs->av1_cm;
@@ -242,6 +355,10 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
 
     const int32_t num_planes = av1_num_planes(&scs->seq_header.color_config);
     DECLARE_ALIGNED(16, uint16_t, src[CDEF_INBUF_SIZE]);
+#if CDEF_8BITS_PATH
+    // 8-bit mirror of `src` for the native interior filter (no 16-bit-lane work).
+    DECLARE_ALIGNED(16, uint8_t, src8[CDEF_INBUF_SIZE]);
+#endif
     uint16_t*      linebuf[3];
     uint16_t*      colbuf[3];
     CdefList       dlist[MI_SIZE_64X64 * MI_SIZE_64X64];
@@ -456,6 +573,46 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                 }
 #endif
 
+#if CDEF_8BITS_PATH
+                // Interior fb (no frame border) on the 8-bit pipeline: native direct path.
+                if (!is_16bit && !frame_top && !frame_left && !frame_bottom && !frame_right) {
+                    cdef_apply_fb_interior_neon(rec_buff,
+                                                rec_stride,
+                                                src8,
+                                                linebuf[pli],
+                                                colbuf[pli],
+                                                prev_row_cdef,
+                                                fbr,
+                                                fbc,
+                                                nvfb,
+                                                nhfb,
+                                                coffset,
+                                                mi_high_l2[pli],
+                                                mi_wide_l2[pli],
+                                                nhb,
+                                                nvb,
+                                                stride,
+                                                rend,
+                                                cend,
+                                                cstart,
+                                                cdef_left,
+                                                *dir,
+                                                &dirinit,
+                                                *var,
+                                                pli,
+                                                dlist,
+                                                cdef_count,
+                                                level,
+                                                sec_strength,
+                                                pri_damping,
+                                                sec_damping,
+                                                coeff_shift,
+                                                xdec[pli],
+                                                ydec[pli]);
+                    continue;
+                }
+#endif
+
                 /* Copy in the pixels we need from the current superblock for
                    deringing.*/
                 svt_aom_copy_sb8_16(&src[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER + cstart],
@@ -571,29 +728,67 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                 // if ppcs->cdef_ctrls.use_reference_cdef_fs is true, then search was not performed
                 // Therefore, need to make sure dir and var are initialized
                 if (level || sec_strength || !dirinit) {
-                    svt_cdef_filter_fb(
-                        is_16bit ? NULL
-                                 : &rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
-                                             (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])],
-                        is_16bit ? &((uint16_t*)rec_buff)[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
-                                                          (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])]
-                                 : NULL,
-                        rec_stride,
-                        &src[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
-                        xdec[pli],
-                        ydec[pli],
-                        *dir,
-                        &dirinit,
-                        *var,
-                        pli,
-                        dlist,
-                        cdef_count,
-                        level,
-                        sec_strength,
-                        pri_damping,
-                        sec_damping,
-                        coeff_shift,
-                        1); // no subsampling
+#if CDEF_8BITS_PATH
+                    // Per-8x8-block hybrid apply (8-bit content): narrow src->src8 and
+                    // run the native kernel on every block except the frame-perimeter
+                    // ring (those use the 16-bit sentinel path). Bit-exact, writes recon
+                    // in place.
+                    if (!is_16bit) {
+                        const int vsz   = nvb << mi_high_l2[pli];
+                        const int hsz   = nhb << mi_wide_l2[pli];
+                        const int nrows = vsz + 2 * CDEF_VBORDER;
+                        const int ncols = hsz + 2 * CDEF_HBORDER;
+                        svt_cdef_narrow_rect(src8, CDEF_BSTRIDE, src, CDEF_BSTRIDE, nrows, ncols);
+                        svt_cdef_filter_fb_hybrid(&rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
+                                                            (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])],
+                                                  rec_stride,
+                                                  &src[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
+                                                  &src8[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
+                                                  frame_top,
+                                                  frame_left,
+                                                  frame_bottom,
+                                                  frame_right,
+                                                  vsz,
+                                                  hsz,
+                                                  xdec[pli],
+                                                  ydec[pli],
+                                                  *dir,
+                                                  &dirinit,
+                                                  *var,
+                                                  pli,
+                                                  dlist,
+                                                  cdef_count,
+                                                  level,
+                                                  sec_strength,
+                                                  pri_damping,
+                                                  sec_damping,
+                                                  coeff_shift,
+                                                  1);
+                    } else
+#endif
+                        svt_cdef_filter_fb(
+                            is_16bit ? NULL
+                                     : &rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
+                                                 (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])],
+                            is_16bit ? &((uint16_t*)rec_buff)[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
+                                                              (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])]
+                                     : NULL,
+                            rec_stride,
+                            &src[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
+                            xdec[pli],
+                            ydec[pli],
+                            *dir,
+                            &dirinit,
+                            *var,
+                            pli,
+                            dlist,
+                            cdef_count,
+                            level,
+                            sec_strength,
+                            pri_damping,
+                            sec_damping,
+                            coeff_shift,
+                            1); // no subsampling
                 }
             }
             cdef_left = 1; //CHKN filtered data is written back directy to recFrame.

@@ -294,6 +294,358 @@ void svt_av1_cdef_filter_block_4xn_8_neon(uint8_t* dst, int32_t dstride, const u
     }
 }
 
+/* 8-bit-lane constrain (16 px/vec): mirrors constrain_neon in uint8 lanes; used by
+ * the native interior kernels. Valid for 8-bit content (real |a-b|<=255, |constrain|<=15). */
+static inline int8x16_t constrain8x16(uint8x16_t a, uint8x16_t b, uint8x16_t thr, int8x16_t negdamp) {
+    const uint8x16_t diff = vabdq_u8(a, b);
+    const uint8x16_t agtb = vcgtq_u8(a, b);
+    const uint8x16_t s    = vqsubq_u8(thr, vshlq_u8(diff, negdamp)); // negdamp<0 => right shift
+    const int8x16_t  clip = vreinterpretq_s8_u8(vminq_u8(diff, s));
+    return vbslq_s8(agtb, clip, vnegq_s8(clip));
+}
+
+/* Bit-exact vs svt_cdef_filter_block_c only for fully-interior blocks (edges all present). */
+static inline uint8x8_t cdef_finalize8(int16x8_t sum, uint8x8_t row_u8, uint8x8_t min_u8, uint8x8_t max_u8) {
+    const int16x8_t row16 = vreinterpretq_s16_u16(vmovl_u8(row_u8));
+    const int16x8_t min16 = vreinterpretq_s16_u16(vmovl_u8(min_u8));
+    const int16x8_t max16 = vreinterpretq_s16_u16(vmovl_u8(max_u8));
+    int16x8_t       s     = vaddq_s16(sum, vreinterpretq_s16_u16(vcltq_s16(sum, vdupq_n_s16(0))));
+    int16x8_t       res   = vaddq_s16(vshrq_n_s16(vaddq_s16(s, vdupq_n_s16(8)), 4), row16);
+    res                   = vminq_s16(vmaxq_s16(res, min16), max16);
+    return vqmovun_s16(res);
+}
+
+void svt_av1_cdef_filter_block_8xn_8_native_neon(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
+                                                 int32_t sec_strength, int32_t dir, int32_t pri_damping,
+                                                 int32_t sec_damping, int32_t coeff_shift, uint8_t height,
+                                                 uint8_t subsampling_factor) {
+    const int* pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int* sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    if (pri_strength) {
+        pri_damping = AOMMAX(0, pri_damping - get_msb(pri_strength));
+    }
+    if (sec_strength) {
+        sec_damping = AOMMAX(0, sec_damping - get_msb(sec_strength));
+    }
+
+    const int po1  = svt_aom_eb_cdef_directions[dir][0];
+    const int po2  = svt_aom_eb_cdef_directions[dir][1];
+    const int s1o1 = svt_aom_eb_cdef_directions[dir + 2][0];
+    const int s1o2 = svt_aom_eb_cdef_directions[dir + 2][1];
+    const int s2o1 = svt_aom_eb_cdef_directions[dir - 2][0];
+    const int s2o2 = svt_aom_eb_cdef_directions[dir - 2][1];
+
+    const uint8x16_t prithr8  = vdupq_n_u8((uint8_t)pri_strength);
+    const uint8x16_t secthr8  = vdupq_n_u8((uint8_t)sec_strength);
+    const int8x16_t  pridamp8 = vdupq_n_s8((int8_t)-pri_damping);
+    const int8x16_t  secdamp8 = vdupq_n_s8((int8_t)-sec_damping);
+    const int8x8_t   pri_t0   = vdup_n_s8((int8_t)pri_taps[0]);
+    const int8x8_t   pri_t1   = vdup_n_s8((int8_t)pri_taps[1]);
+    const int8x8_t   sec_t0   = vdup_n_s8((int8_t)sec_taps[0]);
+    const int8x8_t   sec_t1   = vdup_n_s8((int8_t)sec_taps[1]);
+
+    for (uint8_t i = 0; i < height; i += (2 * subsampling_factor)) {
+        const uint8_t*   ra   = in + i * CDEF_BSTRIDE;
+        const uint8_t*   rb   = in + (i + subsampling_factor) * CDEF_BSTRIDE;
+        const uint8x16_t row8 = vcombine_u8(vld1_u8(ra), vld1_u8(rb));
+        uint8x16_t       min8 = row8, max8 = row8, tap8;
+        int16x8_t        suma = vdupq_n_s16(0), sumb = vdupq_n_s16(0);
+        int8x16_t        c0, c1, c2, c3, csum;
+
+#define NAT_TAP(OFF) vcombine_u8(vld1_u8(ra + (OFF)), vld1_u8(rb + (OFF)))
+
+        if (pri_strength) {
+            tap8 = NAT_TAP(po1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            tap8 = NAT_TAP(-po1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t0, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, pri_t0, vget_high_s8(csum));
+            tap8 = NAT_TAP(po2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            tap8 = NAT_TAP(-po2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t1, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, pri_t1, vget_high_s8(csum));
+        }
+        if (sec_strength) {
+            tap8 = NAT_TAP(s1o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT_TAP(-s1o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT_TAP(s2o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c2   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT_TAP(-s2o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c3   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t0, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, sec_t0, vget_high_s8(csum));
+            tap8 = NAT_TAP(s1o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT_TAP(-s1o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT_TAP(s2o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c2   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT_TAP(-s2o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c3   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t1, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, sec_t1, vget_high_s8(csum));
+        }
+#undef NAT_TAP
+
+        vst1_u8(dst + i * dstride, cdef_finalize8(suma, vget_low_u8(row8), vget_low_u8(min8), vget_low_u8(max8)));
+        vst1_u8(dst + (i + subsampling_factor) * dstride,
+                cdef_finalize8(sumb, vget_high_u8(row8), vget_high_u8(min8), vget_high_u8(max8)));
+    }
+}
+
+void svt_av1_cdef_filter_block_4xn_8_native_neon(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
+                                                 int32_t sec_strength, int32_t dir, int32_t pri_damping,
+                                                 int32_t sec_damping, int32_t coeff_shift, uint8_t height,
+                                                 uint8_t subsampling_factor) {
+    const int* pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int* sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    if (pri_strength) {
+        pri_damping = AOMMAX(0, pri_damping - get_msb(pri_strength));
+    }
+    if (sec_strength) {
+        sec_damping = AOMMAX(0, sec_damping - get_msb(sec_strength));
+    }
+
+    const int po1  = svt_aom_eb_cdef_directions[dir][0];
+    const int po2  = svt_aom_eb_cdef_directions[dir][1];
+    const int s1o1 = svt_aom_eb_cdef_directions[dir + 2][0];
+    const int s1o2 = svt_aom_eb_cdef_directions[dir + 2][1];
+    const int s2o1 = svt_aom_eb_cdef_directions[dir - 2][0];
+    const int s2o2 = svt_aom_eb_cdef_directions[dir - 2][1];
+
+    const uint8x16_t prithr8  = vdupq_n_u8((uint8_t)pri_strength);
+    const uint8x16_t secthr8  = vdupq_n_u8((uint8_t)sec_strength);
+    const int8x16_t  pridamp8 = vdupq_n_s8((int8_t)-pri_damping);
+    const int8x16_t  secdamp8 = vdupq_n_s8((int8_t)-sec_damping);
+    const int8x8_t   pri_t0   = vdup_n_s8((int8_t)pri_taps[0]);
+    const int8x8_t   pri_t1   = vdup_n_s8((int8_t)pri_taps[1]);
+    const int8x8_t   sec_t0   = vdup_n_s8((int8_t)sec_taps[0]);
+    const int8x8_t   sec_t1   = vdup_n_s8((int8_t)sec_taps[1]);
+
+    const int sub = subsampling_factor;
+    // Process 4 rows/iter when they tile the block; else 2-row tail.
+    uint8_t i = 0;
+    for (; i + 4 * sub <= height; i += (4 * sub)) {
+        const uint8_t* r0 = in + (i + 0 * sub) * CDEF_BSTRIDE;
+        const uint8_t* r1 = in + (i + 1 * sub) * CDEF_BSTRIDE;
+        const uint8_t* r2 = in + (i + 2 * sub) * CDEF_BSTRIDE;
+        const uint8_t* r3 = in + (i + 3 * sub) * CDEF_BSTRIDE;
+#define NAT4_ROW(p) vreinterpret_u8_u32(vld1q_lane_u32((const uint32_t*)(p) + 0, vdup_n_u32(0), 0))
+        // Build row8 = [r0:4 r1:4 | r2:4 r3:4] via 32-bit lane loads.
+        uint32x4_t rv         = vdupq_n_u32(0);
+        rv                    = vld1q_lane_u32((const uint32_t*)r0, rv, 0);
+        rv                    = vld1q_lane_u32((const uint32_t*)r1, rv, 1);
+        rv                    = vld1q_lane_u32((const uint32_t*)r2, rv, 2);
+        rv                    = vld1q_lane_u32((const uint32_t*)r3, rv, 3);
+        const uint8x16_t row8 = vreinterpretq_u8_u32(rv);
+        uint8x16_t       min8 = row8, max8 = row8, tap8;
+        int16x8_t        suma = vdupq_n_s16(0), sumb = vdupq_n_s16(0);
+        int8x16_t        c0, c1, c2, c3, csum;
+
+#define NAT4_TAP(OFF)                                                         \
+    ({                                                                        \
+        uint32x4_t _t = vdupq_n_u32(0);                                       \
+        _t            = vld1q_lane_u32((const uint32_t*)(r0 + (OFF)), _t, 0); \
+        _t            = vld1q_lane_u32((const uint32_t*)(r1 + (OFF)), _t, 1); \
+        _t            = vld1q_lane_u32((const uint32_t*)(r2 + (OFF)), _t, 2); \
+        _t            = vld1q_lane_u32((const uint32_t*)(r3 + (OFF)), _t, 3); \
+        vreinterpretq_u8_u32(_t);                                             \
+    })
+
+        if (pri_strength) {
+            tap8 = NAT4_TAP(po1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            tap8 = NAT4_TAP(-po1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t0, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, pri_t0, vget_high_s8(csum));
+            tap8 = NAT4_TAP(po2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            tap8 = NAT4_TAP(-po2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t1, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, pri_t1, vget_high_s8(csum));
+        }
+        if (sec_strength) {
+            tap8 = NAT4_TAP(s1o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT4_TAP(-s1o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT4_TAP(s2o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c2   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT4_TAP(-s2o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c3   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t0, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, sec_t0, vget_high_s8(csum));
+            tap8 = NAT4_TAP(s1o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT4_TAP(-s1o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT4_TAP(s2o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c2   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT4_TAP(-s2o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c3   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t1, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, sec_t1, vget_high_s8(csum));
+        }
+#undef NAT4_TAP
+#undef NAT4_ROW
+
+        const uint8x8_t ansAB = cdef_finalize8(suma, vget_low_u8(row8), vget_low_u8(min8), vget_low_u8(max8));
+        const uint8x8_t ansCD = cdef_finalize8(sumb, vget_high_u8(row8), vget_high_u8(min8), vget_high_u8(max8));
+        *(uint32_t*)(dst + (i + 0 * sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ansAB), 0);
+        *(uint32_t*)(dst + (i + 1 * sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ansAB), 1);
+        *(uint32_t*)(dst + (i + 2 * sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ansCD), 0);
+        *(uint32_t*)(dst + (i + 3 * sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ansCD), 1);
+    }
+    // 2-row tail (covers height/sub not a multiple of 4, e.g. sub=4 h=8 -> rows 0,4).
+    for (; i < height; i += (2 * sub)) {
+        const uint8_t* ra     = in + i * CDEF_BSTRIDE;
+        const uint8_t* rb     = in + (i + sub) * CDEF_BSTRIDE;
+        uint32x2_t     rv     = vdup_n_u32(0);
+        rv                    = vld1_lane_u32((const uint32_t*)ra, rv, 0);
+        rv                    = vld1_lane_u32((const uint32_t*)rb, rv, 1);
+        const uint8x8_t  rlo  = vreinterpret_u8_u32(rv);
+        const uint8x16_t row8 = vcombine_u8(rlo, rlo);
+        uint8x16_t       min8 = row8, max8 = row8, tap8;
+        int16x8_t        suma = vdupq_n_s16(0);
+        int8x16_t        c0, c1, c2, c3, csum;
+#define NAT2_TAP(OFF)                                                             \
+    ({                                                                            \
+        uint32x2_t _t      = vdup_n_u32(0);                                       \
+        _t                 = vld1_lane_u32((const uint32_t*)(ra + (OFF)), _t, 0); \
+        _t                 = vld1_lane_u32((const uint32_t*)(rb + (OFF)), _t, 1); \
+        const uint8x8_t _l = vreinterpret_u8_u32(_t);                             \
+        vcombine_u8(_l, _l);                                                      \
+    })
+        if (pri_strength) {
+            tap8 = NAT2_TAP(po1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            tap8 = NAT2_TAP(-po1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t0, vget_low_s8(csum));
+            tap8 = NAT2_TAP(po2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            tap8 = NAT2_TAP(-po2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, prithr8, pridamp8);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t1, vget_low_s8(csum));
+        }
+        if (sec_strength) {
+            tap8 = NAT2_TAP(s1o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT2_TAP(-s1o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT2_TAP(s2o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c2   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT2_TAP(-s2o1);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c3   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t0, vget_low_s8(csum));
+            tap8 = NAT2_TAP(s1o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c0   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT2_TAP(-s1o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c1   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT2_TAP(s2o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c2   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            tap8 = NAT2_TAP(-s2o2);
+            min8 = vminq_u8(min8, tap8);
+            max8 = vmaxq_u8(max8, tap8);
+            c3   = constrain8x16(tap8, row8, secthr8, secdamp8);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t1, vget_low_s8(csum));
+        }
+#undef NAT2_TAP
+        const uint8x8_t ans             = cdef_finalize8(suma, vget_low_u8(row8), vget_low_u8(min8), vget_low_u8(max8));
+        *(uint32_t*)(dst + i * dstride) = vget_lane_u32(vreinterpret_u32_u8(ans), 0);
+        *(uint32_t*)(dst + (i + sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ans), 1);
+    }
+}
+
 AOM_FORCE_INLINE int16x8_t constrain16(int16x8_t a, int16x8_t b, int16x8_t threshold, int16x8_t adjdamp) {
     const int16x8_t sign = vreinterpretq_s16_u16(vcltq_s16(a, b));
 
@@ -657,5 +1009,52 @@ void svt_cdef_filter_block_neon(uint8_t* dst8, uint16_t* dst16, int32_t dstride,
             svt_av1_cdef_filter_block_4xn_16_neon(
                 dst16, dstride, in, pri_strength, sec_strength, dir, pri_damping, sec_damping, coeff_shift, 4, 1);
         }
+    }
+}
+
+// Native 8-bit interior filter, dispatched by bsize. C ref: svt_cdef_filter_block_8bit_c.
+// Height passed as a literal so LTO can specialize/unroll the kernel row loop (~1% at M11).
+void svt_cdef_filter_block_8bit_neon(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
+                                     int32_t sec_strength, int32_t dir, int32_t pri_damping, int32_t sec_damping,
+                                     int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor) {
+    if (bsize == BLOCK_8X8) {
+        svt_av1_cdef_filter_block_8xn_8_native_neon(dst,
+                                                    dstride,
+                                                    in,
+                                                    pri_strength,
+                                                    sec_strength,
+                                                    dir,
+                                                    pri_damping,
+                                                    sec_damping,
+                                                    coeff_shift,
+                                                    8,
+                                                    subsampling_factor);
+    } else if (bsize == BLOCK_4X8) {
+        svt_av1_cdef_filter_block_4xn_8_native_neon(dst,
+                                                    dstride,
+                                                    in,
+                                                    pri_strength,
+                                                    sec_strength,
+                                                    dir,
+                                                    pri_damping,
+                                                    sec_damping,
+                                                    coeff_shift,
+                                                    8,
+                                                    subsampling_factor);
+    } else if (bsize == BLOCK_8X4) {
+        svt_av1_cdef_filter_block_8xn_8_native_neon(dst,
+                                                    dstride,
+                                                    in,
+                                                    pri_strength,
+                                                    sec_strength,
+                                                    dir,
+                                                    pri_damping,
+                                                    sec_damping,
+                                                    coeff_shift,
+                                                    4,
+                                                    subsampling_factor);
+    } else {
+        svt_av1_cdef_filter_block_4xn_8_native_neon(
+            dst, dstride, in, pri_strength, sec_strength, dir, pri_damping, sec_damping, coeff_shift, 4, 1);
     }
 }

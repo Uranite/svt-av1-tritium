@@ -15,6 +15,9 @@
 #include "definitions.h"
 #include "enc_handle.h"
 #include "cdef_process.h"
+#if CDEF_8BITS_PATH
+#include "cdef_inl.h"
+#endif
 #include "enc_dec_results.h"
 #include "svt_threads.h"
 #include "reference_object.h"
@@ -308,6 +311,12 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
     int32_t xsize_prev = (1 << MAX_SB_SIZE_LOG2) + 2 * CDEF_HBORDER;
     DECLARE_ALIGNED(32, uint16_t, inbuf[CDEF_INBUF_SIZE]);
     uint16_t* in = inbuf + CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER;
+#if CDEF_8BITS_PATH
+    // 8-bit padded buffer for the native interior path (replaces the 8->16 widen
+    // for fully-interior 8-bit fbs). Same CDEF_BSTRIDE layout as `in`.
+    DECLARE_ALIGNED(32, uint8_t, inbuf8[CDEF_INBUF_SIZE]);
+    uint8_t* in8 = inbuf8 + CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER;
+#endif
     // tmp_dst is uint16_t to accommodate high bit depth content; 8bit will treat it as a uint8_t
     // buffer and will not use half of the buffer
     DECLARE_ALIGNED(32, uint16_t, tmp_dst[1 << (MAX_SB_SIZE_LOG2 * 2)]);
@@ -381,33 +390,69 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
             for (int pli = 0; pli < num_planes; pli++) {
                 int32_t ysize = (nvb << mi_high_l2[pli]) + boff + toff;
                 int32_t xsize = (nhb << mi_wide_l2[pli]) + roff + loff;
-                /* We avoid filtering the pixels for which some of the pixels to
+#if CDEF_8BITS_PATH
+                // 8-bit content (RTC): filter via the per-block hybrid. Interior fbs
+                // build only the 8-bit buffer; edge fbs build the uint16 buffer (for the
+                // frame-perimeter ring blocks) and narrow it to 8-bit for the rest.
+                const bool native_8bit = !is_16bit;
+                const bool interior    = toff && loff && boff && roff;
+#else
+                const bool native_8bit = false;
+                const bool interior    = false;
+#endif
+                if (!(native_8bit && interior)) {
+                    /* We avoid filtering the pixels for which some of the pixels to
                    average are outside the frame. We could change the filter instead,
                    but it would add special cases for any future vectorization.
                    Avoid memset'ting when dirty rect is inside the new one.
                    TODO: this could be further optimized - fill out only borders, separate buffers for Y & UV */
-                bool need_to_reset = toff_prev > toff || loff_prev > loff || ysize < ysize_prev || xsize < xsize_prev;
-                if (need_to_reset) {
-                    uint16_t* p = &in[(-toff_prev * CDEF_BSTRIDE - loff_prev)];
-                    for (int r = 0; r < ysize_prev; r++) {
-                        svt_memset(p, (uint8_t)CDEF_VERY_LARGE, sizeof(p[0]) * xsize_prev);
-                        p += CDEF_BSTRIDE;
+                    bool need_to_reset = toff_prev > toff || loff_prev > loff || ysize < ysize_prev ||
+                        xsize < xsize_prev;
+                    if (need_to_reset) {
+                        uint16_t* p = &in[(-toff_prev * CDEF_BSTRIDE - loff_prev)];
+                        for (int r = 0; r < ysize_prev; r++) {
+                            svt_memset(p, (uint8_t)CDEF_VERY_LARGE, sizeof(p[0]) * xsize_prev);
+                            p += CDEF_BSTRIDE;
+                        }
                     }
-                }
-                toff_prev  = toff;
-                loff_prev  = loff;
-                ysize_prev = ysize;
-                xsize_prev = xsize;
+                    toff_prev  = toff;
+                    loff_prev  = loff;
+                    ysize_prev = ysize;
+                    xsize_prev = xsize;
 
-                svt_aom_copy_sb8_16(&in[(-toff * CDEF_BSTRIDE - loff)],
-                                    CDEF_BSTRIDE,
-                                    src[pli],
-                                    (lr << mi_high_l2[pli]) - toff,
-                                    (lc << mi_wide_l2[pli]) - loff,
-                                    stride_src[pli],
-                                    ysize,
-                                    xsize,
-                                    is_16bit);
+                    svt_aom_copy_sb8_16(&in[(-toff * CDEF_BSTRIDE - loff)],
+                                        CDEF_BSTRIDE,
+                                        src[pli],
+                                        (lr << mi_high_l2[pli]) - toff,
+                                        (lc << mi_wide_l2[pli]) - loff,
+                                        stride_src[pli],
+                                        ysize,
+                                        xsize,
+                                        is_16bit);
+                }
+#if CDEF_8BITS_PATH
+                if (native_8bit && interior) {
+                    // Plain 8->8 copy into the 8-bit padded buffer (no widen, no
+                    // sentinel needed since the fb is fully interior).
+                    const uint8_t* nbase = src[pli] + ((lr << mi_high_l2[pli]) - toff) * (size_t)stride_src[pli] +
+                        ((lc << mi_wide_l2[pli]) - loff);
+                    uint8_t* ndst = &in8[(-toff * CDEF_BSTRIDE - loff)];
+                    for (int r = 0; r < ysize; r++) {
+                        svt_memcpy(ndst, nbase, (size_t)xsize);
+                        ndst += CDEF_BSTRIDE;
+                        nbase += stride_src[pli];
+                    }
+                } else if (native_8bit) {
+                    // Edge fb: narrow the uint16 buffer to 8-bit for the interior blocks
+                    // (ring blocks still use the uint16 buffer's sentinel).
+                    svt_cdef_narrow_rect(&in8[-CDEF_VBORDER * CDEF_BSTRIDE - CDEF_HBORDER],
+                                         CDEF_BSTRIDE,
+                                         &in[-CDEF_VBORDER * CDEF_BSTRIDE - CDEF_HBORDER],
+                                         CDEF_BSTRIDE,
+                                         (nvb << mi_high_l2[pli]) + 2 * CDEF_VBORDER,
+                                         (nhb << mi_wide_l2[pli]) + 2 * CDEF_HBORDER);
+                }
+#endif
 
                 uint8_t subsampling_factor = cdef_ctrls->subsampling_factor;
                 /*
@@ -443,24 +488,52 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                     int32_t pri_strength = cdef_ctrls->default_first_pass_fs[gi] / CDEF_SEC_STRENGTHS;
                     int32_t sec_strength = cdef_ctrls->default_first_pass_fs[gi] % CDEF_SEC_STRENGTHS;
 
-                    svt_cdef_filter_fb(is_16bit ? NULL : (uint8_t*)tmp_dst,
-                                       is_16bit ? tmp_dst : NULL,
-                                       0,
-                                       in,
-                                       xdec[pli],
-                                       ydec[pli],
-                                       *dir,
-                                       &dirinit,
-                                       *var,
-                                       pli,
-                                       dlist,
-                                       cdef_count,
-                                       pri_strength,
-                                       sec_strength + (sec_strength == 3),
-                                       pri_damping,
-                                       sec_damping,
-                                       coeff_shift,
-                                       subsampling_factor);
+#if CDEF_8BITS_PATH
+                    if (native_8bit) {
+                        svt_cdef_filter_fb_hybrid((uint8_t*)tmp_dst,
+                                                  0,
+                                                  interior ? NULL : in,
+                                                  in8,
+                                                  toff == 0,
+                                                  loff == 0,
+                                                  boff == 0,
+                                                  roff == 0,
+                                                  nvb << mi_high_l2[pli],
+                                                  nhb << mi_wide_l2[pli],
+                                                  xdec[pli],
+                                                  ydec[pli],
+                                                  *dir,
+                                                  &dirinit,
+                                                  *var,
+                                                  pli,
+                                                  dlist,
+                                                  cdef_count,
+                                                  pri_strength,
+                                                  sec_strength + (sec_strength == 3),
+                                                  pri_damping,
+                                                  sec_damping,
+                                                  coeff_shift,
+                                                  subsampling_factor);
+                    } else
+#endif
+                        svt_cdef_filter_fb(is_16bit ? NULL : (uint8_t*)tmp_dst,
+                                           is_16bit ? tmp_dst : NULL,
+                                           0,
+                                           in,
+                                           xdec[pli],
+                                           ydec[pli],
+                                           *dir,
+                                           &dirinit,
+                                           *var,
+                                           pli,
+                                           dlist,
+                                           cdef_count,
+                                           pri_strength,
+                                           sec_strength + (sec_strength == 3),
+                                           pri_damping,
+                                           sec_damping,
+                                           coeff_shift,
+                                           subsampling_factor);
                     uint64_t curr_mse = compute_cdef_dist(
                         ref[pli],
                         (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
@@ -495,24 +568,52 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                     int32_t sec_strength = cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num] %
                         CDEF_SEC_STRENGTHS;
 
-                    svt_cdef_filter_fb(is_16bit ? NULL : (uint8_t*)tmp_dst,
-                                       is_16bit ? tmp_dst : NULL,
-                                       0,
-                                       in,
-                                       xdec[pli],
-                                       ydec[pli],
-                                       *dir,
-                                       &dirinit,
-                                       *var,
-                                       pli,
-                                       dlist,
-                                       cdef_count,
-                                       pri_strength,
-                                       sec_strength + (sec_strength == 3),
-                                       pri_damping,
-                                       sec_damping,
-                                       coeff_shift,
-                                       subsampling_factor);
+#if CDEF_8BITS_PATH
+                    if (native_8bit) {
+                        svt_cdef_filter_fb_hybrid((uint8_t*)tmp_dst,
+                                                  0,
+                                                  interior ? NULL : in,
+                                                  in8,
+                                                  toff == 0,
+                                                  loff == 0,
+                                                  boff == 0,
+                                                  roff == 0,
+                                                  nvb << mi_high_l2[pli],
+                                                  nhb << mi_wide_l2[pli],
+                                                  xdec[pli],
+                                                  ydec[pli],
+                                                  *dir,
+                                                  &dirinit,
+                                                  *var,
+                                                  pli,
+                                                  dlist,
+                                                  cdef_count,
+                                                  pri_strength,
+                                                  sec_strength + (sec_strength == 3),
+                                                  pri_damping,
+                                                  sec_damping,
+                                                  coeff_shift,
+                                                  subsampling_factor);
+                    } else
+#endif
+                        svt_cdef_filter_fb(is_16bit ? NULL : (uint8_t*)tmp_dst,
+                                           is_16bit ? tmp_dst : NULL,
+                                           0,
+                                           in,
+                                           xdec[pli],
+                                           ydec[pli],
+                                           *dir,
+                                           &dirinit,
+                                           *var,
+                                           pli,
+                                           dlist,
+                                           cdef_count,
+                                           pri_strength,
+                                           sec_strength + (sec_strength == 3),
+                                           pri_damping,
+                                           sec_damping,
+                                           coeff_shift,
+                                           subsampling_factor);
                     uint64_t curr_mse = compute_cdef_dist(
                         ref[pli],
                         (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),

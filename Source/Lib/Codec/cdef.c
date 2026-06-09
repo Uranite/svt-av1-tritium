@@ -253,6 +253,69 @@ void svt_cdef_filter_block_c(uint8_t* dst8, uint16_t* dst16, int32_t dstride, co
     }
 }
 
+// C reference for the native 8-bit interior filter (no off-frame sentinel).
+void svt_cdef_filter_block_8bit_c(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
+                                  int32_t sec_strength, int32_t dir, int32_t pri_damping, int32_t sec_damping,
+                                  int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor) {
+    const int32_t  s        = CDEF_BSTRIDE;
+    const int32_t* pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int32_t* sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int32_t  rows     = (bsize == BLOCK_8X8 || bsize == BLOCK_4X8) ? 8 : 4;
+    const int32_t  cols     = (bsize == BLOCK_8X8 || bsize == BLOCK_8X4) ? 8 : 4;
+    const int32_t  sub      = (bsize == BLOCK_4X4) ? 1 : subsampling_factor;
+    for (int32_t i = 0; i < rows; i += sub) {
+        for (int32_t j = 0; j < cols; j++) {
+            const int16_t x   = in[i * s + j];
+            int16_t       sum = 0;
+            int32_t       max = x, min = x;
+            for (int32_t k = 0; k < 2; k++) {
+                const int16_t p0 = in[i * s + j + svt_aom_eb_cdef_directions[dir][k]];
+                const int16_t p1 = in[i * s + j - svt_aom_eb_cdef_directions[dir][k]];
+                sum += (int16_t)(pri_taps[k] * constrain(p0 - x, pri_strength, pri_damping));
+                sum += (int16_t)(pri_taps[k] * constrain(p1 - x, pri_strength, pri_damping));
+                max              = AOMMAX(p0, max);
+                max              = AOMMAX(p1, max);
+                min              = AOMMIN(p0, min);
+                min              = AOMMIN(p1, min);
+                const int16_t s0 = in[i * s + j + svt_aom_eb_cdef_directions[dir + 2][k]];
+                const int16_t s1 = in[i * s + j - svt_aom_eb_cdef_directions[dir + 2][k]];
+                const int16_t s2 = in[i * s + j + svt_aom_eb_cdef_directions[dir - 2][k]];
+                const int16_t s3 = in[i * s + j - svt_aom_eb_cdef_directions[dir - 2][k]];
+                sum += (int16_t)(sec_taps[k] * constrain(s0 - x, sec_strength, sec_damping));
+                sum += (int16_t)(sec_taps[k] * constrain(s1 - x, sec_strength, sec_damping));
+                sum += (int16_t)(sec_taps[k] * constrain(s2 - x, sec_strength, sec_damping));
+                sum += (int16_t)(sec_taps[k] * constrain(s3 - x, sec_strength, sec_damping));
+                max = AOMMAX(s0, max);
+                max = AOMMAX(s1, max);
+                max = AOMMAX(s2, max);
+                max = AOMMAX(s3, max);
+                min = AOMMIN(s0, min);
+                min = AOMMIN(s1, min);
+                min = AOMMIN(s2, min);
+                min = AOMMIN(s3, min);
+            }
+            dst[i * dstride + j] = (uint8_t)clamp((int16_t)x + ((8 + sum - (sum < 0)) >> 4), min, max);
+        }
+    }
+}
+
+// C reference for the 8-bit find_dir (widen to 16-bit, delegate to the spec).
+uint8_t svt_aom_cdef_find_dir_8bit_c(const uint8_t* img, int32_t stride, int32_t* var, int32_t coeff_shift) {
+    uint16_t img16[8 * 8];
+    for (int32_t i = 0; i < 8; i++) {
+        for (int32_t j = 0; j < 8; j++) {
+            img16[i * 8 + j] = img[i * stride + j];
+        }
+    }
+    return svt_aom_cdef_find_dir_c(img16, 8, var, coeff_shift);
+}
+
+void svt_aom_cdef_find_dir_dual_8bit_c(const uint8_t* img1, const uint8_t* img2, int stride, int32_t* var1,
+                                       int32_t* var2, int32_t coeff_shift, uint8_t* out1, uint8_t* out2) {
+    *out1 = svt_aom_cdef_find_dir_8bit_c(img1, stride, var1, coeff_shift);
+    *out2 = svt_aom_cdef_find_dir_8bit_c(img2, stride, var2, coeff_shift);
+}
+
 void svt_aom_copy_sb8_16(uint16_t* dst, int32_t dstride, const uint8_t* src, int32_t src_voffset, int32_t src_hoffset,
                          int32_t sstride, int32_t vsize, int32_t hsize, bool is_16bit) {
     if (is_16bit) {
@@ -353,3 +416,155 @@ void svt_cdef_filter_fb(uint8_t* dst8, uint16_t* dst16, int32_t dstride, uint16_
                               subsampling_factor);
     }
 }
+
+#if CDEF_8BITS_PATH
+#include "cdef_inl.h"
+
+static AOM_INLINE void cdef_find_dir_8bit(const uint8_t* in, CdefList* dlist, int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS],
+                                          int32_t cdef_count, int32_t coeff_shift,
+                                          uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS]) {
+    int bi;
+    for (bi = 0; bi < cdef_count - 1; bi += 2) {
+        const uint8_t by   = dlist[bi].by;
+        const uint8_t bx   = dlist[bi].bx;
+        const uint8_t by2  = dlist[bi + 1].by;
+        const uint8_t bx2  = dlist[bi + 1].bx;
+        const int     pos1 = 8 * by * CDEF_BSTRIDE + 8 * bx;
+        const int     pos2 = 8 * by2 * CDEF_BSTRIDE + 8 * bx2;
+        svt_aom_cdef_find_dir_dual_8bit(&in[pos1],
+                                        &in[pos2],
+                                        CDEF_BSTRIDE,
+                                        &var[by][bx],
+                                        &var[by2][bx2],
+                                        coeff_shift,
+                                        &dir[by][bx],
+                                        &dir[by2][bx2]);
+    }
+    if (cdef_count % 2) {
+        const uint8_t by = dlist[bi].by;
+        const uint8_t bx = dlist[bi].bx;
+        dir[by][bx]      = svt_aom_cdef_find_dir_8bit(
+            &in[8 * by * CDEF_BSTRIDE + 8 * bx], CDEF_BSTRIDE, &var[by][bx], coeff_shift);
+    }
+}
+
+// in8: 8-bit padded buffer for native blocks. in16: uint16 buffer with off-frame sentinel
+// for frame-perimeter ring blocks, NULL when the fb has no frame border.
+void svt_cdef_filter_fb_hybrid(uint8_t* dst8, int32_t dstride, const uint16_t* in16, const uint8_t* in8, int frame_top,
+                               int frame_left, int frame_bottom, int frame_right, int vsize, int hsize, int32_t xdec,
+                               int32_t ydec, uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
+                               int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t pli, CdefList* dlist,
+                               int32_t cdef_count, int32_t level, int32_t sec_strength, int32_t pri_damping,
+                               int32_t sec_damping, int32_t coeff_shift, uint8_t subsampling_factor) {
+    int32_t bi;
+    int32_t pri_strength = level << coeff_shift;
+    sec_strength <<= coeff_shift;
+    sec_damping += coeff_shift - (pli != PLANE_Y);
+    pri_damping += coeff_shift - (pli != PLANE_Y);
+
+    int32_t bsize  = ydec ? (xdec ? BLOCK_4X4 : BLOCK_8X4) : (xdec ? BLOCK_4X8 : BLOCK_8X8);
+    int32_t bsizex = 3 - xdec;
+    int32_t bsizey = 3 - ydec;
+    // Last block row/col index within the fb (frame-edge ring detection).
+    const int32_t by_last = (vsize >> bsizey) - 1;
+    const int32_t bx_last = (hsize >> bsizex) - 1;
+
+    if (!dstride && pri_strength == 0 && sec_strength == 0) {
+        // Zero-strength search candidate: copy input straight to packed output. Each row
+        // is 4/8 contiguous bytes -> one memcpy (lowers to a single load/store).
+        const int w = 1 << bsizex;
+        for (bi = 0; bi < cdef_count; bi++) {
+            int32_t        by    = dlist[bi].by << bsizey;
+            int32_t        bx    = dlist[bi].bx << bsizex;
+            const uint8_t* src_8 = in8 + (by * CDEF_BSTRIDE + bx);
+            uint8_t*       dst_b = dst8 + (bi << (bsizex + bsizey));
+            for (int32_t iy = 0; iy < 1 << bsizey; iy += subsampling_factor) {
+                memcpy(dst_b + (iy << bsizex), src_8 + iy * CDEF_BSTRIDE, (size_t)w);
+            }
+        }
+        return;
+    }
+
+    if (pli == 0) {
+        if (!dirinit || !*dirinit) {
+            cdef_find_dir_8bit(in8, dlist, var, cdef_count, coeff_shift, dir);
+            if (dirinit) {
+                *dirinit = 1;
+            }
+        }
+    } else if (pli == 1 && xdec != ydec) {
+        for (bi = 0; bi < cdef_count; bi++) {
+            static const uint8_t conv422[8] = {7, 0, 2, 4, 5, 6, 6, 6};
+            static const uint8_t conv440[8] = {1, 2, 2, 2, 3, 4, 6, 0};
+            int32_t              by         = dlist[bi].by;
+            int32_t              bx         = dlist[bi].bx;
+            dir[by][bx]                     = (xdec ? conv422 : conv440)[dir[by][bx]];
+        }
+    }
+
+    if (in16 == NULL) {
+        // Interior fb: every block is native (no per-block edge test).
+        for (bi = 0; bi < cdef_count; bi++) {
+            int32_t by   = dlist[bi].by;
+            int32_t bx   = dlist[bi].bx;
+            int32_t t    = pli ? pri_strength : adjust_strength(pri_strength, var[by][bx]);
+            int32_t k    = dstride ? (by << bsizey) * dstride + (bx << bsizex) : bi << (bsizex + bsizey);
+            int32_t ds   = dstride ? dstride : 1 << bsizex;
+            int32_t off  = (by * CDEF_BSTRIDE << bsizey) + (bx << bsizex);
+            int32_t bdir = pri_strength ? dir[by][bx] : 0;
+            svt_cdef_filter_block_8bit(&dst8[k],
+                                       ds,
+                                       &in8[off],
+                                       t,
+                                       sec_strength,
+                                       bdir,
+                                       pri_damping,
+                                       sec_damping,
+                                       bsize,
+                                       coeff_shift,
+                                       subsampling_factor);
+        }
+        return;
+    }
+
+    for (bi = 0; bi < cdef_count; bi++) {
+        int32_t  by   = dlist[bi].by;
+        int32_t  bx   = dlist[bi].bx;
+        int32_t  t    = pli ? pri_strength : adjust_strength(pri_strength, var[by][bx]);
+        int32_t  k    = dstride ? (by << bsizey) * dstride + (bx << bsizex) : bi << (bsizex + bsizey);
+        uint8_t* d    = &dst8[k];
+        int32_t  ds   = dstride ? dstride : 1 << bsizex;
+        int32_t  off  = (by * CDEF_BSTRIDE << bsizey) + (bx << bsizex);
+        int32_t  bdir = pri_strength ? dir[by][bx] : 0;
+        // Outermost block row/col against a frame border: taps reach off-frame -> 16-bit path.
+        const int need16 = (frame_top && by == 0) || (frame_bottom && by == by_last) || (frame_left && bx == 0) ||
+            (frame_right && bx == bx_last);
+        if (need16) {
+            svt_cdef_filter_block(d,
+                                  NULL,
+                                  ds,
+                                  &in16[off],
+                                  t,
+                                  sec_strength,
+                                  bdir,
+                                  pri_damping,
+                                  sec_damping,
+                                  bsize,
+                                  coeff_shift,
+                                  subsampling_factor);
+        } else {
+            svt_cdef_filter_block_8bit(d,
+                                       ds,
+                                       &in8[off],
+                                       t,
+                                       sec_strength,
+                                       bdir,
+                                       pri_damping,
+                                       sec_damping,
+                                       bsize,
+                                       coeff_shift,
+                                       subsampling_factor);
+        }
+    }
+}
+#endif // CDEF_8BITS_PATH

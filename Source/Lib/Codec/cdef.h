@@ -52,6 +52,17 @@ void svt_cdef_filter_fb(uint8_t* dst8, uint16_t* dst16, int32_t dstride, uint16_
                         int32_t level, int32_t sec_strength, int32_t pri_damping, int32_t sec_damping,
                         int32_t coeff_shift, uint8_t subsampling_factor);
 
+#if CDEF_8BITS_PATH
+// Hybrid CDEF: native 8-bit for interior blocks, 16-bit sentinel for frame-edge blocks.
+// in16 may be NULL when the fb has no frame border.
+void svt_cdef_filter_fb_hybrid(uint8_t* dst8, int32_t dstride, const uint16_t* in16, const uint8_t* in8, int frame_top,
+                               int frame_left, int frame_bottom, int frame_right, int vsize, int hsize, int32_t xdec,
+                               int32_t ydec, uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
+                               int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t pli, CdefList* dlist,
+                               int32_t cdef_count, int32_t level, int32_t sec_strength, int32_t pri_damping,
+                               int32_t sec_damping, int32_t coeff_shift, uint8_t subsampling_factor);
+#endif // CDEF_8BITS_PATH
+
 #ifdef __cplusplus
 }
 #endif
