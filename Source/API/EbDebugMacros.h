@@ -103,7 +103,12 @@ extern "C" {
 
 #define OPT_USE_HL0_FLAT  1 // Support hierarchical_levels 0 (flat) and 1 in LD CBR and RA 1L referencing
 
+
 #define OPT_RA_BITRATE             1 // Optimize bitrate for RA (M3/M4/M5)
+
+
+//FOR DEBUGGING - Do not remove
+#define OPT_EC_SHAVE_RD_ZERO       1 // Add an RD-gated trailing coefficient zeroing pass after the existing cheap EOB retraction to enable further EOB reduction, zeroing a tail coefficient only when the estimated rate savings justify the resulting distortion increase
 
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one

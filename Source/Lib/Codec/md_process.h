@@ -446,6 +446,14 @@ typedef struct RdoqCtrls {
 } RdoqCtrls;
 
 #if OPT_COEFF_SHAVING
+#if OPT_EC_SHAVE_RD_ZERO
+typedef struct CoeffShavingCtrls {
+    uint8_t enabled;
+    int32_t level_threshold; // max abs(quantized_level) eligible for trailing removal
+    int32_t zero_gap_threshold; // min zero-gap to justify removing a trailing coeff
+    int32_t rd_zero_strength; // RD-zero aggressiveness in [0..10]; 0 disables, 10 is strongest
+} CoeffShavingCtrls;
+#else
 typedef struct CoeffShavingCtrls {
     uint8_t enabled;
     int32_t level_threshold; // max abs(quantized_level) eligible for trailing removal
@@ -453,6 +461,7 @@ typedef struct CoeffShavingCtrls {
     int32_t skip_energy_threshold; // if total abs energy of all surviving coeffs (after trailing
     // retraction) is <= this, zero the entire block
 } CoeffShavingCtrls;
+#endif
 #endif
 
 typedef struct NicScalingCtrls {

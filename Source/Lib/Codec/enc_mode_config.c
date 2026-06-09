@@ -5166,12 +5166,27 @@ static void set_coeff_shaving_controls(ModeDecisionContext* ctx, uint8_t coeff_s
     switch (coeff_shaving_level) {
     case 0:
         coeff_shaving_ctrls->enabled = 0;
+#if OPT_EC_SHAVE_RD_ZERO
+        coeff_shaving_ctrls->rd_zero_strength = 0;
+#endif
         break;
     case 1:
         coeff_shaving_ctrls->enabled            = 1;
         coeff_shaving_ctrls->level_threshold    = 1;
         coeff_shaving_ctrls->zero_gap_threshold = 8;
+#if OPT_EC_SHAVE_RD_ZERO
+        coeff_shaving_ctrls->rd_zero_strength = 32;
+#endif
         break;
+
+#if OPT_EC_SHAVE_RD_ZERO
+    case 2:
+        coeff_shaving_ctrls->enabled            = 1;
+        coeff_shaving_ctrls->level_threshold    = 1;
+        coeff_shaving_ctrls->zero_gap_threshold = 8;
+        coeff_shaving_ctrls->rd_zero_strength   = 0;
+        break;
+#endif
     default:
         assert(0);
         break;

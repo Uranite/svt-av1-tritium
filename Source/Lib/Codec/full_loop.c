@@ -1376,6 +1376,151 @@ uint8_t svt_av1_compute_cul_level_c(const int16_t* const scan, const int32_t* co
 
 // Retract EOB by removing trailing low-magnitude coefficients separated by zero gaps
 #if OPT_SHAVE_COEFF_LIN
+#if OPT_EC_SHAVE_RD_ZERO
+// Tracks symbol-count knees at levels 3/6/9/12 and golomb tail at 15+.
+static INLINE int32_t ec_shave_est_zero_rate_save(int32_t ref_level, int32_t bit_cost) {
+    int32_t save = ((ref_level > 3) + (ref_level > 6) + (ref_level > 9) + (ref_level > 12)) * bit_cost;
+    if (ref_level > 14) {
+        save += get_golomb_cost(ref_level);
+    }
+    return save;
+}
+
+static INLINE uint16_t shave_coeff(int32_t* quant_buf, int32_t* recon_buf, const int32_t* tcoeff, uint16_t eob,
+                                   TxSize tx_size, TxType tx_type, uint32_t lambda, const CoeffShavingCtrls* ctrls) {
+    const int16_t* const scan             = get_scan_order(tx_size, tx_type)->scan;
+    const int            level_th         = ctrls->level_threshold;
+    const int            gap_th           = ctrls->zero_gap_threshold;
+    int                  updated_eob      = (int)eob;
+    int                  prev_nz_scan_idx = updated_eob - 2;
+
+    // Two-phase design rationale:
+    // 1) Run a cheap structural pass first (gap/level only, no RD math) to retract EOB quickly.
+    // 2) Then run the expensive RD-gated pass only on the shortened tail.
+
+    // Phase 1: trailing coeff zeroing by zero-gap criterion.
+    while (updated_eob > 1) {
+        const int     last_scan_idx = updated_eob - 1;
+        const int     last_pos      = scan[last_scan_idx];
+        const int32_t val           = quant_buf[last_pos];
+        const int32_t abs_val       = (val < 0) ? -val : val;
+
+        // Current trailing coeff is not eligible for shaving.
+        // Since phase 2 obeys the same level-threshold rule, we are done.
+        if (abs_val > level_th) {
+            return (uint16_t)updated_eob;
+        }
+
+        while (prev_nz_scan_idx >= 0) {
+            const int pos = scan[prev_nz_scan_idx];
+            if (quant_buf[pos] != 0) {
+                break;
+            }
+            --prev_nz_scan_idx;
+        }
+
+        if (prev_nz_scan_idx < 0) {
+            break;
+        }
+
+        const int gap = last_scan_idx - prev_nz_scan_idx - 1;
+        if (gap < gap_th) {
+            break;
+        }
+
+        quant_buf[last_pos] = 0;
+        recon_buf[last_pos] = 0;
+
+        updated_eob = prev_nz_scan_idx + 1;
+        --prev_nz_scan_idx;
+    }
+
+    // Nothing more to do if RD shaving is disabled or no trailing coeff remains.
+    if (ctrls->rd_zero_strength <= 0 || updated_eob <= 1) {
+        return (uint16_t)updated_eob;
+    }
+
+    const int     shift         = av1_get_tx_scale_tab[tx_size];
+    const int32_t bit_cost      = av1_cost_literal(1);
+    const int64_t rd_rate_scale = (int64_t)ctrls->rd_zero_strength;
+
+    // Fast path: only |level| == 1 is eligible.
+    if (level_th == 1) {
+        while (updated_eob > 1) {
+            const int     last_scan_idx = updated_eob - 1;
+            const int     last_pos      = scan[last_scan_idx];
+            const int32_t val           = quant_buf[last_pos];
+            const int32_t abs_val       = (val >= 0) ? val : -val;
+
+            if (abs_val > 1) {
+                break;
+            }
+
+            const TranLow tqc      = (TranLow)tcoeff[last_pos];
+            const TranLow dqc_cur  = (TranLow)recon_buf[last_pos];
+            const int64_t dist_cur = get_coeff_dist(tqc, dqc_cur, shift);
+            const int64_t dist_new = get_coeff_dist(tqc, 0, shift);
+
+            // For |level| == 1, ec_shave_est_zero_rate_save() contributes 0.
+            const int64_t rate_save = (int64_t)bit_cost * rd_rate_scale;
+
+            const int64_t dist_term = (dist_new - dist_cur) * ((int64_t)1 << RDDIV_BITS);
+            const int64_t rate_term = ROUND_POWER_OF_TWO(rate_save * lambda, AV1_PROB_COST_SHIFT);
+            if (dist_term >= rate_term) {
+                break;
+            }
+
+            quant_buf[last_pos] = 0;
+            recon_buf[last_pos] = 0;
+
+            int next_eob = last_scan_idx;
+            while (next_eob > 0 && quant_buf[scan[next_eob - 1]] == 0) {
+                --next_eob;
+            }
+            updated_eob = next_eob;
+        }
+
+        return (uint16_t)updated_eob;
+    }
+
+    // Generic phase 2 for level_threshold > 1.
+    while (updated_eob > 1) {
+        const int     last_scan_idx = updated_eob - 1;
+        const int     last_pos      = scan[last_scan_idx];
+        const int32_t val           = quant_buf[last_pos];
+        const int32_t abs_val       = (val >= 0) ? val : -val;
+
+        if (abs_val > level_th) {
+            break;
+        }
+
+        const int64_t rate_save = (int64_t)(ec_shave_est_zero_rate_save(abs_val, bit_cost) + bit_cost) * rd_rate_scale;
+
+        const TranLow tqc      = (TranLow)tcoeff[last_pos];
+        const TranLow dqc_cur  = (TranLow)recon_buf[last_pos];
+        const int64_t dist_cur = get_coeff_dist(tqc, dqc_cur, shift);
+        const int64_t dist_new = get_coeff_dist(tqc, 0, shift);
+
+        const int64_t dist_term = (dist_new - dist_cur) * ((int64_t)1 << RDDIV_BITS);
+        const int64_t rate_term = ROUND_POWER_OF_TWO(rate_save * lambda, AV1_PROB_COST_SHIFT);
+        if (dist_term >= rate_term) {
+            break;
+        }
+
+        quant_buf[last_pos] = 0;
+        recon_buf[last_pos] = 0;
+
+        int next_eob = last_scan_idx;
+        while (next_eob > 0 && quant_buf[scan[next_eob - 1]] == 0) {
+            --next_eob;
+        }
+        updated_eob = next_eob;
+    }
+
+    return (uint16_t)updated_eob;
+}
+
+#else
 static INLINE uint16_t shave_coeff(int32_t* quant_buf, int32_t* recon_buf, uint16_t eob, TxSize tx_size, TxType tx_type,
                                    const CoeffShavingCtrls* ctrls) {
     const int16_t* const scan             = get_scan_order(tx_size, tx_type)->scan;
@@ -1420,6 +1565,7 @@ static INLINE uint16_t shave_coeff(int32_t* quant_buf, int32_t* recon_buf, uint1
 
     return (uint16_t)updated_eob;
 }
+#endif
 #else
 static INLINE uint16_t shave_coeff(int32_t* quant_buf, int32_t* recon_buf, uint16_t eob, TxSize tx_size, TxType tx_type,
                                    const CoeffShavingCtrls* ctrls) {
@@ -1723,7 +1869,11 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet* pcs, ModeDecisionContex
     // This catches all luma quantize paths (light PD1, regular TX, encode pass)
     // in a single place.
     if (component_type == COMPONENT_LUMA && ctx->coeff_shaving_ctrls.enabled && *eob > 1) {
+#if OPT_EC_SHAVE_RD_ZERO
+        *eob = shave_coeff(quant_coeff, recon_coeff, coeff, *eob, txsize, tx_type, lambda, &ctx->coeff_shaving_ctrls);
+#else
         *eob = shave_coeff(quant_coeff, recon_coeff, *eob, txsize, tx_type, &ctx->coeff_shaving_ctrls);
+#endif
     }
 #endif
 
