@@ -6380,10 +6380,16 @@ EbErrorType svt_output_recon_buffer_header_creator(EbPtr* object_dbl_ptr, EbPtr 
     EbBufferHeaderType* recon_buffer;
     SequenceControlSet* scs       = (SequenceControlSet*)object_init_data_ptr;
     const uint32_t      luma_size = scs->seq_header.max_frame_width * scs->seq_header.max_frame_height;
-    // both u and v
-    const uint32_t chroma_size = luma_size >> 1;
-    const uint32_t ten_bit     = (scs->static_config.encoder_bit_depth > 8);
-    const uint32_t frame_size  = (luma_size + chroma_size) << ten_bit;
+    // Chroma width/height should be re-derived using the chroma width/height instead of shifting the
+    // luma_size because for odd dimensions, the size of each chroma component may not be exactly a quarter of
+    // the luma size. The chroma_size variable includes U and V planes.
+    const int      ss_x        = scs->subsampling_x;
+    const int      ss_y        = scs->subsampling_y;
+    const uint32_t chroma_size = (((scs->seq_header.max_frame_width + ss_x) >> ss_x) *
+                                  ((scs->seq_header.max_frame_height + ss_y) >> ss_y)) *
+        2 /*u + v*/;
+    const uint32_t ten_bit    = (scs->static_config.encoder_bit_depth > 8);
+    const uint32_t frame_size = (luma_size + chroma_size) << ten_bit;
 
     *object_dbl_ptr = NULL;
     EB_CALLOC(recon_buffer, 1, sizeof(EbBufferHeaderType));
