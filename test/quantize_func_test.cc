@@ -472,6 +472,94 @@ class QuantizeHbdTest : public QuantizeTest<QuantizeHbdParam, QuantizeHbdFunc> {
                 << "eobs mismatch on test: " << i << " Q: " << q;
         }
     }
+
+    // Time the C reference vs the SIMD kernel across coefficient densities.
+    // Sparser blocks shorten the eob-bounded / pre-scan loop, so the cost
+    // scales with the eob. Disabled by default; run with
+    // --gtest_also_run_disabled_tests.
+    void RunSpeedTest() {
+        const auto quant_ref = TEST_GET_PARAM(0);
+        const auto quant_tst = TEST_GET_PARAM(1);
+        const auto type = TEST_GET_PARAM(3);
+        TranLow *coeff_ptr = coeff_.data();
+        const intptr_t n_coeffs = coeff_num();
+        TranLow *qcoeff_ref = coeff_ptr + n_coeffs;
+        TranLow *dqcoeff_ref = qcoeff_ref + n_coeffs;
+        TranLow *qcoeff = dqcoeff_ref + n_coeffs;
+        TranLow *dqcoeff = qcoeff + n_coeffs;
+        uint16_t *eob = reinterpret_cast<uint16_t *>(dqcoeff + n_coeffs);
+
+        const ScanOrder *const sc = get_scan_order(tx_size_, DCT_DCT);
+        // Use a representative mid qindex: at qindex 0 (lossless) the dequant
+        // is minimal and the pre-scan threshold floors to zero for large
+        // transforms, so it cannot skip -- not representative of normal lossy
+        // operation.
+        const int q = 32;
+        const int16_t *zbin = qtab_.quant.y_zbin[q];
+        const int16_t *round = (type == TYPE_B) ? qtab_.quant.y_round[q]
+                                                : qtab_.quant.y_round_fp[q];
+        const int16_t *quant = (type == TYPE_B) ? qtab_.quant.y_quant[q]
+                                                : qtab_.quant.y_quant_fp[q];
+        const int16_t *quant_shift = qtab_.quant.y_quant_shift[q];
+        const int16_t *dequant = qtab_.dequant.y_dequant_qtx[q];
+        const int log_scale = av1_get_tx_scale(tx_size_);
+
+        // Opaque function pointers, so the indirect calls (and their stores)
+        // cannot be hoisted or eliminated.
+        auto run =
+            [&](QuantizeHbdFunc fn, TranLow *qc, TranLow *dqc, uint16_t *e) {
+                fn(coeff_ptr,
+                   n_coeffs,
+                   zbin,
+                   round,
+                   quant,
+                   quant_shift,
+                   qc,
+                   dqc,
+                   dequant,
+                   e,
+                   sc->scan,
+                   sc->iscan,
+                   log_scale);
+            };
+        const uint64_t num_loop = 300000;
+        const int densities[] = {static_cast<int>(n_coeffs),
+                                 static_cast<int>(n_coeffs) / 4,
+                                 static_cast<int>(n_coeffs) / 8};
+        for (int nz : densities) {
+            if (nz < 1)
+                nz = 1;
+            FillCoeffRandomRows(nz);
+            std::fill_n(qcoeff_ref, 5 * n_coeffs, 0);
+            for (int i = 0; i < 4000; ++i) {
+                run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
+                run(quant_tst, qcoeff, dqcoeff, &eob[1]);
+            }
+            auto t0 = std::chrono::steady_clock::now();
+            for (uint64_t i = 0; i < num_loop; ++i)
+                run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
+            auto t1 = std::chrono::steady_clock::now();
+            for (uint64_t i = 0; i < num_loop; ++i)
+                run(quant_tst, qcoeff, dqcoeff, &eob[1]);
+            auto t2 = std::chrono::steady_clock::now();
+            const double c_ns =
+                std::chrono::duration<double, std::nano>(t1 - t0).count() /
+                num_loop;
+            const double n_ns =
+                std::chrono::duration<double, std::nano>(t2 - t1).count() /
+                num_loop;
+            printf(
+                "[ SPEED    ] tx=%2d bd=%2d n=%4d nz=%4d : C %8.1f ns  "
+                "SIMD %8.1f ns  speedup %.2fx\n",
+                static_cast<int>(tx_size_),
+                static_cast<int>(bd_),
+                static_cast<int>(n_coeffs),
+                nz,
+                c_ns,
+                n_ns,
+                c_ns / n_ns);
+        }
+    }
 };
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(QuantizeHbdTest);
 
@@ -505,6 +593,10 @@ TEST_P(QuantizeHbdTest, MultipleQ) {
 TEST_P(QuantizeHbdTest, CoeffHalfDequant) {
     FillCoeff(16);
     QuantizeRun<false>(25, 1);
+}
+
+TEST_P(QuantizeHbdTest, DISABLED_Speed) {
+    RunSpeedTest();
 }
 
 #endif  // CONFIG_ENABLE_HIGH_BIT_DEPTH

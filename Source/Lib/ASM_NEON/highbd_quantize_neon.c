@@ -228,6 +228,26 @@ void svt_av1_highbd_quantize_fp_neon(const TranLow* coeff_ptr, intptr_t count, c
     uint16x4_t       v_mask_lo, v_mask_hi;
     int16x8_t        v_eobmax = vdupq_n_s16(-1);
 
+    intptr_t non_zero_count = count;
+    assert(count > 8 && (count & 7) == 0);
+    // Pre-scan pass: skip the trailing region whose coefficients all quantize to zero (the dominant
+    // sparsity pattern). fp zeroes a coeff when (abs << (1 + log_scale)) < dequant, i.e. abs < dequant >>
+    // (1 + log_scale); a chunk entirely below that is safe to drop (anything kept is still zeroed by the
+    // forward pass). Mirrors svt_aom_highbd_quantize_b_neon and the 8-bit quantize_fp pre-scan.
+    const int32x4_t v_thr    = vdupq_lane_s32(vget_low_s32(vshlq_s32(v_dequant_s32, vdupq_n_s32(-(1 + log_scale)))), 1);
+    for (intptr_t i = count; i > 0; i -= 8) {
+        const uint32x4_t v_mask_a = vcgeq_s32(vabsq_s32(vld1q_s32(coeff_ptr + i - 4)), v_thr);
+        const uint32x4_t v_mask_b = vcgeq_s32(vabsq_s32(vld1q_s32(coeff_ptr + i - 8)), v_thr);
+        if (vaddvq_u32(v_mask_a) + vaddvq_u32(v_mask_b) != 0) {
+            break;
+        }
+        non_zero_count -= 8;
+    }
+
+    const intptr_t remaining_zcoeffs = count - non_zero_count;
+    memset(qcoeff_ptr + non_zero_count, 0, remaining_zcoeffs * sizeof(*qcoeff_ptr));
+    memset(dqcoeff_ptr + non_zero_count, 0, remaining_zcoeffs * sizeof(*dqcoeff_ptr));
+
     // DC and first 3 AC
     v_mask_lo = quantize_4_fp(coeff_ptr, qcoeff_ptr, dqcoeff_ptr, v_quant_s32, v_dequant_s32, v_round_s32, log_scale);
 
@@ -243,8 +263,7 @@ void svt_av1_highbd_quantize_fp_neon(const TranLow* coeff_ptr, intptr_t count, c
     // Find the max lane eob for the first 8 coeffs.
     v_eobmax = get_max_lane_eob(iscan, v_eobmax, vcombine_u16(v_mask_lo, v_mask_hi));
 
-    count -= 8;
-    do {
+    for (intptr_t c = non_zero_count - 8; c > 0; c -= 8) {
         coeff_ptr += 8;
         qcoeff_ptr += 8;
         dqcoeff_ptr += 8;
@@ -255,8 +274,7 @@ void svt_av1_highbd_quantize_fp_neon(const TranLow* coeff_ptr, intptr_t count, c
             coeff_ptr + 4, qcoeff_ptr + 4, dqcoeff_ptr + 4, v_quant_s32, v_dequant_s32, v_round_s32, log_scale);
         // Find the max lane eob for 8 coeffs.
         v_eobmax = get_max_lane_eob(iscan, v_eobmax, vcombine_u16(v_mask_lo, v_mask_hi));
-        count -= 8;
-    } while (count);
+    }
 
     *eob_ptr = get_max_eob(v_eobmax);
 }
