@@ -243,6 +243,15 @@ static AOM_FORCE_INLINE uint32x4_t quantize_fp_qm_4(int32x4_t v_coeff, int32x4_t
     const int32x4_t  v_coeff_wt = vmulq_s32(v_abs, v_qm);
     const uint32x4_t v_below    = vcgtq_s32(v_thr, v_coeff_wt);
 
+    // Sparse-block shortcut (mirrors the AVX2 quantize_qm() below-threshold early-out): when every lane in
+    // the group is below the gate threshold the whole group quantizes to zero, so store zeros and skip the
+    // quant math. Bit-exact -- the full path vbic's these lanes to zero anyway. Common in lossy coding.
+    if (vminvq_u32(v_below) == 0xFFFFFFFFu) {
+        vst1q_s32(qcoeff_ptr, vdupq_n_s32(0));
+        vst1q_s32(dqcoeff_ptr, vdupq_n_s32(0));
+        return vdupq_n_u32(0);
+    }
+
     // abs_qcoeff = ((abs_coeff + round) * wt * quant) >> (16 - log_scale + AOM_QM_BITS).
     // The "* quant >> S" step folds into a doubling multiply-high: vqdmulhq_s32(p, quant << (31 - S))
     // == (p * quant) >> S (truncating, matching the C >>), with the wide product held inside the
@@ -421,6 +430,15 @@ static AOM_FORCE_INLINE uint32x4_t quantize_b_qm_4(int32x4_t v_coeff, int32x4_t 
     // Below-ZBIN lanes are forced to zero. C: abs_coeff * wt >= (zbins[rc != 0] << AOM_QM_BITS)
     const int32x4_t  v_abs_wt = vmulq_s32(v_abs, v_qm);
     const uint32x4_t v_below  = vcgtq_s32(v_zbin_thr, v_abs_wt);
+
+    // Sparse-block shortcut (mirrors the AVX2 quantize_qm() below-threshold early-out): when every lane in
+    // the group is below the ZBIN gate the whole group quantizes to zero, so store zeros and skip the
+    // two-step quant math. Bit-exact -- the full path vbic's these lanes to zero anyway.
+    if (vminvq_u32(v_below) == 0xFFFFFFFFu) {
+        vst1q_s32(qcoeff_ptr, vdupq_n_s32(0));
+        vst1q_s32(dqcoeff_ptr, vdupq_n_s32(0));
+        return vdupq_n_u32(0);
+    }
 
     // Two-step quantizer, both "(x * y) >> n" steps folded into doubling multiply-highs so the wide
     // products stay inside the SQDMULH accumulators (no widening to 64-bit lanes):
