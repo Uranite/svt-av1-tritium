@@ -105,4 +105,6 @@
 #define svt_unpack_and_2bcompress svt_unpack_and_2bcompress_neon
 #define svt_estimate_noise_fp16 svt_estimate_noise_fp16_neon
 #define svt_copy_mi_map_grid svt_copy_mi_map_grid_neon
+#define svt_ssim_8x8_hbd svt_ssim_8x8_hbd_neon
+#define svt_ssim_4x4_hbd svt_ssim_4x4_hbd_neon
 // clang-format on
