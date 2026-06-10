@@ -1641,6 +1641,9 @@ void svt_av1_rc_postencode_update_gop_const(PictureParentControlSet* ppcs) {
 
     if (frm_hdr->frame_type == KEY_FRAME) {
         rc->frames_since_key = 0;
+#if FIX_RTC_M13
+        rc->frames_since_cdf_update = 0;
+#endif
     }
 }
 
@@ -1708,6 +1711,9 @@ void svt_av1_rc_postencode_update(PictureParentControlSet* ppcs) {
 
     if (frm_hdr->frame_type == KEY_FRAME) {
         rc->frames_since_key = 0;
+#if FIX_RTC_M13
+        rc->frames_since_cdf_update = 0;
+#endif
     }
 }
 

@@ -657,7 +657,9 @@ static void kf_group_rate_assingment(PictureParentControlSet* pcs, FIRSTPASS_STA
     av1_zero(next_frame);
 
     rc->frames_since_key = 0;
-
+#if FIX_RTC_M13
+    rc->frames_since_cdf_update = 0;
+#endif
     const FIRSTPASS_STATS*       start_position = twopass->stats_in;
     int                          kf_bits        = 0;
     double                       kf_mod_err;

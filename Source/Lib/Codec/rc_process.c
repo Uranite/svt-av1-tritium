@@ -509,7 +509,10 @@ void svt_av1_rc_init(SequenceControlSet* scs) {
     rc->total_actual_bits   = 0;
     rc->total_target_bits   = 0;
 
-    rc->frames_since_key      = 8; // Sensible default for first frame.
+    rc->frames_since_key = 8; // Sensible default for first frame.
+#if FIX_RTC_M13
+    rc->frames_since_cdf_update = 0;
+#endif
     rc->this_key_frame_forced = 0;
     for (i = 0; i < MAX_TEMPORAL_LAYERS + 1; ++i) {
         rc->rate_correction_factors[i] = 0.7;
@@ -564,6 +567,15 @@ void svt_aom_update_rc_counts(PictureParentControlSet* ppcs) {
         // counters were incremented when it was originally encoded.
         rc->frames_since_key++;
         rc->frames_to_key--;
+#if FIX_RTC_M13
+        // Reset whenever the CDF is updated for the current frame,
+        // covering keyframes, warmup, scene changes, and periodic updates.
+        if (ppcs->frm_hdr.disable_cdf_update == 0) {
+            rc->frames_since_cdf_update = 0;
+        } else {
+            rc->frames_since_cdf_update++;
+        }
+#endif
     }
 }
 

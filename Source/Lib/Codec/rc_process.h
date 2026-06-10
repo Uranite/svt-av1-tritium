@@ -117,6 +117,9 @@ typedef struct RATE_CONTROL {
     int     constrained_gf_group;
     int     frames_to_key;
     int     frames_since_key;
+#if FIX_RTC_M13
+    int frames_since_cdf_update;
+#endif
     int     this_key_frame_forced;
     int     avg_frame_bandwidth; // Average frame size target for clip
     int     max_frame_bandwidth; // Maximum burst rate allowed for a frame.

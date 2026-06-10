@@ -702,6 +702,9 @@ void svt_av1_rc_postencode_update_rtc_cbr(PictureParentControlSet* ppcs) {
         rc->avg_frame_qindex[KEY_FRAME] = ROUND_POWER_OF_TWO(3 * rc->avg_frame_qindex[KEY_FRAME] + qindex, 2);
 
         rc->frames_since_key = 0;
+#if FIX_RTC_M13
+        rc->frames_since_cdf_update = 0;
+#endif
     } else if (!ppcs->is_overlay) {
         rc->avg_frame_qindex[INTER_FRAME] = ROUND_POWER_OF_TWO(3 * rc->avg_frame_qindex[INTER_FRAME] + qindex, 2);
         // Maintain last_q for the dynamic-resize decision (its only consumer); the RTC path
