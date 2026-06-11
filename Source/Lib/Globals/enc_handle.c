@@ -1273,6 +1273,7 @@ static ONCE_ROUTINE(init_global_tables) {
     init_fn_ptr();
     svt_av1_init_wedge_masks();
     init_ii_masks();
+    svt_av1_crc32c_calculator_init(&svt_av1_crc32c_table);
     ONCE_ROUTINE_EPILOG;
 }
 

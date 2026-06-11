@@ -27,6 +27,11 @@ typedef struct _CRC32C {
 /* Construct table for software CRC-32C calculation. */
 void svt_av1_crc32c_calculator_init(CRC32C* p_crc32c);
 
+/* Process-wide CRC-32C table; built once at library init (init_global_tables)
+ * and read-only afterwards. Only the software fall-back kernel reads it; the
+ * hardware kernels ignore the calculator context. */
+extern CRC32C svt_av1_crc32c_table;
+
 // Number of 2x2 pixel blocks per superblock
 // The biggest superblock supported by AV1 is 128x128, therefore there can be
 // a maximum of 64x64 blocks per superblock: 64 * 64 = 4096

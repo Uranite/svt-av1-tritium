@@ -14,6 +14,8 @@
 /* CRC-32C (iSCSI) polynomial in reversed bit order. */
 #define POLY 0x82f63b78
 
+CRC32C svt_av1_crc32c_table;
+
 /* Construct table for software CRC-32C calculation. */
 void svt_av1_crc32c_calculator_init(CRC32C* p_crc32c) {
     uint32_t crc;

@@ -331,7 +331,6 @@ typedef struct PictureControlSet {
     InputCoeffLvl    coeff_lvl;
     SearchSiteConfig ss_cfg; // CHKN this might be a seq based
     HashTable        hash_table;
-    CRC32C           crc_calculator;
 
     FRAME_CONTEXT*                  ec_ctx_array;
     FRAME_CONTEXT                   md_frame_context;

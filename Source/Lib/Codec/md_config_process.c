@@ -596,7 +596,6 @@ static void generate_ibc_data(PictureControlSet* pcs) {
     svt_aom_rtime_alloc_svt_av1_hash_table_create(&pcs->hash_table);
     Yv12BufferConfig cpi_source;
     svt_aom_link_eb_to_aom_buffer_desc_8bit(pcs->ppcs->enhanced_pic, &cpi_source);
-    svt_av1_crc32c_calculator_init(&pcs->crc_calculator);
     svt_av1_generate_block_2x2_hash_value(&cpi_source, block_hash_values[0], pcs);
     uint8_t       src_idx     = 0;
     const uint8_t max_sb_size = pcs->ppcs->intrabc_ctrls.max_block_size_hash;

@@ -208,7 +208,7 @@ void svt_av1_generate_block_hash_value(const Yv12BufferConfig* picture, int bloc
             p[1]                    = src_pic_block_hash[pos + src_size];
             p[2]                    = src_pic_block_hash[pos + src_size * pic_width];
             p[3]                    = src_pic_block_hash[pos + src_size * pic_width + src_size];
-            dst_pic_block_hash[pos] = svt_av1_get_crc32c_value(&pcs->crc_calculator, (uint8_t*)p, length);
+            dst_pic_block_hash[pos] = svt_av1_get_crc32c_value(&svt_av1_crc32c_table, (uint8_t*)p, length);
 
             pos++;
         }
@@ -375,7 +375,7 @@ void svt_av1_get_block_hash_value(uint8_t* y_src, int stride, int block_size, ui
                 to_hash[3] = x->hash_value_buffer[src_idx][src_pos + src_sub_block_in_width + 1];
 
                 x->hash_value_buffer[dst_idx][dst_pos] = svt_av1_get_crc32c_value(
-                    &x->crc_calculator, (uint8_t*)to_hash, sizeof(to_hash));
+                    x->crc_calculator, (uint8_t*)to_hash, sizeof(to_hash));
                 dst_pos++;
             }
         }

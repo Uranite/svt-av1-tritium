@@ -3004,7 +3004,7 @@ static void intra_bc_search(PictureControlSet* pcs, ModeDecisionContext* ctx, co
     IntraBcContext* x           = &x_st;
     uint32_t        full_lambda = ctx->hbd_md ? ctx->full_lambda_md[EB_10_BIT_MD] : ctx->full_lambda_md[EB_8_BIT_MD];
 
-    svt_memcpy(&x->crc_calculator, &pcs->crc_calculator, sizeof(pcs->crc_calculator));
+    x->crc_calculator    = &svt_av1_crc32c_table;
     x->approx_inter_rate = ctx->approx_inter_rate;
     x->xd                = blk_ptr->av1xd;
     x->nmv_vec_cost      = ctx->md_rate_est_ctx->nmv_vec_cost;
