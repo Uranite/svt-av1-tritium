@@ -2221,8 +2221,12 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
         const uint8_t base1_idx = CIRC_DEC(base2_idx, 0, 2); //the middle L0 picture in the DPB
         const uint8_t base0_idx = CIRC_DEC(base1_idx, 0, 2); //the oldest L0 picture in the DPB
 
+#if OTF_MG_IMMEDIATELY
+        const uint8_t lay1_1_idx = scs->mrp_ctrls.ld_reduce_ref_buffs == 2 ? !lay0_toggle
+#else
         const uint8_t lay1_1_idx = scs->mrp_ctrls.ld_reduce_ref_buffs == 2 ? 1
-            : scs->mrp_ctrls.ld_reduce_ref_buffs == 1                      ? LAY1_OFF
+#endif
+            : scs->mrp_ctrls.ld_reduce_ref_buffs == 1 ? LAY1_OFF
                                                       : LAY1_OFF + lay1_toggle; //the newest L1 picture in the DPB
         const uint8_t lay1_0_idx = CIRC_DEC(lay1_1_idx, LAY1_OFF, LAY1_OFF + 1); //the oldest L1 picture in the DPB
 #else
@@ -2257,7 +2261,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT]  = ref_dpb_index[LAST];
 
                 if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
-#if ADD_ON_THE_FLY_MG
+#if ADD_ON_THE_FLY_MG && !OTF_MG_IMMEDIATELY
                     // Set lay0_toggle to 0 because when using ld_reduce_ref_buffs, it assumes the most recent base pic
                     // is in slot 0. Setting explicitly is necessary in case we switch  MG sizes.
                     ctx->lay0_toggle = 0;
@@ -2301,11 +2305,16 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 av1_rps->refresh_frame_mask = 0;
                 if (pcs->is_ref) {
                     if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+#if OTF_MG_IMMEDIATELY
+                        // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                        av1_rps->refresh_frame_mask = 1 << (!ctx->lay0_toggle) | (0xfc);
+#else
 #if ADD_ON_THE_FLY_MG
                         // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
                         av1_rps->refresh_frame_mask = 1 << 1 | (0xfc);
 #else
                         av1_rps->refresh_frame_mask = 1 << 1;
+#endif
 #endif
                     } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
 #if ADD_ON_THE_FLY_MG
@@ -2328,7 +2337,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 }
                 break;
             default:
-                SVT_ERROR("unexpected picture mini Gop number\n");
+                SVT_ERROR("Unexpected temporal_layer - RPS for LD CBR HL1\n");
                 break;
             }
         } else {
@@ -2346,7 +2355,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT]  = ref_dpb_index[LAST];
 
                 if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
-#if ADD_ON_THE_FLY_MG
+#if ADD_ON_THE_FLY_MG && !OTF_MG_IMMEDIATELY
                     // Set lay0_toggle to 0 because when using ld_reduce_ref_buffs, it assumes the most recent base pic
                     // is in slot 0. Setting explicitly is necessary in case we switch  MG sizes.
                     ctx->lay0_toggle = 0;
@@ -2389,11 +2398,16 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT]  = ref_dpb_index[LAST];
 
                 if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
+#if OTF_MG_IMMEDIATELY
+                    // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
+                    av1_rps->refresh_frame_mask = 1 << (!ctx->lay0_toggle) | (0xfc);
+#else
 #if ADD_ON_THE_FLY_MG
                     // Only 2 DPB entries should be used, so fill in remaining entries to remove old pics (free up ref buffers)
                     av1_rps->refresh_frame_mask = 1 << 1 | (0xfc);
 #else
                     av1_rps->refresh_frame_mask = 1 << 1;
+#endif
 #endif
                 } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 1) {
 #if ADD_ON_THE_FLY_MG
@@ -2435,7 +2449,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                     ref_dpb_index[ALT2] = ref_dpb_index[LAST];
                     ref_dpb_index[ALT]  = ref_dpb_index[LAST];
                 } else {
-                    SVT_LOG("Error in GOp indexing\n");
+                    SVT_LOG("Error in MG indexing - LD CBR HL2\n");
                 }
 
                 assert(IMPLIES(scs->mrp_ctrls.ld_reduce_ref_buffs,
@@ -2447,7 +2461,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 }
                 break;
             default:
-                SVT_ERROR("unexpected picture mini Gop number\n");
+                SVT_ERROR("Unexpected temporal_layer - RPS for LD CBR HL2\n");
                 break;
             }
         }
@@ -2712,7 +2726,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
 #endif
             break;
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL1\n");
             break;
         }
         update_ref_poc_array(ref_dpb_index, ref_poc_array, ctx->dpb);
@@ -2864,13 +2878,13 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2] = ref_dpb_index[BWD];
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL2, temporal layer 2\n");
             }
 
             av1_rps->refresh_frame_mask = (pcs->is_ref) ? 1 << (lay2_idx) : 0;
             break;
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL2\n");
             break;
         }
 
@@ -3029,6 +3043,8 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[BWD]  = base2_idx;
                 ref_dpb_index[ALT2] = ref_dpb_index[BWD];
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
+            } else {
+                SVT_LOG("Error in MG indexing - HL3, temporal layer 2\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (lay2_idx);
@@ -3090,14 +3106,14 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2] = ref_dpb_index[BWD];
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL3, temporal layer 3\n");
             }
 
             av1_rps->refresh_frame_mask = (pcs->is_ref) ? 1 << (lay3_idx) : 0;
             break;
 
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL3\n");
             break;
         }
 
@@ -3259,6 +3275,8 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[BWD]  = base2_idx;
                 ref_dpb_index[ALT2] = lay4_idx;
                 ref_dpb_index[ALT]  = more_5L_refs ? lay1_0_idx : ref_dpb_index[BWD]; //44:+24
+            } else {
+                SVT_LOG("Error in MG indexing - HL4, temporal layer 2\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (LAY2_OFF);
@@ -3307,7 +3325,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2] = lay4_idx;
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL4, temporal layer 3\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (lay3_idx);
@@ -3406,14 +3424,14 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2]  = base1_idx;
                 ref_dpb_index[ALT]   = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL4, temporal layer 4\n");
             }
 
             av1_rps->refresh_frame_mask = (pcs->is_ref) ? 1 << (lay4_idx) : 0;
             break;
 
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL4\n");
             break;
         }
 
@@ -3568,6 +3586,8 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[BWD]  = base2_idx;
                 ref_dpb_index[ALT2] = lay4_idx;
                 ref_dpb_index[ALT]  = lay1_0_idx;
+            } else {
+                SVT_LOG("Error in MG indexing - HL5, temporal layer 2\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (LAY2_OFF);
@@ -3616,7 +3636,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2] = base0_idx;
                 ref_dpb_index[ALT]  = ref_dpb_index[BWD];
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL5, temporal layer 3\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (LAY3_OFF);
@@ -3704,7 +3724,7 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2]  = base1_idx;
                 ref_dpb_index[ALT]   = base0_idx;
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL5, temporal layer 4\n");
             }
 
             av1_rps->refresh_frame_mask = 1 << (LAY4_OFF);
@@ -3883,14 +3903,14 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 ref_dpb_index[ALT2]  = lay1_1_idx;
                 ref_dpb_index[ALT]   = base0_idx;
             } else {
-                SVT_LOG("Error in GOp indexing\n");
+                SVT_LOG("Error in MG indexing - HL5, temporal layer 5\n");
             }
 
             av1_rps->refresh_frame_mask = 0;
             break;
 
         default:
-            SVT_ERROR("unexpected picture mini Gop number\n");
+            SVT_ERROR("Unexpected temporal_layer - RPS for HL5\n");
             break;
         }
 
@@ -3940,12 +3960,12 @@ static void av1_generate_rps_info(PictureParentControlSet* pcs, EncodeContext* e
                 } else if (pic_idx == 30) {
                     frm_hdr->show_existing_frame = base2_idx;
                 } else {
-                    SVT_LOG("Error in GOP indexing for hierarchical level %d\n", pcs->hierarchical_levels);
+                    SVT_LOG("Error in MG indexing for hierarchical level %d\n", pcs->hierarchical_levels);
                 }
             }
         }
     } else {
-        SVT_ERROR("Not supported GOP structure!");
+        SVT_ERROR("Unsupported MG structure!");
         exit(0);
     }
 
@@ -5249,6 +5269,15 @@ static void set_mini_gop_structure(SequenceControlSet* scs, EncodeContext* enc_c
     if (ctx->enable_startup_mg) {
         next_mg_hierarchical_levels = scs->static_config.startup_mg_size;
     }
+#if OTF_MG_IMMEDIATELY
+    // For RTC mode (implies LOW_DELAY + CBR), support on-the-fly hierarchical_levels changes.
+    // pcs->hierarchical_levels holds the value requested by resource_coordination for this picture.
+    if (scs->static_config.pred_structure == LOW_DELAY && scs->static_config.rtc &&
+        scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) {
+        // If incoming pic signals change in GOP structure, update the active GOP structure immediately
+        next_mg_hierarchical_levels = pcs->hierarchical_levels;
+    }
+#else
 #if ADD_ON_THE_FLY_MG
     // For LOW_DELAY, support on-the-fly hierarchical_levels changes.
     // pcs->hierarchical_levels holds the value requested by resource_coordination for this picture.
@@ -5278,6 +5307,7 @@ static void set_mini_gop_structure(SequenceControlSet* scs, EncodeContext* enc_c
         }
         next_mg_hierarchical_levels = ctx->ld_active_hierarchical_levels;
     }
+#endif
 #endif
     // Initialize Picture Block Params
     ctx->mini_gop_start_index[0] = 0;
@@ -5439,17 +5469,27 @@ static void update_pred_struct_and_pic_type(SequenceControlSet* scs, EncodeConte
     *pred_position_ptr = pcs->pred_struct_ptr->pred_struct_entry_ptr_array[enc_ctx->pred_struct_position];
 }
 
+#if OTF_MG_IMMEDIATELY
+static uint32_t get_pic_idx_in_mg(SequenceControlSet* scs, EncodeContext* enc_ctx, PictureParentControlSet* pcs,
+                                  PictureDecisionContext* ctx, uint32_t pic_idx, uint32_t mini_gop_index) {
+#else
 static uint32_t get_pic_idx_in_mg(SequenceControlSet* scs, PictureParentControlSet* pcs, PictureDecisionContext* ctx,
                                   uint32_t pic_idx, uint32_t mini_gop_index) {
+#endif
     uint32_t pic_idx_in_mg = 0;
     if (scs->static_config.pred_structure == RANDOM_ACCESS) {
         pic_idx_in_mg = pic_idx - ctx->mini_gop_start_index[mini_gop_index];
     } else if (scs->static_config.pred_structure == LOW_DELAY) {
 #if ADD_ON_THE_FLY_MG
+#if OTF_MG_IMMEDIATELY
+        uint64_t mg_pos = enc_ctx->pred_struct_position;
+        pic_idx_in_mg   = (mg_pos == 0) ? 0 : (uint32_t)((mg_pos - 1) % pcs->pred_struct_ptr->pred_struct_entry_count);
+#else
         uint64_t distance_to_last_base = pcs->picture_number - ctx->last_base_pic;
         pic_idx_in_mg                  = (distance_to_last_base == 0)
                              ? 0
                              : (uint32_t)((distance_to_last_base - 1) % pcs->pred_struct_ptr->pred_struct_entry_count);
+#endif
 #else
         uint64_t distance_to_last_idr = pcs->picture_number - scs->enc_ctx->last_idr_picture;
         // For low delay P or low delay b case, get the the picture_index by mini_gop size
@@ -5996,7 +6036,7 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
         }
         if (pcs->picture_number == 0) {
             ctx->sframe_hier_lvls = scs->static_config.hierarchical_levels;
-#if ADD_ON_THE_FLY_MG
+#if ADD_ON_THE_FLY_MG && !OTF_MG_IMMEDIATELY
             ctx->ld_active_hierarchical_levels = (uint8_t)scs->static_config.hierarchical_levels;
             ctx->last_base_pic                 = 0;
 #endif
@@ -6139,7 +6179,11 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                         }
                     }
 
+#if OTF_MG_IMMEDIATELY
+                    pcs->pic_idx_in_mg = get_pic_idx_in_mg(scs, enc_ctx, pcs, ctx, pic_idx, mini_gop_index);
+#else
                     pcs->pic_idx_in_mg = get_pic_idx_in_mg(scs, pcs, ctx, pic_idx, mini_gop_index);
+#endif
 
                     for (uint8_t loop_index = 0; loop_index <= pcs->is_alt_ref; loop_index++) {
                         // Init pred strucutre info - different for overlay/non-overlay
@@ -6157,7 +6201,7 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
 #else
                             pcs->is_highest_layer = (pcs->temporal_layer_index == pcs->hierarchical_levels);
 #endif
-#if ADD_ON_THE_FLY_MG
+#if ADD_ON_THE_FLY_MG && !OTF_MG_IMMEDIATELY
                             if (pcs->temporal_layer_index == 0) {
                                 ctx->last_base_pic = pcs->picture_number;
                             }

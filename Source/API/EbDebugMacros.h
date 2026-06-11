@@ -105,6 +105,7 @@ extern "C" {
 #define REMOVE_USE_FLAT_IPP        1 // Use HL0 instead of a separate use_flat_ipp signal
 #define USE_FRAME_TYPE_BOOST       1 // Boost RTC settings using frame type instead of base checks since all pics are base
 #define SHIFT_DPB_TOGGLE           1 // Change lay0_toggle/lay1_toggle to be toggled before updating the refresh mask
+#define OTF_MG_IMMEDIATELY         1 // When on-the-fly MG size is signaled, update the structure immediately, instead of waiting for the next base picture
 
 
 #define OPT_RA_BITRATE             1 // Optimize bitrate for RA (M3/M4/M5)
