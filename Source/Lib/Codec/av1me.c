@@ -1068,7 +1068,7 @@ void svt_av1_intrabc_hash_search(PictureControlSet* pcs, IntraBcContext* x, Bloc
 
     uint32_t hash_value1, hash_value2;
 
-    svt_av1_get_block_hash_value(src_buf, src_stride, block_width, &hash_value1, &hash_value2, 0, pcs, x);
+    svt_av1_get_block_hash_value(src_buf, src_stride, block_width, &hash_value1, &hash_value2, 0, x);
 
     HashTable* ref_frame_hash = &pcs->hash_table;
     int        count          = svt_av1_hash_table_count(ref_frame_hash, hash_value1);

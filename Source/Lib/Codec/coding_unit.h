@@ -16,7 +16,6 @@
 #include "pic_buffer_desc.h"
 #include "block_structures.h"
 #include "cabac_context_model.h"
-#include "hash.h"
 #include "definitions.h"
 #include "mv.h"
 
@@ -140,9 +139,6 @@ typedef struct IntraBcContext {
     // used only in svt_av1_get_block_hash_value()
     // [two buffers used ping-pong]
     uint32_t* hash_value_buffer[2];
-    // calculator context for svt_av1_get_crc32c_value(); points at the
-    // process-wide svt_av1_crc32c_table
-    CRC32C* crc_calculator;
     // use approximate rate for inter cost (set at pic-level b/c some pic-level initializations will
     // be removed)
     uint8_t approx_inter_rate;

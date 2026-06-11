@@ -58,6 +58,7 @@
 
 #include "pack_unpack_c.h"
 #include "enc_mode_config.h"
+#include "hash.h"
 
 #ifdef ARCH_X86_64
 #include <immintrin.h>
@@ -1273,7 +1274,7 @@ static ONCE_ROUTINE(init_global_tables) {
     init_fn_ptr();
     svt_av1_init_wedge_masks();
     init_ii_masks();
-    svt_av1_crc32c_calculator_init(&svt_av1_crc32c_table);
+    svt_av1_crc32c_table_init();
     ONCE_ROUTINE_EPILOG;
 }
 

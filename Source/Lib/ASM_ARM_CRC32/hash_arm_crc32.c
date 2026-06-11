@@ -19,9 +19,8 @@
 #include "aom_dsp_rtcd.h"
 
 /* CRC-32C (Castagnoli) using the Armv8.0-A CRC32 extension. Bit-exact with
- * svt_av1_get_crc32c_value_c; the table-based calculator context is unused. */
-uint32_t svt_av1_get_crc32c_value_arm_crc32(void* c, const uint8_t* buf, size_t len) {
-    (void)c;
+ * svt_av1_get_crc32c_value_c. */
+uint32_t svt_av1_get_crc32c_value_arm_crc32(const uint8_t* buf, size_t len) {
     const uint8_t* next = buf;
     uint32_t       crc  = 0xFFFFFFFF;
 
