@@ -51,6 +51,12 @@ int64_t svt_aom_highbd_sse_c(const uint8_t *a8, int a_stride, const uint8_t *b8,
 RTCD_EXTERN int64_t(*svt_aom_highbd_sse)(const uint8_t *a8, int a_stride, const uint8_t *b8, int b_stride, int width, int height);
 #endif
 uint32_t svt_av1_get_crc32c_value_c(void *c, const uint8_t *buf, size_t len);
+#ifdef ARCH_X86_64
+uint32_t svt_av1_get_crc32c_value_sse4_2(void *c, const uint8_t *buf, size_t len);
+#endif
+#ifdef ARCH_AARCH64
+uint32_t svt_av1_get_crc32c_value_arm_crc32(void *c, const uint8_t *buf, size_t len);
+#endif
 RTCD_EXTERN uint32_t(*svt_av1_get_crc32c_value)(void *c, const uint8_t *buf, size_t len);
 void svt_av1_wedge_compute_delta_squares_c(int16_t *d, const int16_t *a, const int16_t *b, int N);
 RTCD_EXTERN void(*svt_av1_wedge_compute_delta_squares)(int16_t *d, const int16_t *a, const int16_t *b, int N);

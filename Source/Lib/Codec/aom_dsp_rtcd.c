@@ -53,6 +53,12 @@
     SET_FUNCTION_AVX512(ptr, avx512)
 #elif defined ARCH_AARCH64
 
+#if HAVE_ARM_CRC32
+#define SET_FUNCTION_ARM_CRC32(ptr, crc32) SET_FUNCTION(ptr, crc32, EB_CPU_FLAGS_ARM_CRC32)
+#else
+#define SET_FUNCTION_ARM_CRC32(ptr, crc32)
+#endif // HAVE_ARM_CRC32
+
 #if HAVE_NEON_DOTPROD
 #define SET_FUNCTION_NEON_DOTPROD(ptr, neon_dotprod) SET_FUNCTION(ptr, neon_dotprod, EB_CPU_FLAGS_NEON_DOTPROD)
 #else
@@ -178,6 +184,9 @@
 #define SET_SSE41(ptr, c, sse4_1)                                     SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, sse4_1, 0, 0, 0, 0)
 #define SET_SSE41_AVX2(ptr, c, sse4_1, avx2)                          SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, sse4_1, 0, 0, avx2, 0)
 #define SET_SSE41_AVX2_AVX512(ptr, c, sse4_1, avx2, avx512)           SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, sse4_1, 0, 0, avx2, avx512)
+/* Keeps the C fallback even under CONFIG_X86_AVX2_IS_GUARANTEED: that contract
+ * does not imply the SSE4_2 bit in a caller-supplied cpu mask. */
+#define SET_SSE42(ptr, c, sse4_2)                                     SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, 0, 0, sse4_2, 0, 0, 0)
 #define SET_AVX2(ptr, c, avx2)                                        SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, avx2, 0)
 #define SET_AVX2_AVX512(ptr, c, avx2, avx512)                         SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, avx2, avx512)
 #define SET_SSE2_AVX2_AVX512(ptr, c, sse2, avx2, avx512)              SET_FUNCTIONS_AVX2(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, avx2, avx512)
@@ -189,6 +198,15 @@
 #define SET_NEON_NEON_DOTPROD_SVE(ptr, c, neon, neon_dotprod, sve)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0, sve, 0, 0)
 #define SET_NEON_SVE(ptr, c, neon, sve)                               SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, sve, 0, 0)
 #define SET_NEON_SVE2(ptr, c, neon, sve2)                             SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, 0, sve2, 0)
+/* The Arm CRC32 extension is independent of Neon, so the C fallback is kept
+ * even when Neon is guaranteed to be available. */
+#define SET_ARM_CRC32(ptr, c, crc32)       \
+    do {                                   \
+        CHECK_PTR_IS_NOT_SET(ptr)          \
+        SET_FUNCTION_C(ptr, c)             \
+        SET_FUNCTION_ARM_CRC32(ptr, crc32) \
+        CHECK_PTR_IS_SET(ptr)              \
+    } while (0)
 #endif
 
 // Thread-safe RTCD initialization using lazily-initialized mutex
@@ -216,7 +234,7 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_AVX2(svt_aom_highbd_sse, svt_aom_highbd_sse_c, svt_aom_highbd_sse_avx2);
 #endif
-    SET_ONLY_C(svt_av1_get_crc32c_value, svt_av1_get_crc32c_value_c);
+    SET_SSE42(svt_av1_get_crc32c_value, svt_av1_get_crc32c_value_c, svt_av1_get_crc32c_value_sse4_2);
     SET_AVX2(svt_av1_wedge_compute_delta_squares, svt_av1_wedge_compute_delta_squares_c, svt_av1_wedge_compute_delta_squares_avx2);
     SET_SSE2_AVX2(svt_av1_wedge_sign_from_residuals, svt_av1_wedge_sign_from_residuals_c, svt_av1_wedge_sign_from_residuals_sse2, svt_av1_wedge_sign_from_residuals_avx2);
     SET_SSE41_AVX2(svt_compute_cdef_dist_16bit, svt_aom_compute_cdef_dist_16bit_c, svt_aom_compute_cdef_dist_16bit_sse4_1, svt_aom_compute_cdef_dist_16bit_avx2);
@@ -597,7 +615,7 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_NEON_SVE(svt_aom_highbd_sse, svt_aom_highbd_sse_c, svt_aom_highbd_sse_neon, svt_aom_highbd_sse_sve);
 #endif
-    SET_ONLY_C(svt_av1_get_crc32c_value, svt_av1_get_crc32c_value_c);
+    SET_ARM_CRC32(svt_av1_get_crc32c_value, svt_av1_get_crc32c_value_c, svt_av1_get_crc32c_value_arm_crc32);
     SET_NEON(svt_av1_wedge_compute_delta_squares, svt_av1_wedge_compute_delta_squares_c, svt_av1_wedge_compute_delta_squares_neon);
     SET_NEON_SVE(svt_av1_wedge_sign_from_residuals, svt_av1_wedge_sign_from_residuals_c, svt_av1_wedge_sign_from_residuals_neon, svt_av1_wedge_sign_from_residuals_sve);
     SET_NEON_SVE(svt_compute_cdef_dist_16bit, svt_aom_compute_cdef_dist_16bit_c, svt_aom_compute_cdef_dist_16bit_neon, svt_aom_compute_cdef_dist_16bit_sve);

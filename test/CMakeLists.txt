@@ -93,6 +93,7 @@ set(multi_arch_files
     FilterIntraPredTest.cc
     FullDistortionPerfTest.cc
     FwdTxfm2dAsmTest.cc
+    HashTest.cc
     HbdVarianceTest.cc
     InvTxfm2dAsmTest.cc
     MemTest.cc
@@ -172,6 +173,9 @@ endif()
 
 if(HAVE_ARM_PLATFORM)
   set(arm_arch_lib_list $<TARGET_OBJECTS:ASM_NEON>)
+  if(ENABLE_ARM_CRC32)
+    list(APPEND arm_arch_lib_list $<TARGET_OBJECTS:ASM_ARM_CRC32>)
+  endif()
   if(ENABLE_NEON_DOTPROD)
     list(APPEND arm_arch_lib_list $<TARGET_OBJECTS:ASM_NEON_DOTPROD>)
   endif()
