@@ -1484,4 +1484,59 @@ void svt_vmaf_apply_unsharp_row_neon(const uint8_t* src, const int16_t* blur, ui
     } while (j != width);
 }
 
+void svt_vmaf_vpass_row_neon(const uint32_t* hpass, uint32_t* sc0, uint32_t* sc1, uint32_t* sc2, uint32_t* sc3,
+                             int16_t* blur_row, int alloc_width, int width, int steps_x, int do_output) {
+    assert(width % 8 == 0 && "width must be multiple of 8");
+    assert(alloc_width % 4 == 0 && "alloc_width must be multiple of 4");
+    assert(steps_x == 2 && "steps_x must be 2");
+    (void)width;
+
+    const int blur_start     = 2 * steps_x;
+    int16_t*  blur_start_ptr = blur_row - blur_start;
+
+    int i = 0;
+    for (; i + 4 <= blur_start; i += 4) {
+        uint32x4_t hpass_vec = vld1q_u32(hpass + i);
+        uint32x4_t sc0_vec   = vld1q_u32(sc0 + i);
+        uint32x4_t sc1_vec   = vld1q_u32(sc1 + i);
+        uint32x4_t sc2_vec   = vld1q_u32(sc2 + i);
+
+        vst1q_u32(sc0 + i, hpass_vec);
+        uint32x4_t acc = vaddq_u32(sc0_vec, hpass_vec);
+
+        vst1q_u32(sc1 + i, acc);
+        acc = vaddq_u32(acc, sc1_vec);
+
+        vst1q_u32(sc2 + i, acc);
+        acc = vaddq_u32(acc, sc2_vec);
+
+        vst1q_u32(sc3 + i, acc);
+    }
+
+    for (; i + 4 <= alloc_width; i += 4) {
+        uint32x4_t hpass_vec = vld1q_u32(hpass + i);
+        uint32x4_t sc0_vec   = vld1q_u32(sc0 + i);
+        uint32x4_t sc1_vec   = vld1q_u32(sc1 + i);
+        uint32x4_t sc2_vec   = vld1q_u32(sc2 + i);
+        uint32x4_t sc3_vec   = vld1q_u32(sc3 + i);
+
+        vst1q_u32(sc0 + i, hpass_vec);
+        uint32x4_t acc = vaddq_u32(sc0_vec, hpass_vec);
+
+        vst1q_u32(sc1 + i, acc);
+        acc = vaddq_u32(acc, sc1_vec);
+
+        vst1q_u32(sc2 + i, acc);
+        acc = vaddq_u32(acc, sc2_vec);
+
+        vst1q_u32(sc3 + i, acc);
+        acc = vaddq_u32(acc, sc3_vec);
+
+        if (do_output) {
+            int16x4_t blur_out = vreinterpret_s16_u16(vrshrn_n_u32(acc, 8));
+            vst1_s16(blur_start_ptr + i, blur_out);
+        }
+    }
+}
+
 #endif // OPT_TUNE_VMAF

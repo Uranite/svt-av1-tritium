@@ -440,6 +440,14 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::Values(&svt_vmaf_vpass_row_avx2)));
 #endif  // ARCH_X86_64
 
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, VmafVpassRowTest,
+    ::testing::Combine(::testing::ValuesIn(kVmafWidths),
+                       ::testing::Values(0, 1),
+                       ::testing::Values(&svt_vmaf_vpass_row_neon)));
+#endif  // ARCH_AARCH64
+
 #endif  // OPT_TUNE_VMAF
 
 }  // namespace

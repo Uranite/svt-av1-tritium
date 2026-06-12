@@ -1328,6 +1328,7 @@ uint32_t svt_vmaf_compute_avg_mad_neon_dotprod(const uint8_t *src, int width, in
 uint32_t svt_vmaf_compute_avg_mad_neon_i8mm(const uint8_t *src, int width, int height, int stride);
 void svt_vmaf_apply_unsharp_row_neon(const uint8_t *src, const int16_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
 void svt_vmaf_apply_unsharp_row_sve2(const uint8_t *src, const int16_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
+void svt_vmaf_vpass_row_neon(const uint32_t *hpass, uint32_t *sc0, uint32_t *sc1, uint32_t *sc2, uint32_t *sc3, int16_t *blur_row, int alloc_width, int width, int steps_x, int do_output);
 #endif
 uint64_t svt_aom_compute_cdef_dist_8bit_neon(const uint8_t *dst8, int32_t dstride, const uint8_t *src8,
                                                 const CdefList *dlist, int32_t cdef_count, BlockSize bsize,

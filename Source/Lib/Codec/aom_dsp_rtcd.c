@@ -948,7 +948,7 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
 #if OPT_TUNE_VMAF
     SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_vmaf_compute_avg_mad, svt_vmaf_compute_avg_mad_c, svt_vmaf_compute_avg_mad_neon, svt_vmaf_compute_avg_mad_neon_dotprod, svt_vmaf_compute_avg_mad_neon_i8mm);
     SET_NEON_SVE2(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c, svt_vmaf_apply_unsharp_row_neon, svt_vmaf_apply_unsharp_row_sve2);
-    SET_ONLY_C(svt_vmaf_vpass_row, svt_vmaf_vpass_row_c);
+    SET_NEON(svt_vmaf_vpass_row, svt_vmaf_vpass_row_c, svt_vmaf_vpass_row_neon);
 #endif
     SET_NEON(svt_copy_mi_map_grid, svt_copy_mi_map_grid_c, svt_copy_mi_map_grid_neon);
 #if CONFIG_ENABLE_FILM_GRAIN
