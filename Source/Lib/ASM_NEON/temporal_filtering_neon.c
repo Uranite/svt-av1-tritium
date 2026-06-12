@@ -15,6 +15,7 @@
 #include "definitions.h"
 #include "mem_neon.h"
 #include "temporal_filtering.h"
+#include "temporal_filtering_neon.h"
 #include "utility.h"
 
 /* value [i:0-15] (sqrt((float)i)*65536.0 */
@@ -1357,18 +1358,6 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_neon(
 #if OPT_TUNE_VMAF
 
 DECLARE_ALIGNED(16, static const uint8_t, mean_broadcast_tbl[16]) = {0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2};
-
-static inline uint8_t avg8x8_neon(uint8x8_t s[8]) {
-    uint16x8_t sum = vaddl_u8(s[0], s[1]);
-    sum            = vaddw_u8(sum, s[2]);
-    sum            = vaddw_u8(sum, s[3]);
-    sum            = vaddw_u8(sum, s[4]);
-    sum            = vaddw_u8(sum, s[5]);
-    sum            = vaddw_u8(sum, s[6]);
-    sum            = vaddw_u8(sum, s[7]);
-
-    return vaddvq_u16(sum) >> 6;
-}
 
 static inline uint16x8_t avg8x8x2_neon(uint8x16_t s[8]) {
     uint16x8_t sum_u16 = vpaddlq_u8(s[0]);

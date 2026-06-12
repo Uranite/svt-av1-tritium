@@ -1,0 +1,125 @@
+/*
+ * Copyright (c) 2026, Alliance for Open Media. All rights reserved
+ *
+ * This source code is subject to the terms of the BSD 2 Clause License and
+ * the Alliance for Open Media Patent License 1.0. If the BSD 2 Clause License
+ * was not distributed with this source code in the LICENSE file, you can
+ * obtain it at https://www.aomedia.org/license/software-license. If the Alliance for Open
+ * Media Patent License 1.0 was not distributed with this source code in the
+ * PATENTS file, you can obtain it at https://www.aomedia.org/license/patent-license.
+ */
+
+#include <assert.h>
+#include <arm_neon.h>
+
+#include "aom_dsp_rtcd.h"
+#include "mem_neon.h"
+#include "temporal_filtering_neon.h"
+
+#if OPT_TUNE_VMAF
+
+DECLARE_ALIGNED(16, static const uint8_t, mean_broadcast_tbl[16]) = {1, 1, 1, 1, 1, 1, 1, 1, 9, 9, 9, 9, 9, 9, 9, 9};
+
+static inline uint64x2_t avg8x8x2_neon_dotprod(const uint8x16_t s[8]) {
+    const uint8x16_t scale = vdupq_n_u8(4);
+
+    uint32x4_t sum0 = vdotq_u32(vdupq_n_u32(0), s[0], scale);
+    uint32x4_t sum1 = vdotq_u32(vdupq_n_u32(0), s[1], scale);
+    sum0            = vdotq_u32(sum0, s[2], scale);
+    sum1            = vdotq_u32(sum1, s[3], scale);
+    sum0            = vdotq_u32(sum0, s[4], scale);
+    sum1            = vdotq_u32(sum1, s[5], scale);
+    sum0            = vdotq_u32(sum0, s[6], scale);
+    sum1            = vdotq_u32(sum1, s[7], scale);
+
+    sum0 = vaddq_u32(sum0, sum1);
+
+    return vpaddlq_u32(sum0);
+}
+
+static inline void mad8x8x2_neon_dotprod(const uint8x16_t s[8], const uint8x16_t mean, uint32x4_t* activity_vec0,
+                                         uint32x4_t* activity_vec1) {
+    const uint8x16_t ones = vdupq_n_u8(1);
+
+    uint8x16_t abs0 = vabdq_u8(s[0], mean);
+    uint8x16_t abs1 = vabdq_u8(s[1], mean);
+    *activity_vec0  = vdotq_u32(*activity_vec0, abs0, ones);
+    *activity_vec1  = vdotq_u32(*activity_vec1, abs1, ones);
+
+    abs0           = vabdq_u8(s[2], mean);
+    abs1           = vabdq_u8(s[3], mean);
+    *activity_vec0 = vdotq_u32(*activity_vec0, abs0, ones);
+    *activity_vec1 = vdotq_u32(*activity_vec1, abs1, ones);
+
+    abs0           = vabdq_u8(s[4], mean);
+    abs1           = vabdq_u8(s[5], mean);
+    *activity_vec0 = vdotq_u32(*activity_vec0, abs0, ones);
+    *activity_vec1 = vdotq_u32(*activity_vec1, abs1, ones);
+
+    abs0           = vabdq_u8(s[6], mean);
+    abs1           = vabdq_u8(s[7], mean);
+    *activity_vec0 = vdotq_u32(*activity_vec0, abs0, ones);
+    *activity_vec1 = vdotq_u32(*activity_vec1, abs1, ones);
+}
+
+static inline void mad8x8_neon_dotprod(const uint8x8_t s[8], const uint8x16_t mean, uint32x4_t* activity_vec0,
+                                       uint32x4_t* activity_vec1) {
+    const uint8x16_t ones = vdupq_n_u8(1);
+
+    const uint8x16_t s0 = vcombine_u8(s[0], s[1]);
+    const uint8x16_t s1 = vcombine_u8(s[2], s[3]);
+    const uint8x16_t s2 = vcombine_u8(s[4], s[5]);
+    const uint8x16_t s3 = vcombine_u8(s[6], s[7]);
+
+    uint8x16_t abs0 = vabdq_u8(s0, mean);
+    uint8x16_t abs1 = vabdq_u8(s1, mean);
+    *activity_vec0  = vdotq_u32(*activity_vec0, abs0, ones);
+    *activity_vec1  = vdotq_u32(*activity_vec1, abs1, ones);
+
+    abs0           = vabdq_u8(s2, mean);
+    abs1           = vabdq_u8(s3, mean);
+    *activity_vec0 = vdotq_u32(*activity_vec0, abs0, ones);
+    *activity_vec1 = vdotq_u32(*activity_vec1, abs1, ones);
+}
+
+uint32_t svt_vmaf_compute_avg_mad_neon_dotprod(const uint8_t* src, int width, int height, int stride) {
+    assert(width >= 8 && width % 8 == 0 && "width must be at least 8 and multiple of 8");
+    assert(height >= 8 && height % 8 == 0 && "height must be at least 8 and multiple of 8");
+
+    const uint64_t block_count = (height * width) >> 6;
+
+    const uint8x16_t broadcast_tbl = vld1q_u8(mean_broadcast_tbl);
+
+    uint64_t total_activity = 0;
+    int      by             = 0;
+    do {
+        uint32x4_t activity_vec0 = vdupq_n_u32(0);
+        uint32x4_t activity_vec1 = vdupq_n_u32(0);
+        int        bx            = 0;
+        for (; bx + 16 <= width; bx += 16) {
+            uint8x16_t s[8];
+            load_u8_16x8(src + by * stride + bx, stride, &s[0], &s[1], &s[2], &s[3], &s[4], &s[5], &s[6], &s[7]);
+
+            const uint8x16_t mean     = vreinterpretq_u8_u64(avg8x8x2_neon_dotprod(s));
+            const uint8x16_t mean_vec = vqtbl1q_u8(mean, broadcast_tbl);
+
+            mad8x8x2_neon_dotprod(s, mean_vec, &activity_vec0, &activity_vec1);
+        }
+
+        if (bx + 8 <= width) {
+            uint8x8_t s[8];
+            load_u8_8x8(src + by * stride + bx, stride, &s[0], &s[1], &s[2], &s[3], &s[4], &s[5], &s[6], &s[7]);
+
+            uint8x16_t mean = vdupq_n_u8(avg8x8_neon(s));
+
+            mad8x8_neon_dotprod(s, mean, &activity_vec0, &activity_vec1);
+        }
+
+        total_activity += vaddvq_u32(vaddq_u32(activity_vec0, activity_vec1));
+        by += 8;
+    } while (by + 8 <= height);
+
+    return (uint32_t)(total_activity / (block_count * 64));
+}
+
+#endif // OPT_TUNE_VMAF
