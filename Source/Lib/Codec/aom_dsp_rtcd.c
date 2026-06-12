@@ -59,6 +59,12 @@
 #define SET_FUNCTION_NEON_DOTPROD(ptr, neon_dotprod)
 #endif // HAVE_NEON_DOTPROD
 
+#if HAVE_NEON_I8MM
+#define SET_FUNCTION_NEON_I8MM(ptr, neon_i8mm) SET_FUNCTION(ptr, neon_i8mm, EB_CPU_FLAGS_NEON_I8MM)
+#else
+#define SET_FUNCTION_NEON_I8MM(ptr, neon_i8mm)
+#endif // HAVE_NEON_I8MM
+
 #if HAVE_SVE
 #define SET_FUNCTION_SVE(ptr, sve) SET_FUNCTION(ptr, sve, EB_CPU_FLAGS_SVE)
 #define SET_FUNCTION_NEOVERSE_V2(ptr, neoverse_v2) SET_FUNCTION(ptr, neoverse_v2, EB_CPU_FLAGS_NEOVERSE_V2)
@@ -67,10 +73,11 @@
 #define SET_FUNCTION_NEOVERSE_V2(ptr, neoverse_v2)
 #endif // HAVE_SVE
 
-#define SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, sve, neoverse_v2) \
-    SET_FUNCTION(ptr, neon, EB_CPU_FLAGS_NEON)                           \
-    SET_FUNCTION_NEON_DOTPROD(ptr, neon_dotprod)                         \
-    SET_FUNCTION_SVE(ptr, sve)                                           \
+#define SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, neon_i8mm, sve, neoverse_v2) \
+    SET_FUNCTION(ptr, neon, EB_CPU_FLAGS_NEON)                                      \
+    SET_FUNCTION_NEON_DOTPROD(ptr, neon_dotprod)                                    \
+    SET_FUNCTION_NEON_I8MM(ptr, neon_i8mm)                                          \
+    SET_FUNCTION_SVE(ptr, sve)                                                      \
     SET_FUNCTION_NEOVERSE_V2(ptr, neoverse_v2)
 #endif
 
@@ -122,27 +129,27 @@
 #elif defined ARCH_AARCH64
 
 // general function dispatcher
-#define SET_FUNCTIONS(ptr, c, neon, neon_dotprod, sve, neoverse_v2)      \
-    do {                                                                 \
-        CHECK_PTR_IS_NOT_SET(ptr)                                        \
-        SET_FUNCTION_C(ptr, c)                                           \
-        SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, sve, neoverse_v2) \
-        CHECK_PTR_IS_SET(ptr)                                            \
+#define SET_FUNCTIONS(ptr, c, neon, neon_dotprod, neon_i8mm, sve, neoverse_v2)      \
+    do {                                                                            \
+        CHECK_PTR_IS_NOT_SET(ptr)                                                   \
+        SET_FUNCTION_C(ptr, c)                                                      \
+        SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, neon_i8mm, sve, neoverse_v2) \
+        CHECK_PTR_IS_SET(ptr)                                                       \
     } while (0)
 
 // special case when Neon optimization is available
 #if CONFIG_ARM_NEON_IS_GUARANTEED
 // when Neon is guaranteed to be available - we can skip C function assignment
 // and thus allow linker to strip C code from final binary to reduce size.
-#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve, neoverse_v2) \
-    do {                                                                 \
-        CHECK_PTR_IS_NOT_SET(ptr)                                        \
-        SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, sve, neoverse_v2) \
-        CHECK_PTR_IS_SET(ptr)                                            \
+#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, neon_i8mm, sve, neoverse_v2) \
+    do {                                                                            \
+        CHECK_PTR_IS_NOT_SET(ptr)                                                   \
+        SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, neon_i8mm, sve, neoverse_v2) \
+        CHECK_PTR_IS_SET(ptr)                                                       \
     } while (0)
 #else
-#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve, neoverse_v2) \
-    SET_FUNCTIONS(ptr, c, neon, neon_dotprod, sve, neoverse_v2)
+#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, neon_i8mm, sve, neoverse_v2) \
+    SET_FUNCTIONS(ptr, c, neon, neon_dotprod, neon_i8mm, sve, neoverse_v2)
 #endif
 #endif
 
@@ -168,11 +175,12 @@
 #define SET_AVX2_AVX512(ptr, c, avx2, avx512)                         SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, avx2, avx512)
 #define SET_SSE2_AVX2_AVX512(ptr, c, sse2, avx2, avx512)              SET_FUNCTIONS_AVX2(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, avx2, avx512)
 #elif defined ARCH_AARCH64
-#define SET_NEON(ptr, c, neon)                                        SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, 0)
-#define SET_NEON_NEON_DOTPROD(ptr, c, neon, neon_dotprod)             SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0, 0)
-#define SET_NEON_NEON_DOTPROD_SVE_NEOVERSE_V2(ptr, c, neon, neon_dotprod, sve, neoverse_v2)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve, neoverse_v2)
-#define SET_NEON_NEON_DOTPROD_SVE(ptr, c, neon, neon_dotprod, sve)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve, 0)
-#define SET_NEON_SVE(ptr, c, neon, sve)                               SET_FUNCTIONS_NEON(ptr, c, neon, 0, sve, 0)
+#define SET_NEON(ptr, c, neon)                                        SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, 0, 0)
+#define SET_NEON_NEON_DOTPROD(ptr, c, neon, neon_dotprod)             SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0, 0, 0)
+#define SET_NEON_NEON_DOTPROD_NEON_I8MM(ptr, c, neon, neon_dotprod, neon_i8mm) SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, neon_i8mm, 0, 0)
+#define SET_NEON_NEON_DOTPROD_SVE_NEOVERSE_V2(ptr, c, neon, neon_dotprod, sve, neoverse_v2)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0, sve, neoverse_v2)
+#define SET_NEON_NEON_DOTPROD_SVE(ptr, c, neon, neon_dotprod, sve)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0, sve, 0)
+#define SET_NEON_SVE(ptr, c, neon, sve)                               SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0, sve, 0)
 #endif
 
 // Thread-safe RTCD initialization using lazily-initialized mutex
@@ -930,7 +938,7 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_NEON(svt_estimate_noise_highbd_fp16, svt_estimate_noise_highbd_fp16_c, svt_estimate_noise_highbd_fp16_neon);
 #endif
 #if OPT_TUNE_VMAF
-    SET_NEON_NEON_DOTPROD(svt_vmaf_compute_avg_mad, svt_vmaf_compute_avg_mad_c, svt_vmaf_compute_avg_mad_neon, svt_vmaf_compute_avg_mad_neon_dotprod);
+    SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_vmaf_compute_avg_mad, svt_vmaf_compute_avg_mad_c, svt_vmaf_compute_avg_mad_neon, svt_vmaf_compute_avg_mad_neon_dotprod, svt_vmaf_compute_avg_mad_neon_i8mm);
     SET_ONLY_C(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c);
     SET_ONLY_C(svt_vmaf_vpass_row, svt_vmaf_vpass_row_c);
 #endif

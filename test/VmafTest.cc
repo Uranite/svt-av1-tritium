@@ -158,6 +158,13 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::ValuesIn(kVmafSizes),
         ::testing::Values(&svt_vmaf_compute_avg_mad_neon_dotprod)));
 #endif  // HAVE_NEON_DOTPROD
+
+#if HAVE_NEON_I8MM
+INSTANTIATE_TEST_SUITE_P(
+    NEON_I8MM, VmafAvgMadTest,
+    ::testing::Combine(::testing::ValuesIn(kVmafSizes),
+                       ::testing::Values(&svt_vmaf_compute_avg_mad_neon_i8mm)));
+#endif  // HAVE_NEON_I8MM
 #endif  // ARCH_AARCH64
 
 using VmafUnsharpRowFunc = void (*)(const uint8_t *src, const int16_t *blur,

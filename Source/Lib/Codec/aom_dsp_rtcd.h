@@ -1325,6 +1325,7 @@ int32_t svt_estimate_noise_highbd_fp16_neon(const uint16_t *src, int width, int 
 #if OPT_TUNE_VMAF
 uint32_t svt_vmaf_compute_avg_mad_neon(const uint8_t *src, int width, int height, int stride);
 uint32_t svt_vmaf_compute_avg_mad_neon_dotprod(const uint8_t *src, int width, int height, int stride);
+uint32_t svt_vmaf_compute_avg_mad_neon_i8mm(const uint8_t *src, int width, int height, int stride);
 #endif
 uint64_t svt_aom_compute_cdef_dist_8bit_neon(const uint8_t *dst8, int32_t dstride, const uint8_t *src8,
                                                 const CdefList *dlist, int32_t cdef_count, BlockSize bsize,

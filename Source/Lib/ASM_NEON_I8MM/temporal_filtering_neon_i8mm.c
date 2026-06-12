@@ -21,24 +21,22 @@
 
 DECLARE_ALIGNED(16, static const uint8_t, mean_broadcast_tbl[16]) = {1, 1, 1, 1, 1, 1, 1, 1, 9, 9, 9, 9, 9, 9, 9, 9};
 
-static inline uint64x2_t avg8x8x2_neon_dotprod(const uint8x16_t s[8]) {
+static inline uint8x16_t avg8x8x2_neon_i8mm(const uint8x16_t s[8]) {
     const uint8x16_t scale = vdupq_n_u8(4);
 
-    uint32x4_t sum0 = vdotq_u32(vdupq_n_u32(0), s[0], scale);
-    uint32x4_t sum1 = vdotq_u32(vdupq_n_u32(0), s[1], scale);
-    sum0            = vdotq_u32(sum0, s[2], scale);
-    sum1            = vdotq_u32(sum1, s[3], scale);
-    sum0            = vdotq_u32(sum0, s[4], scale);
-    sum1            = vdotq_u32(sum1, s[5], scale);
-    sum0            = vdotq_u32(sum0, s[6], scale);
-    sum1            = vdotq_u32(sum1, s[7], scale);
+    uint32x4_t sum = vmmlaq_u32(vdupq_n_u32(0), s[0], scale);
+    sum            = vmmlaq_u32(sum, s[1], scale);
+    sum            = vmmlaq_u32(sum, s[2], scale);
+    sum            = vmmlaq_u32(sum, s[3], scale);
+    sum            = vmmlaq_u32(sum, s[4], scale);
+    sum            = vmmlaq_u32(sum, s[5], scale);
+    sum            = vmmlaq_u32(sum, s[6], scale);
+    sum            = vmmlaq_u32(sum, s[7], scale);
 
-    sum0 = vaddq_u32(sum0, sum1);
-
-    return vpaddlq_u32(sum0);
+    return vreinterpretq_u8_u32(sum);
 }
 
-uint32_t svt_vmaf_compute_avg_mad_neon_dotprod(const uint8_t* src, int width, int height, int stride) {
+uint32_t svt_vmaf_compute_avg_mad_neon_i8mm(const uint8_t* src, int width, int height, int stride) {
     assert(width >= 8 && width % 8 == 0 && "width must be at least 8 and multiple of 8");
     assert(height >= 8 && height % 8 == 0 && "height must be at least 8 and multiple of 8");
 
@@ -56,7 +54,7 @@ uint32_t svt_vmaf_compute_avg_mad_neon_dotprod(const uint8_t* src, int width, in
             uint8x16_t s[8];
             load_u8_16x8(src + by * stride + bx, stride, &s[0], &s[1], &s[2], &s[3], &s[4], &s[5], &s[6], &s[7]);
 
-            const uint8x16_t mean     = vreinterpretq_u8_u64(avg8x8x2_neon_dotprod(s));
+            const uint8x16_t mean     = avg8x8x2_neon_i8mm(s);
             const uint8x16_t mean_vec = vqtbl1q_u8(mean, broadcast_tbl);
 
             mad8x8x2_neon_dotprod(s, mean_vec, &activity_vec0, &activity_vec1);
