@@ -112,6 +112,7 @@ set(multi_arch_files
     TemporalFilterTestPlanewise.cc
     VariancePerfTest.cc
     VarianceTest.cc
+    VmafTest.cc
     WedgeUtilTest.cc
     av1_convolve_scale_test.cc
     compute_mean_test.cc
