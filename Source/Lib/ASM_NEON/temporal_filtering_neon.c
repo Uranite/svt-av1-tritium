@@ -1353,3 +1353,116 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_neon(
                                                                                  me_ctx->tf_decay_factor_fp16[PLANE_V]);
     }
 }
+
+#if OPT_TUNE_VMAF
+
+DECLARE_ALIGNED(16, static const uint8_t, mean_broadcast_tbl[16]) = {0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2};
+
+static inline uint8_t avg8x8_neon(uint8x8_t s[8]) {
+    uint16x8_t sum = vaddl_u8(s[0], s[1]);
+    sum            = vaddw_u8(sum, s[2]);
+    sum            = vaddw_u8(sum, s[3]);
+    sum            = vaddw_u8(sum, s[4]);
+    sum            = vaddw_u8(sum, s[5]);
+    sum            = vaddw_u8(sum, s[6]);
+    sum            = vaddw_u8(sum, s[7]);
+
+    return vaddvq_u16(sum) >> 6;
+}
+
+static inline uint16x8_t avg8x8x2_neon(uint8x16_t s[8]) {
+    uint16x8_t sum_u16 = vpaddlq_u8(s[0]);
+    sum_u16            = vpadalq_u8(sum_u16, s[1]);
+    sum_u16            = vpadalq_u8(sum_u16, s[2]);
+    sum_u16            = vpadalq_u8(sum_u16, s[3]);
+    sum_u16            = vpadalq_u8(sum_u16, s[4]);
+    sum_u16            = vpadalq_u8(sum_u16, s[5]);
+    sum_u16            = vpadalq_u8(sum_u16, s[6]);
+    sum_u16            = vpadalq_u8(sum_u16, s[7]);
+
+    sum_u16 = vpaddq_u16(sum_u16, sum_u16);
+    sum_u16 = vpaddq_u16(sum_u16, sum_u16);
+
+    return vshrq_n_u16(sum_u16, 6);
+}
+
+static inline uint32x4_t mad8x8x2_neon(const uint8x16_t s[8], const uint8x16_t mean) {
+    uint8x16_t abs0 = vabdq_u8(s[0], mean);
+    uint8x16_t abs1 = vabdq_u8(s[1], mean);
+    uint16x8_t sum0 = vpaddlq_u8(abs0);
+    uint16x8_t sum1 = vpaddlq_u8(abs1);
+
+    abs0 = vabdq_u8(s[2], mean);
+    abs1 = vabdq_u8(s[3], mean);
+    sum0 = vpadalq_u8(sum0, abs0);
+    sum1 = vpadalq_u8(sum1, abs1);
+
+    abs0 = vabdq_u8(s[4], mean);
+    abs1 = vabdq_u8(s[5], mean);
+    sum0 = vpadalq_u8(sum0, abs0);
+    sum1 = vpadalq_u8(sum1, abs1);
+
+    abs0 = vabdq_u8(s[6], mean);
+    abs1 = vabdq_u8(s[7], mean);
+    sum0 = vpadalq_u8(sum0, abs0);
+    sum1 = vpadalq_u8(sum1, abs1);
+
+    sum0 = vaddq_u16(sum0, sum1);
+
+    return vpaddlq_u16(sum0);
+}
+
+static inline uint32x4_t mad8x8_neon(const uint8x8_t s[8], const uint8x8_t mean) {
+    uint16x8_t sum0 = vabdl_u8(s[0], mean);
+    uint16x8_t sum1 = vabdl_u8(s[1], mean);
+    sum0            = vabal_u8(sum0, s[2], mean);
+    sum1            = vabal_u8(sum1, s[3], mean);
+    sum0            = vabal_u8(sum0, s[4], mean);
+    sum1            = vabal_u8(sum1, s[5], mean);
+    sum0            = vabal_u8(sum0, s[6], mean);
+    sum1            = vabal_u8(sum1, s[7], mean);
+
+    sum0 = vaddq_u16(sum0, sum1);
+
+    return vpaddlq_u16(sum0);
+}
+
+uint32_t svt_vmaf_compute_avg_mad_neon(const uint8_t* src, int width, int height, int stride) {
+    assert(width >= 8 && width % 8 == 0 && "width must be at least 8 and multiple of 8");
+    assert(height >= 8 && height % 8 == 0 && "height must be at least 8 and multiple of 8");
+
+    const uint64_t block_count = (height * width) >> 6;
+
+    const uint8x16_t broadcast_tbl = vld1q_u8(mean_broadcast_tbl);
+
+    uint64_t total_activity = 0;
+    int      by             = 0;
+    do {
+        uint32x4_t activity_vec = vdupq_n_u32(0);
+        int        bx           = 0;
+        for (; bx + 16 <= width; bx += 16) {
+            uint8x16_t s[8];
+            load_u8_16x8(src + by * stride + bx, stride, &s[0], &s[1], &s[2], &s[3], &s[4], &s[5], &s[6], &s[7]);
+
+            const uint8x16_t mean     = vreinterpretq_u8_u16(avg8x8x2_neon(s));
+            const uint8x16_t mean_vec = vqtbl1q_u8(mean, broadcast_tbl);
+
+            activity_vec = vaddq_u32(activity_vec, mad8x8x2_neon(s, mean_vec));
+        }
+        if (bx + 8 <= width) {
+            uint8x8_t s[8];
+            load_u8_8x8(src + by * stride + bx, stride, &s[0], &s[1], &s[2], &s[3], &s[4], &s[5], &s[6], &s[7]);
+
+            uint8x8_t mean = vdup_n_u8(avg8x8_neon(s));
+
+            activity_vec = vaddq_u32(activity_vec, mad8x8_neon(s, mean));
+        }
+
+        total_activity += vaddvq_u32(activity_vec);
+        by += 8;
+    } while (by + 8 <= height);
+
+    return (uint32_t)(total_activity / (block_count * 64));
+}
+
+#endif // OPT_TUNE_VMAF

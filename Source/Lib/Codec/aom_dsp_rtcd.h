@@ -1322,6 +1322,9 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t *src, uint16_t width, uint16_
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
 int32_t svt_estimate_noise_highbd_fp16_neon(const uint16_t *src, int width, int height, int stride, int bd);
 #endif
+#if OPT_TUNE_VMAF
+uint32_t svt_vmaf_compute_avg_mad_neon(const uint8_t *src, int width, int height, int stride);
+#endif
 uint64_t svt_aom_compute_cdef_dist_8bit_neon(const uint8_t *dst8, int32_t dstride, const uint8_t *src8,
                                                 const CdefList *dlist, int32_t cdef_count, BlockSize bsize,
                                                 int32_t coeff_shift, uint8_t subsampling_factor);
