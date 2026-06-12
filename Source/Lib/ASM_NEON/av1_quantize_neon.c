@@ -148,9 +148,12 @@ static AOM_FORCE_INLINE void quantize_fp_no_qmatrix_neon(const TranLow* coeff_pt
     intptr_t        non_zero_count    = n_coeffs;
 
     assert(n_coeffs > 16);
-    // Pre-scan pass
+    // Pre-scan pass. Zero the skipped chunks in place as we go: fusing the store into the scan is
+    // markedly faster on sparse blocks than memset-ing the whole tail afterwards, and free when nothing
+    // is skipped.
     const int16x8_t v_dequant_scaled = vshlq_s16(v_dequant, vdupq_n_s16(-(1 + log_scale)));
     const int16x8_t v_zbin_s16       = vdupq_lane_s16(vget_low_s16(v_dequant_scaled), 1);
+    const int32x4_t v_zero32         = vdupq_n_s32(0);
     intptr_t        i                = n_coeffs;
     do {
         const int16x8_t  v_coeff_a     = load_tran_low_to_s16q(coeff_ptr + i - 8);
@@ -160,17 +163,20 @@ static AOM_FORCE_INLINE void quantize_fp_no_qmatrix_neon(const TranLow* coeff_pt
         const uint16x8_t v_mask_a      = vcgeq_s16(v_abs_coeff_a, v_zbin_s16);
         const uint16x8_t v_mask_b      = vcgeq_s16(v_abs_coeff_b, v_zbin_s16);
         // If the coefficient is in the base ZBIN range, then discard.
-        if (horizontal_long_add_u16x8(v_mask_a, v_mask_b) == 0) {
-            non_zero_count -= 16;
-        } else {
+        if (horizontal_long_add_u16x8(v_mask_a, v_mask_b) != 0) {
             break;
         }
+        vst1q_s32(qcoeff_ptr + i - 4, v_zero32);
+        vst1q_s32(qcoeff_ptr + i - 8, v_zero32);
+        vst1q_s32(qcoeff_ptr + i - 12, v_zero32);
+        vst1q_s32(qcoeff_ptr + i - 16, v_zero32);
+        vst1q_s32(dqcoeff_ptr + i - 4, v_zero32);
+        vst1q_s32(dqcoeff_ptr + i - 8, v_zero32);
+        vst1q_s32(dqcoeff_ptr + i - 12, v_zero32);
+        vst1q_s32(dqcoeff_ptr + i - 16, v_zero32);
+        non_zero_count -= 16;
         i -= 16;
     } while (i > 0);
-
-    const intptr_t remaining_zcoeffs = n_coeffs - non_zero_count;
-    memset(qcoeff_ptr + non_zero_count, 0, remaining_zcoeffs * sizeof(*qcoeff_ptr));
-    memset(dqcoeff_ptr + non_zero_count, 0, remaining_zcoeffs * sizeof(*dqcoeff_ptr));
 
     // process dc and the first seven ac coeffs
     uint16x8_t v_nz_mask;

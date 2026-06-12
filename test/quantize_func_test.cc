@@ -276,8 +276,11 @@ class QuantizeLbdTest : public QuantizeTest<QuantizeParam, QuantizeFunc> {
     }
 
     // Microbenchmark for the flat (no quantization matrix) quantizer: C
-    // reference vs SIMD on a dense coefficient block. Provides context for the
-    // qm-kernel speedups. Disabled by default.
+    // reference vs SIMD across coefficient densities, mirroring
+    // QuantizeHbdTest::RunSpeedTest. Sparser blocks shorten the
+    // pre-scan-bounded loop, so the cost scales with the eob; the dense row
+    // provides context for the qm-kernel speedups. Disabled by default; run
+    // with --gtest_also_run_disabled_tests.
     void RunSpeedTest() {
         const auto quant_ref = TEST_GET_PARAM(0);
         const auto quant_tst = TEST_GET_PARAM(1);
@@ -292,7 +295,10 @@ class QuantizeLbdTest : public QuantizeTest<QuantizeParam, QuantizeFunc> {
         uint16_t *eob = reinterpret_cast<uint16_t *>(dqcoeff + n_coeffs);
 
         const ScanOrder *const sc = get_scan_order(tx_size_, DCT_DCT);
-        const int q = 0;
+        // Use a representative mid qindex: at qindex 0 the dequant is minimal
+        // and the pre-scan threshold floors to zero, so the backward scan
+        // cannot skip -- not representative of normal lossy operation.
+        const int q = 32;
         const int16_t *zbin = qtab_.quant.y_zbin[q];
         const int16_t *round = (type == TYPE_B) ? qtab_.quant.y_round[q]
                                                 : qtab_.quant.y_round_fp[q];
@@ -300,9 +306,6 @@ class QuantizeLbdTest : public QuantizeTest<QuantizeParam, QuantizeFunc> {
                                                 : qtab_.quant.y_quant_fp[q];
         const int16_t *quant_shift = qtab_.quant.y_quant_shift[q];
         const int16_t *dequant = qtab_.dequant.y_dequant_qtx[q];
-
-        FillCoeffRandomRows(static_cast<int>(n_coeffs));  // dense block
-        std::fill_n(qcoeff_ref, 5 * n_coeffs, 0);
 
         auto run =
             [&](QuantizeFunc fn, TranLow *qc, TranLow *dqc, uint16_t *e) {
@@ -320,32 +323,42 @@ class QuantizeLbdTest : public QuantizeTest<QuantizeParam, QuantizeFunc> {
                    sc->iscan);
             };
         const uint64_t num_loop = 300000;
-        for (int i = 0; i < 4000; ++i) {
-            run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
-            run(quant_tst, qcoeff, dqcoeff, &eob[1]);
+        const int densities[] = {static_cast<int>(n_coeffs),
+                                 static_cast<int>(n_coeffs) / 4,
+                                 static_cast<int>(n_coeffs) / 8};
+        for (int nz : densities) {
+            if (nz < 1)
+                nz = 1;
+            FillCoeffRandomRows(nz);
+            std::fill_n(qcoeff_ref, 5 * n_coeffs, 0);
+            for (int i = 0; i < 4000; ++i) {
+                run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
+                run(quant_tst, qcoeff, dqcoeff, &eob[1]);
+            }
+            auto t0 = std::chrono::steady_clock::now();
+            for (uint64_t i = 0; i < num_loop; ++i)
+                run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
+            auto t1 = std::chrono::steady_clock::now();
+            for (uint64_t i = 0; i < num_loop; ++i)
+                run(quant_tst, qcoeff, dqcoeff, &eob[1]);
+            auto t2 = std::chrono::steady_clock::now();
+            const double c_ns =
+                std::chrono::duration<double, std::nano>(t1 - t0).count() /
+                num_loop;
+            const double n_ns =
+                std::chrono::duration<double, std::nano>(t2 - t1).count() /
+                num_loop;
+            printf(
+                "[ SPEED    ] tx=%2d bd=%2d n=%4d nz=%4d : C %8.1f ns  "
+                "SIMD %8.1f ns  speedup %.2fx (flat)\n",
+                static_cast<int>(tx_size_),
+                static_cast<int>(bd_),
+                static_cast<int>(n_coeffs),
+                nz,
+                c_ns,
+                n_ns,
+                c_ns / n_ns);
         }
-        auto t0 = std::chrono::steady_clock::now();
-        for (uint64_t i = 0; i < num_loop; ++i)
-            run(quant_ref, qcoeff_ref, dqcoeff_ref, &eob[0]);
-        auto t1 = std::chrono::steady_clock::now();
-        for (uint64_t i = 0; i < num_loop; ++i)
-            run(quant_tst, qcoeff, dqcoeff, &eob[1]);
-        auto t2 = std::chrono::steady_clock::now();
-        const double c_ns =
-            std::chrono::duration<double, std::nano>(t1 - t0).count() /
-            num_loop;
-        const double n_ns =
-            std::chrono::duration<double, std::nano>(t2 - t1).count() /
-            num_loop;
-        printf(
-            "[ SPEED    ] tx=%2d bd=%2d n=%4d : C %8.1f ns  SIMD %8.1f ns  "
-            "speedup %.2fx (flat)\n",
-            static_cast<int>(tx_size_),
-            static_cast<int>(bd_),
-            static_cast<int>(n_coeffs),
-            c_ns,
-            n_ns,
-            c_ns / n_ns);
     }
 };
 
