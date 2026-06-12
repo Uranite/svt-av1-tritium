@@ -255,6 +255,15 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::Values(&svt_vmaf_apply_unsharp_row_avx2)));
 #endif  // ARCH_X86_64
 
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, VmafUnsharpRowTest,
+    ::testing::Combine(::testing::ValuesIn(kVmafWidths),
+                       ::testing::Values(19660, 32767),
+                       ::testing::Values(8, 12),
+                       ::testing::Values(&svt_vmaf_apply_unsharp_row_neon)));
+#endif  // ARCH_AARCH64
+
 using VmafVpassRowFunc = void (*)(const uint32_t *hpass, uint32_t *sc0,
                                   uint32_t *sc1, uint32_t *sc2, uint32_t *sc3,
                                   int16_t *blur_row, int alloc_width, int width,

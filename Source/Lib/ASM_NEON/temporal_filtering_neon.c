@@ -1454,4 +1454,34 @@ uint32_t svt_vmaf_compute_avg_mad_neon(const uint8_t* src, int width, int height
     return (uint32_t)(total_activity / (block_count * 64));
 }
 
+void svt_vmaf_apply_unsharp_row_neon(const uint8_t* src, const int16_t* blur, uint8_t* dst, int width, int amount,
+                                     int32_t max_delta) {
+    assert(width % 8 == 0 && "width must be multiple of 8");
+
+    const int16_t amount_s16    = (int16_t)(amount > INT16_MAX ? INT16_MAX : amount);
+    const int16_t max_delta_s16 = (int16_t)(max_delta > INT16_MAX ? INT16_MAX : max_delta);
+
+    const int16x8_t clamp_max      = vdupq_n_s16(max_delta_s16);
+    const int16x8_t clamp_min      = vdupq_n_s16(-max_delta_s16);
+    const int16x8_t amount_neg_vec = vdupq_n_s16(-amount_s16);
+
+    int j = 0;
+    do {
+        uint16x8_t b_u16 = vreinterpretq_u16_s16(vld1q_s16(blur + j));
+        uint8x8_t  s_u8  = vld1_u8(src + j);
+        int16x8_t  s_s16 = vreinterpretq_s16_u16(vmovl_u8(s_u8));
+
+        int16x8_t detail = vreinterpretq_s16_u16(vsubw_u8(b_u16, s_u8));
+        detail           = vminq_s16(detail, clamp_max);
+        detail           = vmaxq_s16(detail, clamp_min);
+
+        int16x8_t res_s16 = vqdmulhq_s16(detail, amount_neg_vec);
+        res_s16           = vsraq_n_s16(s_s16, res_s16, 1);
+
+        vst1_u8(dst + j, vqmovun_s16(res_s16));
+
+        j += 8;
+    } while (j != width);
+}
+
 #endif // OPT_TUNE_VMAF
