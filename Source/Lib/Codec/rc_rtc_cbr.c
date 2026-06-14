@@ -529,6 +529,14 @@ void svt_av1_rc_calc_qindex_rtc_cbr(PictureControlSet* pcs) {
         }
     }
 
+    // Dynamic resolution resize (parity with libaom RT, which runs the resize decision in
+    // its realtime RC path): the dedicated RTC-CBR controller must run the same decision as
+    // the generic low-delay path, otherwise --rtc + --resize-mode DYNAMIC is a silent no-op.
+    if (scs->static_config.resize_mode == RESIZE_DYNAMIC && scs->static_config.pass == ENC_SINGLE_PASS &&
+        scs->static_config.pred_structure == LOW_DELAY) {
+        svt_aom_dynamic_resize_decision(ppcs);
+    }
+
     int qindex = calculate_qindex(pcs, scs);
 
     if (ppcs->cyclic_refresh.apply_cyclic_refresh) {
@@ -696,6 +704,13 @@ void svt_av1_rc_postencode_update_rtc_cbr(PictureParentControlSet* ppcs) {
         rc->frames_since_key = 0;
     } else if (!ppcs->is_overlay) {
         rc->avg_frame_qindex[INTER_FRAME] = ROUND_POWER_OF_TWO(3 * rc->avg_frame_qindex[INTER_FRAME] + qindex, 2);
+        // Maintain last_q for the dynamic-resize decision (its only consumer); the RTC path
+        // otherwise leaves it stale. Store the raw qindex: the resize UP test compares against
+        // worst_quality and svt_av1_resize_reset_rc against a regulated qindex, both qindex-domain.
+        // Gated so the default (resize-off) RTC path is bit-identical.
+        if (ppcs->scs->static_config.resize_mode == RESIZE_DYNAMIC) {
+            rc->last_q[INTER_FRAME] = qindex;
+        }
 
         int avg_cnt_zeromv = (int)ppcs->child_pcs->avg_cnt_zeromv;
         if (rc->avg_frame_low_motion == 0) {

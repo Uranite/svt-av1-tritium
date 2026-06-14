@@ -426,7 +426,7 @@ void svt_av1_resize_reset_rc(PictureParentControlSet* ppcs, int32_t resize_width
             rc->rate_correction_factors[INTER_NORMAL] *= 0.8;
         }
         if (qindex <= 120 * rc->last_q[INTER_FRAME] / 100) {
-            rc->rate_correction_factors[INTER_NORMAL] *= 2.0;
+            rc->rate_correction_factors[INTER_NORMAL] *= 1.5;
         }
     }
 }
@@ -453,13 +453,14 @@ static int set_gf_interval_update_onepass_rt(PictureParentControlSet* pcs) {
     return gf_update;
 }
 
-static void dynamic_resize_one_pass_cbr(PictureParentControlSet* ppcs) {
-    SequenceControlSet* scs           = ppcs->scs;
-    EncodeContext*      enc_ctx       = scs->enc_ctx;
-    RATE_CONTROL*       rc            = &enc_ctx->rc;
-    RESIZE_ACTION       resize_action = NO_RESIZE;
-    const int32_t       avg_qp_thr1   = 70;
-    const int32_t       avg_qp_thr2   = 50;
+static void dynamic_resize_one_pass_cbr(PictureParentControlSet* ppcs, int one_half_only) {
+    SequenceControlSet* scs               = ppcs->scs;
+    EncodeContext*      enc_ctx           = scs->enc_ctx;
+    RATE_CONTROL*       rc                = &enc_ctx->rc;
+    RESIZE_ACTION       resize_action     = NO_RESIZE;
+    const RESIZE_STATE  prev_resize_state = rc->resize_state; // resize state before any transition this frame
+    const int32_t       avg_qp_thr1       = 70;
+    const int32_t       avg_qp_thr2       = 50;
     // Don't allow for resized frame to go below 160x90, resize in steps of 3/4.
     const int32_t min_width    = (160 * 4) / 3;
     const int32_t min_height   = (90 * 4) / 3;
@@ -482,11 +483,21 @@ static void dynamic_resize_one_pass_cbr(PictureParentControlSet* ppcs) {
 
     // Step 3: calculate dynamic resize state
     // Resize based on average buffer underflow and QP over some window.
-    // Ignore samples close to key frame, since QP is usually high after key.
-    if (rc->frames_since_key > scs->new_framerate) {
-        int32_t window = AOMMIN(30, (int32_t)(2 * scs->new_framerate));
+    // Ignore samples close to key frame and scene change, since QP is usually high after
+    // key and scene change (scene_change_flag is SVT's equivalent of libaom rc->high_source_sad).
+    if (rc->frames_since_key > scs->new_framerate && !ppcs->scene_change_flag) {
+        int32_t window = AOMMAX(60, (int32_t)(3 * scs->new_framerate));
         rc->resize_avg_qp += rc->last_q[INTER_FRAME];
-        if (rc->buffer_level < 30 * rc->optimal_buffer_level / 100) {
+        // Detect buffer underflow. The RTC-CBR path (rc_rtc_cbr.c) models the client buffer
+        // with an INVERTED leaky bucket: buffer_level accumulates (encoded - bandwidth) and
+        // grows toward/above maximum_buffer_size under starvation - the complement of the
+        // classic CBR buffer this routine was ported against. Use the inverse of libaom's
+        // test there so the same 30%-of-optimal margin applies in both conventions.
+        const bool buffer_underflow = scs->static_config.rtc
+            ? (rc->buffer_level >
+               rc->maximum_buffer_size - 30 * (rc->maximum_buffer_size - rc->optimal_buffer_level) / 100)
+            : (rc->buffer_level < 30 * rc->optimal_buffer_level / 100);
+        if (buffer_underflow) {
             ++rc->resize_buffer_underflow;
         }
         ++rc->resize_count;
@@ -501,21 +512,23 @@ static void dynamic_resize_one_pass_cbr(PictureParentControlSet* ppcs) {
             if (rc->resize_buffer_underflow > (rc->resize_count >> 2) && down_size_on) {
                 if (rc->resize_state == THREE_QUARTER) {
                     resize_action = DOWN_ONEHALF;
-                    printf("Dynamic resize: %d --> %d\n", rc->resize_state, ONE_HALF);
+                    SVT_DEBUG("Dynamic resize: %d --> %d\n", rc->resize_state, ONE_HALF);
                     rc->resize_state = ONE_HALF;
                 } else if (rc->resize_state == ORIG) {
-                    resize_action = DOWN_THREEFOUR;
-                    printf("Dynamic resize: %d --> %d\n", rc->resize_state, THREE_QUARTER);
-                    rc->resize_state = THREE_QUARTER;
+                    const RESIZE_STATE next = one_half_only ? ONE_HALF : THREE_QUARTER;
+                    resize_action           = one_half_only ? DOWN_ONEHALF : DOWN_THREEFOUR;
+                    SVT_DEBUG("Dynamic resize: %d --> %d\n", rc->resize_state, next);
+                    rc->resize_state = next;
                 }
             } else if (rc->resize_state != ORIG && avg_qp < avg_qp_thr1 * rc->worst_quality / 100) {
-                if (rc->resize_state == THREE_QUARTER || avg_qp < avg_qp_thr2 * rc->worst_quality / 100) {
+                if (rc->resize_state == THREE_QUARTER || avg_qp < avg_qp_thr2 * rc->worst_quality / 100 ||
+                    one_half_only) {
                     resize_action = UP_ORIG;
-                    printf("Dynamic resize: %d --> %d\n", rc->resize_state, ORIG);
+                    SVT_DEBUG("Dynamic resize: %d --> %d\n", rc->resize_state, ORIG);
                     rc->resize_state = ORIG;
                 } else if (rc->resize_state == ONE_HALF) {
                     resize_action = UP_THREEFOUR;
-                    printf("Dynamic resize: %d --> %d\n", rc->resize_state, THREE_QUARTER);
+                    SVT_DEBUG("Dynamic resize: %d --> %d\n", rc->resize_state, THREE_QUARTER);
                     rc->resize_state = THREE_QUARTER;
                 }
             }
@@ -530,20 +543,49 @@ static void dynamic_resize_one_pass_cbr(PictureParentControlSet* ppcs) {
     // If decision is to resize, reset some quantities, and check is we should
     // reduce rate correction factor,
     if (resize_action != NO_RESIZE) {
-        int32_t resize_width     = ppcs->frame_width; // cpi->oxcf.frm_dim_cfg.width;
-        int32_t resize_height    = ppcs->frame_height; // cpi->oxcf.frm_dim_cfg.height;
-        int32_t resize_scale_num = 1;
-        int32_t resize_scale_den = 1;
-        if (resize_action == DOWN_THREEFOUR || resize_action == UP_THREEFOUR) {
-            resize_scale_num = 3;
-            resize_scale_den = 4;
-        } else if (resize_action == DOWN_ONEHALF) {
-            resize_scale_num = 1;
-            resize_scale_den = 2;
+        // Derive coded dimensions from the ORIGINAL configured size and the resize state
+        // (libaom uses oxcf.frm_dim_cfg here, not the current frame size), so the scale change
+        // handed to svt_av1_resize_reset_rc is relative to the PREVIOUS resize state rather than
+        // always relative to the original - otherwise multi-step transitions (e.g. 3/4 -> 1/2)
+        // report the wrong magnitude and the post-resize rate regulation overshoots.
+        const int32_t orig_w = (int32_t)scs->max_input_luma_width;
+        const int32_t orig_h = (int32_t)scs->max_input_luma_height;
+        int32_t       new_w = orig_w, new_h = orig_h, prev_w = orig_w, prev_h = orig_h;
+        if (rc->resize_state == THREE_QUARTER) {
+            new_w = orig_w * 3 / 4, new_h = orig_h * 3 / 4;
+        } else if (rc->resize_state == ONE_HALF) {
+            new_w = orig_w / 2, new_h = orig_h / 2;
         }
-        resize_width  = resize_width * resize_scale_num / resize_scale_den;
-        resize_height = resize_height * resize_scale_num / resize_scale_den;
-        svt_av1_resize_reset_rc(ppcs, resize_width, resize_height, ppcs->frame_width, ppcs->frame_height);
+        if (prev_resize_state == THREE_QUARTER) {
+            prev_w = orig_w * 3 / 4, prev_h = orig_h * 3 / 4;
+        } else if (prev_resize_state == ONE_HALF) {
+            prev_w = orig_w / 2, prev_h = orig_h / 2;
+        }
+        svt_av1_resize_reset_rc(ppcs, new_w, new_h, prev_w, prev_h);
+    }
+}
+
+// Run the dynamic-resize decision and publish the result to resize_pending_params so PD
+// applies it to the next input picture. Shared by the generic low-delay VBR/CBR path and
+// the dedicated RTC-CBR path so that --rtc + --resize-mode DYNAMIC is no longer a no-op.
+void svt_aom_dynamic_resize_decision(PictureParentControlSet* pcs) {
+    SequenceControlSet* scs     = pcs->scs;
+    EncodeContext*      enc_ctx = scs->enc_ctx;
+    RATE_CONTROL*       rc      = &enc_ctx->rc;
+    // libaom's real-time caller always passes one_half_only=1 (ORIG <-> 1/2 only; the 3/4
+    // ladder is unused by the RT path). Match that for parity.
+    dynamic_resize_one_pass_cbr(pcs, /*one_half_only=*/1);
+    if (rc->resize_state != scs->resize_pending_params.resize_state) {
+        if (rc->resize_state == ORIG) {
+            scs->resize_pending_params.resize_denom = SCALE_NUMERATOR;
+        } else if (rc->resize_state == THREE_QUARTER) {
+            scs->resize_pending_params.resize_denom = SCALE_THREE_QUATER;
+        } else if (rc->resize_state == ONE_HALF) {
+            scs->resize_pending_params.resize_denom = SCALE_DENOMINATOR_MAX;
+        } else {
+            svt_aom_assert_err(0, "unknown resize denom");
+        }
+        scs->resize_pending_params.resize_state = rc->resize_state;
     }
 }
 
@@ -601,19 +643,7 @@ static void svt_aom_one_pass_rt_rate_alloc(PictureParentControlSet* pcs) {
     // resize dynamic mode only works with 1-pass CBR low delay mode
     if (scs->static_config.resize_mode == RESIZE_DYNAMIC && scs->static_config.pass == ENC_SINGLE_PASS &&
         scs->static_config.pred_structure == LOW_DELAY) {
-        dynamic_resize_one_pass_cbr(pcs);
-        if (rc->resize_state != scs->resize_pending_params.resize_state) {
-            if (rc->resize_state == ORIG) {
-                scs->resize_pending_params.resize_denom = SCALE_NUMERATOR;
-            } else if (rc->resize_state == THREE_QUARTER) {
-                scs->resize_pending_params.resize_denom = SCALE_THREE_QUATER;
-            } else if (rc->resize_state == ONE_HALF) {
-                scs->resize_pending_params.resize_denom = SCALE_DENOMINATOR_MAX;
-            } else {
-                svt_aom_assert_err(0, "unknown resize denom");
-            }
-            scs->resize_pending_params.resize_state = rc->resize_state;
-        }
+        svt_aom_dynamic_resize_decision(pcs);
     } else if (pcs->rc_reset_flag) {
         svt_av1_resize_reset_rc(
             pcs, pcs->render_width, pcs->render_height, scs->max_input_luma_width, scs->max_input_luma_height);

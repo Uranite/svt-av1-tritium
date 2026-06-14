@@ -261,6 +261,11 @@ void svt_av1_rc_calc_qindex_rate_control(struct PictureControlSet* pcs, struct S
 void svt_av1_rc_postencode_update_gop_const(struct PictureParentControlSet* ppcs);
 void svt_av1_rc_postencode_update(struct PictureParentControlSet* ppcs);
 
+// Dynamic resolution resize decision; shared by the low-delay VBR/CBR path
+// (svt_aom_one_pass_rt_rate_alloc) and the RTC-CBR path (svt_av1_rc_calc_qindex_rtc_cbr).
+// Caller must have verified resize_mode==RESIZE_DYNAMIC && single-pass && LOW_DELAY.
+void svt_aom_dynamic_resize_decision(struct PictureParentControlSet* pcs);
+
 // RTC CBR
 void svt_av1_rc_calc_qindex_rtc_cbr(struct PictureControlSet* pcs);
 void svt_av1_rc_postencode_update_rtc_cbr(struct PictureParentControlSet* ppcs);
