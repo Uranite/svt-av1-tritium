@@ -1015,7 +1015,7 @@ static EncSetting make_post_enc_base_settings(const std::string &recode_loop) {
             {"PredStructure", "1"},
             {"LevelOfParallelism", "1"},
             {"BufSz", "100"},
-            {"BufInitialSz", "99"},
+            {"BufInitialSz", "66"},
             {"BufOptimalSz", "50"},
             {"UnderShootPct", "100"},
             {"OverShootPct", "100"},
