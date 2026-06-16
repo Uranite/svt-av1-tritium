@@ -5692,51 +5692,40 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
         if (node->node_type == RES_CHANGE_EVENT) {
             SvtAv1InputPicDef* node_data = (SvtAv1InputPicDef*)node->data;
             if (input_ptr->pic_type != EB_AV1_KEY_PICTURE) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Resolution change on the fly not supported for non key frames\n");
                 return EB_ErrorBadParameter;
             } else if ((node_data->input_luma_height > scs->max_initial_input_luma_height) ||
                        (node_data->input_luma_width > scs->max_initial_input_luma_width)) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR(
                     "Resolution cannot be changed to anything greater than the original picture width and height\n");
                 return EB_ErrorBadParameter;
             } else if (scs->static_config.superres_mode > SUPERRES_NONE) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Resolution change on the fly is not supported when Super-Resolution mode is on\n");
                 return EB_ErrorBadParameter;
             } else if (scs->static_config.resize_mode != RESIZE_NONE) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Resolution change on the fly is not supported when Reference Scaling mode is on\n");
                 return EB_ErrorBadParameter;
             } else if (scs->static_config.pred_structure != LOW_DELAY) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Resolution change on the fly is only supported for Low-Delay mode\n");
                 return EB_ErrorBadParameter;
             } else if (scs->static_config.pass != ENC_SINGLE_PASS) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Resolution change on the fly is only supported for single pass encoding\n");
                 return EB_ErrorBadParameter;
             } else if (scs->static_config.tile_rows || scs->static_config.tile_columns) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Resolution change on the fly is not supported when tiles are being used\n");
                 return EB_ErrorBadParameter;
             } else if (scs->static_config.aq_mode == 1) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR(
                     "Resolution change on the fly is not supported for segment based adaptive quantization (--aq-mode "
                     "== 1)\n");
                 return EB_ErrorBadParameter;
             } else if (node_data->input_luma_width < 64) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Resolution change on the fly is not supported for luma width less than 64\n");
                 return EB_ErrorBadParameter;
             } else if (node_data->input_luma_height < 64) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Resolution change on the fly is not supported for luma height less than 64\n");
                 return EB_ErrorBadParameter;
             } else if (scs->static_config.encoder_bit_depth == EB_TEN_BIT) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Resolution change on the fly is not supported for 10-bit encoding\n");
                 return EB_ErrorBadParameter;
             } else {
@@ -5756,19 +5745,16 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
             if ((scs->static_config.target_bit_rate != node_data->target_bit_rate) &&
                 !(scs->static_config.rtc && scs->static_config.pred_structure == LOW_DELAY &&
                   scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR)) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("TBR change on the fly not supported for any mode other than RTC Low-Delay CBR\n");
                 return EB_ErrorBadParameter;
             }
             if (node_data->seq_qp != 0) {
                 if (node_data->seq_qp > MAX_QP_VALUE) {
-                    input_ptr->flags = EB_BUFFERFLAG_EOS;
                     SVT_ERROR("QP change on the fly requires a QP value less than or equal to 63\n");
                     return EB_ErrorBadParameter;
                 }
             }
             if (node_data->target_bit_rate > 100000000) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("TBR change on the fly requires that the target bit rate must be between [0, 100000] kbps\n");
                 return EB_ErrorBadParameter;
             }
@@ -5776,12 +5762,10 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
             SvtAv1FrameRateInfo* node_data = (SvtAv1FrameRateInfo*)node->data;
             if (!((scs->static_config.pred_structure == LOW_DELAY) &&
                   (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR))) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Frame rate change on the fly not supported for any mode other than Low-Delay CBR\n");
                 return EB_ErrorBadParameter;
             }
             if (node_data->frame_rate_numerator == 0 || node_data->frame_rate_denominator == 0) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR(
                     "Frame rate change on the fly requires that he frame_rate_numerator and frame_rate_denominator "
                     "must be greater than 0\n");
@@ -5791,12 +5775,10 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
             SvtAv1PresetInfo* node_data = (SvtAv1PresetInfo*)node->data;
             if (!((scs->static_config.pred_structure == LOW_DELAY) &&
                   (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) && scs->static_config.rtc)) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Preset change on the fly not supported for any mode other than RTC Low-Delay CBR\n");
                 return EB_ErrorBadParameter;
             }
             if (node_data->enc_mode < scs->static_config.enc_mode || node_data->enc_mode > MAX_ENC_PRESET) {
-                input_ptr->flags = EB_BUFFERFLAG_EOS;
                 SVT_ERROR("Preset change on the fly requires enc_mode in range [%d, %d]\n",
                           scs->static_config.enc_mode,
                           MAX_ENC_PRESET);
@@ -5898,14 +5880,24 @@ EB_API EbErrorType svt_av1_enc_send_picture(EbComponentType* svt_enc_component, 
         SVT_ERROR("Invalid API input buffer size detected. Please ignore the output stream\n");
     }
 
+    // Validate any on-the-fly setting changes before acquiring pipeline buffers.
+    // A rejected setting change (rate / frame rate / preset / resolution) is a
+    // CLEAN REJECT: report EB_ErrorBadParameter but leave the stream intact so
+    // the caller can correct the request and keep sending. validate_on_the_fly_
+    // settings() leaves EOS clear for these. If EOS is set afterwards it is a
+    // fail-hard rejection (ref-frame management misuse) or the caller's own
+    // end-of-stream, so fall through and let the encoder drain as before.
+    if (validate_on_the_fly_settings(p_buffer, scs, enc_handle_ptr->scs_instance->config_mutex)) {
+        return_val = EB_ErrorBadParameter;
+        if (!(p_buffer->flags & EB_BUFFERFLAG_EOS)) {
+            return EB_ErrorBadParameter;
+        }
+        enc_handle_ptr->eos_received = 1;
+    }
+
     // Get new Luma-8b buffer & a new (Chroma-8b + Luma-Chroma-2bit) buffers; Lib will release once done.
     EbObjectWrapper* y8b_wrapper;
     svt_get_empty_object(enc_handle_ptr->input_y8b_buffer_producer_fifo_ptr, &y8b_wrapper);
-    // Update the input picture definitions: resolution of the sequence
-    if (validate_on_the_fly_settings(p_buffer, scs, enc_handle_ptr->scs_instance->config_mutex)) {
-        return_val                   = EB_ErrorBadParameter;
-        enc_handle_ptr->eos_received = 1;
-    }
     // if resolution has changed, and the y8b_wrapper settings do not match scs settings, update y8b_wrapper settings
     if (buffer_update_needed((EbBufferHeaderType*)y8b_wrapper->object_ptr, scs)) {
         svt_input_y8b_update((EbBufferHeaderType*)y8b_wrapper->object_ptr, scs);
