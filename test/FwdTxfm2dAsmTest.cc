@@ -440,11 +440,12 @@ class FwdTxfm2dAsmTest : public ::testing::TestWithParam<FwdTxfm2dAsmParam> {
 
             printf(
                 "C vs Opt; Transform: ;%02ix%02i; %17s; Speed compare: "
-                ";%5.2fx\n",
+                ";%5.2fx; Opt ns/call: ;%8.2f\n",
                 tx_size_wide[tx_size_],
                 tx_size_high[tx_size_],
                 tx_type_name[tx_type],
-                time_c / time_o);
+                time_c / time_o,
+                time_o * 1e6 / loops);
         }
     }
     void populate_with_random() {
