@@ -620,7 +620,10 @@ static AOM_FORCE_INLINE void highbd_fidentity8_xn_neon(const int32x4_t* in, int3
 }
 
 void svt_av1_fwd_txfm2d_8x8_neon(int16_t* input, int32_t* output, uint32_t stride, TxType tx_type, uint8_t bd) {
-    (void)bd;
+    if (bd == 8) {
+        svt_lbd_fwd_txfm2d_8x8_neon(input, output, stride, tx_type);
+        return;
+    }
 
     int ud_flip, lr_flip;
     get_flip_cfg(tx_type, &ud_flip, &lr_flip);
