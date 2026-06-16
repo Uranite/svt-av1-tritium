@@ -59,6 +59,7 @@ target_sources(
   PUBLIC inter_prediction_neon.c
   PUBLIC intra_prediction_neon.c
   PUBLIC itx.S
+  PUBLIC lowbd_fwd_txfm2d_neon.c
   PUBLIC mem_neon.c
   PUBLIC obmc_sad_neon.c
   PUBLIC obmc_variance_neon.c
