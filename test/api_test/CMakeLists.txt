@@ -23,6 +23,7 @@ set(all_files
     MultiEncoderTest.cc
     SvtAv1EncApiTest.cc
     SvtAv1EncApiTest.h
+    SvtAv1EncOnTheFlyApiTest.cc
     SvtAv1EncRefMgmtApiTest.cc
     SvtAv1EncParamsTest.cc
     params.h
