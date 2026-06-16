@@ -1045,7 +1045,10 @@ static void highbd_fidentity16_xn_neon(const int32x4_t* in, int32x4_t* out, int 
 }
 
 void svt_av1_fwd_txfm2d_16x16_neon(int16_t* input, int32_t* output, uint32_t stride, TxType tx_type, uint8_t bd) {
-    (void)bd;
+    if (bd == 8) {
+        svt_lbd_fwd_txfm2d_16x16_neon(input, output, stride, tx_type);
+        return;
+    }
     int ud_flip, lr_flip;
     get_flip_cfg(tx_type, &ud_flip, &lr_flip);
     ud_adjust_input_and_stride(ud_flip, &input, &stride, 16);
