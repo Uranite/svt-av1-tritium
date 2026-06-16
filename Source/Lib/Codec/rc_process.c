@@ -827,13 +827,17 @@ EbErrorType svt_aom_rate_control_kernel_iter(void* context) {
     // Modify these for different temporal layers later
     switch (task_type) {
     case RC_INPUT_SUPERRES_RECODE:
-        assert(scs->static_config.superres_mode == SUPERRES_QTHRESH ||
-               scs->static_config.superres_mode == SUPERRES_AUTO);
         // intentionally reuse code in RC_INPUT
     case RC_INPUT:
         pcs  = (PictureControlSet*)rc_tasks->pcs_wrapper->object_ptr;
         ppcs = pcs->ppcs;
         scs  = pcs->scs;
+
+        // A superres recode task is only generated for the modes that run the
+        // recode loop. Checked here (not in the RC_INPUT_SUPERRES_RECODE label)
+        // because scs is not resolved until this point.
+        assert(!is_superres_recode_task || scs->static_config.superres_mode == SUPERRES_QTHRESH ||
+               scs->static_config.superres_mode == SUPERRES_AUTO);
 
         rc_init_frame_stats(pcs, scs);
 
