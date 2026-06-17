@@ -6181,6 +6181,8 @@ EB_API void svt_av1_print_version(void) {
         __VERSION__ "\t"
 #elif defined(__GNUC__)
         "GCC " __VERSION__ "\t"
+#elif defined(_MSC_VER) && (_MSC_VER >= 1950)
+        "Visual Studio 2026"
 #elif defined(_MSC_VER) && (_MSC_VER >= 1930)
         "Visual Studio 2022"
 #elif defined(_MSC_VER) && (_MSC_VER >= 1920)
