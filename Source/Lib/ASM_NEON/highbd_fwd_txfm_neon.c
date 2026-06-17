@@ -206,6 +206,7 @@ void svt_av1_fwd_txfm2d_4x4_neon(int16_t* input, int32_t* output, uint32_t input
         svt_lbd_fwd_txfm2d_4x4_neon(input, output, input_stride, tx_type);
         return;
     }
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 
     int ud_flip, lr_flip;
     get_flip_cfg(tx_type, &ud_flip, &lr_flip);
@@ -344,6 +345,7 @@ void svt_av1_fwd_txfm2d_4x4_neon(int16_t* input, int32_t* output, uint32_t input
     default:
         assert(0);
     }
+#endif // CONFIG_ENABLE_HIGH_BIT_DEPTH
 }
 
 #define SHIFT_LOOP_HELPER(name, type, intrinsic, arg)              \
@@ -624,6 +626,7 @@ void svt_av1_fwd_txfm2d_8x8_neon(int16_t* input, int32_t* output, uint32_t strid
         svt_lbd_fwd_txfm2d_8x8_neon(input, output, stride, tx_type);
         return;
     }
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
 
     int ud_flip, lr_flip;
     get_flip_cfg(tx_type, &ud_flip, &lr_flip);
@@ -778,6 +781,7 @@ void svt_av1_fwd_txfm2d_8x8_neon(int16_t* input, int32_t* output, uint32_t strid
     default:
         assert(0);
     }
+#endif // CONFIG_ENABLE_HIGH_BIT_DEPTH
 }
 
 static void highbd_fdct16_x4_neon(const int32x4_t* in, int32x4_t* out, int bit) {
@@ -1049,6 +1053,7 @@ void svt_av1_fwd_txfm2d_16x16_neon(int16_t* input, int32_t* output, uint32_t str
         svt_lbd_fwd_txfm2d_16x16_neon(input, output, stride, tx_type);
         return;
     }
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     int ud_flip, lr_flip;
     get_flip_cfg(tx_type, &ud_flip, &lr_flip);
     ud_adjust_input_and_stride(ud_flip, &input, &stride, 16);
@@ -1202,6 +1207,7 @@ void svt_av1_fwd_txfm2d_16x16_neon(int16_t* input, int32_t* output, uint32_t str
     default:
         assert(0);
     }
+#endif // CONFIG_ENABLE_HIGH_BIT_DEPTH
 }
 
 static AOM_FORCE_INLINE void round_rect_array_s32_neon(const int32x4_t* input, int32x4_t* output, const int size) {
@@ -2542,6 +2548,7 @@ void svt_av1_fwd_txfm2d_32x32_neon(int16_t* input, int32_t* output, uint32_t str
         svt_lbd_fwd_txfm2d_32x32_neon(input, output, stride, tx_type);
         return;
     }
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     const fwd_transform_1d_col_many_neon col_txfm = col_highbd_txfm32_xn_arr[tx_type];
     const fwd_transform_1d_row_many_neon row_txfm = row_highbd_txfm32_x4_arr[tx_type];
 
@@ -2562,6 +2569,7 @@ void svt_av1_fwd_txfm2d_32x32_neon(int16_t* input, int32_t* output, uint32_t str
     // Row-wise transform.
     row_txfm(buf1, buf0, /*cos_bit=*/12, /*howmany=*/8, /*hm_stride=*/32);
     transpose_32xh(buf0, (int32x4_t*)output, 256);
+#endif // CONFIG_ENABLE_HIGH_BIT_DEPTH
 }
 
 static AOM_FORCE_INLINE void round_shift2_rect_array_s32_neon(const int32x4_t* input, int32x4_t* output,
