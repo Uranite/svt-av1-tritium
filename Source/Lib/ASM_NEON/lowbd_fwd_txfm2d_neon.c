@@ -329,6 +329,30 @@ static AOM_FORCE_INLINE void flip_buf_8_neon(int16x8_t* in, int16x8_t* out, int 
         *(out1)      = vcombine_s16(vrshrn_n_s32(v0, 13), vrshrn_n_s32(v1, 13)); \
     } while (0)
 
+#if CONFIG_ENABLE_FAST_LBD_TXFM
+// Fast: per-product vqrdmulhq with Q15 weights (w<<2). round(a*w_q13/2^13) per
+// product, summed -- two rounding events vs one for the widening path.
+static AOM_FORCE_INLINE void butterfly_0112_x8(const int16x4_t w, const int16x8_t in0, const int16x8_t in1,
+                                               int16x8_t* out0, int16x8_t* out1) {
+    const int16x4_t w15 = vshl_n_s16(w, 2);
+    *out0               = vqaddq_s16(vqrdmulhq_lane_s16(in0, w15, 0), vqrdmulhq_lane_s16(in1, w15, 1));
+    *out1               = vqaddq_s16(vqrdmulhq_lane_s16(in0, w15, 1), vqrdmulhq_lane_s16(in1, w15, 2));
+}
+
+static AOM_FORCE_INLINE void butterfly_1003_x8(const int16x4_t w, const int16x8_t in0, const int16x8_t in1,
+                                               int16x8_t* out0, int16x8_t* out1) {
+    const int16x4_t w15 = vshl_n_s16(w, 2);
+    *out0               = vqaddq_s16(vqrdmulhq_lane_s16(in0, w15, 1), vqrdmulhq_lane_s16(in1, w15, 0));
+    *out1               = vqaddq_s16(vqrdmulhq_lane_s16(in0, w15, 0), vqrdmulhq_lane_s16(in1, w15, 3));
+}
+
+static AOM_FORCE_INLINE void butterfly_1223_x8(const int16x4_t w, const int16x8_t in0, const int16x8_t in1,
+                                               int16x8_t* out0, int16x8_t* out1) {
+    const int16x4_t w15 = vshl_n_s16(w, 2);
+    *out0               = vqaddq_s16(vqrdmulhq_lane_s16(in0, w15, 1), vqrdmulhq_lane_s16(in1, w15, 2));
+    *out1               = vqaddq_s16(vqrdmulhq_lane_s16(in0, w15, 2), vqrdmulhq_lane_s16(in1, w15, 3));
+}
+#else
 static AOM_FORCE_INLINE void butterfly_0112_x8(const int16x4_t w, const int16x8_t in0, const int16x8_t in1,
                                                int16x8_t* out0, int16x8_t* out1) {
     butterfly_s16_s32_x8_neon(w, 0, 1, 1, 2, in0, in1, out0, out1);
@@ -343,6 +367,7 @@ static AOM_FORCE_INLINE void butterfly_1223_x8(const int16x4_t w, const int16x8_
                                                int16x8_t* out0, int16x8_t* out1) {
     butterfly_s16_s32_x8_neon(w, 1, 2, 2, 3, in0, in1, out0, out1);
 }
+#endif
 
 // cospi32 single-product butterflies via vqrdmulh (bit-exact when |in0|+|in1|
 // <= 32767). w must be cospi32_q13 << 2 (i.e. Q15). Two output patterns:
@@ -542,10 +567,19 @@ void svt_lbd_fwd_txfm2d_8x8_neon(int16_t* input, int32_t* output, uint32_t strid
 // 16x16 1D primitives + driver
 // ---------------------------------------------------------------------------
 
+#if CONFIG_ENABLE_FAST_LBD_TXFM
+static AOM_FORCE_INLINE void butterfly_0332_x8(const int16x4_t w, const int16x8_t in0, const int16x8_t in1,
+                                               int16x8_t* out0, int16x8_t* out1) {
+    const int16x4_t w15 = vshl_n_s16(w, 2);
+    *out0               = vqaddq_s16(vqrdmulhq_lane_s16(in0, w15, 0), vqrdmulhq_lane_s16(in1, w15, 3));
+    *out1               = vqaddq_s16(vqrdmulhq_lane_s16(in0, w15, 3), vqrdmulhq_lane_s16(in1, w15, 2));
+}
+#else
 static AOM_FORCE_INLINE void butterfly_0332_x8(const int16x4_t w, const int16x8_t in0, const int16x8_t in1,
                                                int16x8_t* out0, int16x8_t* out1) {
     butterfly_s16_s32_x8_neon(w, 0, 3, 3, 2, in0, in1, out0, out1);
 }
+#endif
 
 static AOM_FORCE_INLINE void shift_right_2_round_s16_x8(const int16x8_t* in, int16x8_t* out, int n) {
     for (int i = 0; i < n; ++i) {
@@ -1375,6 +1409,35 @@ static AOM_FORCE_INLINE void round_shift_2sqrt2_s16_s16_4xn_neon(const int16x4_t
     }
 }
 
+#if CONFIG_ENABLE_FAST_LBD_TXFM
+static AOM_FORCE_INLINE void butterfly_s16_s32_x4_0112_neon(const int16x4_t w0101, const int16x4_t in0,
+                                                            const int16x4_t in1, int16x4_t* out0, int16x4_t* out1) {
+    const int16x4_t w15 = vshl_n_s16(w0101, 2);
+    *out0               = vqadd_s16(vqrdmulh_lane_s16(in0, w15, 0), vqrdmulh_lane_s16(in1, w15, 1));
+    *out1               = vqadd_s16(vqrdmulh_lane_s16(in0, w15, 1), vqrdmulh_lane_s16(in1, w15, 2));
+}
+
+static AOM_FORCE_INLINE void butterfly_s16_s32_x4_0332_neon(const int16x4_t w0101, const int16x4_t in0,
+                                                            const int16x4_t in1, int16x4_t* out0, int16x4_t* out1) {
+    const int16x4_t w15 = vshl_n_s16(w0101, 2);
+    *out0               = vqadd_s16(vqrdmulh_lane_s16(in0, w15, 0), vqrdmulh_lane_s16(in1, w15, 3));
+    *out1               = vqadd_s16(vqrdmulh_lane_s16(in0, w15, 3), vqrdmulh_lane_s16(in1, w15, 2));
+}
+
+static AOM_FORCE_INLINE void butterfly_s16_s32_x4_1003_neon(const int16x4_t w0101, const int16x4_t in0,
+                                                            const int16x4_t in1, int16x4_t* out0, int16x4_t* out1) {
+    const int16x4_t w15 = vshl_n_s16(w0101, 2);
+    *out0               = vqadd_s16(vqrdmulh_lane_s16(in0, w15, 1), vqrdmulh_lane_s16(in1, w15, 0));
+    *out1               = vqadd_s16(vqrdmulh_lane_s16(in0, w15, 0), vqrdmulh_lane_s16(in1, w15, 3));
+}
+
+static AOM_FORCE_INLINE void butterfly_s16_s32_x4_1223_neon(const int16x4_t w0101, const int16x4_t in0,
+                                                            const int16x4_t in1, int16x4_t* out0, int16x4_t* out1) {
+    const int16x4_t w15 = vshl_n_s16(w0101, 2);
+    *out0               = vqadd_s16(vqrdmulh_lane_s16(in0, w15, 1), vqrdmulh_lane_s16(in1, w15, 2));
+    *out1               = vqadd_s16(vqrdmulh_lane_s16(in0, w15, 2), vqrdmulh_lane_s16(in1, w15, 3));
+}
+#else
 static AOM_FORCE_INLINE void butterfly_s16_s32_x4_0112_neon(const int16x4_t w0101, const int16x4_t in0,
                                                             const int16x4_t in1, int16x4_t* out0, int16x4_t* out1) {
     butterfly_s16_s32_x4_neon(w0101, 0, 1, 1, 2, in0, in1, out0, out1);
@@ -1394,6 +1457,7 @@ static AOM_FORCE_INLINE void butterfly_s16_s32_x4_1223_neon(const int16x4_t w010
                                                             const int16x4_t in1, int16x4_t* out0, int16x4_t* out1) {
     butterfly_s16_s32_x4_neon(w0101, 1, 2, 2, 3, in0, in1, out0, out1);
 }
+#endif
 
 static AOM_FORCE_INLINE void butterfly_dct_pre_s16_x4(const int16x4_t* input, int16x4_t* output, int n) {
     for (int i = 0; i < n / 2; ++i) {

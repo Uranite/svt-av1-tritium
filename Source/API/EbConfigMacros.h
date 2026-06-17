@@ -90,6 +90,14 @@
 #define CONFIG_ENABLE_HIGH_BIT_DEPTH        1
 #endif
 
+// Fast (non-bit-exact) all-int16 forward transforms for the LBD path: every
+// two-product cospi butterfly uses per-product vqrdmulhq_s16 instead of the
+// widening multiply. ~3x fewer instructions; tiny rounding error vs the
+// bit-exact int16 path. Guarded so a build picks exactly one path.
+#ifndef CONFIG_ENABLE_FAST_LBD_TXFM
+#define CONFIG_ENABLE_FAST_LBD_TXFM         0
+#endif
+
 // Single-thread kernel dispatch: at lp=1, bypass thread creation and run all
 // pipeline kernels cooperatively on one thread. Eliminates 15 context switches
 // per frame and all inter-stage semaphore/mutex overhead.
