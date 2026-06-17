@@ -986,9 +986,13 @@ typedef struct PictureParentControlSet {
 
     uint8_t sc_class2;
 
-    uint8_t      sc_class3;
-    uint8_t      sc_class4;
-    uint8_t      sc_class5;
+    uint8_t sc_class3;
+    uint8_t sc_class4;
+    uint8_t sc_class5;
+#if OPT_LPD1_TX_SKIP_DECISION
+    // Frame-level grayscale-like hint computed during picture analysis from input chroma
+    bool is_grayscale_like_input;
+#endif
     SkipModeInfo skip_mode_info;
 
     uint64_t picture_number_alt; // The picture number overlay includes all the overlay frames

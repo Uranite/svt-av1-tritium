@@ -6409,6 +6409,86 @@ static COMPONENT_TYPE chroma_complexity_check(PictureControlSet* pcs, ModeDecisi
 }
 #if OPT_COEFF_SHAVING
 #if OPT_LPD1_FAST_SKIP
+
+#if OPT_LPD1_TX_SKIP_DECISION
+static bool lpd1_should_perform_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
+                                   ModeDecisionCandidateBuffer* cand_bf, ModeDecisionCandidate* cand) {
+    if (!is_inter_mode(cand->block_mi.mode)) {
+        return true;
+    }
+
+    if (!ctx->lpd1_tx_skip_decision_ctrls.skip_tx_score_th) {
+        return true;
+    }
+
+    int score = 0;
+
+    const BlockGeom* const blk_geom           = ctx->blk_geom;
+    const uint64_t         best_md_stage_dist = cand_bf->luma_fast_dist;
+    const uint64_t         th_normalizer      = (uint64_t)blk_geom->bheight * blk_geom->bwidth * ctx->qp_index;
+
+    // Fast dist/energy-based skip signal
+    const bool dist_skip_cond = (100 * best_md_stage_dist) <
+        ((uint64_t)ctx->lpd1_tx_skip_decision_ctrls.dist_energy_th * th_normalizer);
+
+    if (dist_skip_cond) {
+        score += 50;
+
+        const MacroBlockD* const xd = ctx->blk_ptr->av1xd;
+        if (xd->left_available && xd->up_available) {
+            const BlockModeInfo* const left_mi  = &xd->left_mbmi->block_mi;
+            const BlockModeInfo* const above_mi = &xd->above_mbmi->block_mi;
+
+            const bool left_is_nrst        = left_mi->mode == NEARESTMV || left_mi->mode == NEAREST_NEARESTMV;
+            const bool above_is_nrst       = above_mi->mode == NEARESTMV || above_mi->mode == NEAREST_NEARESTMV;
+            const bool both_neighbors_skip = left_mi->skip && above_mi->skip;
+            const bool both_neighbors_nrst = left_is_nrst && above_is_nrst;
+
+            // Increase score using neighbor skip/nearest-mode information
+            if (both_neighbors_skip) {
+                score += 20;
+            }
+
+            if (both_neighbors_nrst) {
+                score += 15;
+            }
+
+            if (both_neighbors_skip && both_neighbors_nrst) {
+                score += 15;
+            }
+        }
+    }
+
+    // Increase score when the estimated skip RD-cost satisfies the configured RD threshold
+    if (ctx->lpd1_tx_skip_decision_ctrls.rd_skip_th) {
+        const uint32_t full_lambda = ctx->full_lambda_md[EB_8_BIT_MD];
+
+        const uint64_t est_skip_cost = RDCOST(
+            full_lambda,
+            cand_bf->fast_luma_rate + ctx->md_rate_est_ctx->skip_fac_bits[ctx->skip_coeff_ctx][1],
+            ((uint64_t)cand_bf->full_dist) << 4);
+
+        const uint64_t th = RDCOST(
+            full_lambda,
+            cand_bf->fast_luma_rate + ctx->md_rate_est_ctx->skip_fac_bits[ctx->skip_coeff_ctx][0] + INIT_BIT_EST,
+            ((uint64_t)blk_geom->bheight * blk_geom->bwidth) << 4);
+
+        const bool rd_skip_cond = (est_skip_cost * 100) < ((uint64_t)ctx->lpd1_tx_skip_decision_ctrls.rd_skip_th * th);
+
+        if (rd_skip_cond) {
+            score += 150;
+        }
+    }
+
+    // Reduce score on grayscale-like input, where luma carries most of the signal energy
+    if (pcs->ppcs->is_grayscale_like_input) {
+        score -= 150;
+    }
+
+    // Skip TX once the accumulated skip evidence reaches the configured threshold
+    return score < ctx->lpd1_tx_skip_decision_ctrls.skip_tx_score_th;
+}
+#else
 static bool get_perform_tx_flag(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
                                 ModeDecisionCandidate* cand) {
     if (!is_inter_mode(cand->block_mi.mode)) {
@@ -6451,6 +6531,7 @@ static bool get_perform_tx_flag(ModeDecisionContext* ctx, ModeDecisionCandidateB
     }
     return true;
 }
+#endif
 #else
 static bool get_perform_tx_flag(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
                                 ModeDecisionCandidate* cand) {
@@ -6696,8 +6777,12 @@ static void full_loop_core_light_pd1(PictureControlSet* pcs, ModeDecisionContext
     uint64_t               y_coeff_bits;
     uint64_t               cb_coeff_bits;
     uint64_t               cr_coeff_bits;
-    cand->block_mi.skip_mode   = false;
-    bool          perform_tx   = get_perform_tx_flag(ctx, cand_bf, cand);
+    cand->block_mi.skip_mode = false;
+#if OPT_LPD1_TX_SKIP_DECISION
+    bool perform_tx = lpd1_should_perform_tx(pcs, ctx, cand_bf, cand);
+#else
+    bool perform_tx = get_perform_tx_flag(ctx, cand_bf, cand);
+#endif
     const uint8_t recon_needed = svt_aom_do_md_recon(pcs->ppcs, ctx);
 
     // If need 10bit prediction, perform luma compensation before TX
@@ -9206,7 +9291,7 @@ static INLINE int match_ref_frame_pair(const BlockModeInfo* mbmi, const MvRefere
     return ((ref_frames[0] == mbmi->ref_frame[0]) && (ref_frames[1] == mbmi->ref_frame[1]));
 }
 #endif
-
+#if !OPT_LPD1_TX_SKIP_DECISION
 static void lpd1_tx_shortcut_detector(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer** cand_bf_ptr_array) {
     const BlockGeom* blk_geom = ctx->blk_geom;
 #if !OPT_LPD1_FAST_SKIP
@@ -9274,7 +9359,7 @@ static void lpd1_tx_shortcut_detector(ModeDecisionContext* ctx, ModeDecisionCand
     }
 #endif
 }
-
+#endif
 #if OPT_LPD1_GLOBALMV_BYPASS
 static bool lpd1_try_mds0_bypass(PictureControlSet* pcs, ModeDecisionContext* ctx, EbPictureBufferDesc* input_pic,
                                  const BlockLocation* loc, ModeDecisionCandidateBuffer** cand_bf_ptr_array_base,
@@ -9357,16 +9442,17 @@ static bool lpd1_try_mds0_bypass(PictureControlSet* pcs, ModeDecisionContext* ct
     const uint32_t full_lambda = ctx->full_lambda_md[EB_8_BIT_MD];
     *(gmv_bf->fast_cost)       = RDCOST(full_lambda, luma_rate, (uint64_t)gmv_bf->luma_fast_dist << 4);
 
-    ctx->mds0_best_idx          = 0;
-    ctx->mds0_best_cost         = *(gmv_bf->fast_cost);
+    ctx->mds0_best_idx  = 0;
+    ctx->mds0_best_cost = *(gmv_bf->fast_cost);
+#if !OPT_LPD1_TX_SKIP_DECISION
     ctx->use_tx_shortcuts_mds3  = 1;
     ctx->lpd1_allow_skipping_tx = 1;
+#endif
     ctx->perform_mds1           = 0;
     *fast_candidate_total_count = 1;
     return true;
 }
 #endif
-
 static void md_encode_block_light_pd1(PictureControlSet* pcs, ModeDecisionContext* ctx,
                                       EbPictureBufferDesc* input_pic) {
     ModeDecisionCandidateBuffer** cand_bf_ptr_array_base = ctx->cand_bf_ptr_array;
@@ -9454,12 +9540,18 @@ static void md_encode_block_light_pd1(PictureControlSet* pcs, ModeDecisionContex
         ctx->mds0_best_idx  = 0;
         ctx->mds0_best_cost = (uint64_t)~0;
         // If there is only a single candidate, skip compensation if transform will be skipped (unless compensation is needed for recon)
+#if OPT_LPD1_TX_SKIP_DECISION
+        if (fast_candidate_total_count > 1 || perform_md_recon || ctx->lpd1_tx_skip_decision_ctrls.skip_tx_score_th ||
+            ctx->lpd1_tx_ctrls.use_mds3_shortcuts_th ||
+#else
         if (fast_candidate_total_count > 1 || perform_md_recon || ctx->lpd1_skip_inter_tx_level < 2 ||
+#endif
             is_intra_mode(fast_cand_array[0].block_mi.mode)) {
             md_stage_0_light_pd1(
                 pcs, ctx, cand_bf_ptr_array_base, fast_cand_array, fast_candidate_total_count, input_pic, &loc);
 
             ctx->perform_mds1 = 0;
+#if !OPT_LPD1_TX_SKIP_DECISION
             lpd1_tx_shortcut_detector(ctx, cand_bf_ptr_array);
             // Condition needed in order to avoid mismatch between recon flag ON/OFF when lpd1_skip_inter_tx_level == 2
             if (fast_candidate_total_count == 1 && ctx->lpd1_skip_inter_tx_level == 2 &&
@@ -9467,6 +9559,7 @@ static void md_encode_block_light_pd1(PictureControlSet* pcs, ModeDecisionContex
                 ctx->use_tx_shortcuts_mds3  = 1;
                 ctx->lpd1_allow_skipping_tx = 1;
             }
+#endif
         } else {
             cand_bf                   = cand_bf_ptr_array_base[0];
             cand_bf->cand             = &fast_cand_array[0];
@@ -9480,10 +9573,22 @@ static void md_encode_block_light_pd1(PictureControlSet* pcs, ModeDecisionContex
                 ? 0
                 : av1_broadcast_interp_filter(pcs->ppcs->frm_hdr.interpolation_filter);
             cand_bf->cand->block_mi.tx_depth       = 0;
-            ctx->use_tx_shortcuts_mds3             = 1;
-            ctx->lpd1_allow_skipping_tx            = 1;
+#if !OPT_LPD1_TX_SKIP_DECISION
+            ctx->use_tx_shortcuts_mds3  = 1;
+            ctx->lpd1_allow_skipping_tx = 1;
+#endif
         }
 #if OPT_LPD1_GLOBALMV_BYPASS
+    }
+#endif
+
+#if OPT_LPD1_TX_SKIP_DECISION
+    ctx->use_tx_shortcuts_mds3 = 0;
+    if (ctx->lpd1_tx_ctrls.use_mds3_shortcuts_th) {
+        const uint64_t best_md_stage_dist = cand_bf_ptr_array[ctx->mds0_best_idx]->luma_fast_dist;
+        const uint32_t th_normalizer      = blk_geom->bheight * blk_geom->bwidth * ctx->qp_index;
+        ctx->use_tx_shortcuts_mds3        = (100 * best_md_stage_dist) <
+            (ctx->lpd1_tx_ctrls.use_mds3_shortcuts_th * th_normalizer);
     }
 #endif
     // For 10bit content, when recon is not needed, hbd_md can stay =0,
@@ -9524,7 +9629,7 @@ static void md_encode_block_light_pd1(PictureControlSet* pcs, ModeDecisionContex
         copy_recon_light_pd1(pcs, ctx, cand_bf);
     }
 }
-
+#if !OPT_LPD1_TX_SKIP_DECISION
 static void tx_shortcut_detector(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer** cand_bf_ptr_array) {
     const BlockGeom* blk_geom           = ctx->blk_geom;
     const uint64_t   best_md_stage_dist = cand_bf_ptr_array[ctx->mds0_best_idx]->luma_fast_dist;
@@ -9532,7 +9637,7 @@ static void tx_shortcut_detector(ModeDecisionContext* ctx, ModeDecisionCandidate
     ctx->use_tx_shortcuts_mds3          = (100 * best_md_stage_dist) <
         (ctx->tx_shortcut_ctrls.use_mds3_shortcuts_th * th_normalizer);
 }
-
+#endif
 static void non_normative_txs(PictureControlSet* pcs, ModeDecisionContext* ctx, BlkStruct* blk_ptr,
                               ModeDecisionCandidateBuffer* cand_bf) {
     // That's a non-conformant tx-partitioning
@@ -9835,7 +9940,9 @@ static void md_encode_block(PictureControlSet* pcs, ModeDecisionContext* ctx, co
     ctx->mds1_best_idx         = 0;
     ctx->mds1_best_class_it    = 0;
     ctx->perform_mds1          = 1;
+#if !OPT_LPD1_TX_SKIP_DECISION
     ctx->use_tx_shortcuts_mds3 = 0;
+#endif
     for (cand_class_it = CAND_CLASS_0; cand_class_it < CAND_CLASS_TOTAL; cand_class_it++) {
         ctx->mds0_best_cost_per_class[cand_class_it] = (uint64_t)~0;
     }
@@ -9890,9 +9997,19 @@ static void md_encode_block(PictureControlSet* pcs, ModeDecisionContext* ctx, co
     // Use detector for applying TX shortcuts at MDS3; if MDS1 is performed, use that info to apply
     // shortcuts instead of MDS0 info
 
+#if OPT_LPD1_TX_SKIP_DECISION
+    ctx->use_tx_shortcuts_mds3 = 0;
+    if (ctx->perform_mds1 == 0 && ctx->tx_shortcut_ctrls.use_mds3_shortcuts_th && !ctx->mds0_use_hadamard_blk) {
+        const uint64_t best_md_stage_dist = cand_bf_ptr_array[ctx->mds0_best_idx]->luma_fast_dist;
+        const uint32_t th_normalizer      = blk_geom->bheight * blk_geom->bwidth * ctx->qp_index;
+        ctx->use_tx_shortcuts_mds3        = (100 * best_md_stage_dist) <
+            (ctx->tx_shortcut_ctrls.use_mds3_shortcuts_th * th_normalizer);
+    }
+#else
     if (ctx->perform_mds1 == 0 && ctx->tx_shortcut_ctrls.use_mds3_shortcuts_th > 0 && !ctx->mds0_use_hadamard_blk) {
         tx_shortcut_detector(ctx, cand_bf_ptr_array);
     }
+#endif
     // 1st Full-Loop
     assert(IMPLIES(!ctx->perform_mds1, ctx->md_stage_1_total_count == 1));
     // If MDS1 is bypassed, don't update the best MD stage cost because the cost will be used in

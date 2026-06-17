@@ -8107,57 +8107,111 @@ static uint64_t compute_subres_th(SequenceControlSet* scs, ModeDecisionContext* 
     return use_subres_th;
 }
 
+#if OPT_LPD1_TX_SKIP_DECISION
+static void set_lpd1_tx_skip_decision_ctrls(ModeDecisionContext* ctx, uint8_t level) {
+    Lpd1TxSkipDecisionCtrls* ctrls = &ctx->lpd1_tx_skip_decision_ctrls;
+
+    switch (level) {
+    case 0:
+        ctrls->skip_tx_score_th = 0;
+        break;
+    case 1:
+        ctrls->skip_tx_score_th = 125;
+        ctrls->dist_energy_th   = 30;
+        ctrls->rd_skip_th       = 100;
+        break;
+    case 2:
+        ctrls->skip_tx_score_th = 125;
+        ctrls->dist_energy_th   = 30;
+        ctrls->rd_skip_th       = 200;
+        break;
+    case 3:
+        ctrls->skip_tx_score_th = 70;
+        ctrls->dist_energy_th   = 30;
+        ctrls->rd_skip_th       = 200;
+        break;
+    case 4:
+        ctrls->skip_tx_score_th = 50;
+        ctrls->dist_energy_th   = 30;
+        ctrls->rd_skip_th       = 200;
+        break;
+    case 5:
+        ctrls->skip_tx_score_th = 50;
+        ctrls->dist_energy_th   = 40;
+        ctrls->rd_skip_th       = 200;
+        break;
+    default:
+        assert(0);
+        break;
+    }
+}
+#endif
 #if OPT_LPD1_FAST_SKIP
 static void set_lpd1_tx_ctrls(ModeDecisionContext* ctx, uint8_t lpd1_tx_level) {
     Lpd1TxCtrls* ctrls = &ctx->lpd1_tx_ctrls;
 
     switch (lpd1_tx_level) {
     case 0:
-        ctrls->zero_y_coeff_exit            = 0;
-        ctrls->chroma_detector_level        = 0;
-        ctrls->skip_tx_th                   = 0;
+        ctrls->zero_y_coeff_exit     = 0;
+        ctrls->chroma_detector_level = 0;
+#if !OPT_LPD1_TX_SKIP_DECISION
+        ctrls->skip_tx_th = 0;
+
+#endif
         ctrls->use_uv_shortcuts_on_y_coeffs = 0;
         ctrls->use_mds3_shortcuts_th        = 0;
         break;
     case 1:
-        ctrls->zero_y_coeff_exit            = 1;
-        ctrls->chroma_detector_level        = 1;
-        ctrls->skip_tx_th                   = 0;
+        ctrls->zero_y_coeff_exit     = 1;
+        ctrls->chroma_detector_level = 1;
+#if !OPT_LPD1_TX_SKIP_DECISION
+        ctrls->skip_tx_th = 0;
+#endif
         ctrls->use_uv_shortcuts_on_y_coeffs = 1;
         ctrls->use_mds3_shortcuts_th        = 30;
         break;
     case 2:
-        ctrls->zero_y_coeff_exit            = 1;
-        ctrls->chroma_detector_level        = 1;
-        ctrls->skip_tx_th                   = 30;
+        ctrls->zero_y_coeff_exit     = 1;
+        ctrls->chroma_detector_level = 1;
+#if !OPT_LPD1_TX_SKIP_DECISION
+        ctrls->skip_tx_th = 30;
+#endif
         ctrls->use_uv_shortcuts_on_y_coeffs = 1;
         ctrls->use_mds3_shortcuts_th        = 30;
         break;
     case 3:
-        ctrls->zero_y_coeff_exit            = 1;
-        ctrls->chroma_detector_level        = 2;
-        ctrls->skip_tx_th                   = 30;
+        ctrls->zero_y_coeff_exit     = 1;
+        ctrls->chroma_detector_level = 2;
+#if !OPT_LPD1_TX_SKIP_DECISION
+        ctrls->skip_tx_th = 30;
+#endif
         ctrls->use_uv_shortcuts_on_y_coeffs = 1;
         ctrls->use_mds3_shortcuts_th        = 30;
         break;
     case 4:
-        ctrls->zero_y_coeff_exit            = 1;
-        ctrls->chroma_detector_level        = 3;
-        ctrls->skip_tx_th                   = 30;
+        ctrls->zero_y_coeff_exit     = 1;
+        ctrls->chroma_detector_level = 3;
+#if !OPT_LPD1_TX_SKIP_DECISION
+        ctrls->skip_tx_th = 30;
+#endif
         ctrls->use_uv_shortcuts_on_y_coeffs = 1;
         ctrls->use_mds3_shortcuts_th        = 30;
         break;
     case 5:
-        ctrls->zero_y_coeff_exit            = 1;
-        ctrls->chroma_detector_level        = 4;
-        ctrls->skip_tx_th                   = 30;
+        ctrls->zero_y_coeff_exit     = 1;
+        ctrls->chroma_detector_level = 4;
+#if !OPT_LPD1_TX_SKIP_DECISION
+        ctrls->skip_tx_th = 30;
+#endif
         ctrls->use_uv_shortcuts_on_y_coeffs = 1;
         ctrls->use_mds3_shortcuts_th        = 30;
         break;
     case 6:
-        ctrls->zero_y_coeff_exit            = 1;
-        ctrls->chroma_detector_level        = 0;
-        ctrls->skip_tx_th                   = 30;
+        ctrls->zero_y_coeff_exit     = 1;
+        ctrls->chroma_detector_level = 0;
+#if !OPT_LPD1_TX_SKIP_DECISION
+        ctrls->skip_tx_th = 30;
+#endif
         ctrls->use_uv_shortcuts_on_y_coeffs = 1;
         ctrls->use_mds3_shortcuts_th        = 30;
         break;
@@ -9716,6 +9770,24 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
     }
 
     md_subpel_me_controls(ctx, me_subpel_level);
+
+#if OPT_LPD1_TX_SKIP_DECISION
+    uint8_t lpd1_tx_skip_decision_level;
+
+    if (lpd1_level <= LPD1_LVL_2) {
+        lpd1_tx_skip_decision_level = 2;
+    } else {
+        lpd1_tx_skip_decision_level = 3;
+        if (((l0_was_skip && l1_was_skip && ref_skip_perc > 35) && me_8x8_cost_variance < (800 * picture_qp) &&
+             me_64x64_distortion < (800 * picture_qp)) ||
+            (me_8x8_cost_variance < (100 * picture_qp) && me_64x64_distortion < (100 * picture_qp))) {
+            lpd1_tx_skip_decision_level = 4;
+        }
+    }
+
+    set_lpd1_tx_skip_decision_ctrls(ctx, lpd1_tx_skip_decision_level);
+#endif
+
     uint8_t lpd1_tx_level = 0;
     if (lpd1_level <= LPD1_LVL_2) {
         lpd1_tx_level = 3;
@@ -9744,6 +9816,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
     }
 #endif
 
+#if !OPT_LPD1_TX_SKIP_DECISION
     // Note that aggressive TX skipping may cause blocking artifacts
 #if TUNE_RA
     if (pcs->enc_mode <= ENC_M10) {
@@ -9763,6 +9836,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
             }
         }
     }
+#endif
 #if OPT_LPD1_FAST_SKIP
     if (lpd1_level <= LPD1_LVL_2) {
         ctx->lpd1_blk_skip_luma_rd_pct = 0;
@@ -9773,9 +9847,9 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
 #if OPT_LPD1_CHROMA_SKIP
     ctx->lpd1_chroma_skip_energy_th = 0;
 #endif
-
+#if !OPT_LPD1_TX_SKIP_DECISION
     ctx->lpd1_bypass_tx_th = 0;
-
+#endif
     uint8_t rate_est_level = 0;
     if (pcs->rate_est_level) {
         if (lpd1_level <= LPD1_LVL_0) {
@@ -9831,12 +9905,13 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_default(PictureControlSet* pcs, ModeDec
 void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisionContext* ctx) {
     Pd1Level                 lpd1_level = ctx->lpd1_ctrls.pd1_level;
     PictureParentControlSet* ppcs       = pcs->ppcs;
-
+#if !OPT_LPD1_TX_SKIP_DECISION
 #if TUNE_RTC
 #if REMOVE_USE_FLAT_IPP
     const bool use_flat_ipp = pcs->scs->static_config.rtc && ppcs->hierarchical_levels == 0;
 #else
     const bool use_flat_ipp = pcs->scs->use_flat_ipp;
+#endif
 #endif
 #endif
     const SliceType slice_type = pcs->slice_type;
@@ -9947,6 +10022,31 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
     }
     md_subpel_me_controls(ctx, me_subpel_level);
 
+#if OPT_LPD1_TX_SKIP_DECISION
+    uint8_t lpd1_tx_skip_decision_level;
+    if (lpd1_level <= LPD1_LVL_0) {
+        lpd1_tx_skip_decision_level = 1;
+    } else if (lpd1_level <= LPD1_LVL_2) {
+        lpd1_tx_skip_decision_level = 2;
+    } else if (lpd1_level <= LPD1_LVL_4) {
+        lpd1_tx_skip_decision_level = 3;
+    } else {
+        const uint32_t variance_threshold_strict    = picture_qp * (lpd1_level <= LPD1_LVL_5 ? 100 : 800);
+        const uint32_t variance_threshold_relaxed   = picture_qp * (lpd1_level <= LPD1_LVL_5 ? 800 : 1200);
+        const uint32_t distortion_threshold_relaxed = picture_qp * (lpd1_level <= LPD1_LVL_5 ? 800 : 1200);
+        const uint32_t candidate_level              = (lpd1_level <= LPD1_LVL_5) ? 4 : 5;
+
+        lpd1_tx_skip_decision_level = 3;
+
+        if (me_8x8_cost_variance < variance_threshold_strict ||
+            (me_8x8_cost_variance < variance_threshold_relaxed && me_64x64_distortion < distortion_threshold_relaxed)) {
+            lpd1_tx_skip_decision_level = candidate_level;
+        }
+    }
+
+    set_lpd1_tx_skip_decision_ctrls(ctx, lpd1_tx_skip_decision_level);
+#endif
+
 #if OPT_LPD1_FAST_SKIP
     uint8_t lpd1_tx_level;
 
@@ -9975,6 +10075,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
     }
 #endif
 
+#if !OPT_LPD1_TX_SKIP_DECISION
     // Note that aggressive TX skipping may cause blocking artifacts
 #if TUNE_RTC
     if (use_flat_ipp) {
@@ -10051,13 +10152,14 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
 #if TUNE_RTC
     }
 #endif
-
+#endif
+#if !OPT_LPD1_TX_SKIP_DECISION
     if (lpd1_level <= LPD1_LVL_0) {
         ctx->lpd1_bypass_tx_th = 100;
     } else {
         ctx->lpd1_bypass_tx_th = 200;
     }
-
+#endif
 #if FIX_RTC_M13
     if (lpd1_level <= LPD1_LVL_2) {
         ctx->lpd1_blk_skip_luma_rd_pct = 90;

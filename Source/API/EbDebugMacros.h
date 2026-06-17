@@ -118,8 +118,10 @@ extern "C" {
 #define CLN_PD0                    1 // Decommission REGULAR/HBD PD0: PD0 always runs the 8-bit light circuitry (hbd_md forced to 0 for the PD0 pass), for all content (8- & 10-bit) and SB sizes (64 & 128)
 #define CLN_RENAME_PD0             1 // Rename PD0 light identifiers (light pd0 -> pd0, very light pd0 -> pd0 lvl 6)
 #define OPT_PD0_RTC_M7             1 // Keep RTC M7 (<=360p) I-slices on light PD0_LVL_1 (off the new LVL_0)
-
+#define OPT_LPD1_TX_SKIP_DECISION  1 // Add LPD1 score-based early luma-TX skip decision with grayscale-aware gating
 //FOR DEBUGGING - Do not remove
+
+
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL
 #define DETAILED_FRAME_OUTPUT   0 // Prints detailed frame output from the library for debugging

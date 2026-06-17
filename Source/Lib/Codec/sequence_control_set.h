@@ -230,8 +230,11 @@ typedef struct SequenceControlSet {
     ScaleFactors sf_identity;
     VqCtrls      vq_ctrls;
     uint8_t      calc_hist;
-    TfControls   tf_params_per_type[3]; // [I_SLICE][BASE][L1]
-    MrpCtrls     mrp_ctrls;
+#if OPT_LPD1_TX_SKIP_DECISION
+    uint8_t detect_grayscale_like_input;
+#endif
+    TfControls tf_params_per_type[3]; // [I_SLICE][BASE][L1]
+    MrpCtrls   mrp_ctrls;
     // Init-time snapshot; runtime PRESET_CHANGE_EVENT clamps mrp_ctrls
     // list0 counts to MIN(init, runtime). See enc_handle.c.
     MrpCtrls mrp_ctrls_init;

@@ -763,6 +763,19 @@ typedef struct Lpd1Ctrls {
     uint16_t skip_pd0_me_shift[LPD1_LEVELS];
 } Lpd1Ctrls;
 
+#if OPT_LPD1_TX_SKIP_DECISION
+typedef struct Lpd1TxSkipDecisionCtrls {
+    // Score threshold above which TX is skipped.
+    int skip_tx_score_th;
+
+    // Threshold for the fast dist/energy-based skip signal.
+    uint16_t dist_energy_th;
+
+    // Threshold for the RD-based skip signal; 0 disables this path.
+    uint16_t rd_skip_th;
+
+} Lpd1TxSkipDecisionCtrls;
+#endif
 #if OPT_LPD1_FAST_SKIP
 typedef struct Lpd1TxCtrls {
     // skip cost calc and chroma TX/compensation if there are zero luma coeffs
@@ -770,8 +783,10 @@ typedef struct Lpd1TxCtrls {
     // Control aggressiveness of chroma detector (used to skip chroma TX when luma has 0 coeffs): 0:
     // OFF, 1: saftest, 2, 3: medium
     uint8_t chroma_detector_level;
+#if !OPT_LPD1_TX_SKIP_DECISION
     // if (skip_tx_th/QP < TH) skip TX at MDS3; 0: OFF, higher: more aggressive
     uint16_t skip_tx_th;
+#endif
     // if (best_mds0_distortion/QP < TH) use shortcuts for candidate at MDS3; 0: OFF, higher: more
     // aggressive
     uint32_t use_mds3_shortcuts_th;
@@ -1120,7 +1135,9 @@ typedef struct ModeDecisionContext {
     CandClass target_class;
     uint8_t   perform_mds1;
     uint8_t   use_tx_shortcuts_mds3;
-    uint8_t   lpd1_allow_skipping_tx;
+#if !OPT_LPD1_TX_SKIP_DECISION
+    uint8_t lpd1_allow_skipping_tx;
+#endif
     // Signals controlling which features are used at each MD stage
     bool mds_do_ifs;
     bool mds_do_txs;
@@ -1292,17 +1309,22 @@ typedef struct ModeDecisionContext {
     // Bias the inter-depth decision cost in MD towards the parent block. This will scale the cost of the
     // parent depth by parent_cost_bias/1000. Values <1000 favour the  parent, while values >1000 favour
     // the child depth. 1000 means no bias.
-    uint32_t    parent_cost_bias;
-    uint8_t     is_intra_bordered;
-    uint8_t     updated_enable_pme;
+    uint32_t parent_cost_bias;
+    uint8_t  is_intra_bordered;
+    uint8_t  updated_enable_pme;
+#if OPT_LPD1_TX_SKIP_DECISION
+    Lpd1TxSkipDecisionCtrls lpd1_tx_skip_decision_ctrls;
+#endif
     Lpd1TxCtrls lpd1_tx_ctrls;
     // Indicates which chroma components (if any) are complex, relative to luma. Chroma TX shortcuts
     // based on luma should not be used when chroma is complex.
     uint8_t chroma_complexity;
     uint8_t cfl_complexity;
+#if !OPT_LPD1_TX_SKIP_DECISION
     // Signal to skip INTER TX in LPD1; should only be used by M13 as this causes blocking
     // artifacts. 0: OFF, 1: Skip INTER TX if neighs have 0 coeffs, 2: skip all INTER TX
     uint8_t lpd1_skip_inter_tx_level;
+#endif
 #if OPT_LPD1_FAST_SKIP
     // Decide whole-block SKIP after the luma TX (LPD1). After the luma TX, compare RD cost of
     // coding the luma residual against RD cost of forcing skip. If skip_cost * pct < non_skip_cost
@@ -1315,10 +1337,12 @@ typedef struct ModeDecisionContext {
     // per-plane; can collapse to whole-block SKIP if luma also has zero coeffs. 0: OFF.
     uint16_t lpd1_chroma_skip_energy_th; // skip chroma via chroma residual energy
 #endif
+#if !OPT_LPD1_TX_SKIP_DECISION
     // Specifies the threshold to bypass transform in LPD1 based on full cost estimate.
     // 0: OFF (no bypassing)
     // The higher the number, the more aggressive the feature is
     uint8_t lpd1_bypass_tx_th;
+#endif
 #if OPT_LPD1_GLOBALMV_BYPASS
     // Per-pixel residual-cost threshold for the LPD1 GLOBALMV (MDS0-2) bypass.
     // 0: OFF. Otherwise: bypass fires when pd0_mds0_best_cost[mds_idx] < th * blk_area.

@@ -4572,7 +4572,13 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     } else {
         scs->calculate_variance = 0;
     }
-
+#if OPT_LPD1_TX_SKIP_DECISION
+    if (allintra) {
+        scs->detect_grayscale_like_input = false;
+    } else {
+        scs->detect_grayscale_like_input = true;
+    }
+#endif
     scs->resize_pending_params.resize_state = ORIG;
     scs->resize_pending_params.resize_denom = SCALE_NUMERATOR;
 

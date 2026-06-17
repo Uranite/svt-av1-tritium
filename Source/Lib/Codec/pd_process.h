@@ -108,6 +108,9 @@ typedef struct PictureDecisionContext {
 #if TUNE_SIMPLIFY_SETTINGS
     uint8_t last_i_picture_sc_class5;
 #endif
+#if OPT_LPD1_TX_SKIP_DECISION
+    bool last_i_picture_grayscale_like_input;
+#endif
     uint64_t                 last_long_base_pic;
     uint64_t                 key_poc;
     uint8_t                  tf_level;

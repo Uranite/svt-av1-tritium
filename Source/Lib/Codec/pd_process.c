@@ -4999,7 +4999,9 @@ static void copy_tf_params(SequenceControlSet* scs, PictureParentControlSet* pcs
 
 void svt_aom_is_screen_content(PictureParentControlSet* pcs);
 void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet* pcs);
-
+#if OPT_LPD1_TX_SKIP_DECISION
+bool svt_aom_is_input_grayscale_like(const EbPictureBufferDesc* input_pic);
+#endif
 /*
 * Update the list0 count try and the list1 count try based on the Enc-Mode, whether BASE or not, whether SC or not
 */
@@ -5388,6 +5390,11 @@ static void perform_sc_detection(SequenceControlSet* scs, PictureParentControlSe
                 svt_aom_is_screen_content_antialiasing_aware(pcs);
                 break;
             }
+#if OPT_LPD1_TX_SKIP_DECISION
+            if (scs->detect_grayscale_like_input) {
+                pcs->is_grayscale_like_input = svt_aom_is_input_grayscale_like(pcs->chroma_downsampled_pic);
+            }
+#endif
         }
         ctx->last_i_picture_sc_class0 = pcs->sc_class0;
         ctx->last_i_picture_sc_class1 = pcs->sc_class1;
@@ -5396,6 +5403,9 @@ static void perform_sc_detection(SequenceControlSet* scs, PictureParentControlSe
         ctx->last_i_picture_sc_class4 = pcs->sc_class4;
 #if TUNE_SIMPLIFY_SETTINGS
         ctx->last_i_picture_sc_class5 = pcs->sc_class5;
+#endif
+#if OPT_LPD1_TX_SKIP_DECISION
+        ctx->last_i_picture_grayscale_like_input = pcs->is_grayscale_like_input;
 #endif
 
     } else {
@@ -5406,6 +5416,9 @@ static void perform_sc_detection(SequenceControlSet* scs, PictureParentControlSe
         pcs->sc_class4 = ctx->last_i_picture_sc_class4;
 #if TUNE_SIMPLIFY_SETTINGS
         pcs->sc_class5 = ctx->last_i_picture_sc_class5;
+#endif
+#if OPT_LPD1_TX_SKIP_DECISION
+        pcs->is_grayscale_like_input = ctx->last_i_picture_grayscale_like_input;
 #endif
     }
 }
