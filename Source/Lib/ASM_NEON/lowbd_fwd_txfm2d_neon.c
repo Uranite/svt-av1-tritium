@@ -993,7 +993,7 @@ static AOM_FORCE_INLINE int16x8_t round_shift_sqrt2_x8(int16x8_t a) {
     return vcombine_s16(lo, hi);
 }
 
-static AOM_FORCE_INLINE void col16_dispatch(const int16_t* in, int stride, int16x8_t* out, TxType t) {
+static AOM_FORCE_INLINE void col16_dispatch(const int16_t* in, int stride, int16x8_t* out, TxType t, int cos_bit) {
     int16x8_t s[16];
     load_buffer_s16_x8(in, stride, s, 16);
     shift_left_2_s16_x8(s, s, 16);
@@ -1002,7 +1002,7 @@ static AOM_FORCE_INLINE void col16_dispatch(const int16_t* in, int stride, int16
     case DCT_ADST:
     case DCT_FLIPADST:
     case V_DCT:
-        fdct16x16_neon(s, out, 13);
+        fdct16x16_neon(s, out, cos_bit);
         break;
     case ADST_DCT:
     case ADST_ADST:
@@ -1012,21 +1012,21 @@ static AOM_FORCE_INLINE void col16_dispatch(const int16_t* in, int stride, int16
     case FLIPADST_ADST:
     case V_ADST:
     case V_FLIPADST:
-        fadst16x16_neon(s, out, 13);
+        fadst16x16_neon(s, out, cos_bit);
         break;
     default:
-        fidentity16x16_neon(s, out, 13);
+        fidentity16x16_neon(s, out, cos_bit);
         break;
     }
 }
 
-static AOM_FORCE_INLINE void row8_dispatch(const int16x8_t* in, int16x8_t* out, TxType t) {
+static AOM_FORCE_INLINE void row8_dispatch(const int16x8_t* in, int16x8_t* out, TxType t, int cos_bit) {
     switch (t) {
     case DCT_DCT:
     case ADST_DCT:
     case FLIPADST_DCT:
     case H_DCT:
-        fdct8x8_neon(in, out, 13);
+        fdct8x8_neon(in, out, cos_bit);
         break;
     case DCT_ADST:
     case ADST_ADST:
@@ -1036,10 +1036,10 @@ static AOM_FORCE_INLINE void row8_dispatch(const int16x8_t* in, int16x8_t* out, 
     case FLIPADST_ADST:
     case H_ADST:
     case H_FLIPADST:
-        fadst8x8_neon(in, out, 13);
+        fadst8x8_neon(in, out, cos_bit);
         break;
     default:
-        fidentity8x8_neon(in, out, 13);
+        fidentity8x8_neon(in, out, cos_bit);
         break;
     }
 }
@@ -1052,7 +1052,7 @@ void svt_lbd_fwd_txfm2d_8x16_neon(int16_t* input, int32_t* output, uint32_t stri
     ud_adjust_input_and_stride(ud_flip, &in, &stride, 16);
 
     int16x8_t buf0[16], buf1[16];
-    col16_dispatch(in, (int)stride, buf0, tx_type);
+    col16_dispatch(in, (int)stride, buf0, tx_type, 13);
     shift_right_2_round_s16_x8(buf0, buf0, 16);
     transpose_arrays_s16_8x8(buf0, buf1);
     transpose_arrays_s16_8x8(buf0 + 8, buf1 + 8);
@@ -1064,7 +1064,7 @@ void svt_lbd_fwd_txfm2d_8x16_neon(int16_t* input, int32_t* output, uint32_t stri
         }
         const int16x8_t* ri = lr_flip ? rin : (buf1 + 8 * i);
         int16x8_t        rout[8];
-        row8_dispatch(ri, rout, tx_type);
+        row8_dispatch(ri, rout, tx_type, 13);
         for (int r = 0; r < 8; r++) {
             rout[r] = round_shift_sqrt2_x8(rout[r]);
         }
@@ -1078,7 +1078,7 @@ void svt_lbd_fwd_txfm2d_8x16_neon(int16_t* input, int32_t* output, uint32_t stri
     }
 }
 
-static AOM_FORCE_INLINE void col8_dispatch(const int16_t* in, int stride, int16x8_t* out, TxType t) {
+static AOM_FORCE_INLINE void col8_dispatch(const int16_t* in, int stride, int16x8_t* out, TxType t, int cos_bit) {
     int16x8_t s[8];
     load_buffer_s16_x8(in, stride, s, 8);
     shift_left_2_s16_x8(s, s, 8);
@@ -1087,7 +1087,7 @@ static AOM_FORCE_INLINE void col8_dispatch(const int16_t* in, int stride, int16x
     case DCT_ADST:
     case DCT_FLIPADST:
     case V_DCT:
-        fdct8x8_neon(s, out, 13);
+        fdct8x8_neon(s, out, cos_bit);
         break;
     case ADST_DCT:
     case ADST_ADST:
@@ -1097,21 +1097,21 @@ static AOM_FORCE_INLINE void col8_dispatch(const int16_t* in, int stride, int16x
     case FLIPADST_ADST:
     case V_ADST:
     case V_FLIPADST:
-        fadst8x8_neon(s, out, 13);
+        fadst8x8_neon(s, out, cos_bit);
         break;
     default:
-        fidentity8x8_neon(s, out, 13);
+        fidentity8x8_neon(s, out, cos_bit);
         break;
     }
 }
 
-static AOM_FORCE_INLINE void row16_dispatch(const int16x8_t* in, int16x8_t* out, TxType t) {
+static AOM_FORCE_INLINE void row16_dispatch(const int16x8_t* in, int16x8_t* out, TxType t, int cos_bit) {
     switch (t) {
     case DCT_DCT:
     case ADST_DCT:
     case FLIPADST_DCT:
     case H_DCT:
-        fdct16x16_neon(in, out, 13);
+        fdct16x16_neon(in, out, cos_bit);
         break;
     case DCT_ADST:
     case ADST_ADST:
@@ -1121,10 +1121,10 @@ static AOM_FORCE_INLINE void row16_dispatch(const int16x8_t* in, int16x8_t* out,
     case FLIPADST_ADST:
     case H_ADST:
     case H_FLIPADST:
-        fadst16x16_neon(in, out, 13);
+        fadst16x16_neon(in, out, cos_bit);
         break;
     default:
-        fidentity16x16_neon(in, out, 13);
+        fidentity16x16_neon(in, out, cos_bit);
         break;
     }
 }
@@ -1138,7 +1138,7 @@ void svt_lbd_fwd_txfm2d_16x8_neon(int16_t* input, int32_t* output, uint32_t stri
 
     int16x8_t buf0[8], buf1[16];
     for (int i = 0; i < 2; i++) {
-        col8_dispatch(in + 8 * i, (int)stride, buf0, tx_type);
+        col8_dispatch(in + 8 * i, (int)stride, buf0, tx_type, 13);
         shift_right_2_round_s16_x8(buf0, buf0, 8);
         transpose_arrays_s16_8x8(buf0, buf1 + 8 * i);
     }
@@ -1149,7 +1149,7 @@ void svt_lbd_fwd_txfm2d_16x8_neon(int16_t* input, int32_t* output, uint32_t stri
     }
     const int16x8_t* ri = lr_flip ? rin : buf1;
     int16x8_t        rout[16];
-    row16_dispatch(ri, rout, tx_type);
+    row16_dispatch(ri, rout, tx_type, 13);
     for (int r = 0; r < 16; r++) {
         rout[r] = round_shift_sqrt2_x8(rout[r]);
     }
@@ -1163,5 +1163,101 @@ void svt_lbd_fwd_txfm2d_16x8_neon(int16_t* input, int32_t* output, uint32_t stri
         vst1q_s32(o + 4, vmovl_s16(vget_high_s16(ta[r])));
         vst1q_s32(o + 8, vmovl_s16(vget_low_s16(tb[r])));
         vst1q_s32(o + 12, vmovl_s16(vget_high_s16(tb[r])));
+    }
+}
+
+static AOM_FORCE_INLINE void col32_dispatch(const int16_t* in, int stride, int16x8_t* out, TxType t, int cos_bit) {
+    int16x8_t s[32];
+    load_buffer_s16_x8(in, stride, s, 32);
+    shift_left_2_s16_x8(s, s, 32);
+    switch (t) {
+    case DCT_DCT:
+    case DCT_ADST:
+    case DCT_FLIPADST:
+    case V_DCT:
+        fdct32x32_neon(s, out, cos_bit);
+        break;
+    default:
+        fidentity32x32_neon(s, out, cos_bit);
+        break;
+    }
+}
+
+static AOM_FORCE_INLINE void row32_dispatch(const int16x8_t* in, int16x8_t* out, TxType t, int cos_bit) {
+    switch (t) {
+    case DCT_DCT:
+    case ADST_DCT:
+    case FLIPADST_DCT:
+    case H_DCT:
+        fdct32x32_neon(in, out, cos_bit);
+        break;
+    default:
+        fidentity32x32_neon(in, out, cos_bit);
+        break;
+    }
+}
+
+// 8x32 forward, 8-bit. col=32pt(cos12), row=8pt(cos12), no rect scale (1:4).
+void svt_lbd_fwd_txfm2d_8x32_neon(int16_t* input, int32_t* output, uint32_t stride, TxType tx_type) {
+    int ud_flip, lr_flip;
+    get_flip_cfg(tx_type, &ud_flip, &lr_flip);
+    const int16_t* in = input;
+    ud_adjust_input_and_stride(ud_flip, &in, &stride, 32);
+
+    int16x8_t buf0[32], buf1[32];
+    col32_dispatch(in, (int)stride, buf0, tx_type, 12);
+    shift_right_2_round_s16_x8(buf0, buf0, 32);
+    for (int j = 0; j < 4; j++) {
+        transpose_arrays_s16_8x8(buf0 + 8 * j, buf1 + 8 * j);
+    }
+
+    for (int i = 0; i < 4; i++) {
+        int16x8_t rin[8];
+        if (lr_flip) {
+            flip_buf_8_neon(buf1 + 8 * i, rin, 8);
+        }
+        const int16x8_t* ri = lr_flip ? rin : (buf1 + 8 * i);
+        int16x8_t        rout[8];
+        row8_dispatch(ri, rout, tx_type, 12);
+        int16x8_t t[8];
+        transpose_arrays_s16_8x8(rout, t);
+        for (int r = 0; r < 8; r++) {
+            int32_t* o = output + (8 * i + r) * 8;
+            vst1q_s32(o + 0, vmovl_s16(vget_low_s16(t[r])));
+            vst1q_s32(o + 4, vmovl_s16(vget_high_s16(t[r])));
+        }
+    }
+}
+
+// 32x8 forward, 8-bit. col=8pt(cos13), row=32pt(cos12), no rect scale (4:1).
+void svt_lbd_fwd_txfm2d_32x8_neon(int16_t* input, int32_t* output, uint32_t stride, TxType tx_type) {
+    int ud_flip, lr_flip;
+    get_flip_cfg(tx_type, &ud_flip, &lr_flip);
+    const int16_t* in = input;
+    ud_adjust_input_and_stride(ud_flip, &in, &stride, 8);
+
+    int16x8_t buf0[8], buf1[32];
+    for (int i = 0; i < 4; i++) {
+        col8_dispatch(in + 8 * i, (int)stride, buf0, tx_type, 13);
+        shift_right_2_round_s16_x8(buf0, buf0, 8);
+        transpose_arrays_s16_8x8(buf0, buf1 + 8 * i);
+    }
+
+    int16x8_t rin[32];
+    if (lr_flip) {
+        flip_buf_8_neon(buf1, rin, 32);
+    }
+    const int16x8_t* ri = lr_flip ? rin : buf1;
+    int16x8_t        rout[32];
+    row32_dispatch(ri, rout, tx_type, 12);
+
+    int16x8_t t[8];
+    for (int b = 0; b < 4; b++) {
+        transpose_arrays_s16_8x8(rout + 8 * b, t);
+        for (int r = 0; r < 8; r++) {
+            int32_t* o = output + r * 32 + 8 * b;
+            vst1q_s32(o + 0, vmovl_s16(vget_low_s16(t[r])));
+            vst1q_s32(o + 4, vmovl_s16(vget_high_s16(t[r])));
+        }
     }
 }
