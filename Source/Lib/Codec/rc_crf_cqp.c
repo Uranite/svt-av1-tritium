@@ -395,10 +395,14 @@ static int cqp_qindex_calc(PictureControlSet* pcs, int qindex) {
     if (scs->allintra) {
         return qindex;
     }
+#if CLN_REMOVE_RTC_FROM_VBR
+    if (ppcs->hierarchical_levels == 0 && pcs->slice_type != I_SLICE) {
+#else
 #if REMOVE_USE_FLAT_IPP
     if (scs->static_config.rtc && ppcs->hierarchical_levels == 0 && pcs->slice_type != I_SLICE) {
 #else
     if (scs->use_flat_ipp && pcs->slice_type != I_SLICE) {
+#endif
 #endif
         return qindex;
     }

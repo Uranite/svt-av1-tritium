@@ -409,7 +409,7 @@ static int get_rcf_index(PictureParentControlSet* ppcs) {
         return 0;
     }
     RATE_CONTROL* rc = &ppcs->scs->enc_ctx->rc;
-    return ((rc->rc_mini_gop_pos + 1) % (1 << (rc->rc_num_layers - 1))) + 1;
+    return ((rc->rc_mini_gop_pos + 1) % rc->mini_qop_size) + 1;
 #else
     return ppcs->frm_hdr.frame_type == KEY_FRAME ? 0 : ppcs->pred_struct_index + 1;
 #endif
