@@ -1591,6 +1591,10 @@ void svt_av1_fwd_txfm2d_8x4_neon(int16_t* input, int32_t* coeff, uint32_t stride
 }
 
 void svt_av1_fwd_txfm2d_8x16_neon(int16_t* input, int32_t* coeff, uint32_t stride, TxType tx_type, uint8_t bd) {
+    if (bd == 8) {
+        svt_lbd_fwd_txfm2d_8x16_neon(input, coeff, stride, tx_type);
+        return;
+    }
     (void)bd;
     const fwd_transform_1d_col_many_neon col_txfm = col_highbd_txfm16_xn_arr[tx_type];
     const fwd_transform_1d_row_many_neon row_txfm = row_rect_highbd_txfm8_xn_arr[tx_type];
