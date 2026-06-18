@@ -2616,7 +2616,11 @@ uint16_t svt_aom_get_max_can_count(EncMode enc_mode, bool rtc) {
             mem_max_can_count = 50;
 #endif
         } else if (enc_mode <= ENC_M10) {
+#if FIX_RTC_M10_CAND_CNT
+            mem_max_can_count = 65;
+#else
             mem_max_can_count = 25;
+#endif
         } else if (enc_mode <= ENC_M11) {
             mem_max_can_count = 15;
         } else {

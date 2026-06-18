@@ -114,6 +114,7 @@ extern "C" {
 #define OPT_EC_SHAVE_RD_ZERO       1 // Add an RD-gated trailing coefficient zeroing pass after the existing cheap EOB retraction to enable further EOB reduction, zeroing a tail coefficient only when the estimated rate savings justify the resulting distortion increase
 #define FIX_RTC_M13                1 // Fix RTC M13 settings
 #define FIX_RTC_M9_CAND_CNT        1 // Increase max candidate count for RTC M9. OPT_MAX_CAN_COUNT_RTC originally assumed a 3L prediction structure as the worst case due to its higher number of inter candidates. However, flat prediction structures can actually require more intra candidates because of an existing flat-specific check.
+#define FIX_RTC_M10_CAND_CNT       1 // Increase max candidate count for RTC M10 (25->65). Same family as FIX_RTC_M9_CAND_CNT: the M10 light-PD1 inter path injects MVP + ME + unipred3x3 candidates and records each accepted MV in the injected_mvs dedup array, which is sized to max_can_count. The accepted-candidate count reaches ~44 (and ~40 unique MVs) on real content, overflowing the 25-entry array. Sized to match M9 with headroom (memory-only, no speed/quality impact).
 
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
