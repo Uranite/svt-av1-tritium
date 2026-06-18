@@ -2859,7 +2859,8 @@ static bool me_static_b64_bypass(MeContext* me_ctx, uint32_t b64_origin_x, uint3
 
     me_ctx->zz_sad[0][0]                = zz_sad;
     me_ctx->search_results[0][0].do_ref = 1;
-    memset(me_ctx->p_sb_best_mv[0][0], 0, SQUARE_PU_COUNT * sizeof(uint32_t));
+    // p_sb_best_mv was fully zeroed by init_me_hme_data() before this bypass runs,
+    // so list0/ref0 is already cleared; no per-bypass memset needed.
     // 64x64
     me_ctx->p_sb_best_sad[0][0][RASTER_SCAN_CU_INDEX_64x64] = zz_sad;
     // 32x32
