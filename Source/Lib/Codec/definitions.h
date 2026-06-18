@@ -748,15 +748,37 @@ typedef enum PdPass {
 } PdPass;
 
 typedef enum ATTRIBUTE_PACKED {
+#if !CLN_PD0
     REGULAR_PD0 =
         -1, // The regular PD0 path; negative so that LPD1 can start at 0 (easy for indexing arrays in lpd0_ctrls)
-    LPD0_LVL_0     = 0,
-    LPD0_LVL_1     = 1,
-    LPD0_LVL_2     = 2,
-    LPD0_LVL_3     = 3,
-    LPD0_LVL_4     = 4,
+#endif
+#if CLN_RENAME_PD0
+    PD0_LVL_0 = 0,
+    PD0_LVL_1 = 1,
+    PD0_LVL_2 = 2,
+    PD0_LVL_3 = 3,
+    PD0_LVL_4 = 4,
+#else
+    LPD0_LVL_0 = 0,
+    LPD0_LVL_1 = 1,
+    LPD0_LVL_2 = 2,
+    LPD0_LVL_3 = 3,
+    LPD0_LVL_4 = 4,
+#endif
+#if CLN_PD0
+#if CLN_RENAME_PD0
+    PD0_LVL_5 = 5,
+    PD0_LVL_6 = 6, // Lightest PD0 path, doesn't perform TX
+    PD0_LEVELS // Number of PD0 paths
+#else
+    LPD0_LVL_5     = 5,
+    VERY_LIGHT_PD0 = 6, // Lightest PD0 path, doesn't perform TX
+    LPD0_LEVELS // Number of light-PD0 paths
+#endif
+#else
     VERY_LIGHT_PD0 = 5, // Lightest PD0 path, doesn't perform TX
     LPD0_LEVELS // Number of light-PD0 paths (regular PD0 isn't a light-PD0 path)
+#endif
 } Pd0Level;
 
 typedef enum ATTRIBUTE_PACKED {

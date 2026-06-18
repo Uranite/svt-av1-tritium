@@ -76,7 +76,11 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
 #else
 void svt_aom_sig_deriv_enc_dec_light_pd1(PictureControlSet* pcs, ModeDecisionContext* ctx);
 #endif
+#if CLN_RENAME_PD0
+void svt_aom_sig_deriv_enc_dec_pd0(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx);
+#else
 void svt_aom_sig_deriv_enc_dec_light_pd0(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx);
+#endif
 void svt_aom_sig_deriv_enc_dec_common(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx);
 
 void svt_aom_sig_deriv_me(SequenceControlSet* scs, PictureParentControlSet* pcs, MeContext* me_ctx);

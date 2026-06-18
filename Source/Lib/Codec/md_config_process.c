@@ -1085,8 +1085,12 @@ EbErrorType svt_aom_mode_decision_configuration_kernel_iter(void* context) {
         frm_hdr->tx_mode                            = TX_MODE_SELECT;
         pcs->pic_depth_removal_level                = 0;
         pcs->pic_block_based_depth_refinement_level = 0;
-        pcs->pic_lpd0_lvl                           = 0;
-        pcs->pic_lpd1_lvl                           = 0;
+#if CLN_RENAME_PD0
+        pcs->pic_pd0_lvl = 0;
+#else
+        pcs->pic_lpd0_lvl = 0;
+#endif
+        pcs->pic_lpd1_lvl      = 0;
         pcs->pic_bypass_encdec = scs->static_config.encoder_bit_depth != EB_EIGHT_BIT ? 0 : pcs->pic_bypass_encdec;
     }
     // Post the results to the MD processes

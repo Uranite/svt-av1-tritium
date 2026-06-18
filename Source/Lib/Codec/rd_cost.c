@@ -1203,9 +1203,13 @@ uint64_t svt_aom_inter_fast_cost(PictureControlSet* pcs, ModeDecisionContext* ct
 
 /*
  */
+#if CLN_RENAME_PD0
+EbErrorType svt_aom_txb_estimate_coeff_bits_pd0(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
+#else
 EbErrorType svt_aom_txb_estimate_coeff_bits_light_pd0(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
-                                                      uint32_t txb_origin_index, EbPictureBufferDesc* coeff_buffer_sb,
-                                                      uint32_t y_eob, uint64_t* y_txb_coeff_bits, TxSize txsize) {
+#endif
+                                                uint32_t txb_origin_index, EbPictureBufferDesc* coeff_buffer_sb,
+                                                uint32_t y_eob, uint64_t* y_txb_coeff_bits, TxSize txsize) {
     if (y_eob) {
         *y_txb_coeff_bits = svt_av1_cost_coeffs_txb(
             ctx,
@@ -1327,8 +1331,12 @@ EbErrorType svt_aom_txb_estimate_coeff_bits(ModeDecisionContext* ctx, uint8_t al
     return return_error;
 }
 
+#if CLN_RENAME_PD0
+EbErrorType svt_aom_full_cost_pd0(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
+#else
 EbErrorType svt_aom_full_cost_light_pd0(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
-                                        uint64_t* y_distortion, uint64_t lambda, uint64_t* y_coeff_bits) {
+#endif
+                                  uint64_t* y_distortion, uint64_t lambda, uint64_t* y_coeff_bits) {
     EbErrorType return_error = EB_ErrorNone;
 
     uint64_t coeff_rate = (*y_coeff_bits + (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[0][0]);

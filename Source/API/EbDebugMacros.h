@@ -116,6 +116,10 @@ extern "C" {
 #define FIX_RTC_M9_CAND_CNT        1 // Increase max candidate count for RTC M9. OPT_MAX_CAN_COUNT_RTC originally assumed a 3L prediction structure as the worst case due to its higher number of inter candidates. However, flat prediction structures can actually require more intra candidates because of an existing flat-specific check.
 #define FIX_RTC_M10_CAND_CNT       1 // Increase max candidate count for RTC M10 (25->65). Same family as FIX_RTC_M9_CAND_CNT: the M10 light-PD1 inter path injects MVP + ME + unipred3x3 candidates and records each accepted MV in the injected_mvs dedup array, which is sized to max_can_count. The accepted-candidate count reaches ~44 (and ~40 unique MVs) on real content, overflowing the 25-entry array. Sized to match M9 with headroom (memory-only, no speed/quality impact).
 
+#define CLN_PD0                    1 // Decommission REGULAR/HBD PD0: PD0 always runs the 8-bit light circuitry (hbd_md forced to 0 for the PD0 pass), for all content (8- & 10-bit) and SB sizes (64 & 128)
+#define CLN_RENAME_PD0             1 // Rename PD0 light identifiers (light pd0 -> pd0, very light pd0 -> pd0 lvl 6)
+#define OPT_PD0_RTC_M7             1 // Keep RTC M7 (<=360p) I-slices on light PD0_LVL_1 (off the new LVL_0)
+
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL

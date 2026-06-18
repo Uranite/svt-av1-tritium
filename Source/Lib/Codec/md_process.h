@@ -705,6 +705,22 @@ typedef struct BlockLocation {
     uint32_t input_cb_origin_in_index;
 } BlockLocation;
 
+#if CLN_RENAME_PD0
+typedef struct Pd0Ctrls {
+    // Whether light-PD0 is set to be used for an SB (the detector may change this)
+    Pd0Level pd0_level;
+    bool     use_pd0_detector[PD0_LEVELS];
+    // Use info of ref frames - incl. colocated SBs - such as mode, coeffs, etc. in the detector.
+    // [0,2] - 0 is off, 2 is most aggressive
+    uint8_t use_ref_info[PD0_LEVELS];
+    // me_8x8_cost_variance_th beyond which the PD0 is used (instead of light-PD0)
+    uint32_t me_8x8_cost_variance_th[PD0_LEVELS];
+    // ME_64x64_dist threshold used for edge SBs when PD0 is skipped
+    uint32_t edge_dist_th[PD0_LEVELS];
+    // Shift applied to ME dist and var of top and left SBs when PD0 is skipped
+    uint16_t neigh_me_dist_shift[PD0_LEVELS];
+} Pd0Ctrls;
+#else
 typedef struct Lpd0Ctrls {
     // Whether light-PD0 is set to be used for an SB (the detector may change this)
     Pd0Level pd0_level;
@@ -720,6 +736,7 @@ typedef struct Lpd0Ctrls {
     // Shift applied to ME dist and var of top and left SBs when PD0 is skipped
     uint16_t neigh_me_dist_shift[LPD0_LEVELS];
 } Lpd0Ctrls;
+#endif
 
 typedef struct Lpd1Ctrls {
     // Whether light-PD1 is set to be used for an SB (the detector may change this)
@@ -1233,8 +1250,13 @@ typedef struct ModeDecisionContext {
     uint16_t coded_area_sb_uv;
     // Use source samples instead of reconstructed samples for INTRA prediction of PD0 in I_SLICE
     // to avoid inverse transform and neighbor array updates for reconstructed samples
+#if CLN_RENAME_PD0
+    bool     pd0_use_src_samples;
+    Pd0Ctrls pd0_ctrls;
+#else
     bool      lpd0_use_src_samples;
     Lpd0Ctrls lpd0_ctrls;
+#endif
     // 0 : Use regular PD0 1 : Use light PD0 path. Assumes one class, no NSQ, no 4x4, TXT off, TXS
     // off, PME off, etc. 2 : Use very light PD0 path: only mds0 (no transform path), no
     // compensation(s) @ mds0 (only umpired candidates, and read directly from reference buffer(s)

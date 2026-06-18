@@ -314,7 +314,11 @@ typedef struct PictureControlSet {
     uint8_t coeff_shaving_level;
 #endif
 #if OPT_VLPD0_COST_BIS
+#if CLN_RENAME_PD0
+    uint16_t pd0_cost_bias_weight; // [512..1024] = 50%..100% of default variance offset; 0 = off
+#else
     uint16_t vlpd0_cost_bias_weight; // [512..1024] = 50%..100% of default variance offset; 0 = off
+#endif
 #endif
     uint8_t rate_est_level;
     uint8_t intra_level;
@@ -323,8 +327,12 @@ typedef struct PictureControlSet {
     // depth_removal_level signal at the picture level
     uint8_t pic_depth_removal_level;
     // block_based_depth_refinement_level signal set at the picture level
-    uint8_t          pic_block_based_depth_refinement_level;
-    uint8_t          pic_lpd0_lvl; // lpd0_lvl signal set at the picture level
+    uint8_t pic_block_based_depth_refinement_level;
+#if CLN_RENAME_PD0
+    uint8_t pic_pd0_lvl; // lpd0_lvl signal set at the picture level
+#else
+    uint8_t pic_lpd0_lvl; // lpd0_lvl signal set at the picture level
+#endif
     uint8_t          pic_lpd1_lvl; // lpd1_lvl signal set at the picture level
     bool             pic_bypass_encdec;
     EncMode          enc_mode;
