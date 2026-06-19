@@ -240,53 +240,27 @@ static inline void cdef_apply_fb(uint8_t* rec_buff, uint32_t rec_stride, uint8_t
     // the frame edge (those taps are masked geometrically by the bounded kernel).
     const int body_rows = frame_bottom ? vsz : vsz + CDEF_HALO;
     const int cright    = frame_right ? hsz : cend - (CDEF_HBORDER - CDEF_HALO);
-    // Body (+ up to CDEF_HALO-px left/right and bottom halo).
-    svt_cdef_copy_rect8(&src8[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER + cs],
+    // Body + top halo in ONE copy from recon (also brings the left/right and bottom halo). The top
+    // halo is overwritten from the pre-filter linebuf below wherever the top neighbour fb was already
+    // CDEF-filtered (its current recon is post-filter and unusable as halo).
+    svt_cdef_copy_rect8(&src8[(CDEF_VBORDER - CDEF_HALO) * CDEF_BSTRIDE + CDEF_HBORDER + cs],
                         CDEF_BSTRIDE,
                         rec_buff,
-                        (MI_SIZE_64X64 << mhl2) * fbr,
+                        (MI_SIZE_64X64 << mhl2) * fbr - CDEF_HALO,
                         coffset + cs,
                         rec_stride,
-                        body_rows,
+                        CDEF_HALO + body_rows,
                         cright - cs);
-    // Top.
-    if (!prev_row_cdef[fbc]) {
-        svt_cdef_copy_rect8(&src8[top_off],
-                            CDEF_BSTRIDE,
-                            rec_buff,
-                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_HALO,
-                            coffset,
-                            rec_stride,
-                            CDEF_HALO,
-                            hsz);
-    } else {
+    // Overwrite top center / top-left / top-right from the pre-filter linebuf where that neighbour
+    // was filtered (else the recon copied above is correct).
+    if (prev_row_cdef[fbc]) {
         svt_cdef_copy_rect8(&src8[top_off], CDEF_BSTRIDE, &linebuf_pli[lrow + coffset], 0, 0, stride, CDEF_HALO, hsz);
     }
-    // Top-left corner.
-    if (!prev_row_cdef[fbc - 1]) {
-        svt_cdef_copy_rect8(&src8[tl_off],
-                            CDEF_BSTRIDE,
-                            rec_buff,
-                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_HALO,
-                            coffset - CDEF_HALO,
-                            rec_stride,
-                            CDEF_HALO,
-                            CDEF_HALO);
-    } else {
+    if (prev_row_cdef[fbc - 1]) {
         svt_cdef_copy_rect8(
             &src8[tl_off], CDEF_BSTRIDE, &linebuf_pli[lrow + coffset - CDEF_HALO], 0, 0, stride, CDEF_HALO, CDEF_HALO);
     }
-    // Top-right corner.
-    if (!prev_row_cdef[fbc + 1]) {
-        svt_cdef_copy_rect8(&src8[tr_off],
-                            CDEF_BSTRIDE,
-                            rec_buff,
-                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_HALO,
-                            coffset + hsz,
-                            rec_stride,
-                            CDEF_HALO,
-                            CDEF_HALO);
-    } else {
+    if (prev_row_cdef[fbc + 1]) {
         svt_cdef_copy_rect8(
             &src8[tr_off], CDEF_BSTRIDE, &linebuf_pli[lrow + coffset + hsz], 0, 0, stride, CDEF_HALO, CDEF_HALO);
     }

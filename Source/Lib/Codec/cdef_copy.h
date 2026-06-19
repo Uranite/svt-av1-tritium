@@ -9,43 +9,61 @@
  * PATENTS file, you can obtain it at www.aomedia.org/license/patent.
  */
 
-// CDEF 8-bit pixel-copy helpers. Portable C with a NEON fast path on AArch64; compiles on any arch.
+// CDEF pixel-copy helpers. Portable C (no target intrinsics): the 8-bit gather copy dispatches on
+// its (small, fixed) set of widths to constant-size memcpy, which the compiler lowers to optimal
+// inline load/stores on every target.
 
 #ifndef EbCdefCopy_h
 #define EbCdefCopy_h
 
-#if defined(ARCH_AARCH64)
-#include <arm_neon.h>
-#endif
+#include <assert.h>
+#include <stdint.h>
 #include <string.h>
 
-static inline void cdef_narrow_row(uint8_t* d, const uint16_t* s, int cols) {
-    int c = 0;
-#if defined(ARCH_AARCH64)
-    for (; c + 8 <= cols; c += 8) {
-        vst1_u8(d + c, vmovn_u16(vld1q_u16(s + c)));
-    }
-#endif
-    for (; c < cols; c++) {
-        d[c] = (uint8_t)s[c];
-    }
-}
-
-static inline void cdef_widen_row(uint16_t* d, const uint8_t* s, int cols) {
-    int c = 0;
-#if defined(ARCH_AARCH64)
-    for (; c + 8 <= cols; c += 8) {
-        vst1q_u16(d + c, vmovl_u8(vld1_u8(s + c)));
-    }
-#endif
-    for (; c < cols; c++) {
-        d[c] = (uint16_t)s[c];
-    }
-}
-
+// 8-bit recon -> padded src8 rect copy. The CDEF gather (apply + native-8 search) only ever uses the
+// widths enumerated below (all CDEF reads are +/-CDEF_HALO, so body is hsz+2*HALO and halo strips are
+// HALO). Dispatch ONCE per call to a constant-size memcpy loop so each row folds to optimal inline
+// load/stores on arm64 AND x86 -- no per-row libc memmove call, no target intrinsics.
 static inline void svt_cdef_copy_rect8(uint8_t* dst, int dstride, const uint8_t* src, int src_voffset, int src_hoffset,
                                        int sstride, int v, int h) {
     const uint8_t* base = &src[src_voffset * sstride + src_hoffset];
+#define CDEF_RECT_CW(W)                  \
+    do {                                 \
+        for (int _r = 0; _r < v; _r++) { \
+            memcpy(dst, base, (W));      \
+            dst += dstride;              \
+            base += sstride;             \
+        }                                \
+    } while (0)
+    switch (h) {
+    case 2:
+        CDEF_RECT_CW(2);
+        return;
+    case 32:
+        CDEF_RECT_CW(32);
+        return;
+    case 34:
+        CDEF_RECT_CW(34);
+        return;
+    case 36:
+        CDEF_RECT_CW(36);
+        return;
+    case 64:
+        CDEF_RECT_CW(64);
+        return;
+    case 66:
+        CDEF_RECT_CW(66);
+        return;
+    case 68:
+        CDEF_RECT_CW(68);
+        return;
+    default:
+        break;
+    }
+#undef CDEF_RECT_CW
+    // No other width is expected from the CDEF gather. Cover correctness with a plain memcpy and
+    // assert in debug to catch any new geometry that should be added as a case above.
+    assert(0 && "svt_cdef_copy_rect8: unexpected width");
     for (int r = 0; r < v; r++) {
         memcpy(dst, base, (size_t)h);
         dst += dstride;
@@ -53,9 +71,14 @@ static inline void svt_cdef_copy_rect8(uint8_t* dst, int dstride, const uint8_t*
     }
 }
 
+// HBD-only paths below (compiled out of RTC via the CDEF_8BITS_PATH guards at the call sites).
+// TODO: route widen/narrow through the RTCD helpers svt_convert_8bit_to_16bit /
+// svt_convert_16bit_to_8bit (optimized per target); needs an HBD bit-exact gate to verify.
 static inline void svt_cdef_narrow_rect(uint8_t* dst, int dstride, const uint16_t* src, int sstride, int v, int h) {
     for (int r = 0; r < v; r++) {
-        cdef_narrow_row(dst, src, h);
+        for (int c = 0; c < h; c++) {
+            dst[c] = (uint8_t)src[c];
+        }
         dst += dstride;
         src += sstride;
     }
@@ -63,7 +86,9 @@ static inline void svt_cdef_narrow_rect(uint8_t* dst, int dstride, const uint16_
 
 static inline void svt_cdef_widen_rect(uint16_t* dst, int dstride, const uint8_t* src, int sstride, int v, int h) {
     for (int r = 0; r < v; r++) {
-        cdef_widen_row(dst, src, h);
+        for (int c = 0; c < h; c++) {
+            dst[c] = (uint16_t)src[c];
+        }
         dst += dstride;
         src += sstride;
     }

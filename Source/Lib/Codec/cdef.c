@@ -555,16 +555,26 @@ void svt_cdef_filter_fb_lbd(uint8_t* dst8, int32_t dstride, const uint8_t* in8, 
     const int32_t bx_last = (hsize >> bsizex) - 1;
 
     if (!dstride && cdef_strength == 0) {
-        // Zero-strength search candidate: copy input straight to packed output. Each row
-        // is 4/8 contiguous bytes -> one memcpy (lowers to a single load/store).
+        // Zero-strength search candidate: copy input straight to packed output. Each row is
+        // 4 or 8 contiguous bytes. w is runtime so memcpy(,,w) lowers to a memmove CALL; branch
+        // on the (only two) widths ONCE (loop-invariant) so each loop gets a constant-size memcpy
+        // that inlines to a single load/store.
         const int w = 1 << bsizex;
-        for (bi = 0; bi < cdef_count; bi++) {
-            int32_t        by    = dlist[bi].by << bsizey;
-            int32_t        bx    = dlist[bi].bx << bsizex;
-            const uint8_t* src_8 = in8 + (by * CDEF_BSTRIDE + bx);
-            uint8_t*       dst_b = dst8 + (bi << (bsizex + bsizey));
-            for (int32_t iy = 0; iy < 1 << bsizey; iy += subsampling_factor) {
-                memcpy(dst_b + (iy << bsizex), src_8 + iy * CDEF_BSTRIDE, (size_t)w);
+        if (w == 8) {
+            for (bi = 0; bi < cdef_count; bi++) {
+                const uint8_t* src_8 = in8 + ((dlist[bi].by << bsizey) * CDEF_BSTRIDE + (dlist[bi].bx << bsizex));
+                uint8_t*       dst_b = dst8 + (bi << (bsizex + bsizey));
+                for (int32_t iy = 0; iy < 1 << bsizey; iy += subsampling_factor) {
+                    memcpy(dst_b + (iy << bsizex), src_8 + iy * CDEF_BSTRIDE, 8);
+                }
+            }
+        } else {
+            for (bi = 0; bi < cdef_count; bi++) {
+                const uint8_t* src_8 = in8 + ((dlist[bi].by << bsizey) * CDEF_BSTRIDE + (dlist[bi].bx << bsizex));
+                uint8_t*       dst_b = dst8 + (bi << (bsizex + bsizey));
+                for (int32_t iy = 0; iy < 1 << bsizey; iy += subsampling_factor) {
+                    memcpy(dst_b + (iy << bsizex), src_8 + iy * CDEF_BSTRIDE, 4);
+                }
             }
         }
         return;

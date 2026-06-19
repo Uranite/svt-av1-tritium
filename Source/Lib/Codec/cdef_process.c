@@ -443,17 +443,24 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
 #endif
 #if CDEF_8BITS_PATH
                 if (native_8bit) {
-                    // Plain 8->8 copy into the 8-bit padded buffer. toff/loff/boff/roff are 0 on any
-                    // frame-edge side, so this copies only the in-frame region (body + in-frame halo);
-                    // off-frame taps are masked by the bounded kernel (no sentinel, no widen/narrow).
-                    const uint8_t* nbase = src[pli] + ((lr << mi_high_l2[pli]) - toff) * (size_t)stride_src[pli] +
-                        ((lc << mi_wide_l2[pli]) - loff);
-                    uint8_t* ndst = &in8[(-toff * CDEF_BSTRIDE - loff)];
-                    for (int r = 0; r < ysize; r++) {
-                        svt_memcpy(ndst, nbase, (size_t)xsize);
-                        ndst += CDEF_BSTRIDE;
-                        nbase += stride_src[pli];
-                    }
+                    // The bounded 8-bit kernel reads only +/-CDEF_HALO around the body, so copy just a
+                    // HALO-wide halo (not the HBORDER/VBORDER SIMD padding). Off-frame sides have 0 halo;
+                    // those taps are masked geometrically. svt_cdef_copy_rect8 dispatches on the (now
+                    // apply-matching) width to a constant-size memcpy.
+                    const int32_t toff8  = CDEF_HALO * (fbr != 0);
+                    const int32_t loff8  = CDEF_HALO * (fbc != 0);
+                    const int32_t boff8  = CDEF_HALO * ((int32_t)fbr + vb_step < nvfb);
+                    const int32_t roff8  = CDEF_HALO * ((int32_t)fbc + hb_step < nhfb);
+                    const int32_t ysize8 = (nvb << mi_high_l2[pli]) + boff8 + toff8;
+                    const int32_t xsize8 = (nhb << mi_wide_l2[pli]) + roff8 + loff8;
+                    svt_cdef_copy_rect8(&in8[(-toff8 * CDEF_BSTRIDE - loff8)],
+                                        CDEF_BSTRIDE,
+                                        src[pli],
+                                        (lr << mi_high_l2[pli]) - toff8,
+                                        (lc << mi_wide_l2[pli]) - loff8,
+                                        stride_src[pli],
+                                        ysize8,
+                                        xsize8);
                 }
 #endif
 
