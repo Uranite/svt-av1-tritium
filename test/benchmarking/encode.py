@@ -142,19 +142,20 @@ def encode_file(task: EncodeTask, output_dir: str) -> EncodeResult:
 
     profiler_prefix, profile_report_path = build_profiler_prefix(task)
 
-    command: str = enc_settings["command"].format(
-        binary_dir=BINARIES[encoder_bin_name],
-        q=task.quality,
-        kbps=kbps,
-        speed=task.speed,
-        nthreads=task.threads,
-        input_path=input_path,
-        width=width,
-        height=height,
-        fps=fps,
-        cfg_path=cfg_path,
-        output_path=encoded_path,
-    )
+    orig_settings = enc_settings["command"]
+    command = eval(f"f'{orig_settings}'", dict(
+            binary_dir=BINARIES[encoder_bin_name],
+            q=task.quality,
+            kbps=kbps,
+            speed=task.speed,
+            nthreads=task.threads,
+            input_path=input_path,
+            width=width,
+            height=height,
+            fps=fps,
+            cfg_path=cfg_path,
+            output_path=encoded_path,
+        ))
     if profiler_prefix:
         command = profiler_prefix + command
 
