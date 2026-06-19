@@ -2609,17 +2609,15 @@ uint16_t svt_aom_get_max_can_count(EncMode enc_mode, bool rtc) {
             mem_max_can_count = 150;
         } else if (enc_mode <= ENC_M8) {
             mem_max_can_count = 75;
-        } else if (enc_mode <= ENC_M9) {
-#if FIX_RTC_M9_CAND_CNT
-            mem_max_can_count = 65;
-#else
-            mem_max_can_count = 50;
-#endif
         } else if (enc_mode <= ENC_M10) {
-#if FIX_RTC_M10_CAND_CNT
+#if FIX_RTC_M9_CAND_CNT && FIX_RTC_M10_CAND_CNT
             mem_max_can_count = 65;
+#elif FIX_RTC_M9_CAND_CNT
+            mem_max_can_count = (enc_mode <= ENC_M9) ? 65 : 25;
+#elif FIX_RTC_M10_CAND_CNT
+            mem_max_can_count = (enc_mode <= ENC_M9) ? 50 : 65;
 #else
-            mem_max_can_count = 25;
+            mem_max_can_count = (enc_mode <= ENC_M9) ? 50 : 25;
 #endif
         } else if (enc_mode <= ENC_M11) {
             mem_max_can_count = 15;
