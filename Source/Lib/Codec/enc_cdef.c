@@ -152,6 +152,7 @@ uint64_t svt_aom_compute_cdef_dist_8bit_c(const uint8_t* dst8, int32_t dstride, 
     return sum >> 2 * coeff_shift;
 }
 
+#if !CLN_FINISH_CDEF
 static int32_t svt_sb_all_skip(PictureControlSet* pcs, const Av1Common* const cm, int32_t mi_row, int32_t mi_col) {
     int32_t maxc, maxr;
     maxc = cm->mi_cols - mi_col;
@@ -169,12 +170,10 @@ static int32_t svt_sb_all_skip(PictureControlSet* pcs, const Av1Common* const cm
     }
     return 1;
 }
+#endif
 
 int32_t svt_sb_compute_cdef_list(PictureControlSet* pcs, const Av1Common* const cm, int32_t mi_row, int32_t mi_col,
                                  CdefList* dlist, BlockSize bs) {
-    MbModeInfo** grid      = pcs->mi_grid_base;
-    int32_t      mi_stride = pcs->mi_stride;
-
     int32_t maxc = cm->mi_cols - mi_col;
     int32_t maxr = cm->mi_rows - mi_row;
 
@@ -189,25 +188,18 @@ int32_t svt_sb_compute_cdef_list(PictureControlSet* pcs, const Av1Common* const 
         maxr = AOMMIN(maxr, MI_SIZE_64X64);
     }
 
-    const int32_t r_step  = mi_size_high[BLOCK_8X8];
-    const int32_t c_step  = mi_size_wide[BLOCK_8X8];
-    const int32_t r_shift = (r_step == 2);
-    const int32_t c_shift = (c_step == 2);
-
-    assert(r_step == 1 || r_step == 2);
-    assert(c_step == 1 || c_step == 2);
-
+    // CDEF lists 8x8 luma units; one unit = 2x2 mi blocks (MI_SIZE = 4px), so the mi step is 2 and
+    // the unit index is the mi index >> 1. (mi_size_wide/high[BLOCK_8X8] == 2, fixed.)
     int32_t count = 0;
-    for (int32_t r = 0; r < maxr; r += r_step) {
-        for (int32_t c = 0; c < maxc; c += c_step) {
-            if (!grid[(mi_row + r) * mi_stride + (mi_col + c)]->block_mi.skip ||
-                !grid[(mi_row + r) * mi_stride + (mi_col + c + 1)]->block_mi.skip ||
-                !grid[(mi_row + r + 1) * mi_stride + (mi_col + c)]->block_mi.skip ||
-                !grid[(mi_row + r + 1) * mi_stride + (mi_col + c + 1)]->block_mi.skip) {
-                dlist[count].by = (uint8_t)(r >> r_shift);
-                dlist[count].bx = (uint8_t)(c >> c_shift);
-                count++;
-            }
+    for (int32_t r = 0; r < maxr; r += 2) {
+        MbModeInfo** const row0 = pcs->mi_grid_base + (mi_row + r) * pcs->mi_stride + mi_col;
+        MbModeInfo** const row1 = row0 + pcs->mi_stride;
+        for (int32_t c = 0; c < maxc; c += 2) {
+            uint8_t all_skip = row0[c]->block_mi.skip & row0[c + 1]->block_mi.skip & row1[c]->block_mi.skip &
+                row1[c + 1]->block_mi.skip;
+            dlist[count].by = (uint8_t)(r >> 1);
+            dlist[count].bx = (uint8_t)(c >> 1);
+            count += 1 - all_skip;
         }
     }
     return count;
@@ -361,10 +353,14 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
 #endif
     uint16_t*      linebuf[3];
     uint16_t*      colbuf[3];
-    CdefList       dlist[MI_SIZE_64X64 * MI_SIZE_64X64];
+    CdefList       dlist_local[MI_SIZE_64X64 * MI_SIZE_64X64];
+    CdefList*      dlist;
     uint8_t *      row_cdef, *prev_row_cdef, *curr_row_cdef;
     int32_t        cdef_count;
     const uint32_t sb_size = scs->super_block_size;
+    // Reuse the dlist/count computed by the search (SB=64 and the frame was actually searched).
+    const bool use_dlist_cache = sb_size == 64 && !ppcs->cdef_search_ctrls.use_reference_cdef_fs &&
+        !ppcs->cdef_search_ctrls.use_qp_strength;
     int32_t        mi_wide_l2[3];
     int32_t        mi_high_l2[3];
     int32_t        xdec[3];
@@ -419,7 +415,8 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
             curr_row_cdef[fbc] = 0;
             assert(pcs->mi_grid_base[MI_SIZE_64X64 * fbr * cm->mi_stride + MI_SIZE_64X64 * fbc] != NULL &&
                    "CDEF ERROR: Skipping Current FB");
-            assert(pcs->mi_grid_base[MI_SIZE_64X64 * fbr * cm->mi_stride + MI_SIZE_64X64 * fbc]->cdef_strength != -1 &&
+            assert((ppcs->nb_cdef_strengths == 1 ||
+                    pcs->mi_grid_base[MI_SIZE_64X64 * fbr * cm->mi_stride + MI_SIZE_64X64 * fbc]->cdef_strength != -1) &&
                    "CDEF ERROR: Skipping Current FB");
             if (!cdef_left) {
                 cstart =
@@ -456,9 +453,13 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                 frame_right = 1;
             }
 
-            // Find the index of the CDEF strength for the filter block
+            // Find the index of the CDEF strength for the filter block. With a single frame strength
+            // (nb_cdef_strengths==1, e.g. non-searched frames) every SB uses index 0; only multi-strength
+            // (searched) frames carry a per-SB index, so the per-SB read is only needed then.
             const int32_t mbmi_cdef_strength =
-                pcs->mi_grid_base[MI_SIZE_64X64 * fbr * cm->mi_stride + MI_SIZE_64X64 * fbc]->cdef_strength;
+                ppcs->nb_cdef_strengths == 1
+                ? 0
+                : pcs->mi_grid_base[MI_SIZE_64X64 * fbr * cm->mi_stride + MI_SIZE_64X64 * fbc]->cdef_strength;
             level        = frm_hdr->cdef_params.cdef_y_strength[mbmi_cdef_strength] / CDEF_SEC_STRENGTHS;
             sec_strength = frm_hdr->cdef_params.cdef_y_strength[mbmi_cdef_strength] % CDEF_SEC_STRENGTHS;
             // Secondary luma strength takes values in {0, 1, 2, 4}. If sec_strength is equal to 3 from the step above, change it to 4.
@@ -468,9 +469,19 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
             uv_sec_strength = frm_hdr->cdef_params.cdef_uv_strength[mbmi_cdef_strength] % CDEF_SEC_STRENGTHS;
             // Secondary chroma strength takes values in {0, 1, 2, 4}. If sec_strength is equal to 3 from the step above, change it to 4.
             uv_sec_strength += uv_sec_strength == 3;
-            if ((level == 0 && sec_strength == 0 && uv_level == 0 && uv_sec_strength == 0) ||
-                (cdef_count = svt_sb_compute_cdef_list(
-                     pcs, cm, fbr * MI_SIZE_64X64, fbc * MI_SIZE_64X64, dlist, BLOCK_64X64)) == 0) {
+            if (level == 0 && sec_strength == 0 && uv_level == 0 && uv_sec_strength == 0) {
+                cdef_left = 0;
+                continue;
+            }
+            if (use_dlist_cache) {
+                cdef_count = pcs->cdef_fb_list[fbr * nhfb + fbc].cdef_count;
+                dlist      = pcs->cdef_fb_list[fbr * nhfb + fbc].dlist;
+            } else {
+                cdef_count = svt_sb_compute_cdef_list(
+                    pcs, cm, fbr * MI_SIZE_64X64, fbc * MI_SIZE_64X64, dlist_local, BLOCK_64X64);
+                dlist = dlist_local;
+            }
+            if (cdef_count == 0) {
                 cdef_left = 0;
                 continue;
             }
@@ -1038,23 +1049,8 @@ void finish_cdef_search(PictureControlSet* pcs) {
         frm_hdr->cdef_params.cdef_y_strength[0]  = pred_y;
         frm_hdr->cdef_params.cdef_uv_strength[0] = pred_uv;
         frm_hdr->cdef_params.cdef_damping        = CDEF_DAMPING_FROM_QP(frm_hdr->quantization_params.base_q_idx);
-
-        for (fbr = 0; fbr < nvfb; ++fbr) {
-            for (fbc = 0; fbc < nhfb; ++fbc) {
-                const int32_t     sb_idx = MI_SIZE_64X64 * fbr * pcs->mi_stride + MI_SIZE_64X64 * fbc;
-                const MbModeInfo* mbmi   = pcs->mi_grid_base[sb_idx];
-
-                if (((fbc & 1) && (mbmi->bsize == BLOCK_128X128 || mbmi->bsize == BLOCK_128X64)) ||
-                    ((fbr & 1) && (mbmi->bsize == BLOCK_128X128 || mbmi->bsize == BLOCK_64X128))) {
-                    continue;
-                }
-                if (svt_sb_all_skip(pcs, cm, fbr * MI_SIZE_64X64, fbc * MI_SIZE_64X64)) {
-                    continue;
-                }
-
-                propagate_cdef_strength(pcs, sb_idx, 0);
-            }
-        }
+        // nb_cdef_strengths==1 -> apply uses strength index 0 for every SB; no per-SB cdef_strength
+        // propagation needed.
         return;
     }
 
@@ -1069,22 +1065,8 @@ void finish_cdef_search(PictureControlSet* pcs) {
     frm_hdr->cdef_params.cdef_damping        = CDEF_DAMPING_FROM_QP(frm_hdr->quantization_params.base_q_idx);
 
     if (cdef_search_ctrls->use_reference_cdef_fs) {
-        for (fbr = 0; fbr < nvfb; ++fbr) {
-            for (fbc = 0; fbc < nhfb; ++fbc) {
-                const int32_t     sb_idx = MI_SIZE_64X64 * fbr * pcs->mi_stride + MI_SIZE_64X64 * fbc;
-                const MbModeInfo* mbmi   = pcs->mi_grid_base[sb_idx];
-
-                if (((fbc & 1) && (mbmi->bsize == BLOCK_128X128 || mbmi->bsize == BLOCK_128X64)) ||
-                    ((fbr & 1) && (mbmi->bsize == BLOCK_128X128 || mbmi->bsize == BLOCK_64X128))) {
-                    continue;
-                }
-                if (svt_sb_all_skip(pcs, cm, fbr * MI_SIZE_64X64, fbc * MI_SIZE_64X64)) {
-                    continue;
-                }
-
-                propagate_cdef_strength(pcs, sb_idx, 0);
-            }
-        }
+        // nb_cdef_strengths==1 -> apply uses strength index 0 for every SB; no per-SB cdef_strength
+        // propagation needed.
         return;
     }
 

@@ -303,7 +303,9 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
     const int32_t       pri_damping = 3 + (frm_hdr->quantization_params.base_q_idx >> 6);
     const int32_t       sec_damping = pri_damping;
     const int32_t       num_planes  = 3;
-    CdefList            dlist[MI_SIZE_128X128 * MI_SIZE_128X128];
+    const bool          sb64        = scs->seq_header.sb_size == BLOCK_64X64;
+    CdefList            dlist_local[MI_SIZE_128X128 * MI_SIZE_128X128];
+    CdefList*           dlist;
 
     int32_t toff_prev  = CDEF_VBORDER;
     int32_t loff_prev  = CDEF_HBORDER;
@@ -372,8 +374,13 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                 vb_step = 2;
             }
             const uint32_t fb_idx = fbr * nhfb + fbc;
-            // No filtering if the entire filter block is skipped
+            // For SB=64, compute the dlist straight into the per-fb cache so the apply can reuse it
+            // (skips a second svt_sb_compute_cdef_list scan); otherwise use the local scratch.
+            dlist      = sb64 ? pcs->cdef_fb_list[fb_idx].dlist : dlist_local;
             cdef_count = svt_sb_compute_cdef_list(pcs, cm, lr, lc, dlist, bs);
+            if (sb64) {
+                pcs->cdef_fb_list[fb_idx].cdef_count = cdef_count;
+            }
             if (cdef_count == 0) {
                 pcs->skip_cdef_seg[fb_idx] = 1;
                 continue;
