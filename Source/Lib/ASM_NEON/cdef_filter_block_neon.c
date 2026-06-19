@@ -316,17 +316,12 @@ static inline uint8x8_t cdef_finalize8(int16x8_t sum, uint8x8_t row_u8, uint8x8_
 }
 
 void svt_av1_cdef_filter_block_8xn_8_native_neon(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
-                                                 int32_t sec_strength, int32_t dir, int32_t pri_damping,
-                                                 int32_t sec_damping, int32_t coeff_shift, uint8_t height,
-                                                 uint8_t subsampling_factor) {
-    const int* pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
-    const int* sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
-    if (pri_strength) {
-        pri_damping = AOMMAX(0, pri_damping - get_msb(pri_strength));
-    }
-    if (sec_strength) {
-        sec_damping = AOMMAX(0, sec_damping - get_msb(sec_strength));
-    }
+                                                 int32_t sec_strength, int32_t dir, int32_t damping,
+                                                 int32_t coeff_shift, uint8_t height, uint8_t subsampling_factor) {
+    const int*    pri_taps    = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int*    sec_taps    = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int32_t pri_damping = pri_strength ? AOMMAX(0, damping - get_msb(pri_strength)) : 0;
+    const int32_t sec_damping = sec_strength ? AOMMAX(0, damping - get_msb(sec_strength)) : 0;
 
     const int po1  = svt_aom_eb_cdef_directions[dir][0];
     const int po2  = svt_aom_eb_cdef_directions[dir][1];
@@ -427,17 +422,12 @@ void svt_av1_cdef_filter_block_8xn_8_native_neon(uint8_t* dst, int32_t dstride, 
 }
 
 void svt_av1_cdef_filter_block_4xn_8_native_neon(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
-                                                 int32_t sec_strength, int32_t dir, int32_t pri_damping,
-                                                 int32_t sec_damping, int32_t coeff_shift, uint8_t height,
-                                                 uint8_t subsampling_factor) {
-    const int* pri_taps = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
-    const int* sec_taps = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
-    if (pri_strength) {
-        pri_damping = AOMMAX(0, pri_damping - get_msb(pri_strength));
-    }
-    if (sec_strength) {
-        sec_damping = AOMMAX(0, sec_damping - get_msb(sec_strength));
-    }
+                                                 int32_t sec_strength, int32_t dir, int32_t damping,
+                                                 int32_t coeff_shift, uint8_t height, uint8_t subsampling_factor) {
+    const int*    pri_taps    = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int*    sec_taps    = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int32_t pri_damping = pri_strength ? AOMMAX(0, damping - get_msb(pri_strength)) : 0;
+    const int32_t sec_damping = sec_strength ? AOMMAX(0, damping - get_msb(sec_strength)) : 0;
 
     const int po1  = svt_aom_eb_cdef_directions[dir][0];
     const int po2  = svt_aom_eb_cdef_directions[dir][1];
@@ -1015,46 +1005,484 @@ void svt_cdef_filter_block_neon(uint8_t* dst8, uint16_t* dst16, int32_t dstride,
 // Native 8-bit interior filter, dispatched by bsize. C ref: svt_cdef_filter_block_8bit_c.
 // Height passed as a literal so LTO can specialize/unroll the kernel row loop (~1% at M11).
 void svt_cdef_filter_block_8bit_neon(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
-                                     int32_t sec_strength, int32_t dir, int32_t pri_damping, int32_t sec_damping,
-                                     int32_t bsize, int32_t coeff_shift, uint8_t subsampling_factor) {
+                                     int32_t sec_strength, int32_t dir, int32_t damping, int32_t bsize,
+                                     int32_t coeff_shift, uint8_t subsampling_factor) {
     if (bsize == BLOCK_8X8) {
-        svt_av1_cdef_filter_block_8xn_8_native_neon(dst,
-                                                    dstride,
-                                                    in,
-                                                    pri_strength,
-                                                    sec_strength,
-                                                    dir,
-                                                    pri_damping,
-                                                    sec_damping,
-                                                    coeff_shift,
-                                                    8,
-                                                    subsampling_factor);
+        svt_av1_cdef_filter_block_8xn_8_native_neon(
+            dst, dstride, in, pri_strength, sec_strength, dir, damping, coeff_shift, 8, subsampling_factor);
     } else if (bsize == BLOCK_4X8) {
-        svt_av1_cdef_filter_block_4xn_8_native_neon(dst,
-                                                    dstride,
-                                                    in,
-                                                    pri_strength,
-                                                    sec_strength,
-                                                    dir,
-                                                    pri_damping,
-                                                    sec_damping,
-                                                    coeff_shift,
-                                                    8,
-                                                    subsampling_factor);
+        svt_av1_cdef_filter_block_4xn_8_native_neon(
+            dst, dstride, in, pri_strength, sec_strength, dir, damping, coeff_shift, 8, subsampling_factor);
     } else if (bsize == BLOCK_8X4) {
-        svt_av1_cdef_filter_block_8xn_8_native_neon(dst,
-                                                    dstride,
-                                                    in,
-                                                    pri_strength,
-                                                    sec_strength,
-                                                    dir,
-                                                    pri_damping,
-                                                    sec_damping,
-                                                    coeff_shift,
-                                                    4,
-                                                    subsampling_factor);
+        svt_av1_cdef_filter_block_8xn_8_native_neon(
+            dst, dstride, in, pri_strength, sec_strength, dir, damping, coeff_shift, 4, subsampling_factor);
     } else {
         svt_av1_cdef_filter_block_4xn_8_native_neon(
-            dst, dstride, in, pri_strength, sec_strength, dir, pri_damping, sec_damping, coeff_shift, 4, 1);
+            dst, dstride, in, pri_strength, sec_strength, dir, damping, coeff_shift, 4, 1);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Boundary-aware native 8-bit kernels (frame-perimeter "ring" blocks).
+// Identical math to the native kernels above, but each tap is masked per-lane by geometry so
+// off-frame taps are excluded from sum (constrained contribution zeroed), max (off lanes -> 0) and
+// min (off lanes -> 255). Bit-exact with svt_cdef_filter_block_8bit_bounded_c.
+// ---------------------------------------------------------------------------
+
+// Per-column availability (0xFF in-frame / 0x00 off-frame) for a tap with column delta dc.
+static inline uint8x8_t bnd_colmask8(int dc, int edge_left, int edge_right, int cols) {
+    if (!edge_left && !edge_right) {
+        return vdup_n_u8(0xFF); // no left/right frame edge -> all columns in-frame (common case)
+    }
+    uint8_t m[8];
+    for (int c = 0; c < 8; c++) {
+        const int off = (edge_left && (c + dc) < 0) || (edge_right && (c + dc) >= cols);
+        m[c]          = (!off) ? 0xFF : 0x00;
+    }
+    return vld1_u8(m);
+}
+
+// 16-lane availability for a 2-row pack (rows i and i+sub) given a tap row delta dr and the tap's
+// precomputed per-column mask cav. avail(lane) = row_in_frame(row) & col_in_frame(col).
+static inline uint8x16_t bnd_avail16(int i, int sub, int dr, uint8x8_t cav, int edge_top, int edge_bottom, int rows) {
+    const int       lo = !((edge_top && (i + dr) < 0) || (edge_bottom && (i + dr) >= rows));
+    const int       hi = !((edge_top && (i + sub + dr) < 0) || (edge_bottom && (i + sub + dr) >= rows));
+    const uint8x8_t z  = vdup_n_u8(0);
+    return vcombine_u8(lo ? cav : z, hi ? cav : z);
+}
+
+static void cdef_filter_block_8xn_8_bounded_neon(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
+                                                 int32_t sec_strength, int32_t dir, int32_t damping,
+                                                 int32_t coeff_shift, uint8_t height, uint8_t subsampling_factor,
+                                                 int edge_top, int edge_left, int edge_bottom, int edge_right) {
+    const int*    pri_taps    = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int*    sec_taps    = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int32_t pri_damping = pri_strength ? AOMMAX(0, damping - get_msb(pri_strength)) : 0;
+    const int32_t sec_damping = sec_strength ? AOMMAX(0, damping - get_msb(sec_strength)) : 0;
+    const int     rows        = height;
+    const int     cols        = 8;
+
+    // Flat tap offsets (memory) and decoded (drow,dcol) (geometry), indexed [0..5]:
+    // 0=po1 1=po2 2=s1o1 3=s1o2 4=s2o1 5=s2o2.
+    const int off_b[6] = {svt_aom_eb_cdef_directions[dir][0],
+                          svt_aom_eb_cdef_directions[dir][1],
+                          svt_aom_eb_cdef_directions[dir + 2][0],
+                          svt_aom_eb_cdef_directions[dir + 2][1],
+                          svt_aom_eb_cdef_directions[dir - 2][0],
+                          svt_aom_eb_cdef_directions[dir - 2][1]};
+    const int dr_b[6]  = {svt_aom_eb_cdef_directions_rc[dir][0][0],
+                          svt_aom_eb_cdef_directions_rc[dir][1][0],
+                          svt_aom_eb_cdef_directions_rc[dir + 2][0][0],
+                          svt_aom_eb_cdef_directions_rc[dir + 2][1][0],
+                          svt_aom_eb_cdef_directions_rc[dir - 2][0][0],
+                          svt_aom_eb_cdef_directions_rc[dir - 2][1][0]};
+    const int dc_b[6]  = {svt_aom_eb_cdef_directions_rc[dir][0][1],
+                          svt_aom_eb_cdef_directions_rc[dir][1][1],
+                          svt_aom_eb_cdef_directions_rc[dir + 2][0][1],
+                          svt_aom_eb_cdef_directions_rc[dir + 2][1][1],
+                          svt_aom_eb_cdef_directions_rc[dir - 2][0][1],
+                          svt_aom_eb_cdef_directions_rc[dir - 2][1][1]};
+    // Per-tap column masks for the +offset and -offset variants (loop-invariant). Also precompute,
+    // per tap, whether masking is needed at all: a tap is off-frame only if it crosses an active
+    // frame edge (col-sensitive: edge_left&&dc<0 or edge_right&&dc>0; row-sensitive: edge_top&&dr<0
+    // or edge_bottom&&dr>0). Fully in-frame taps take the native (unmasked) path; col-only taps use
+    // the loop-invariant col mask; only row-sensitive taps build a per-row mask.
+    uint8x8_t cavp[6], cavn[6];
+    int       rsensp[6], rsensn[6], needp[6], needn[6];
+    for (int b = 0; b < 6; b++) {
+        cavp[b]       = bnd_colmask8(dc_b[b], edge_left, edge_right, cols);
+        cavn[b]       = bnd_colmask8(-dc_b[b], edge_left, edge_right, cols);
+        const int csp = (edge_left && dc_b[b] < 0) || (edge_right && dc_b[b] > 0);
+        const int csn = (edge_left && -dc_b[b] < 0) || (edge_right && -dc_b[b] > 0);
+        rsensp[b]     = (edge_top && dr_b[b] < 0) || (edge_bottom && dr_b[b] > 0);
+        rsensn[b]     = (edge_top && -dr_b[b] < 0) || (edge_bottom && -dr_b[b] > 0);
+        needp[b]      = csp || rsensp[b];
+        needn[b]      = csn || rsensn[b];
+    }
+
+    const uint8x16_t prithr8  = vdupq_n_u8((uint8_t)pri_strength);
+    const uint8x16_t secthr8  = vdupq_n_u8((uint8_t)sec_strength);
+    const int8x16_t  pridamp8 = vdupq_n_s8((int8_t)-pri_damping);
+    const int8x16_t  secdamp8 = vdupq_n_s8((int8_t)-sec_damping);
+    const int8x8_t   pri_t0   = vdup_n_s8((int8_t)pri_taps[0]);
+    const int8x8_t   pri_t1   = vdup_n_s8((int8_t)pri_taps[1]);
+    const int8x8_t   sec_t0   = vdup_n_s8((int8_t)sec_taps[0]);
+    const int8x8_t   sec_t1   = vdup_n_s8((int8_t)sec_taps[1]);
+
+    for (uint8_t i = 0; i < height; i += (2 * subsampling_factor)) {
+        const uint8_t*   ra   = in + i * CDEF_BSTRIDE;
+        const uint8_t*   rb   = in + (i + subsampling_factor) * CDEF_BSTRIDE;
+        const uint8x16_t row8 = vcombine_u8(vld1_u8(ra), vld1_u8(rb));
+        uint8x16_t       min8 = row8, max8 = row8, tap8, av;
+        int16x8_t        suma = vdupq_n_s16(0), sumb = vdupq_n_s16(0);
+        int8x16_t        c0, c1, c2, c3, csum;
+
+#define NAT_TAP(OFF) vcombine_u8(vld1_u8(ra + (OFF)), vld1_u8(rb + (OFF)))
+// Masked tap: B = base index, SGN = +1 (use +off,+dr,cavp) or -1 (use -off,-dr,cavn). Fully in-frame
+// taps skip masking entirely; col-only taps reuse the loop-invariant col mask; row-sensitive taps
+// build the per-row mask via bnd_avail16.
+#define BND_TAP(B, SGN, THR, DAMP, CACC)                                                                          \
+    do {                                                                                                          \
+        const uint8x8_t _cav  = (SGN) > 0 ? cavp[B] : cavn[B];                                                    \
+        const int       _need = (SGN) > 0 ? needp[B] : needn[B];                                                  \
+        const int       _rs   = (SGN) > 0 ? rsensp[B] : rsensn[B];                                                \
+        tap8                  = NAT_TAP((SGN) * off_b[B]);                                                        \
+        if (!_need) {                                                                                             \
+            max8   = vmaxq_u8(max8, tap8);                                                                        \
+            min8   = vminq_u8(min8, tap8);                                                                        \
+            (CACC) = constrain8x16(tap8, row8, (THR), (DAMP));                                                    \
+        } else {                                                                                                  \
+            av     = _rs ? bnd_avail16(i, subsampling_factor, (SGN) * dr_b[B], _cav, edge_top, edge_bottom, rows) \
+                         : vcombine_u8(_cav, _cav);                                                               \
+            max8   = vmaxq_u8(max8, vandq_u8(tap8, av));                                                          \
+            min8   = vminq_u8(min8, vorrq_u8(tap8, vmvnq_u8(av)));                                                \
+            (CACC) = vandq_s8(constrain8x16(tap8, row8, (THR), (DAMP)), vreinterpretq_s8_u8(av));                 \
+        }                                                                                                         \
+    } while (0)
+
+        if (pri_strength) {
+            BND_TAP(0, 1, prithr8, pridamp8, c0);
+            BND_TAP(0, -1, prithr8, pridamp8, c1);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t0, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, pri_t0, vget_high_s8(csum));
+            BND_TAP(1, 1, prithr8, pridamp8, c0);
+            BND_TAP(1, -1, prithr8, pridamp8, c1);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t1, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, pri_t1, vget_high_s8(csum));
+        }
+        if (sec_strength) {
+            BND_TAP(2, 1, secthr8, secdamp8, c0);
+            BND_TAP(2, -1, secthr8, secdamp8, c1);
+            BND_TAP(4, 1, secthr8, secdamp8, c2);
+            BND_TAP(4, -1, secthr8, secdamp8, c3);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t0, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, sec_t0, vget_high_s8(csum));
+            BND_TAP(3, 1, secthr8, secdamp8, c0);
+            BND_TAP(3, -1, secthr8, secdamp8, c1);
+            BND_TAP(5, 1, secthr8, secdamp8, c2);
+            BND_TAP(5, -1, secthr8, secdamp8, c3);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t1, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, sec_t1, vget_high_s8(csum));
+        }
+#undef BND_TAP
+#undef NAT_TAP
+
+        vst1_u8(dst + i * dstride, cdef_finalize8(suma, vget_low_u8(row8), vget_low_u8(min8), vget_low_u8(max8)));
+        vst1_u8(dst + (i + subsampling_factor) * dstride,
+                cdef_finalize8(sumb, vget_high_u8(row8), vget_high_u8(min8), vget_high_u8(max8)));
+    }
+}
+
+// 4-wide column availability replicated across a 16-lane pack: [m0m1m2m3] x4.
+static inline uint8x16_t bnd_col16_4(int dc, int edge_left, int edge_right) {
+    if (!edge_left && !edge_right) {
+        return vdupq_n_u8(0xFF); // no left/right frame edge -> all columns in-frame (common case)
+    }
+    uint8_t m[4];
+    for (int c = 0; c < 4; c++) {
+        const int off = (edge_left && (c + dc) < 0) || (edge_right && (c + dc) >= 4);
+        m[c]          = (!off) ? 0xFF : 0x00;
+    }
+    uint32_t w;
+    memcpy(&w, m, 4);
+    const uint8x8_t lo = vreinterpret_u8_u32(vdup_n_u32(w));
+    return vcombine_u8(lo, lo);
+}
+
+// Row availability for the 4-row pack [r0 r1 r2 r3] (rows i+q*sub), 4 lanes per row.
+static inline uint8x16_t bnd_row16_4(int i, int sub, int dr, int edge_top, int edge_bottom, int rows) {
+    uint8_t b[16];
+    for (int k = 0; k < 4; k++) {
+        const int     r  = i + k * sub;
+        const int     ok = !((edge_top && (r + dr) < 0) || (edge_bottom && (r + dr) >= rows));
+        const uint8_t v  = ok ? 0xFF : 0x00;
+        b[k * 4 + 0] = b[k * 4 + 1] = b[k * 4 + 2] = b[k * 4 + 3] = v;
+    }
+    return vld1q_u8(b);
+}
+
+// Row availability for the 2-row tail pack [r0 r1 r0 r1] (only the low 8 lanes are consumed).
+static inline uint8x16_t bnd_row16_2(int i, int sub, int dr, int edge_top, int edge_bottom, int rows) {
+    const int     ok0 = !((edge_top && (i + dr) < 0) || (edge_bottom && (i + dr) >= rows));
+    const int     ok1 = !((edge_top && (i + sub + dr) < 0) || (edge_bottom && (i + sub + dr) >= rows));
+    const uint8_t v0  = ok0 ? 0xFF : 0x00;
+    const uint8_t v1  = ok1 ? 0xFF : 0x00;
+    uint8_t       b[16];
+    b[0] = b[1] = b[2] = b[3] = v0;
+    b[4] = b[5] = b[6] = b[7] = v1;
+    b[8] = b[9] = b[10] = b[11] = v0;
+    b[12] = b[13] = b[14] = b[15] = v1;
+    return vld1q_u8(b);
+}
+
+static void cdef_filter_block_4xn_8_bounded_neon(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
+                                                 int32_t sec_strength, int32_t dir, int32_t damping,
+                                                 int32_t coeff_shift, uint8_t height, uint8_t subsampling_factor,
+                                                 int edge_top, int edge_left, int edge_bottom, int edge_right) {
+    const int*    pri_taps    = svt_aom_eb_cdef_pri_taps[(pri_strength >> coeff_shift) & 1];
+    const int*    sec_taps    = svt_aom_eb_cdef_sec_taps[(pri_strength >> coeff_shift) & 1];
+    const int32_t pri_damping = pri_strength ? AOMMAX(0, damping - get_msb(pri_strength)) : 0;
+    const int32_t sec_damping = sec_strength ? AOMMAX(0, damping - get_msb(sec_strength)) : 0;
+    const int     rows        = height;
+
+    const int  off_b[6] = {svt_aom_eb_cdef_directions[dir][0],
+                           svt_aom_eb_cdef_directions[dir][1],
+                           svt_aom_eb_cdef_directions[dir + 2][0],
+                           svt_aom_eb_cdef_directions[dir + 2][1],
+                           svt_aom_eb_cdef_directions[dir - 2][0],
+                           svt_aom_eb_cdef_directions[dir - 2][1]};
+    const int  dr_b[6]  = {svt_aom_eb_cdef_directions_rc[dir][0][0],
+                           svt_aom_eb_cdef_directions_rc[dir][1][0],
+                           svt_aom_eb_cdef_directions_rc[dir + 2][0][0],
+                           svt_aom_eb_cdef_directions_rc[dir + 2][1][0],
+                           svt_aom_eb_cdef_directions_rc[dir - 2][0][0],
+                           svt_aom_eb_cdef_directions_rc[dir - 2][1][0]};
+    const int  dc_b[6]  = {svt_aom_eb_cdef_directions_rc[dir][0][1],
+                           svt_aom_eb_cdef_directions_rc[dir][1][1],
+                           svt_aom_eb_cdef_directions_rc[dir + 2][0][1],
+                           svt_aom_eb_cdef_directions_rc[dir + 2][1][1],
+                           svt_aom_eb_cdef_directions_rc[dir - 2][0][1],
+                           svt_aom_eb_cdef_directions_rc[dir - 2][1][1]};
+    uint8x16_t col16p[6], col16n[6];
+    int        rsensp[6], rsensn[6], needp[6], needn[6];
+    for (int b = 0; b < 6; b++) {
+        col16p[b]     = bnd_col16_4(dc_b[b], edge_left, edge_right);
+        col16n[b]     = bnd_col16_4(-dc_b[b], edge_left, edge_right);
+        const int csp = (edge_left && dc_b[b] < 0) || (edge_right && dc_b[b] > 0);
+        const int csn = (edge_left && -dc_b[b] < 0) || (edge_right && -dc_b[b] > 0);
+        rsensp[b]     = (edge_top && dr_b[b] < 0) || (edge_bottom && dr_b[b] > 0);
+        rsensn[b]     = (edge_top && -dr_b[b] < 0) || (edge_bottom && -dr_b[b] > 0);
+        needp[b]      = csp || rsensp[b];
+        needn[b]      = csn || rsensn[b];
+    }
+
+    const uint8x16_t prithr8  = vdupq_n_u8((uint8_t)pri_strength);
+    const uint8x16_t secthr8  = vdupq_n_u8((uint8_t)sec_strength);
+    const int8x16_t  pridamp8 = vdupq_n_s8((int8_t)-pri_damping);
+    const int8x16_t  secdamp8 = vdupq_n_s8((int8_t)-sec_damping);
+    const int8x8_t   pri_t0   = vdup_n_s8((int8_t)pri_taps[0]);
+    const int8x8_t   pri_t1   = vdup_n_s8((int8_t)pri_taps[1]);
+    const int8x8_t   sec_t0   = vdup_n_s8((int8_t)sec_taps[0]);
+    const int8x8_t   sec_t1   = vdup_n_s8((int8_t)sec_taps[1]);
+
+    const int sub = subsampling_factor;
+    uint8_t   i   = 0;
+    for (; i + 4 * sub <= height; i += (4 * sub)) {
+        const uint8_t* r0     = in + (i + 0 * sub) * CDEF_BSTRIDE;
+        const uint8_t* r1     = in + (i + 1 * sub) * CDEF_BSTRIDE;
+        const uint8_t* r2     = in + (i + 2 * sub) * CDEF_BSTRIDE;
+        const uint8_t* r3     = in + (i + 3 * sub) * CDEF_BSTRIDE;
+        uint32x4_t     rv     = vdupq_n_u32(0);
+        rv                    = vld1q_lane_u32((const uint32_t*)r0, rv, 0);
+        rv                    = vld1q_lane_u32((const uint32_t*)r1, rv, 1);
+        rv                    = vld1q_lane_u32((const uint32_t*)r2, rv, 2);
+        rv                    = vld1q_lane_u32((const uint32_t*)r3, rv, 3);
+        const uint8x16_t row8 = vreinterpretq_u8_u32(rv);
+        uint8x16_t       min8 = row8, max8 = row8, tap8, av;
+        int16x8_t        suma = vdupq_n_s16(0), sumb = vdupq_n_s16(0);
+        int8x16_t        c0, c1, c2, c3, csum;
+#define NAT4_TAP(OFF)                                                         \
+    ({                                                                        \
+        uint32x4_t _t = vdupq_n_u32(0);                                       \
+        _t            = vld1q_lane_u32((const uint32_t*)(r0 + (OFF)), _t, 0); \
+        _t            = vld1q_lane_u32((const uint32_t*)(r1 + (OFF)), _t, 1); \
+        _t            = vld1q_lane_u32((const uint32_t*)(r2 + (OFF)), _t, 2); \
+        _t            = vld1q_lane_u32((const uint32_t*)(r3 + (OFF)), _t, 3); \
+        vreinterpretq_u8_u32(_t);                                             \
+    })
+#define B4(B, SGN, THR, DAMP, CACC)                                                                    \
+    do {                                                                                               \
+        const int _need = (SGN) > 0 ? needp[B] : needn[B];                                             \
+        const int _rs   = (SGN) > 0 ? rsensp[B] : rsensn[B];                                           \
+        tap8            = NAT4_TAP((SGN) * off_b[B]);                                                  \
+        if (!_need) {                                                                                  \
+            max8   = vmaxq_u8(max8, tap8);                                                             \
+            min8   = vminq_u8(min8, tap8);                                                             \
+            (CACC) = constrain8x16(tap8, row8, (THR), (DAMP));                                         \
+        } else {                                                                                       \
+            av     = _rs ? vandq_u8((SGN) > 0 ? col16p[B] : col16n[B],                                 \
+                                bnd_row16_4(i, sub, (SGN) * dr_b[B], edge_top, edge_bottom, rows)) \
+                         : ((SGN) > 0 ? col16p[B] : col16n[B]);                                        \
+            max8   = vmaxq_u8(max8, vandq_u8(tap8, av));                                               \
+            min8   = vminq_u8(min8, vorrq_u8(tap8, vmvnq_u8(av)));                                     \
+            (CACC) = vandq_s8(constrain8x16(tap8, row8, (THR), (DAMP)), vreinterpretq_s8_u8(av));      \
+        }                                                                                              \
+    } while (0)
+        if (pri_strength) {
+            B4(0, 1, prithr8, pridamp8, c0);
+            B4(0, -1, prithr8, pridamp8, c1);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t0, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, pri_t0, vget_high_s8(csum));
+            B4(1, 1, prithr8, pridamp8, c0);
+            B4(1, -1, prithr8, pridamp8, c1);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t1, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, pri_t1, vget_high_s8(csum));
+        }
+        if (sec_strength) {
+            B4(2, 1, secthr8, secdamp8, c0);
+            B4(2, -1, secthr8, secdamp8, c1);
+            B4(4, 1, secthr8, secdamp8, c2);
+            B4(4, -1, secthr8, secdamp8, c3);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t0, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, sec_t0, vget_high_s8(csum));
+            B4(3, 1, secthr8, secdamp8, c0);
+            B4(3, -1, secthr8, secdamp8, c1);
+            B4(5, 1, secthr8, secdamp8, c2);
+            B4(5, -1, secthr8, secdamp8, c3);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t1, vget_low_s8(csum));
+            sumb = vmlal_s8(sumb, sec_t1, vget_high_s8(csum));
+        }
+#undef B4
+#undef NAT4_TAP
+        const uint8x8_t ansAB = cdef_finalize8(suma, vget_low_u8(row8), vget_low_u8(min8), vget_low_u8(max8));
+        const uint8x8_t ansCD = cdef_finalize8(sumb, vget_high_u8(row8), vget_high_u8(min8), vget_high_u8(max8));
+        *(uint32_t*)(dst + (i + 0 * sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ansAB), 0);
+        *(uint32_t*)(dst + (i + 1 * sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ansAB), 1);
+        *(uint32_t*)(dst + (i + 2 * sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ansCD), 0);
+        *(uint32_t*)(dst + (i + 3 * sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ansCD), 1);
+    }
+    // 2-row tail.
+    for (; i < height; i += (2 * sub)) {
+        const uint8_t* ra     = in + i * CDEF_BSTRIDE;
+        const uint8_t* rb     = in + (i + sub) * CDEF_BSTRIDE;
+        uint32x2_t     rv     = vdup_n_u32(0);
+        rv                    = vld1_lane_u32((const uint32_t*)ra, rv, 0);
+        rv                    = vld1_lane_u32((const uint32_t*)rb, rv, 1);
+        const uint8x8_t  rlo  = vreinterpret_u8_u32(rv);
+        const uint8x16_t row8 = vcombine_u8(rlo, rlo);
+        uint8x16_t       min8 = row8, max8 = row8, tap8, av;
+        int16x8_t        suma = vdupq_n_s16(0);
+        int8x16_t        c0, c1, c2, c3, csum;
+#define NAT2_TAP(OFF)                                                             \
+    ({                                                                            \
+        uint32x2_t _t      = vdup_n_u32(0);                                       \
+        _t                 = vld1_lane_u32((const uint32_t*)(ra + (OFF)), _t, 0); \
+        _t                 = vld1_lane_u32((const uint32_t*)(rb + (OFF)), _t, 1); \
+        const uint8x8_t _l = vreinterpret_u8_u32(_t);                             \
+        vcombine_u8(_l, _l);                                                      \
+    })
+#define B2(B, SGN, THR, DAMP, CACC)                                                                    \
+    do {                                                                                               \
+        const int _need = (SGN) > 0 ? needp[B] : needn[B];                                             \
+        const int _rs   = (SGN) > 0 ? rsensp[B] : rsensn[B];                                           \
+        tap8            = NAT2_TAP((SGN) * off_b[B]);                                                  \
+        if (!_need) {                                                                                  \
+            max8   = vmaxq_u8(max8, tap8);                                                             \
+            min8   = vminq_u8(min8, tap8);                                                             \
+            (CACC) = constrain8x16(tap8, row8, (THR), (DAMP));                                         \
+        } else {                                                                                       \
+            av     = _rs ? vandq_u8((SGN) > 0 ? col16p[B] : col16n[B],                                 \
+                                bnd_row16_2(i, sub, (SGN) * dr_b[B], edge_top, edge_bottom, rows)) \
+                         : ((SGN) > 0 ? col16p[B] : col16n[B]);                                        \
+            max8   = vmaxq_u8(max8, vandq_u8(tap8, av));                                               \
+            min8   = vminq_u8(min8, vorrq_u8(tap8, vmvnq_u8(av)));                                     \
+            (CACC) = vandq_s8(constrain8x16(tap8, row8, (THR), (DAMP)), vreinterpretq_s8_u8(av));      \
+        }                                                                                              \
+    } while (0)
+        if (pri_strength) {
+            B2(0, 1, prithr8, pridamp8, c0);
+            B2(0, -1, prithr8, pridamp8, c1);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t0, vget_low_s8(csum));
+            B2(1, 1, prithr8, pridamp8, c0);
+            B2(1, -1, prithr8, pridamp8, c1);
+            csum = vaddq_s8(c0, c1);
+            suma = vmlal_s8(suma, pri_t1, vget_low_s8(csum));
+        }
+        if (sec_strength) {
+            B2(2, 1, secthr8, secdamp8, c0);
+            B2(2, -1, secthr8, secdamp8, c1);
+            B2(4, 1, secthr8, secdamp8, c2);
+            B2(4, -1, secthr8, secdamp8, c3);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t0, vget_low_s8(csum));
+            B2(3, 1, secthr8, secdamp8, c0);
+            B2(3, -1, secthr8, secdamp8, c1);
+            B2(5, 1, secthr8, secdamp8, c2);
+            B2(5, -1, secthr8, secdamp8, c3);
+            csum = vaddq_s8(vaddq_s8(c0, c1), vaddq_s8(c2, c3));
+            suma = vmlal_s8(suma, sec_t1, vget_low_s8(csum));
+        }
+#undef B2
+#undef NAT2_TAP
+        const uint8x8_t ans             = cdef_finalize8(suma, vget_low_u8(row8), vget_low_u8(min8), vget_low_u8(max8));
+        *(uint32_t*)(dst + i * dstride) = vget_lane_u32(vreinterpret_u32_u8(ans), 0);
+        *(uint32_t*)(dst + (i + sub) * dstride) = vget_lane_u32(vreinterpret_u32_u8(ans), 1);
+    }
+}
+
+void svt_cdef_filter_block_8bit_bounded_neon(uint8_t* dst, int32_t dstride, const uint8_t* in, int32_t pri_strength,
+                                             int32_t sec_strength, int32_t dir, int32_t damping, int32_t bsize,
+                                             int32_t coeff_shift, uint8_t subsampling_factor, int edge_top,
+                                             int edge_left, int edge_bottom, int edge_right) {
+    if (bsize == BLOCK_8X8) {
+        cdef_filter_block_8xn_8_bounded_neon(dst,
+                                             dstride,
+                                             in,
+                                             pri_strength,
+                                             sec_strength,
+                                             dir,
+                                             damping,
+                                             coeff_shift,
+                                             8,
+                                             subsampling_factor,
+                                             edge_top,
+                                             edge_left,
+                                             edge_bottom,
+                                             edge_right);
+    } else if (bsize == BLOCK_8X4) {
+        cdef_filter_block_8xn_8_bounded_neon(dst,
+                                             dstride,
+                                             in,
+                                             pri_strength,
+                                             sec_strength,
+                                             dir,
+                                             damping,
+                                             coeff_shift,
+                                             4,
+                                             subsampling_factor,
+                                             edge_top,
+                                             edge_left,
+                                             edge_bottom,
+                                             edge_right);
+    } else if (bsize == BLOCK_4X8) {
+        cdef_filter_block_4xn_8_bounded_neon(dst,
+                                             dstride,
+                                             in,
+                                             pri_strength,
+                                             sec_strength,
+                                             dir,
+                                             damping,
+                                             coeff_shift,
+                                             8,
+                                             subsampling_factor,
+                                             edge_top,
+                                             edge_left,
+                                             edge_bottom,
+                                             edge_right);
+    } else {
+        // BLOCK_4X4
+        cdef_filter_block_4xn_8_bounded_neon(dst,
+                                             dstride,
+                                             in,
+                                             pri_strength,
+                                             sec_strength,
+                                             dir,
+                                             damping,
+                                             coeff_shift,
+                                             4,
+                                             1,
+                                             edge_top,
+                                             edge_left,
+                                             edge_bottom,
+                                             edge_right);
     }
 }

@@ -14,9 +14,7 @@
 #include <string.h>
 
 #include "enc_cdef.h"
-#if CDEF_8BITS_PATH
-#include "cdef_inl.h"
-#endif
+#include "cdef_copy.h"
 #include <stdint.h>
 #include "aom_dsp_rtcd.h"
 #include "svt_log.h"
@@ -205,146 +203,163 @@ int32_t svt_sb_compute_cdef_list(PictureControlSet* pcs, const Av1Common* const 
     return count;
 }
 
-static inline void svt_aom_fill_rect(uint16_t* dst, int32_t dstride, int32_t v, int32_t h, uint16_t x) {
-    for (int32_t i = 0; i < v; i++) {
-        for (int32_t j = 0; j < h; j++) {
-            dst[i * dstride + j] = x;
-        }
-    }
-}
-
-static inline void svt_aom_copy_rect(uint16_t* dst, int32_t dstride, const uint16_t* src, int32_t sstride, int32_t v,
-                                     int32_t h) {
-    for (int32_t i = 0; i < v; i++) {
-        svt_memcpy(dst, src, sizeof(dst[0]) * h);
-        dst += dstride;
-        src += sstride;
-    }
-}
-
 /*
 Loop over all 64x64 filter blocks and perform the CDEF filtering for each block, using
 the filter strength pairs chosen in finish_cdef_search().
 */
 #if CDEF_8BITS_PATH
-// svt_cdef_narrow_rect / svt_cdef_filter_fb_hybrid are declared in cdef.h (via enc_cdef.h).
-// Interior fb (no frame border): build the 8-bit src8 buffer DIRECTLY from recon +
-// 8-bit-narrowed line/col buffers (no 8->16 widen, no full narrow), then filter all
-// blocks natively, writing recon in place. linebuf/colbuf stay uint16 (HBD builds need
-// that); we narrow on read and widen on the colbuf save.
-static inline void cdef_apply_fb_interior_neon(
-    uint8_t* rec_buff, uint32_t rec_stride, uint8_t* src8, uint16_t* linebuf_pli, uint16_t* colbuf_pli,
-    const uint8_t* prev_row_cdef, int fbr, int fbc, int nvfb, int nhfb, int coffset, int mhl2, int mwl2, int nhb,
-    int nvb, int stride, int rend, int cend, int cstart, int cdef_left, uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS],
-    int* dirinit, int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int pli, CdefList* dlist, int cdef_count, int cdef_strength,
-    int damping, int coeff_shift, int xdec, int ydec) {
+// Native 8-bit src8 builder for both interior and frame-edge fbs: builds the 8-bit src8 buffer
+// DIRECTLY from recon + the 8-bit line/col halo buffers (plain 8->8 copies, no widen/narrow), then
+// filters all blocks via svt_cdef_filter_fb_lbd. For frame-edge fbs the off-frame halo is left as
+// garbage and masked geometrically by the boundary-aware kernel (no 16-bit sentinel buffer).
+// linebuf/colbuf are viewed as uint8 here (8-bit pixel halos); the persistent buffers are over-
+// allocated as uint16 for HBD, but the 8-bit path only touches the uint8 half (bit depth is fixed
+// per pipeline, so no path mixes element sizes within a run).
+// Off-frame recon reads are avoided: top/tl/tr route to linebuf when prev_row_cdef==1 (true for the
+// first fb row), left routes to colbuf for fbc==0, and the body copy clamps its bottom/right extent.
+static inline void cdef_apply_fb(uint8_t* rec_buff, uint32_t rec_stride, uint8_t* src8, uint8_t* linebuf_pli,
+                                 uint8_t* colbuf_pli, const uint8_t* prev_row_cdef, int fbr, int fbc, int nvfb,
+                                 int nhfb, int coffset, int mhl2, int mwl2, int nhb, int nvb, int stride, int rend,
+                                 int cend, int cstart, int cdef_left, uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS],
+                                 int* dirinit, int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int pli, CdefList* dlist,
+                                 int cdef_count, int cdef_strength, int damping, int coeff_shift, int xdec, int ydec,
+                                 int frame_top, int frame_left, int frame_bottom, int frame_right) {
     const int vsz = nvb << mhl2;
     const int hsz = nhb << mwl2;
-    // Body.
-    svt_cdef_copy_rect8(&src8[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER + cstart],
+    // CDEF taps reach only +-CDEF_HALO px, so the recon copies need only a CDEF_HALO-wide halo even
+    // though the buffer is padded to HBORDER/VBORDER for aligned SIMD loads (the extra border is
+    // never read into any output). Name the halo geometry inside the padded buffer.
+    const int halo_col = CDEF_HBORDER - CDEF_HALO; // left-halo column
+    const int halo_row = CDEF_VBORDER - CDEF_HALO; // top-halo row
+    const int top_off  = halo_row * CDEF_BSTRIDE + CDEF_HBORDER; // src8 (top halo, body col 0)
+    const int tl_off   = halo_row * CDEF_BSTRIDE + halo_col; // src8 (top halo, left halo col)
+    const int tr_off   = halo_row * CDEF_BSTRIDE + CDEF_HBORDER + hsz; // src8 (top halo, right body edge)
+    const int lrow     = halo_row * stride; // linebuf row offset of the halo
+    const int cs       = cstart < -CDEF_HALO ? -CDEF_HALO : cstart;
+    // Off-frame bottom/right have no in-frame halo: clamp the recon body copy so it never reads past
+    // the frame edge (those taps are masked geometrically by the bounded kernel).
+    const int body_rows = frame_bottom ? vsz : vsz + CDEF_HALO;
+    const int cright    = frame_right ? hsz : cend - (CDEF_HBORDER - CDEF_HALO);
+    // Body (+ up to CDEF_HALO-px left/right and bottom halo).
+    svt_cdef_copy_rect8(&src8[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER + cs],
                         CDEF_BSTRIDE,
                         rec_buff,
                         (MI_SIZE_64X64 << mhl2) * fbr,
-                        coffset + cstart,
+                        coffset + cs,
                         rec_stride,
-                        rend,
-                        cend - cstart);
+                        body_rows,
+                        cright - cs);
     // Top.
     if (!prev_row_cdef[fbc]) {
-        svt_cdef_copy_rect8(&src8[CDEF_HBORDER],
+        svt_cdef_copy_rect8(&src8[top_off],
                             CDEF_BSTRIDE,
                             rec_buff,
-                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_VBORDER,
+                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_HALO,
                             coffset,
                             rec_stride,
-                            CDEF_VBORDER,
+                            CDEF_HALO,
                             hsz);
     } else {
-        svt_cdef_narrow_rect(&src8[CDEF_HBORDER], CDEF_BSTRIDE, &linebuf_pli[coffset], stride, CDEF_VBORDER, hsz);
+        svt_cdef_copy_rect8(&src8[top_off], CDEF_BSTRIDE, &linebuf_pli[lrow + coffset], 0, 0, stride, CDEF_HALO, hsz);
     }
-    // Top-left.
+    // Top-left corner.
     if (!prev_row_cdef[fbc - 1]) {
-        svt_cdef_copy_rect8(src8,
+        svt_cdef_copy_rect8(&src8[tl_off],
                             CDEF_BSTRIDE,
                             rec_buff,
-                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_VBORDER,
-                            coffset - CDEF_HBORDER,
+                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_HALO,
+                            coffset - CDEF_HALO,
                             rec_stride,
-                            CDEF_VBORDER,
-                            CDEF_HBORDER);
+                            CDEF_HALO,
+                            CDEF_HALO);
     } else {
-        svt_cdef_narrow_rect(
-            src8, CDEF_BSTRIDE, &linebuf_pli[coffset - CDEF_HBORDER], stride, CDEF_VBORDER, CDEF_HBORDER);
+        svt_cdef_copy_rect8(
+            &src8[tl_off], CDEF_BSTRIDE, &linebuf_pli[lrow + coffset - CDEF_HALO], 0, 0, stride, CDEF_HALO, CDEF_HALO);
     }
-    // Top-right.
+    // Top-right corner.
     if (!prev_row_cdef[fbc + 1]) {
-        svt_cdef_copy_rect8(&src8[CDEF_HBORDER + (nhb << mwl2)],
+        svt_cdef_copy_rect8(&src8[tr_off],
                             CDEF_BSTRIDE,
                             rec_buff,
-                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_VBORDER,
+                            (MI_SIZE_64X64 << mhl2) * fbr - CDEF_HALO,
                             coffset + hsz,
                             rec_stride,
-                            CDEF_VBORDER,
-                            CDEF_HBORDER);
+                            CDEF_HALO,
+                            CDEF_HALO);
     } else {
-        svt_cdef_narrow_rect(
-            &src8[hsz + CDEF_HBORDER], CDEF_BSTRIDE, &linebuf_pli[coffset + hsz], stride, CDEF_VBORDER, CDEF_HBORDER);
+        svt_cdef_copy_rect8(
+            &src8[tr_off], CDEF_BSTRIDE, &linebuf_pli[lrow + coffset + hsz], 0, 0, stride, CDEF_HALO, CDEF_HALO);
     }
-    // Left (from colbuf, if the left fb was filtered).
+    // Left halo (from colbuf, if the left fb was filtered).
     if (cdef_left) {
-        svt_cdef_narrow_rect(src8, CDEF_BSTRIDE, colbuf_pli, CDEF_HBORDER, rend + CDEF_VBORDER, CDEF_HBORDER);
+        svt_cdef_copy_rect8(
+            &src8[halo_col], CDEF_BSTRIDE, &colbuf_pli[halo_col], 0, 0, CDEF_HBORDER, rend + CDEF_VBORDER, CDEF_HALO);
     }
-    // Save right edge to colbuf (uint16) for the fb to the right.
+    // Save right halo edge to colbuf for the fb to the right.
     if (fbc < nhfb - 1) {
-        svt_cdef_widen_rect(colbuf_pli, CDEF_HBORDER, &src8[hsz], CDEF_BSTRIDE, rend + CDEF_VBORDER, CDEF_HBORDER);
+        svt_cdef_copy_rect8(&colbuf_pli[halo_col],
+                            CDEF_HBORDER,
+                            &src8[hsz + halo_col],
+                            0,
+                            0,
+                            CDEF_BSTRIDE,
+                            rend + CDEF_VBORDER,
+                            CDEF_HALO);
     }
-    // Save bottom edge to linebuf (uint16) for the fb below.
+    // Save bottom edge to linebuf for the fb below.
     if (fbr < nvfb - 1) {
-        svt_cdef_widen_rect(&linebuf_pli[coffset],
+        svt_cdef_copy_rect8(&linebuf_pli[coffset],
                             stride,
                             &rec_buff[((MI_SIZE_64X64 << mhl2) * (fbr + 1) - CDEF_VBORDER) * rec_stride + coffset],
+                            0,
+                            0,
                             rec_stride,
                             CDEF_VBORDER,
                             hsz);
     }
     if (cdef_strength || !*dirinit) {
-        svt_cdef_filter_fb_hybrid(&rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mhl2) + (fbc * MI_SIZE_64X64 << mwl2)],
-                                  rec_stride,
-                                  NULL,
-                                  &src8[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  vsz,
-                                  hsz,
-                                  xdec,
-                                  ydec,
-                                  dir,
-                                  dirinit,
-                                  var,
-                                  pli,
-                                  dlist,
-                                  cdef_count,
-                                  cdef_strength,
-                                  damping,
-                                  coeff_shift,
-                                  1);
+        svt_cdef_filter_fb_lbd(&rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mhl2) + (fbc * MI_SIZE_64X64 << mwl2)],
+                               rec_stride,
+                               &src8[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
+                               frame_top,
+                               frame_left,
+                               frame_bottom,
+                               frame_right,
+                               vsz,
+                               hsz,
+                               xdec,
+                               ydec,
+                               dir,
+                               dirinit,
+                               var,
+                               pli,
+                               dlist,
+                               cdef_count,
+                               cdef_strength,
+                               damping,
+                               coeff_shift,
+                               1);
     }
 }
 #endif
 
 void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
-    PictureParentControlSet* ppcs     = pcs->ppcs;
-    Av1Common*               cm       = ppcs->av1_cm;
-    FrameHeader*             frm_hdr  = &ppcs->frm_hdr;
-    bool                     is_16bit = scs->is_16bit_pipeline;
+    PictureParentControlSet* ppcs    = pcs->ppcs;
+    Av1Common*               cm      = ppcs->av1_cm;
+    FrameHeader*             frm_hdr = &ppcs->frm_hdr;
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    const bool is_16bit = scs->is_16bit_pipeline;
+#else
+    const bool is_16bit = false;
+#endif
 
     EbPictureBufferDesc* recon_pic;
     svt_aom_get_recon_pic(pcs, &recon_pic, is_16bit);
 
     const int32_t num_planes = av1_num_planes(&scs->seq_header.color_config);
-    DECLARE_ALIGNED(16, uint16_t, src[CDEF_INBUF_SIZE]);
+#if !CDEF_8BITS_PATH || CONFIG_ENABLE_HIGH_BIT_DEPTH
+    DECLARE_ALIGNED(16, uint16_t, src[CDEF_INBUF_SIZE]); // 16-bit sentinel buffer (HBD / non-8bit path only)
+#endif
 #if CDEF_8BITS_PATH
     // 8-bit mirror of `src` for the native interior filter (no 16-bit-lane work).
     DECLARE_ALIGNED(16, uint8_t, src8[CDEF_INBUF_SIZE]);
@@ -508,121 +523,149 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                 uint32_t rec_stride = recon_pic->stride[pli];
 
 #if CDEF_8BITS_PATH
-                // Interior fb (no frame border) on the 8-bit pipeline: native direct path.
-                if (!is_16bit && !frame_top && !frame_left && !frame_bottom && !frame_right) {
-                    cdef_apply_fb_interior_neon(rec_buff,
-                                                rec_stride,
-                                                src8,
-                                                linebuf[pli],
-                                                colbuf[pli],
-                                                prev_row_cdef,
-                                                fbr,
-                                                fbc,
-                                                nvfb,
-                                                nhfb,
-                                                coffset,
-                                                mi_high_l2[pli],
-                                                mi_wide_l2[pli],
-                                                nhb,
-                                                nvb,
-                                                stride,
-                                                rend,
-                                                cend,
-                                                cstart,
-                                                cdef_left,
-                                                *dir,
-                                                &dirinit,
-                                                *var,
-                                                pli,
-                                                dlist,
-                                                cdef_count,
-                                                cdef_strength,
-                                                damping,
-                                                coeff_shift,
-                                                xdec[pli],
-                                                ydec[pli]);
+                // 8-bit pipeline: build src8 directly from recon (interior AND frame-edge fbs) and
+                // filter via the boundary-aware hybrid -- no 16-bit sentinel buffer, no widen/narrow.
+                if (!is_16bit) {
+                    cdef_apply_fb(rec_buff,
+                                  rec_stride,
+                                  src8,
+                                  (uint8_t*)linebuf[pli],
+                                  (uint8_t*)colbuf[pli],
+                                  prev_row_cdef,
+                                  fbr,
+                                  fbc,
+                                  nvfb,
+                                  nhfb,
+                                  coffset,
+                                  mi_high_l2[pli],
+                                  mi_wide_l2[pli],
+                                  nhb,
+                                  nvb,
+                                  stride,
+                                  rend,
+                                  cend,
+                                  cstart,
+                                  cdef_left,
+                                  *dir,
+                                  &dirinit,
+                                  *var,
+                                  pli,
+                                  dlist,
+                                  cdef_count,
+                                  cdef_strength,
+                                  damping,
+                                  coeff_shift,
+                                  xdec[pli],
+                                  ydec[pli],
+                                  frame_top,
+                                  frame_left,
+                                  frame_bottom,
+                                  frame_right);
                     continue;
                 }
 #endif
 
+#if !CDEF_8BITS_PATH || CONFIG_ENABLE_HIGH_BIT_DEPTH
                 /* Copy in the pixels we need from the current superblock for
-                   deringing.*/
-                svt_aom_copy_sb8_16(&src[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER + cstart],
+                   deringing. CDEF taps reach only +-CDEF_HALO px, so a 2-px halo into the
+                   padded src buffer suffices (ring + interior blocks both read only +-2). */
+                const int halo_col = CDEF_HBORDER - CDEF_HALO; // left/right halo column
+                const int halo_row = CDEF_VBORDER - CDEF_HALO; // top halo row
+                const int top_off  = halo_row * CDEF_BSTRIDE + CDEF_HBORDER; // src (top halo, body col 0)
+                const int tl_off   = halo_row * CDEF_BSTRIDE + halo_col; // src (top halo, left halo col)
+                const int tr_off   = halo_row * CDEF_BSTRIDE + CDEF_HBORDER + hsize; // src (top halo, right body edge)
+                const int lrow     = halo_row * stride; // linebuf row offset of the halo
+                const int e_cs     = cstart < -CDEF_HALO ? -CDEF_HALO : cstart;
+                const int e_cright = cend > hsize + CDEF_HALO ? hsize + CDEF_HALO : cend;
+                const int e_rbot   = rend > vsize + CDEF_HALO ? vsize + CDEF_HALO : rend;
+                svt_aom_copy_sb8_16(&src[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER + e_cs],
                                     CDEF_BSTRIDE,
                                     rec_buff,
                                     (MI_SIZE_64X64 << mi_high_l2[pli]) * fbr,
-                                    coffset + cstart,
+                                    coffset + e_cs,
                                     rec_stride,
-                                    rend,
-                                    cend - cstart,
+                                    e_rbot,
+                                    e_cright - e_cs,
                                     is_16bit);
                 if (!prev_row_cdef[fbc]) {
-                    svt_aom_copy_sb8_16(&src[CDEF_HBORDER],
+                    svt_aom_copy_sb8_16(&src[top_off],
                                         CDEF_BSTRIDE,
                                         rec_buff,
-                                        (MI_SIZE_64X64 << mi_high_l2[pli]) * fbr - CDEF_VBORDER,
+                                        (MI_SIZE_64X64 << mi_high_l2[pli]) * fbr - CDEF_HALO,
                                         coffset,
                                         rec_stride,
-                                        CDEF_VBORDER,
+                                        CDEF_HALO,
                                         hsize,
                                         is_16bit);
                 } else if (fbr > 0) {
                     svt_aom_copy_rect(
-                        &src[CDEF_HBORDER], CDEF_BSTRIDE, &linebuf[pli][coffset], stride, CDEF_VBORDER, hsize);
+                        &src[top_off], CDEF_BSTRIDE, &linebuf[pli][lrow + coffset], stride, CDEF_HALO, hsize);
                 } else {
-                    svt_aom_fill_rect(&src[CDEF_HBORDER], CDEF_BSTRIDE, CDEF_VBORDER, hsize, CDEF_VERY_LARGE);
+                    svt_aom_fill_rect(&src[top_off], CDEF_BSTRIDE, CDEF_HALO, hsize, CDEF_VERY_LARGE);
                 }
 
                 if (!prev_row_cdef[fbc - 1]) {
-                    svt_aom_copy_sb8_16(src,
+                    svt_aom_copy_sb8_16(&src[tl_off],
                                         CDEF_BSTRIDE,
                                         rec_buff,
-                                        (MI_SIZE_64X64 << mi_high_l2[pli]) * fbr - CDEF_VBORDER,
-                                        coffset - CDEF_HBORDER,
+                                        (MI_SIZE_64X64 << mi_high_l2[pli]) * fbr - CDEF_HALO,
+                                        coffset - CDEF_HALO,
                                         rec_stride,
-                                        CDEF_VBORDER,
-                                        CDEF_HBORDER,
+                                        CDEF_HALO,
+                                        CDEF_HALO,
                                         is_16bit);
                 } else if (fbr > 0 && fbc > 0) {
-                    svt_aom_copy_rect(
-                        src, CDEF_BSTRIDE, &linebuf[pli][coffset - CDEF_HBORDER], stride, CDEF_VBORDER, CDEF_HBORDER);
+                    svt_aom_copy_rect(&src[tl_off],
+                                      CDEF_BSTRIDE,
+                                      &linebuf[pli][lrow + coffset - CDEF_HALO],
+                                      stride,
+                                      CDEF_HALO,
+                                      CDEF_HALO);
                 } else {
-                    svt_aom_fill_rect(src, CDEF_BSTRIDE, CDEF_VBORDER, CDEF_HBORDER, CDEF_VERY_LARGE);
+                    svt_aom_fill_rect(&src[tl_off], CDEF_BSTRIDE, CDEF_HALO, CDEF_HALO, CDEF_VERY_LARGE);
                 }
 
                 if (!prev_row_cdef[fbc + 1]) {
-                    svt_aom_copy_sb8_16(&src[CDEF_HBORDER + (nhb << mi_wide_l2[pli])],
+                    svt_aom_copy_sb8_16(&src[tr_off],
                                         CDEF_BSTRIDE,
                                         rec_buff,
-                                        (MI_SIZE_64X64 << mi_high_l2[pli]) * fbr - CDEF_VBORDER,
+                                        (MI_SIZE_64X64 << mi_high_l2[pli]) * fbr - CDEF_HALO,
                                         coffset + hsize,
                                         rec_stride,
-                                        CDEF_VBORDER,
-                                        CDEF_HBORDER,
+                                        CDEF_HALO,
+                                        CDEF_HALO,
                                         is_16bit);
                 } else if (fbr > 0 && fbc < nhfb - 1) {
-                    svt_aom_copy_rect(&src[hsize + CDEF_HBORDER],
+                    svt_aom_copy_rect(&src[tr_off],
                                       CDEF_BSTRIDE,
-                                      &linebuf[pli][coffset + hsize],
+                                      &linebuf[pli][lrow + coffset + hsize],
                                       stride,
-                                      CDEF_VBORDER,
-                                      CDEF_HBORDER);
+                                      CDEF_HALO,
+                                      CDEF_HALO);
                 } else {
-                    svt_aom_fill_rect(
-                        &src[hsize + CDEF_HBORDER], CDEF_BSTRIDE, CDEF_VBORDER, CDEF_HBORDER, CDEF_VERY_LARGE);
+                    svt_aom_fill_rect(&src[tr_off], CDEF_BSTRIDE, CDEF_HALO, CDEF_HALO, CDEF_VERY_LARGE);
                 }
 
                 if (cdef_left) {
                     /* If we deringed the superblock on the left then we need to copy in
                        saved pixels. */
-                    svt_aom_copy_rect(src, CDEF_BSTRIDE, colbuf[pli], CDEF_HBORDER, rend + CDEF_VBORDER, CDEF_HBORDER);
+                    svt_aom_copy_rect(&src[halo_col],
+                                      CDEF_BSTRIDE,
+                                      &colbuf[pli][halo_col],
+                                      CDEF_HBORDER,
+                                      rend + CDEF_VBORDER,
+                                      CDEF_HALO);
                 }
 
                 /* Saving pixels in case we need to dering the superblock on the
                     right. */
                 if (fbc < nhfb - 1) {
-                    svt_aom_copy_rect(
-                        colbuf[pli], CDEF_HBORDER, src + hsize, CDEF_BSTRIDE, rend + CDEF_VBORDER, CDEF_HBORDER);
+                    svt_aom_copy_rect(&colbuf[pli][halo_col],
+                                      CDEF_HBORDER,
+                                      &src[hsize + halo_col],
+                                      CDEF_BSTRIDE,
+                                      rend + CDEF_VBORDER,
+                                      CDEF_HALO);
                 }
 
                 if (fbr < nvfb - 1) {
@@ -638,86 +681,62 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                 }
 
                 if (frame_top) {
-                    svt_aom_fill_rect(src, CDEF_BSTRIDE, CDEF_VBORDER, hsize + 2 * CDEF_HBORDER, CDEF_VERY_LARGE);
+                    svt_aom_fill_rect(&src[halo_row * CDEF_BSTRIDE + halo_col],
+                                      CDEF_BSTRIDE,
+                                      CDEF_HALO,
+                                      hsize + 2 * CDEF_HALO,
+                                      CDEF_VERY_LARGE);
                 }
                 if (frame_left) {
-                    svt_aom_fill_rect(src, CDEF_BSTRIDE, vsize + 2 * CDEF_VBORDER, CDEF_HBORDER, CDEF_VERY_LARGE);
+                    svt_aom_fill_rect(&src[halo_row * CDEF_BSTRIDE + halo_col],
+                                      CDEF_BSTRIDE,
+                                      vsize + 2 * CDEF_HALO,
+                                      CDEF_HALO,
+                                      CDEF_VERY_LARGE);
                 }
                 if (frame_bottom) {
-                    svt_aom_fill_rect(&src[(vsize + CDEF_VBORDER) * CDEF_BSTRIDE],
+                    svt_aom_fill_rect(&src[(vsize + CDEF_VBORDER) * CDEF_BSTRIDE + halo_col],
                                       CDEF_BSTRIDE,
-                                      CDEF_VBORDER,
-                                      hsize + 2 * CDEF_HBORDER,
+                                      CDEF_HALO,
+                                      hsize + 2 * CDEF_HALO,
                                       CDEF_VERY_LARGE);
                 }
                 if (frame_right) {
-                    svt_aom_fill_rect(&src[hsize + CDEF_HBORDER],
+                    svt_aom_fill_rect(&src[halo_row * CDEF_BSTRIDE + CDEF_HBORDER + hsize],
                                       CDEF_BSTRIDE,
-                                      vsize + 2 * CDEF_VBORDER,
-                                      CDEF_HBORDER,
+                                      vsize + 2 * CDEF_HALO,
+                                      CDEF_HALO,
                                       CDEF_VERY_LARGE);
                 }
                 // if ppcs->cdef_ctrls.use_reference_cdef_fs is true, then search was not performed
                 // Therefore, need to make sure dir and var are initialized
                 if (cdef_strength || !dirinit) {
-#if CDEF_8BITS_PATH
-                    // Per-8x8-block hybrid apply (8-bit content): narrow src->src8 and
-                    // run the native kernel on every block except the frame-perimeter
-                    // ring (those use the 16-bit sentinel path). Bit-exact, writes recon
-                    // in place.
-                    if (!is_16bit) {
-                        const int vsz   = nvb << mi_high_l2[pli];
-                        const int hsz   = nhb << mi_wide_l2[pli];
-                        const int nrows = vsz + 2 * CDEF_VBORDER;
-                        const int ncols = hsz + 2 * CDEF_HBORDER;
-                        svt_cdef_narrow_rect(src8, CDEF_BSTRIDE, src, CDEF_BSTRIDE, nrows, ncols);
-                        svt_cdef_filter_fb_hybrid(&rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
-                                                            (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])],
-                                                  rec_stride,
-                                                  &src[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
-                                                  &src8[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
-                                                  frame_top,
-                                                  frame_left,
-                                                  frame_bottom,
-                                                  frame_right,
-                                                  vsz,
-                                                  hsz,
-                                                  xdec[pli],
-                                                  ydec[pli],
-                                                  *dir,
-                                                  &dirinit,
-                                                  *var,
-                                                  pli,
-                                                  dlist,
-                                                  cdef_count,
-                                                  cdef_strength,
-                                                  damping,
-                                                  coeff_shift,
-                                                  1);
-                    } else
-#endif
-                        svt_cdef_filter_fb(
-                            is_16bit ? NULL
-                                     : &rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
-                                                 (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])],
-                            is_16bit ? &((uint16_t*)rec_buff)[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
-                                                              (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])]
-                                     : NULL,
-                            rec_stride,
-                            &src[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
-                            xdec[pli],
-                            ydec[pli],
-                            *dir,
-                            &dirinit,
-                            *var,
-                            pli,
-                            dlist,
-                            cdef_count,
-                            cdef_strength,
-                            damping,
-                            coeff_shift,
-                            1); // no subsampling
+                    // 8-bit content is handled above by cdef_apply_fb (which continues); this
+                    // 16-bit sentinel path now serves only the HBD (is_16bit) pipeline (and the
+                    // whole-frame fallback when CDEF_8BITS_PATH is disabled).
+                    svt_cdef_filter_fb(
+                        is_16bit ? NULL
+                                 : &rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
+                                             (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])],
+                        is_16bit ? &((uint16_t*)rec_buff)[rec_stride * (MI_SIZE_64X64 * fbr << mi_high_l2[pli]) +
+                                                          (fbc * MI_SIZE_64X64 << mi_wide_l2[pli])]
+                                 : NULL,
+                        rec_stride,
+                        &src[CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER],
+                        xdec[pli],
+                        ydec[pli],
+                        *dir,
+                        &dirinit,
+                        *var,
+                        pli,
+                        dlist,
+                        cdef_count,
+                        cdef_strength,
+                        damping,
+                        coeff_shift,
+                        1); // no subsampling
                 }
+#endif
             }
             cdef_left = 1; //CHKN filtered data is written back directy to recFrame.
         }

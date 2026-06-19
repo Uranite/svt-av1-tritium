@@ -15,9 +15,7 @@
 #include "definitions.h"
 #include "enc_handle.h"
 #include "cdef_process.h"
-#if CDEF_8BITS_PATH
-#include "cdef_inl.h"
-#endif
+#include "cdef_copy.h"
 #include "enc_dec_results.h"
 #include "svt_threads.h"
 #include "reference_object.h"
@@ -268,10 +266,9 @@ static uint64_t compute_cdef_dist(const EbByte dst, int32_t doffset, int32_t dst
  * Call cdef_filter_fb() to perform filtering, then compute the MSE for each pair.
 */
 static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uint32_t segment_index) {
-    PictureParentControlSet* ppcs     = pcs->ppcs;
-    FrameHeader*             frm_hdr  = &ppcs->frm_hdr;
-    Av1Common*               cm       = ppcs->av1_cm;
-    const bool               is_16bit = scs->is_16bit_pipeline;
+    PictureParentControlSet* ppcs    = pcs->ppcs;
+    FrameHeader*             frm_hdr = &ppcs->frm_hdr;
+    Av1Common*               cm      = ppcs->av1_cm;
     uint32_t                 x_seg_idx;
     uint32_t                 y_seg_idx;
     const uint32_t           b64_pic_width  = (ppcs->aligned_width + 64 - 1) / 64;
@@ -306,12 +303,20 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
     CdefList            dlist_local[MI_SIZE_128X128 * MI_SIZE_128X128];
     CdefList*           dlist;
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
+    const bool is_16bit = scs->is_16bit_pipeline;
+#else
+    const bool is_16bit = false;
+#endif
+
+#if !CDEF_8BITS_PATH || CONFIG_ENABLE_HIGH_BIT_DEPTH
     int32_t toff_prev  = CDEF_VBORDER;
     int32_t loff_prev  = CDEF_HBORDER;
     int32_t ysize_prev = (1 << MAX_SB_SIZE_LOG2) + 2 * CDEF_VBORDER;
     int32_t xsize_prev = (1 << MAX_SB_SIZE_LOG2) + 2 * CDEF_HBORDER;
-    DECLARE_ALIGNED(32, uint16_t, inbuf[CDEF_INBUF_SIZE]);
+    DECLARE_ALIGNED(32, uint16_t, inbuf[CDEF_INBUF_SIZE]); // 16-bit sentinel buffer (HBD / non-8bit path only)
     uint16_t* in = inbuf + CDEF_VBORDER * CDEF_BSTRIDE + CDEF_HBORDER;
+#endif
 #if CDEF_8BITS_PATH
     // 8-bit padded buffer for the native interior path (replaces the 8->16 widen
     // for fully-interior 8-bit fbs). Same CDEF_BSTRIDE layout as `in`.
@@ -397,16 +402,15 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                 int32_t ysize = (nvb << mi_high_l2[pli]) + boff + toff;
                 int32_t xsize = (nhb << mi_wide_l2[pli]) + roff + loff;
 #if CDEF_8BITS_PATH
-                // 8-bit content (RTC): filter via the per-block hybrid. Interior fbs
-                // build only the 8-bit buffer; edge fbs build the uint16 buffer (for the
-                // frame-perimeter ring blocks) and narrow it to 8-bit for the rest.
+                // 8-bit content (RTC): filter via the boundary-aware hybrid. Build the 8-bit in8
+                // buffer DIRECTLY from recon (interior AND frame-edge fbs); off-frame halo is left
+                // as garbage and masked geometrically by the bounded kernel -- no 16-bit sentinel.
                 const bool native_8bit = !is_16bit;
-                const bool interior    = toff && loff && boff && roff;
 #else
                 const bool native_8bit = false;
-                const bool interior    = false;
 #endif
-                if (!(native_8bit && interior)) {
+#if !CDEF_8BITS_PATH || CONFIG_ENABLE_HIGH_BIT_DEPTH
+                if (!native_8bit) {
                     /* We avoid filtering the pixels for which some of the pixels to
                    average are outside the frame. We could change the filter instead,
                    but it would add special cases for any future vectorization.
@@ -436,10 +440,12 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                         xsize,
                                         is_16bit);
                 }
+#endif
 #if CDEF_8BITS_PATH
-                if (native_8bit && interior) {
-                    // Plain 8->8 copy into the 8-bit padded buffer (no widen, no
-                    // sentinel needed since the fb is fully interior).
+                if (native_8bit) {
+                    // Plain 8->8 copy into the 8-bit padded buffer. toff/loff/boff/roff are 0 on any
+                    // frame-edge side, so this copies only the in-frame region (body + in-frame halo);
+                    // off-frame taps are masked by the bounded kernel (no sentinel, no widen/narrow).
                     const uint8_t* nbase = src[pli] + ((lr << mi_high_l2[pli]) - toff) * (size_t)stride_src[pli] +
                         ((lc << mi_wide_l2[pli]) - loff);
                     uint8_t* ndst = &in8[(-toff * CDEF_BSTRIDE - loff)];
@@ -448,15 +454,6 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                         ndst += CDEF_BSTRIDE;
                         nbase += stride_src[pli];
                     }
-                } else if (native_8bit) {
-                    // Edge fb: narrow the uint16 buffer to 8-bit for the interior blocks
-                    // (ring blocks still use the uint16 buffer's sentinel).
-                    svt_cdef_narrow_rect(&in8[-CDEF_VBORDER * CDEF_BSTRIDE - CDEF_HBORDER],
-                                         CDEF_BSTRIDE,
-                                         &in[-CDEF_VBORDER * CDEF_BSTRIDE - CDEF_HBORDER],
-                                         CDEF_BSTRIDE,
-                                         (nvb << mi_high_l2[pli]) + 2 * CDEF_VBORDER,
-                                         (nhb << mi_wide_l2[pli]) + 2 * CDEF_HBORDER);
                 }
 #endif
 
@@ -493,30 +490,33 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
 
 #if CDEF_8BITS_PATH
                     if (native_8bit) {
-                        svt_cdef_filter_fb_hybrid((uint8_t*)tmp_dst,
-                                                  0,
-                                                  interior ? NULL : in,
-                                                  in8,
-                                                  toff == 0,
-                                                  loff == 0,
-                                                  boff == 0,
-                                                  roff == 0,
-                                                  nvb << mi_high_l2[pli],
-                                                  nhb << mi_wide_l2[pli],
-                                                  xdec[pli],
-                                                  ydec[pli],
-                                                  *dir,
-                                                  &dirinit,
-                                                  *var,
-                                                  pli,
-                                                  dlist,
-                                                  cdef_count,
-                                                  cdef_ctrls->default_first_pass_fs[gi],
-                                                  damping,
-                                                  coeff_shift,
-                                                  subsampling_factor);
-                    } else
+                        svt_cdef_filter_fb_lbd((uint8_t*)tmp_dst,
+                                               0,
+                                               in8,
+                                               toff == 0,
+                                               loff == 0,
+                                               boff == 0,
+                                               roff == 0,
+                                               nvb << mi_high_l2[pli],
+                                               nhb << mi_wide_l2[pli],
+                                               xdec[pli],
+                                               ydec[pli],
+                                               *dir,
+                                               &dirinit,
+                                               *var,
+                                               pli,
+                                               dlist,
+                                               cdef_count,
+                                               cdef_ctrls->default_first_pass_fs[gi],
+                                               damping,
+                                               coeff_shift,
+                                               subsampling_factor);
+                    } // native_8bit
+#if !CDEF_8BITS_PATH || CONFIG_ENABLE_HIGH_BIT_DEPTH
+                    else
 #endif
+#endif
+#if !CDEF_8BITS_PATH || CONFIG_ENABLE_HIGH_BIT_DEPTH
                         svt_cdef_filter_fb(is_16bit ? NULL : (uint8_t*)tmp_dst,
                                            is_16bit ? tmp_dst : NULL,
                                            0,
@@ -533,6 +533,7 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                            damping,
                                            coeff_shift,
                                            subsampling_factor);
+#endif
                     uint64_t curr_mse = compute_cdef_dist(
                         ref[pli],
                         (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),
@@ -564,30 +565,33 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
 
 #if CDEF_8BITS_PATH
                     if (native_8bit) {
-                        svt_cdef_filter_fb_hybrid((uint8_t*)tmp_dst,
-                                                  0,
-                                                  interior ? NULL : in,
-                                                  in8,
-                                                  toff == 0,
-                                                  loff == 0,
-                                                  boff == 0,
-                                                  roff == 0,
-                                                  nvb << mi_high_l2[pli],
-                                                  nhb << mi_wide_l2[pli],
-                                                  xdec[pli],
-                                                  ydec[pli],
-                                                  *dir,
-                                                  &dirinit,
-                                                  *var,
-                                                  pli,
-                                                  dlist,
-                                                  cdef_count,
-                                                  cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num],
-                                                  damping,
-                                                  coeff_shift,
-                                                  subsampling_factor);
-                    } else
+                        svt_cdef_filter_fb_lbd((uint8_t*)tmp_dst,
+                                               0,
+                                               in8,
+                                               toff == 0,
+                                               loff == 0,
+                                               boff == 0,
+                                               roff == 0,
+                                               nvb << mi_high_l2[pli],
+                                               nhb << mi_wide_l2[pli],
+                                               xdec[pli],
+                                               ydec[pli],
+                                               *dir,
+                                               &dirinit,
+                                               *var,
+                                               pli,
+                                               dlist,
+                                               cdef_count,
+                                               cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num],
+                                               damping,
+                                               coeff_shift,
+                                               subsampling_factor);
+                    } // native_8bit
+#if !CDEF_8BITS_PATH || CONFIG_ENABLE_HIGH_BIT_DEPTH
+                    else
 #endif
+#endif
+#if !CDEF_8BITS_PATH || CONFIG_ENABLE_HIGH_BIT_DEPTH
                         svt_cdef_filter_fb(is_16bit ? NULL : (uint8_t*)tmp_dst,
                                            is_16bit ? tmp_dst : NULL,
                                            0,
@@ -604,6 +608,7 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                            damping,
                                            coeff_shift,
                                            subsampling_factor);
+#endif
                     uint64_t curr_mse = compute_cdef_dist(
                         ref[pli],
                         (lr << mi_high_l2[pli]) * stride_ref[pli] + (lc << mi_wide_l2[pli]),

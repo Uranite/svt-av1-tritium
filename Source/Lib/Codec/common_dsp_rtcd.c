@@ -837,6 +837,7 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_SSE41_AVX2(svt_aom_cdef_find_dir_dual, svt_aom_cdef_find_dir_dual_c, svt_aom_cdef_find_dir_dual_sse4_1, svt_aom_cdef_find_dir_dual_avx2);
     SET_SSE41_AVX2(svt_cdef_filter_block, svt_cdef_filter_block_c, svt_av1_cdef_filter_block_sse4_1, svt_cdef_filter_block_avx2);
     SET_ONLY_C(svt_cdef_filter_block_8bit, svt_cdef_filter_block_8bit_c);
+    SET_ONLY_C(svt_cdef_filter_block_8bit_bounded, svt_cdef_filter_block_8bit_bounded_c);
     SET_ONLY_C(svt_aom_cdef_find_dir_8bit, svt_aom_cdef_find_dir_8bit_c);
     SET_ONLY_C(svt_aom_cdef_find_dir_dual_8bit, svt_aom_cdef_find_dir_dual_8bit_c);
     /* No C version, use only internal in kerneal: svt_cdef_filter_block_avx2() */
@@ -1395,6 +1396,7 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_NEON(svt_aom_cdef_find_dir_dual, svt_aom_cdef_find_dir_dual_c, svt_aom_cdef_find_dir_dual_neon);
     SET_NEON(svt_cdef_filter_block, svt_cdef_filter_block_c, svt_cdef_filter_block_neon);
     SET_NEON(svt_cdef_filter_block_8bit, svt_cdef_filter_block_8bit_c, svt_cdef_filter_block_8bit_neon);
+    SET_NEON(svt_cdef_filter_block_8bit_bounded, svt_cdef_filter_block_8bit_bounded_c, svt_cdef_filter_block_8bit_bounded_neon);
     SET_NEON(svt_aom_cdef_find_dir_8bit, svt_aom_cdef_find_dir_8bit_c, svt_aom_cdef_find_dir_8bit_neon);
     SET_NEON(svt_aom_cdef_find_dir_dual_8bit, svt_aom_cdef_find_dir_dual_8bit_c, svt_aom_cdef_find_dir_dual_8bit_neon);
 
@@ -1944,6 +1946,7 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     SET_ONLY_C(svt_aom_cdef_find_dir_dual, svt_aom_cdef_find_dir_dual_c);
     SET_ONLY_C(svt_cdef_filter_block, svt_cdef_filter_block_c);
     SET_ONLY_C(svt_cdef_filter_block_8bit, svt_cdef_filter_block_8bit_c);
+    SET_ONLY_C(svt_cdef_filter_block_8bit_bounded, svt_cdef_filter_block_8bit_bounded_c);
     SET_ONLY_C(svt_aom_cdef_find_dir_8bit, svt_aom_cdef_find_dir_8bit_c);
     SET_ONLY_C(svt_aom_cdef_find_dir_dual_8bit, svt_aom_cdef_find_dir_dual_8bit_c);
     SET_ONLY_C(svt_aom_copy_rect8_8bit_to_16bit, svt_aom_copy_rect8_8bit_to_16bit_c);
