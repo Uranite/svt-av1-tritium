@@ -236,8 +236,8 @@ static inline void cdef_apply_fb_interior_neon(
     uint8_t* rec_buff, uint32_t rec_stride, uint8_t* src8, uint16_t* linebuf_pli, uint16_t* colbuf_pli,
     const uint8_t* prev_row_cdef, int fbr, int fbc, int nvfb, int nhfb, int coffset, int mhl2, int mwl2, int nhb,
     int nvb, int stride, int rend, int cend, int cstart, int cdef_left, uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS],
-    int* dirinit, int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int pli, CdefList* dlist, int cdef_count, int level,
-    int sec_strength, int pri_damping, int sec_damping, int coeff_shift, int xdec, int ydec) {
+    int* dirinit, int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int pli, CdefList* dlist, int cdef_count, int cdef_strength,
+    int damping, int coeff_shift, int xdec, int ydec) {
     const int vsz = nvb << mhl2;
     const int hsz = nhb << mwl2;
     // Body.
@@ -307,7 +307,7 @@ static inline void cdef_apply_fb_interior_neon(
                             CDEF_VBORDER,
                             hsz);
     }
-    if (level || sec_strength || !*dirinit) {
+    if (cdef_strength || !*dirinit) {
         svt_cdef_filter_fb_hybrid(&rec_buff[rec_stride * (MI_SIZE_64X64 * fbr << mhl2) + (fbc * MI_SIZE_64X64 << mwl2)],
                                   rec_stride,
                                   NULL,
@@ -326,10 +326,8 @@ static inline void cdef_apply_fb_interior_neon(
                                   pli,
                                   dlist,
                                   cdef_count,
-                                  level,
-                                  sec_strength,
-                                  pri_damping,
-                                  sec_damping,
+                                  cdef_strength,
+                                  damping,
                                   coeff_shift,
                                   1);
     }
@@ -370,7 +368,13 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
     const int32_t  nhfb        = (cm->mi_cols + MI_SIZE_64X64 - 1) / MI_SIZE_64X64;
     const uint32_t cdef_size   = sizeof(*row_cdef) * (nhfb + 2) * 2;
 
-    row_cdef = (uint8_t*)svt_aom_malloc(cdef_size);
+    // Persistent scratch: (re)allocate only when it must grow, reuse across frames.
+    if (pcs->cdef_row_cdef_sz < cdef_size) {
+        svt_aom_free(pcs->cdef_row_cdef);
+        pcs->cdef_row_cdef    = (uint8_t*)svt_aom_malloc(cdef_size);
+        pcs->cdef_row_cdef_sz = cdef_size;
+    }
+    row_cdef = pcs->cdef_row_cdef;
     assert(row_cdef != NULL);
     memset(row_cdef, 1, cdef_size);
     prev_row_cdef = row_cdef + 1;
@@ -386,9 +390,21 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
 
     const int32_t stride = (cm->mi_cols << MI_SIZE_LOG2) + 2 * CDEF_HBORDER;
     for (int32_t pli = 0; pli < num_planes; pli++) {
-        linebuf[pli] = (uint16_t*)svt_aom_malloc(sizeof(*linebuf) * CDEF_VBORDER * stride);
-        colbuf[pli]  = (uint16_t*)svt_aom_malloc(
-            sizeof(*colbuf) * ((CDEF_BLOCKSIZE << mi_high_l2[pli]) + 2 * CDEF_VBORDER) * CDEF_HBORDER);
+        const uint32_t lb_sz = sizeof(*linebuf) * CDEF_VBORDER * stride;
+        const uint32_t cb_sz = sizeof(*colbuf) * ((CDEF_BLOCKSIZE << mi_high_l2[pli]) + 2 * CDEF_VBORDER) *
+            CDEF_HBORDER;
+        if (pcs->cdef_linebuf_sz[pli] < lb_sz) {
+            svt_aom_free(pcs->cdef_linebuf[pli]);
+            pcs->cdef_linebuf[pli]    = (uint16_t*)svt_aom_malloc(lb_sz);
+            pcs->cdef_linebuf_sz[pli] = lb_sz;
+        }
+        if (pcs->cdef_colbuf_sz[pli] < cb_sz) {
+            svt_aom_free(pcs->cdef_colbuf[pli]);
+            pcs->cdef_colbuf[pli]    = (uint16_t*)svt_aom_malloc(cb_sz);
+            pcs->cdef_colbuf_sz[pli] = cb_sz;
+        }
+        linebuf[pli] = pcs->cdef_linebuf[pli];
+        colbuf[pli]  = pcs->cdef_colbuf[pli];
     }
 #if OPT_CDEF_SKIP_CHROMA_BORDER
     // Frame-level check: if every UV strength entry is 0, no chroma block
@@ -405,71 +421,24 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
     }
     const int32_t active_planes = chroma_filter_off ? 1 : num_planes;
 #endif
+    int32_t mbmi_cdef_strength = 0;
     for (int32_t fbr = 0; fbr < nvfb; fbr++) {
         int32_t cdef_left = 1;
         for (int32_t fbc = 0; fbc < nhfb; fbc++) {
-            int32_t level, sec_strength;
-            int32_t uv_level, uv_sec_strength;
-            int32_t nhb, nvb;
-            int32_t cstart     = 0;
+            // per-fb state read by the row below; must be written even for skipped fbs
             curr_row_cdef[fbc] = 0;
-            assert(pcs->mi_grid_base[MI_SIZE_64X64 * fbr * cm->mi_stride + MI_SIZE_64X64 * fbc] != NULL &&
-                   "CDEF ERROR: Skipping Current FB");
-            assert((ppcs->nb_cdef_strengths == 1 ||
-                    pcs->mi_grid_base[MI_SIZE_64X64 * fbr * cm->mi_stride + MI_SIZE_64X64 * fbc]->cdef_strength != -1) &&
-                   "CDEF ERROR: Skipping Current FB");
-            if (!cdef_left) {
-                cstart =
-                    -CDEF_HBORDER; //CHKN if the left block has not been filtered, then we can use samples on the left as input.
-            }
 
-            nhb = AOMMIN(MI_SIZE_64X64, cm->mi_cols - MI_SIZE_64X64 * fbc);
-            nvb = AOMMIN(MI_SIZE_64X64, cm->mi_rows - MI_SIZE_64X64 * fbr);
-            int32_t frame_top, frame_left, frame_bottom, frame_right;
-
-            int32_t mi_row = MI_SIZE_64X64 * fbr;
-            int32_t mi_col = MI_SIZE_64X64 * fbc;
-            // for the current filter block, it's top left corner mi structure (mi_tl)
-            // is first accessed to check whether the top and left boundaries are
-            // frame boundaries. Then bottom-left and top-right mi structures are
-            // accessed to check whether the bottom and right boundaries
-            // (respectively) are frame boundaries.
-            //
-            // Note that we can't just check the bottom-right mi structure - eg. if
-            // we're at the right-hand edge of the frame but not the bottom, then
-            // the bottom-right mi is NULL but the bottom-left is not.
-            frame_top  = (mi_row == 0) ? 1 : 0;
-            frame_left = (mi_col == 0) ? 1 : 0;
-
-            if (fbr != nvfb - 1) {
-                frame_bottom = (mi_row + MI_SIZE_64X64 == cm->mi_rows) ? 1 : 0;
-            } else {
-                frame_bottom = 1;
-            }
-
-            if (fbc != nhfb - 1) {
-                frame_right = (mi_col + MI_SIZE_64X64 == cm->mi_cols) ? 1 : 0;
-            } else {
-                frame_right = 1;
-            }
+            const MbModeInfo* mbmi = pcs->mi_grid_base[MI_SIZE_64X64 * fbr * cm->mi_stride + MI_SIZE_64X64 * fbc];
 
             // Find the index of the CDEF strength for the filter block. With a single frame strength
             // (nb_cdef_strengths==1, e.g. non-searched frames) every SB uses index 0; only multi-strength
             // (searched) frames carry a per-SB index, so the per-SB read is only needed then.
-            const int32_t mbmi_cdef_strength =
-                ppcs->nb_cdef_strengths == 1
-                ? 0
-                : pcs->mi_grid_base[MI_SIZE_64X64 * fbr * cm->mi_stride + MI_SIZE_64X64 * fbc]->cdef_strength;
-            level        = frm_hdr->cdef_params.cdef_y_strength[mbmi_cdef_strength] / CDEF_SEC_STRENGTHS;
-            sec_strength = frm_hdr->cdef_params.cdef_y_strength[mbmi_cdef_strength] % CDEF_SEC_STRENGTHS;
-            // Secondary luma strength takes values in {0, 1, 2, 4}. If sec_strength is equal to 3 from the step above, change it to 4.
-            sec_strength += sec_strength == 3;
-            // Set primary and secondary chroma strengths.
-            uv_level        = frm_hdr->cdef_params.cdef_uv_strength[mbmi_cdef_strength] / CDEF_SEC_STRENGTHS;
-            uv_sec_strength = frm_hdr->cdef_params.cdef_uv_strength[mbmi_cdef_strength] % CDEF_SEC_STRENGTHS;
-            // Secondary chroma strength takes values in {0, 1, 2, 4}. If sec_strength is equal to 3 from the step above, change it to 4.
-            uv_sec_strength += uv_sec_strength == 3;
-            if (level == 0 && sec_strength == 0 && uv_level == 0 && uv_sec_strength == 0) {
+            if (ppcs->nb_cdef_strengths > 1) {
+                mbmi_cdef_strength = mbmi->cdef_strength;
+            }
+            uint8_t cdef_y_strength  = frm_hdr->cdef_params.cdef_y_strength[mbmi_cdef_strength];
+            uint8_t cdef_uv_strength = frm_hdr->cdef_params.cdef_uv_strength[mbmi_cdef_strength];
+            if (cdef_y_strength == 0 && cdef_uv_strength == 0) {
                 cdef_left = 0;
                 continue;
             }
@@ -486,14 +455,32 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                 continue;
             }
 
+            curr_row_cdef[fbc] = 1;
+
+            int32_t nhb, nvb;
+            int32_t cstart = 0;
+            assert(mbmi != NULL && "CDEF ERROR: Skipping Current FB");
+            assert((ppcs->nb_cdef_strengths == 1 || mbmi->cdef_strength != -1) && "CDEF ERROR: Skipping Current FB");
+            if (!cdef_left) {
+                //CHKN if the left block has not been filtered, then we can use samples on the left as input.
+                cstart = -CDEF_HBORDER;
+            }
+
+            nhb = AOMMIN(MI_SIZE_64X64, cm->mi_cols - MI_SIZE_64X64 * fbc);
+            nvb = AOMMIN(MI_SIZE_64X64, cm->mi_rows - MI_SIZE_64X64 * fbr);
+            // A fb edge is a frame boundary iff the fb sits in the first/last fb row or column.
+            // nvfb/nhfb = ceil(mi_rows|mi_cols / 64), so only the last fb row/col can reach the frame
+            // edge -> the per-mi cm->mi_* compare the original used is always equivalent to this.
+            const int32_t frame_top    = (fbr == 0);
+            const int32_t frame_left   = (fbc == 0);
+            const int32_t frame_bottom = (fbr == nvfb - 1);
+            const int32_t frame_right  = (fbc == nhfb - 1);
+
             int dirinit = !(ppcs->cdef_search_ctrls.use_reference_cdef_fs || ppcs->cdef_search_ctrls.use_qp_strength);
             // When SB 128 is used, the search for certain blocks is skipped, so dir/var info is not generated
             // In those cases, must generate info here
             if (sb_size == 128) {
-                const uint32_t    lc    = MI_SIZE_64X64 * fbc;
-                const uint32_t    lr    = MI_SIZE_64X64 * fbr;
-                const MbModeInfo* mbmi  = pcs->mi_grid_base[lr * cm->mi_stride + lc];
-                const BlockSize   bsize = mbmi->bsize;
+                const BlockSize bsize = mbmi->bsize;
                 if (((fbc & 1) && (bsize == BLOCK_128X128 || bsize == BLOCK_128X64)) ||
                     ((fbr & 1) && (bsize == BLOCK_128X128 || bsize == BLOCK_64X128))) {
                     dirinit = 0;
@@ -501,88 +488,24 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
             }
             uint8_t (*dir)[CDEF_NBLOCKS][CDEF_NBLOCKS] = &pcs->cdef_dir_data[fbr * nhfb + fbc].dir;
             int32_t (*var)[CDEF_NBLOCKS][CDEF_NBLOCKS] = &pcs->cdef_dir_data[fbr * nhfb + fbc].var;
-            curr_row_cdef[fbc]                         = 1;
 #if OPT_CDEF_SKIP_CHROMA_BORDER
             for (int32_t pli = 0; pli < active_planes; pli++) {
 #else
             for (int32_t pli = 0; pli < num_planes; pli++) {
 #endif
-                int32_t coffset;
-                int32_t rend, cend;
-                int32_t pri_damping = frm_hdr->cdef_params.cdef_damping;
-                int32_t sec_damping = pri_damping;
-                int32_t hsize       = nhb << mi_wide_l2[pli];
-                int32_t vsize       = nvb << mi_high_l2[pli];
-                if (fbc == nhfb - 1) {
-                    cend = hsize;
-                } else {
-                    cend = hsize + CDEF_HBORDER;
-                }
+                // Strength index for this plane: luma uses Y, chroma planes both use UV. The packed
+                // value is passed to the leaf filters, which decode primary/secondary internally.
+                const int32_t cdef_strength = pli ? cdef_uv_strength : cdef_y_strength;
+                const int32_t damping       = frm_hdr->cdef_params.cdef_damping;
 
-                if (fbr == nvfb - 1) {
-                    rend = vsize;
-                } else {
-                    rend = vsize + CDEF_VBORDER;
-                }
+                int32_t hsize = nhb << mi_wide_l2[pli];
+                int32_t vsize = nvb << mi_high_l2[pli];
+                int32_t rend  = (fbr == nvfb - 1) ? vsize : vsize + CDEF_VBORDER;
+                int32_t cend  = (fbc == nhfb - 1) ? hsize : hsize + CDEF_HBORDER;
 
-                coffset             = fbc * MI_SIZE_64X64 << mi_wide_l2[pli];
+                int32_t  coffset    = fbc * MI_SIZE_64X64 << mi_wide_l2[pli];
                 EbByte   rec_buff   = recon_pic->buffer[pli];
                 uint32_t rec_stride = recon_pic->stride[pli];
-                if (pli) {
-                    level        = uv_level;
-                    sec_strength = uv_sec_strength;
-                }
-#if OPT_CDEF_PER_PLANE_SKIP
-                // Per-plane elision: when this plane's strength is (0,0), the
-                // filter is a no-op and the only purpose of the per-plane src[]
-                // border-copy machinery is to feed colbuf[pli] / linebuf[pli]
-                // for neighbours (right, below). Since the recon for this plane
-                // is unmodified, we can source those saves directly from
-                // rec_buff and skip the whole src[] dance.
-                //
-                // For luma (pli=0) we additionally require dirinit==1 so that
-                // dir/var are already populated by the search; if dirinit==0
-                // (use_reference_cdef_fs / use_qp_strength), svt_cdef_filter_fb
-                // must still run to populate dir for subsequent chroma planes.
-                if (level == 0 && sec_strength == 0 && (pli != 0 || dirinit) && fbc == nhfb - 1) {
-                    // Save linebuf[pli] (bottom edge for the FB below) from rec_buff.
-                    if (fbr < nvfb - 1) {
-                        svt_aom_copy_sb8_16(&linebuf[pli][coffset],
-                                            stride,
-                                            rec_buff,
-                                            (MI_SIZE_64X64 << mi_high_l2[pli]) * (fbr + 1) - CDEF_VBORDER,
-                                            coffset,
-                                            rec_stride,
-                                            CDEF_VBORDER,
-                                            hsize,
-                                            is_16bit);
-                    }
-                    // Save colbuf[pli] (right edge for the FB to the right) from rec_buff.
-                    // colbuf layout: rend+VBORDER rows x HBORDER cols, mirroring the
-                    // standard save which reads from src[] rows 0..rend+VBORDER-1 cols
-                    // hsize..hsize+HBORDER-1 (== rec_buff cols coffset+hsize-HBORDER..coffset+hsize-1).
-                    //
-                    // - For fbr > 0: copy the full rend+VBORDER rows starting VBORDER above the FB.
-                    // - For fbr == 0: the top VBORDER rows of colbuf are read by the right
-                    //   neighbour but immediately overwritten by its frame_top fill, so we
-                    //   skip them (rec_buff has no rows above 0).
-                    if (fbc < nhfb - 1) {
-                        const int32_t row_top     = (fbr == 0) ? 0 : -CDEF_VBORDER;
-                        const int32_t num_rows    = (fbr == 0) ? rend : (rend + CDEF_VBORDER);
-                        const int32_t dst_row_off = (fbr == 0) ? CDEF_VBORDER : 0;
-                        svt_aom_copy_sb8_16(colbuf[pli] + dst_row_off * CDEF_HBORDER,
-                                            CDEF_HBORDER,
-                                            rec_buff,
-                                            (MI_SIZE_64X64 << mi_high_l2[pli]) * fbr + row_top,
-                                            coffset + hsize - CDEF_HBORDER,
-                                            rec_stride,
-                                            num_rows,
-                                            CDEF_HBORDER,
-                                            is_16bit);
-                    }
-                    continue;
-                }
-#endif
 
 #if CDEF_8BITS_PATH
                 // Interior fb (no frame border) on the 8-bit pipeline: native direct path.
@@ -613,10 +536,8 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                                                 pli,
                                                 dlist,
                                                 cdef_count,
-                                                level,
-                                                sec_strength,
-                                                pri_damping,
-                                                sec_damping,
+                                                cdef_strength,
+                                                damping,
                                                 coeff_shift,
                                                 xdec[pli],
                                                 ydec[pli]);
@@ -738,7 +659,7 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                 }
                 // if ppcs->cdef_ctrls.use_reference_cdef_fs is true, then search was not performed
                 // Therefore, need to make sure dir and var are initialized
-                if (level || sec_strength || !dirinit) {
+                if (cdef_strength || !dirinit) {
 #if CDEF_8BITS_PATH
                     // Per-8x8-block hybrid apply (8-bit content): narrow src->src8 and
                     // run the native kernel on every block except the frame-perimeter
@@ -769,10 +690,8 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                                                   pli,
                                                   dlist,
                                                   cdef_count,
-                                                  level,
-                                                  sec_strength,
-                                                  pri_damping,
-                                                  sec_damping,
+                                                  cdef_strength,
+                                                  damping,
                                                   coeff_shift,
                                                   1);
                     } else
@@ -794,10 +713,8 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
                             pli,
                             dlist,
                             cdef_count,
-                            level,
-                            sec_strength,
-                            pri_damping,
-                            sec_damping,
+                            cdef_strength,
+                            damping,
                             coeff_shift,
                             1); // no subsampling
                 }
@@ -809,11 +726,6 @@ void svt_av1_cdef_frame(SequenceControlSet* scs, PictureControlSet* pcs) {
             prev_row_cdef = curr_row_cdef;
             curr_row_cdef = tmp;
         }
-    }
-    svt_aom_free(row_cdef);
-    for (int32_t pli = 0; pli < num_planes; pli++) {
-        svt_aom_free(linebuf[pli]);
-        svt_aom_free(colbuf[pli]);
     }
 }
 
@@ -1070,15 +982,10 @@ void finish_cdef_search(PictureControlSet* pcs) {
         return;
     }
 
-    int32_t* sb_index;
-    EB_MALLOC_ARRAY_NO_CHECK(sb_index, nvfb * nhfb);
-    assert(sb_index != NULL);
-
-    uint64_t** mse[2];
-    EB_MALLOC_ARRAY_NO_CHECK(mse[0], nvfb * nhfb);
-    EB_MALLOC_ARRAY_NO_CHECK(mse[1], nvfb * nhfb);
-    assert(mse[0] != NULL);
-    assert(mse[1] != NULL);
+    // Persistent per-pcs scratch (allocated once with the pcs, sized b64_total_count) instead of a
+    // per-frame malloc/free. mse[] are pointer arrays into the persistent mse_seg.
+    int32_t*   sb_index = pcs->cdef_sb_index;
+    uint64_t** mse[2]   = {pcs->cdef_mse_ptr[0], pcs->cdef_mse_ptr[1]};
 
     const int32_t start_gi = 0;
     const int32_t end_gi   = first_pass_fs_num + default_second_pass_fs_num;
@@ -1224,10 +1131,6 @@ void finish_cdef_search(PictureControlSet* pcs) {
     }
 
     frm_hdr->cdef_params.cdef_damping = CDEF_DAMPING_FROM_QP(frm_hdr->quantization_params.base_q_idx);
-
-    EB_FREE_ARRAY(mse[0]);
-    EB_FREE_ARRAY(mse[1]);
-    EB_FREE_ARRAY(sb_index);
 }
 #else
 void finish_cdef_search(PictureControlSet* pcs) {

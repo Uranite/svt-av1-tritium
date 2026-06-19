@@ -337,19 +337,18 @@ void svt_aom_copy_sb8_16(uint16_t* dst, int32_t dstride, const uint8_t* src, int
 void svt_cdef_filter_fb(uint8_t* dst8, uint16_t* dst16, int32_t dstride, uint16_t* in, int32_t xdec, int32_t ydec,
                         uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
                         int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t pli, CdefList* dlist, int32_t cdef_count,
-                        int32_t level, int32_t sec_strength, int32_t pri_damping, int32_t sec_damping,
-                        int32_t coeff_shift, uint8_t subsampling_factor) {
+                        int32_t cdef_strength, int32_t damping, int32_t coeff_shift, uint8_t subsampling_factor) {
     int32_t bi;
-    int32_t pri_strength = level << coeff_shift;
-    sec_strength <<= coeff_shift;
-    sec_damping += coeff_shift - (pli != PLANE_Y);
-    pri_damping += coeff_shift - (pli != PLANE_Y);
+    int32_t pri_strength = (cdef_strength / CDEF_SEC_STRENGTHS) << coeff_shift;
+    int32_t sec          = cdef_strength % CDEF_SEC_STRENGTHS;
+    int32_t sec_strength = (sec + (sec == 3)) << coeff_shift;
+    damping += coeff_shift - (pli != PLANE_Y);
 
     int32_t bsize  = ydec ? (xdec ? BLOCK_4X4 : BLOCK_8X4) : (xdec ? BLOCK_4X8 : BLOCK_8X8);
     int32_t bsizex = 3 - xdec;
     int32_t bsizey = 3 - ydec;
 
-    if (!dstride && pri_strength == 0 && sec_strength == 0) {
+    if (!dstride && cdef_strength == 0) {
         // If we're here, both primary and secondary strengths are 0, and
         // we still haven't written anything to y[] yet, so we just copy
         // the input to y[]. This is necessary only for svt_av1_cdef_search()
@@ -409,8 +408,8 @@ void svt_cdef_filter_fb(uint8_t* dst8, uint16_t* dst16, int32_t dstride, uint16_
                               t,
                               sec_strength,
                               pri_strength ? dir[by][bx] : 0,
-                              pri_damping,
-                              sec_damping,
+                              damping,
+                              damping,
                               bsize,
                               coeff_shift,
                               subsampling_factor);
@@ -454,13 +453,13 @@ void svt_cdef_filter_fb_hybrid(uint8_t* dst8, int32_t dstride, const uint16_t* i
                                int frame_left, int frame_bottom, int frame_right, int vsize, int hsize, int32_t xdec,
                                int32_t ydec, uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
                                int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t pli, CdefList* dlist,
-                               int32_t cdef_count, int32_t level, int32_t sec_strength, int32_t pri_damping,
-                               int32_t sec_damping, int32_t coeff_shift, uint8_t subsampling_factor) {
+                               int32_t cdef_count, int32_t cdef_strength, int32_t damping, int32_t coeff_shift,
+                               uint8_t subsampling_factor) {
     int32_t bi;
-    int32_t pri_strength = level << coeff_shift;
-    sec_strength <<= coeff_shift;
-    sec_damping += coeff_shift - (pli != PLANE_Y);
-    pri_damping += coeff_shift - (pli != PLANE_Y);
+    int32_t pri_strength = (cdef_strength / CDEF_SEC_STRENGTHS) << coeff_shift;
+    int32_t sec          = cdef_strength % CDEF_SEC_STRENGTHS;
+    int32_t sec_strength = (sec + (sec == 3)) << coeff_shift;
+    damping += coeff_shift - (pli != PLANE_Y);
 
     int32_t bsize  = ydec ? (xdec ? BLOCK_4X4 : BLOCK_8X4) : (xdec ? BLOCK_4X8 : BLOCK_8X8);
     int32_t bsizex = 3 - xdec;
@@ -469,7 +468,7 @@ void svt_cdef_filter_fb_hybrid(uint8_t* dst8, int32_t dstride, const uint16_t* i
     const int32_t by_last = (vsize >> bsizey) - 1;
     const int32_t bx_last = (hsize >> bsizex) - 1;
 
-    if (!dstride && pri_strength == 0 && sec_strength == 0) {
+    if (!dstride && cdef_strength == 0) {
         // Zero-strength search candidate: copy input straight to packed output. Each row
         // is 4/8 contiguous bytes -> one memcpy (lowers to a single load/store).
         const int w = 1 << bsizex;
@@ -518,8 +517,8 @@ void svt_cdef_filter_fb_hybrid(uint8_t* dst8, int32_t dstride, const uint16_t* i
                                        t,
                                        sec_strength,
                                        bdir,
-                                       pri_damping,
-                                       sec_damping,
+                                       damping,
+                                       damping,
                                        bsize,
                                        coeff_shift,
                                        subsampling_factor);
@@ -547,23 +546,14 @@ void svt_cdef_filter_fb_hybrid(uint8_t* dst8, int32_t dstride, const uint16_t* i
                                   t,
                                   sec_strength,
                                   bdir,
-                                  pri_damping,
-                                  sec_damping,
+                                  damping,
+                                  damping,
                                   bsize,
                                   coeff_shift,
                                   subsampling_factor);
         } else {
-            svt_cdef_filter_block_8bit(d,
-                                       ds,
-                                       &in8[off],
-                                       t,
-                                       sec_strength,
-                                       bdir,
-                                       pri_damping,
-                                       sec_damping,
-                                       bsize,
-                                       coeff_shift,
-                                       subsampling_factor);
+            svt_cdef_filter_block_8bit(
+                d, ds, &in8[off], t, sec_strength, bdir, damping, damping, bsize, coeff_shift, subsampling_factor);
         }
     }
 }

@@ -210,6 +210,14 @@ static void picture_control_set_dctor(EbPtr p) {
     EB_FREE_ARRAY(obj->skip_cdef_seg);
     EB_FREE_ARRAY(obj->cdef_dir_data);
     EB_FREE_ARRAY(obj->cdef_fb_list);
+    EB_FREE_ARRAY(obj->cdef_sb_index);
+    EB_FREE_ARRAY(obj->cdef_mse_ptr[0]);
+    EB_FREE_ARRAY(obj->cdef_mse_ptr[1]);
+    svt_aom_free(obj->cdef_row_cdef);
+    for (int cdef_p = 0; cdef_p < 3; cdef_p++) {
+        svt_aom_free(obj->cdef_linebuf[cdef_p]);
+        svt_aom_free(obj->cdef_colbuf[cdef_p]);
+    }
     EB_FREE_ARRAY(obj->mi_grid_base);
     EB_FREE_ARRAY(obj->mip);
     EB_FREE_ARRAY(obj->md_rate_est_ctx);
@@ -1017,6 +1025,9 @@ static EbErrorType picture_control_set_ctor(PictureControlSet* object_ptr, EbPtr
     EB_MALLOC_ARRAY(object_ptr->skip_cdef_seg, object_ptr->b64_total_count);
     EB_MALLOC_ARRAY(object_ptr->cdef_dir_data, object_ptr->b64_total_count);
     EB_MALLOC_ARRAY(object_ptr->cdef_fb_list, object_ptr->b64_total_count);
+    EB_MALLOC_ARRAY(object_ptr->cdef_sb_index, object_ptr->b64_total_count);
+    EB_MALLOC_ARRAY(object_ptr->cdef_mse_ptr[0], object_ptr->b64_total_count);
+    EB_MALLOC_ARRAY(object_ptr->cdef_mse_ptr[1], object_ptr->b64_total_count);
     EB_CREATE_MUTEX(object_ptr->rest_search_mutex);
 
     //the granularity is 4x4

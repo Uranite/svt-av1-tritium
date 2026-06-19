@@ -91,7 +91,6 @@ extern "C" {
 #define OPT_SUBPEL_CTRL            1 // Upgrade subpel-ctrl: new FIXED_STAGE cases 7-10, updated level assignments, remove early_neigh_check_exit param
 #define OPT_VLPD0_PATH_INTER       1 // Bypass generate_md_stage_0_cand/md_stage_0, evaluate ME candidates directly on ref buffer (bit-exact)
 #define OPT_PADDING                1 // Rewrite svt_aom_generate_padding: use svt_memset per-row for horizontal padding and svt_memcpy for vertical row replication; reduces 4 temp pointers to 2, eliminates sizeof(uint8_t) multiplier.
-#define OPT_CDEF_PER_PLANE_SKIP    1 // Per-plane skip of src[] border copies + filter call in svt_av1_cdef_frame when that plane's (level,sec)=(0,0); linebuf/colbuf are saved directly from the unmodified rec_buff
 #define OPT_APPROX_COEFF_RATE      1 // Mirror the existing luma cheap eob-based coeff-rate path on the chroma side (svt_aom_full_loop_uv / svt_aom_cuchroma_coding_loop): both for consistency and to bypass useless rate-estimation operation
 #define OPT_SHAVE_COEFF_LIN        1 // Optimize coeff-shaving processing and restrict to isolated coeff removal (no energy-based skip)
 #define OPT_MRP_HME_L0_DETECT      1 // Prune extra L0 refs in PD (RTC only) when the LAST-to-LAST2 (flat_ipp) or LAST-to-LAST3 (non-flat, base layer) HME-L0 SAD ratio exceeds early_hme_l0_prune_th/100

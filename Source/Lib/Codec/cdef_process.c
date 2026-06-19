@@ -300,8 +300,7 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
     const int32_t       coeff_shift = AOMMAX(scs->static_config.encoder_bit_depth - 8, 0);
     const int32_t       nvfb        = (mi_rows + MI_SIZE_64X64 - 1) / MI_SIZE_64X64;
     const int32_t       nhfb        = (mi_cols + MI_SIZE_64X64 - 1) / MI_SIZE_64X64;
-    const int32_t       pri_damping = 3 + (frm_hdr->quantization_params.base_q_idx >> 6);
-    const int32_t       sec_damping = pri_damping;
+    const int32_t       damping     = 3 + (frm_hdr->quantization_params.base_q_idx >> 6);
     const int32_t       num_planes  = 3;
     const bool          sb64        = scs->seq_header.sb_size == BLOCK_64X64;
     CdefList            dlist_local[MI_SIZE_128X128 * MI_SIZE_128X128];
@@ -492,9 +491,6 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                         continue;
                     }
 
-                    int32_t pri_strength = cdef_ctrls->default_first_pass_fs[gi] / CDEF_SEC_STRENGTHS;
-                    int32_t sec_strength = cdef_ctrls->default_first_pass_fs[gi] % CDEF_SEC_STRENGTHS;
-
 #if CDEF_8BITS_PATH
                     if (native_8bit) {
                         svt_cdef_filter_fb_hybrid((uint8_t*)tmp_dst,
@@ -515,10 +511,8 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                                   pli,
                                                   dlist,
                                                   cdef_count,
-                                                  pri_strength,
-                                                  sec_strength + (sec_strength == 3),
-                                                  pri_damping,
-                                                  sec_damping,
+                                                  cdef_ctrls->default_first_pass_fs[gi],
+                                                  damping,
                                                   coeff_shift,
                                                   subsampling_factor);
                     } else
@@ -535,10 +529,8 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                            pli,
                                            dlist,
                                            cdef_count,
-                                           pri_strength,
-                                           sec_strength + (sec_strength == 3),
-                                           pri_damping,
-                                           sec_damping,
+                                           cdef_ctrls->default_first_pass_fs[gi],
+                                           damping,
                                            coeff_shift,
                                            subsampling_factor);
                     uint64_t curr_mse = compute_cdef_dist(
@@ -570,11 +562,6 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                         continue;
                     }
 
-                    int32_t pri_strength = cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num] /
-                        CDEF_SEC_STRENGTHS;
-                    int32_t sec_strength = cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num] %
-                        CDEF_SEC_STRENGTHS;
-
 #if CDEF_8BITS_PATH
                     if (native_8bit) {
                         svt_cdef_filter_fb_hybrid((uint8_t*)tmp_dst,
@@ -595,10 +582,8 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                                   pli,
                                                   dlist,
                                                   cdef_count,
-                                                  pri_strength,
-                                                  sec_strength + (sec_strength == 3),
-                                                  pri_damping,
-                                                  sec_damping,
+                                                  cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num],
+                                                  damping,
                                                   coeff_shift,
                                                   subsampling_factor);
                     } else
@@ -615,10 +600,8 @@ static void cdef_seg_search(PictureControlSet* pcs, SequenceControlSet* scs, uin
                                            pli,
                                            dlist,
                                            cdef_count,
-                                           pri_strength,
-                                           sec_strength + (sec_strength == 3),
-                                           pri_damping,
-                                           sec_damping,
+                                           cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num],
+                                           damping,
                                            coeff_shift,
                                            subsampling_factor);
                     uint64_t curr_mse = compute_cdef_dist(
