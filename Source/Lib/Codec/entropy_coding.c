@@ -468,18 +468,12 @@ static int32_t av1_write_coeffs_txb_1d(PictureParentControlSet* ppcs, FRAME_CONT
     AomCdfProb(*base_cdf)[CDF_SIZE(4)]         = frame_context->coeff_base_cdf[txs_ctx][component_type];
     AomCdfProb(*br_cdf)[CDF_SIZE(BR_CDF_SIZE)] = frame_context->coeff_br_cdf[br_txs_ctx][component_type];
 
-    // Cache: store level and sign for each scan position 0..eob-1
-    // VLA sized to eob (guaranteed >= 2 here) instead of MAX_TX_SQUARE (4096)
-    // to reduce stack usage from ~12KB to a few bytes for typical small blocks.
-    // MSVC does not support C99 VLAs, so fall back to MAX_TX_SQUARE there.
-#ifdef _MSC_VER
-    int16_t cached_level[MAX_TX_SQUARE];
-    uint8_t cached_sign[MAX_TX_SQUARE];
-#else
-    int16_t cached_level[eob];
-    uint8_t cached_sign[eob];
-#endif
-    int32_t cul_level = 0;
+    // Cache: store level and sign for each scan position 0..eob-1.
+    // Buffers live in ec_ctx (persistent) instead of a stack VLA, so this function
+    // emits no ___chkstk_darwin probe.
+    int16_t* const cached_level = ec_ctx->cached_level;
+    uint8_t* const cached_sign  = ec_ctx->cached_sign;
+    int32_t        cul_level    = 0;
 
     // Backward pass: base levels + base_range + cache
     {

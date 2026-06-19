@@ -1232,7 +1232,10 @@ typedef struct ModeDecisionContext {
     // Maximum number of candidates MD can support
     uint32_t max_nics;
     // Maximum number of candidates MD can support
-    uint32_t                 max_nics_uv;
+    uint32_t max_nics_uv;
+    // Persistent scratch for sort_fast_cost_based_candidates in search_best_independent_uv_mode
+    // (was a per-call EB_MALLOC_ARRAY/EB_FREE_ARRAY). Sized max_nics_uv at ctor.
+    uint32_t*                uv_cand_buff_indices;
     InterpolationSearchCtrls ifs_ctrls;
     // If enabled, will bypass EncDec and copy recon/quant coeffs from MD
     bool bypass_encdec;

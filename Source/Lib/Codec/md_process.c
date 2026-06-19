@@ -96,6 +96,7 @@ static void mode_decision_context_dctor(EbPtr p) {
     EB_FREE_ARRAY(obj->mds);
     EB_FREE_ARRAY(obj->pc_tree);
     EB_FREE_ARRAY(obj->tested_blk);
+    EB_FREE_ARRAY(obj->uv_cand_buff_indices);
     obj->blocks_to_alloc = 0;
     EB_FREE_ARRAY(obj->md_blk_arr_nsq);
 #if OPT_LPD1_GLOBALMV_BYPASS
@@ -343,6 +344,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
     max_nics += CAND_CLASS_TOTAL; //need one extra temp buffer for each fast loop call
     ctx->max_nics    = max_nics;
     ctx->max_nics_uv = max_nics + ind_uv_cands;
+    EB_MALLOC_ARRAY(ctx->uv_cand_buff_indices, ctx->max_nics_uv);
     // Cfl scratch memory
     if (ctx->hbd_md > EB_8_BIT_MD) {
         EB_MALLOC_ALIGNED(ctx->cfl_temp_luma_recon16bit, sizeof(uint16_t) * sb_size * sb_size);

@@ -7815,8 +7815,7 @@ static void search_best_independent_uv_mode(PictureControlSet* pcs, EbPictureBuf
     }
 
     // Sort uv_mode candidates (in terms of distortion only)
-    uint32_t* uv_cand_buff_indices;
-    EB_MALLOC_ARRAY_NO_CHECK(uv_cand_buff_indices, ctx->max_nics_uv);
+    uint32_t* uv_cand_buff_indices = ctx->uv_cand_buff_indices;
     memset(uv_cand_buff_indices, 0xFF, ctx->max_nics_uv * sizeof(*uv_cand_buff_indices));
 
     sort_fast_cost_based_candidates(
@@ -7954,7 +7953,6 @@ static void search_best_independent_uv_mode(PictureControlSet* pcs, EbPictureBuf
             }
         }
     }
-    EB_FREE_ARRAY(uv_cand_buff_indices);
     ctx->ind_uv_avail = 1;
 }
 

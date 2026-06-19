@@ -623,6 +623,29 @@ static inline void convolve_2d_sr_4tap_neon_dotprod(const uint8_t* src, int src_
     }
 }
 
+static NOINLINE void convolve_2d_sr_8tap_general_neon_dotprod(const uint8_t* src_ptr, int src_stride, uint8_t* dst,
+                                                              int dst_stride, int w, int h, const int16_t* x_filter_ptr,
+                                                              const int16_t* y_filter_ptr, int im_h, int im_stride,
+                                                              int clamped_y_taps, int x_filter_taps) {
+    DECLARE_ALIGNED(16, int16_t, im_block[(MAX_SB_SIZE + SUBPEL_TAPS - 1) * MAX_SB_SIZE]);
+
+    if (x_filter_taps <= 4) {
+        convolve_2d_sr_horiz_4tap_neon_dotprod(src_ptr + 2, src_stride, im_block, im_stride, w, im_h, x_filter_ptr);
+    } else {
+        convolve_2d_sr_horiz_8tap_neon_dotprod(src_ptr, src_stride, im_block, im_stride, w, im_h, x_filter_ptr);
+    }
+
+    const int16x8_t y_filter = vld1q_s16(y_filter_ptr);
+
+    if (clamped_y_taps <= 4) {
+        convolve_2d_sr_vert_4tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter_ptr);
+    } else if (clamped_y_taps == 6) {
+        convolve_2d_sr_vert_6tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter_ptr);
+    } else {
+        convolve_2d_sr_vert_8tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter);
+    }
+}
+
 void svt_av1_convolve_2d_sr_neon_dotprod(const uint8_t* src, int src_stride, uint8_t* dst, int dst_stride, int w, int h,
                                          const InterpFilterParams* filter_params_x,
                                          const InterpFilterParams* filter_params_y, const int subpel_x_qn,
@@ -669,21 +692,18 @@ void svt_av1_convolve_2d_sr_neon_dotprod(const uint8_t* src, int src_stride, uin
         return;
     }
 
-    DECLARE_ALIGNED(16, int16_t, im_block[(MAX_SB_SIZE + SUBPEL_TAPS - 1) * MAX_SB_SIZE]);
-
-    if (x_filter_taps <= 4) {
-        convolve_2d_sr_horiz_4tap_neon_dotprod(src_ptr + 2, src_stride, im_block, im_stride, w, im_h, x_filter_ptr);
-    } else {
-        convolve_2d_sr_horiz_8tap_neon_dotprod(src_ptr, src_stride, im_block, im_stride, w, im_h, x_filter_ptr);
-    }
-
-    const int16x8_t y_filter = vld1q_s16(y_filter_ptr);
-
-    if (clamped_y_taps <= 4) {
-        convolve_2d_sr_vert_4tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter_ptr);
-    } else if (clamped_y_taps == 6) {
-        convolve_2d_sr_vert_6tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter_ptr);
-    } else {
-        convolve_2d_sr_vert_8tap_neon(im_block, im_stride, dst, dst_stride, w, h, y_filter);
-    }
+    // The 34KB im_block lives in a NOINLINE helper so this hot dispatcher keeps a
+    // <4KB frame and emits no ___chkstk_darwin probe on the common fast-path returns above.
+    convolve_2d_sr_8tap_general_neon_dotprod(src_ptr,
+                                             src_stride,
+                                             dst,
+                                             dst_stride,
+                                             w,
+                                             h,
+                                             x_filter_ptr,
+                                             y_filter_ptr,
+                                             im_h,
+                                             im_stride,
+                                             clamped_y_taps,
+                                             x_filter_taps);
 }
