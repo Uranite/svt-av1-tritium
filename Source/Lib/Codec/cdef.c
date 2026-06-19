@@ -536,29 +536,29 @@ static AOM_INLINE void cdef_find_dir_8bit(const uint8_t* in, CdefList* dlist, in
 
 // in8: 8-bit padded buffer for all blocks. Interior-vs-frame-edge dispatch is decided from the
 // frame_* geometry flags; frame-perimeter ring blocks use the boundary-aware kernel on in8.
-void svt_cdef_filter_fb_lbd(uint8_t* dst8, int32_t dstride, const uint8_t* in8, int frame_top, int frame_left,
-                            int frame_bottom, int frame_right, int vsize, int hsize, int32_t xdec, int32_t ydec,
-                            uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
-                            int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t pli, CdefList* dlist, int32_t cdef_count,
-                            int32_t cdef_strength, int32_t damping, int32_t coeff_shift, uint8_t subsampling_factor) {
+// Body of svt_cdef_filter_fb_lbd, force-inlined so the per-plane call sites below specialize it with
+// compile-time-constant bsize/bsizex/bsizey/is_luma. That constant block size then propagates into the
+// (PGO/LTO-inlined) per-block kernels, which otherwise only see a runtime bsize.
+static AOM_FORCE_INLINE void cdef_filter_fb_lbd_impl(uint8_t* dst8, int32_t dstride, const uint8_t* in8, int frame_top,
+                                                     int frame_left, int frame_bottom, int frame_right, int vsize,
+                                                     int hsize, int32_t xdec, int32_t ydec,
+                                                     uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
+                                                     int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t pli,
+                                                     CdefList* dlist, int32_t cdef_count, int32_t cdef_strength,
+                                                     int32_t damping, int32_t coeff_shift, uint8_t subsampling_factor,
+                                                     int32_t bsize, int32_t bsizex, int32_t bsizey, int is_luma) {
     int32_t bi;
     int32_t pri_strength = (cdef_strength / CDEF_SEC_STRENGTHS) << coeff_shift;
     int32_t sec          = cdef_strength % CDEF_SEC_STRENGTHS;
     int32_t sec_strength = (sec + (sec == 3)) << coeff_shift;
-    damping += coeff_shift - (pli != PLANE_Y);
+    damping += coeff_shift - (is_luma ? 0 : 1);
 
-    int32_t bsize  = ydec ? (xdec ? BLOCK_4X4 : BLOCK_8X4) : (xdec ? BLOCK_4X8 : BLOCK_8X8);
-    int32_t bsizex = 3 - xdec;
-    int32_t bsizey = 3 - ydec;
     // Last block row/col index within the fb (frame-edge ring detection).
     const int32_t by_last = (vsize >> bsizey) - 1;
     const int32_t bx_last = (hsize >> bsizex) - 1;
 
     if (!dstride && cdef_strength == 0) {
-        // Zero-strength search candidate: copy input straight to packed output. Each row is
-        // 4 or 8 contiguous bytes. w is runtime so memcpy(,,w) lowers to a memmove CALL; branch
-        // on the (only two) widths ONCE (loop-invariant) so each loop gets a constant-size memcpy
-        // that inlines to a single load/store.
+        // Zero-strength search candidate: copy input straight to packed output (4/8-byte rows).
         const int w = 1 << bsizex;
         if (w == 8) {
             for (bi = 0; bi < cdef_count; bi++) {
@@ -580,7 +580,7 @@ void svt_cdef_filter_fb_lbd(uint8_t* dst8, int32_t dstride, const uint8_t* in8, 
         return;
     }
 
-    if (pli == 0) {
+    if (is_luma) {
         if (!dirinit || !*dirinit) {
             cdef_find_dir_8bit(in8, dlist, var, cdef_count, coeff_shift, dir);
             if (dirinit) {
@@ -597,24 +597,20 @@ void svt_cdef_filter_fb_lbd(uint8_t* dst8, int32_t dstride, const uint8_t* in8, 
         }
     }
 
-    // Strength 0 reaches here only as the "compute dir for later planes" pass (apply path; the
-    // search zero-candidate returned above). dir/var are now populated, and filtering at strength 0
-    // is an identity passthrough, so skip the per-block loop entirely.
+    // Strength 0 reaches here only as the "compute dir for later planes" pass; identity passthrough.
     if (cdef_strength == 0) {
         return;
     }
 
     bool edge_fb = frame_top || frame_left || frame_bottom || frame_right;
     for (bi = 0; bi < cdef_count; bi++) {
-        int32_t by   = dlist[bi].by;
-        int32_t bx   = dlist[bi].bx;
-        int32_t t    = pli ? pri_strength : adjust_strength(pri_strength, var[by][bx]);
-        int32_t k    = dstride ? (by << bsizey) * dstride + (bx << bsizex) : bi << (bsizex + bsizey);
-        int32_t ds   = dstride ? dstride : 1 << bsizex;
-        int32_t off  = (by * CDEF_BSTRIDE << bsizey) + (bx << bsizex);
-        int32_t bdir = pri_strength ? dir[by][bx] : 0;
-        // Outermost block row/col against a frame border ("ring" block): some taps reach off-frame.
-        // Exclude those taps by geometry (per-block edge flags) with the boundary-aware kernel.
+        int32_t   by          = dlist[bi].by;
+        int32_t   bx          = dlist[bi].bx;
+        int32_t   t           = is_luma ? adjust_strength(pri_strength, var[by][bx]) : pri_strength;
+        int32_t   k           = dstride ? (by << bsizey) * dstride + (bx << bsizex) : bi << (bsizex + bsizey);
+        int32_t   ds          = dstride ? dstride : 1 << bsizex;
+        int32_t   off         = (by * CDEF_BSTRIDE << bsizey) + (bx << bsizex);
+        int32_t   bdir        = pri_strength ? dir[by][bx] : 0;
         const int edge_top    = frame_top && by == 0;
         const int edge_bottom = frame_bottom && by == by_last;
         const int edge_left   = frame_left && bx == 0;
@@ -638,6 +634,146 @@ void svt_cdef_filter_fb_lbd(uint8_t* dst8, int32_t dstride, const uint8_t* in8, 
             svt_cdef_filter_block_8bit(
                 &dst8[k], ds, &in8[off], t, sec_strength, bdir, damping, bsize, coeff_shift, subsampling_factor);
         }
+    }
+}
+
+static void cdef_filter_fb_lbd_luma(uint8_t* dst8, int32_t dstride, const uint8_t* in8, int frame_top, int frame_left,
+                                    int frame_bottom, int frame_right, int vsize, int hsize,
+                                    uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
+                                    int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], CdefList* dlist, int32_t cdef_count,
+                                    int32_t cdef_strength, int32_t damping, int32_t coeff_shift,
+                                    uint8_t subsampling_factor) {
+    cdef_filter_fb_lbd_impl(dst8,
+                            dstride,
+                            in8,
+                            frame_top,
+                            frame_left,
+                            frame_bottom,
+                            frame_right,
+                            vsize,
+                            hsize,
+                            0,
+                            0,
+                            dir,
+                            dirinit,
+                            var,
+                            /*pli*/ 0,
+                            dlist,
+                            cdef_count,
+                            cdef_strength,
+                            damping,
+                            coeff_shift,
+                            subsampling_factor,
+                            BLOCK_8X8,
+                            3,
+                            3,
+                            /*is_luma*/ 1);
+}
+
+static void cdef_filter_fb_lbd_chroma(uint8_t* dst8, int32_t dstride, const uint8_t* in8, int frame_top, int frame_left,
+                                      int frame_bottom, int frame_right, int vsize, int hsize, int32_t pli,
+                                      uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
+                                      int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], CdefList* dlist, int32_t cdef_count,
+                                      int32_t cdef_strength, int32_t damping, int32_t coeff_shift,
+                                      uint8_t subsampling_factor) {
+    cdef_filter_fb_lbd_impl(dst8,
+                            dstride,
+                            in8,
+                            frame_top,
+                            frame_left,
+                            frame_bottom,
+                            frame_right,
+                            vsize,
+                            hsize,
+                            1,
+                            1,
+                            dir,
+                            dirinit,
+                            var,
+                            pli,
+                            dlist,
+                            cdef_count,
+                            cdef_strength,
+                            damping,
+                            coeff_shift,
+                            subsampling_factor,
+                            BLOCK_4X4,
+                            2,
+                            2,
+                            /*is_luma*/ 0);
+}
+
+void svt_cdef_filter_fb_lbd(uint8_t* dst8, int32_t dstride, const uint8_t* in8, int frame_top, int frame_left,
+                            int frame_bottom, int frame_right, int vsize, int hsize, int32_t xdec, int32_t ydec,
+                            uint8_t dir[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t* dirinit,
+                            int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS], int32_t pli, CdefList* dlist, int32_t cdef_count,
+                            int32_t cdef_strength, int32_t damping, int32_t coeff_shift, uint8_t subsampling_factor) {
+    if (xdec == 0 && ydec == 0) { // luma: BLOCK_8X8
+        cdef_filter_fb_lbd_luma(dst8,
+                                dstride,
+                                in8,
+                                frame_top,
+                                frame_left,
+                                frame_bottom,
+                                frame_right,
+                                vsize,
+                                hsize,
+                                dir,
+                                dirinit,
+                                var,
+                                dlist,
+                                cdef_count,
+                                cdef_strength,
+                                damping,
+                                coeff_shift,
+                                subsampling_factor);
+    } else if (xdec == 1 && ydec == 1) { // chroma 4:2:0: BLOCK_4X4
+        cdef_filter_fb_lbd_chroma(dst8,
+                                  dstride,
+                                  in8,
+                                  frame_top,
+                                  frame_left,
+                                  frame_bottom,
+                                  frame_right,
+                                  vsize,
+                                  hsize,
+                                  pli,
+                                  dir,
+                                  dirinit,
+                                  var,
+                                  dlist,
+                                  cdef_count,
+                                  cdef_strength,
+                                  damping,
+                                  coeff_shift,
+                                  subsampling_factor);
+    } else { // 4:2:2 / 4:4:4: runtime block size
+        const int32_t bsize = ydec ? (xdec ? BLOCK_4X4 : BLOCK_8X4) : (xdec ? BLOCK_4X8 : BLOCK_8X8);
+        cdef_filter_fb_lbd_impl(dst8,
+                                dstride,
+                                in8,
+                                frame_top,
+                                frame_left,
+                                frame_bottom,
+                                frame_right,
+                                vsize,
+                                hsize,
+                                xdec,
+                                ydec,
+                                dir,
+                                dirinit,
+                                var,
+                                pli,
+                                dlist,
+                                cdef_count,
+                                cdef_strength,
+                                damping,
+                                coeff_shift,
+                                subsampling_factor,
+                                bsize,
+                                3 - xdec,
+                                3 - ydec,
+                                pli == 0);
     }
 }
 #endif // CDEF_8BITS_PATH
