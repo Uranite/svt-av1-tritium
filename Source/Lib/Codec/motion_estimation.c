@@ -2849,18 +2849,31 @@ static bool me_static_b64_bypass(MeContext* me_ctx, uint32_t b64_origin_x, uint3
         return false;
     }
 
-    EbPictureBufferDesc* ref_pic = me_ctx->me_ds_ref_array[0][0].picture_ptr;
-    uint32_t zz_sad = get_zz_sad(ref_pic, me_ctx, b64_origin_x, b64_origin_y, me_ctx->b64_width, me_ctx->b64_height);
-    if ((uint64_t)zz_sad * 64 * 64 >= (uint64_t)me_ctx->me_static_b64_th * me_ctx->b64_width * me_ctx->b64_height) {
+    // The bypass decision uses the list0/ref0 zero-motion SAD: if the block is static against the
+    // primary reference, skip the full ME pipeline (HME + integer search).
+    const uint32_t l0r0_raw = get_zz_sad(me_ctx->me_ds_ref_array[0][0].picture_ptr,
+                                         me_ctx,
+                                         b64_origin_x,
+                                         b64_origin_y,
+                                         me_ctx->b64_width,
+                                         me_ctx->b64_height);
+    if ((uint64_t)l0r0_raw * 64 * 64 >= (uint64_t)me_ctx->me_static_b64_th * me_ctx->b64_width * me_ctx->b64_height) {
         return false;
     }
-    // Normalize to equivalent 64x64 SAD for downstream consumers
-    zz_sad = (uint32_t)((uint64_t)zz_sad * 64 * 64 / (me_ctx->b64_width * me_ctx->b64_height));
 
+    // Static block against list0/ref0. Fill the zero-MV ME result for list0/ref0 only, and disable
+    // every farther reference (do_ref = 0) so mode decision skips it entirely. This matches the
+    // optimization's intent -- the bypass exits ME for ALL references on a static block, not just
+    // ref0 -- while removing the non-determinism. The previous code filled only list0/ref0 and left
+    // the other ref slots holding a stale per-ref best-SAD from a previously processed b64;
+    // construct_me_candidate_array() consumed that for best-distortion / candidate pruning, and which
+    // b64s a thread picks up depends on ME segment scheduling, so the bitstream became thread-count /
+    // run dependent. With do_ref = 0 those slots are never read. do_ref is re-initialized to 1 for
+    // every reference by init_me_hme_data() at the top of each b64, so disabling it here is per-b64
+    // safe. The single-reference path is unchanged (no farther refs to disable).
+    const uint32_t zz_sad = (uint32_t)((uint64_t)l0r0_raw * 64 * 64 / (me_ctx->b64_width * me_ctx->b64_height));
     me_ctx->zz_sad[0][0]                = zz_sad;
     me_ctx->search_results[0][0].do_ref = 1;
-    // p_sb_best_mv was fully zeroed by init_me_hme_data() before this bypass runs,
-    // so list0/ref0 is already cleared; no per-bypass memset needed.
     // 64x64
     me_ctx->p_sb_best_sad[0][0][RASTER_SCAN_CU_INDEX_64x64] = zz_sad;
     // 32x32
@@ -2877,6 +2890,13 @@ static bool me_static_b64_bypass(MeContext* me_ctx, uint32_t b64_origin_x, uint3
     const uint32_t sad8 = zz_sad >> 6;
     for (int i = RASTER_SCAN_CU_INDEX_8x8_0; i < SQUARE_PU_COUNT; i++) {
         me_ctx->p_sb_best_sad[0][0][i] = sad8;
+    }
+    // Disable every farther reference: do_ref = 0 => skipped in MD, stale SAD never read.
+    for (uint32_t list_index = REF_LIST_0; list_index < me_ctx->num_of_list_to_search; ++list_index) {
+        for (uint8_t ref_idx = 0; ref_idx < me_ctx->num_of_ref_pic_to_search[list_index]; ++ref_idx) {
+            if (list_index != 0 || ref_idx != 0)
+                me_ctx->search_results[list_index][ref_idx].do_ref = 0;
+        }
     }
     return true;
 }
