@@ -593,7 +593,7 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
 
     max_pa_proc  = max_input;
     max_me_proc  = max_me * tot_me_segs;
-    max_tpl_proc = get_max_wavefronts(scs->max_input_luma_width, scs->max_input_luma_height, 64);
+    max_tpl_proc = scs->tpl ? get_max_wavefronts(scs->max_input_luma_width, scs->max_input_luma_height, 64) : 1;
     max_mdc_proc = scs->picture_control_set_pool_init_count_child;
     max_md_proc  = scs->picture_control_set_pool_init_count_child *
         get_max_wavefronts(scs->max_input_luma_width, scs->max_input_luma_height, scs->super_block_size);
