@@ -14,9 +14,9 @@
 #include <string.h>
 
 #include "enc_cdef.h"
-#include "cdef_copy.h"
 #include <stdint.h>
 #include "aom_dsp_rtcd.h"
+#include "cdef_copy.h"
 #include "svt_log.h"
 #include "rd_cost.h"
 #include "rc_process.h"

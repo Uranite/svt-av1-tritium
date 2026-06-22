@@ -20,6 +20,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "svt_malloc.h" // svt_aom_memset16
+
 // 8-bit recon -> padded src8 rect copy. The CDEF gather (apply + native-8 search) only ever uses the
 // widths enumerated below (all CDEF reads are +/-CDEF_HALO, so body is hsz+2*HALO and halo strips are
 // HALO). Dispatch ONCE per call to a constant-size memcpy loop so each row folds to optimal inline
@@ -72,27 +74,6 @@ static inline void svt_cdef_copy_rect8(uint8_t* dst, int dstride, const uint8_t*
 }
 
 // HBD-only paths below (compiled out of RTC via the CDEF_8BITS_PATH guards at the call sites).
-// TODO: route widen/narrow through the RTCD helpers svt_convert_8bit_to_16bit /
-// svt_convert_16bit_to_8bit (optimized per target); needs an HBD bit-exact gate to verify.
-static inline void svt_cdef_narrow_rect(uint8_t* dst, int dstride, const uint16_t* src, int sstride, int v, int h) {
-    for (int r = 0; r < v; r++) {
-        for (int c = 0; c < h; c++) {
-            dst[c] = (uint8_t)src[c];
-        }
-        dst += dstride;
-        src += sstride;
-    }
-}
-
-static inline void svt_cdef_widen_rect(uint16_t* dst, int dstride, const uint8_t* src, int sstride, int v, int h) {
-    for (int r = 0; r < v; r++) {
-        for (int c = 0; c < h; c++) {
-            dst[c] = (uint16_t)src[c];
-        }
-        dst += dstride;
-        src += sstride;
-    }
-}
 
 // uint16->uint16 rect copy (edge-path src assembly).
 static inline void svt_aom_copy_rect(uint16_t* dst, int dstride, const uint16_t* src, int sstride, int v, int h) {
@@ -106,9 +87,7 @@ static inline void svt_aom_copy_rect(uint16_t* dst, int dstride, const uint16_t*
 // uint16 rect fill (edge-path off-frame sentinel).
 static inline void svt_aom_fill_rect(uint16_t* dst, int dstride, int v, int h, uint16_t x) {
     for (int r = 0; r < v; r++) {
-        for (int c = 0; c < h; c++) {
-            dst[r * dstride + c] = x;
-        }
+        svt_aom_memset16(dst + r * dstride, x, (size_t)h);
     }
 }
 
@@ -120,7 +99,8 @@ static inline void svt_aom_copy_sb8_16(uint16_t* dst, int dstride, const uint8_t
         svt_aom_copy_rect(
             dst, dstride, (const uint16_t*)src + (src_voffset * sstride + src_hoffset), sstride, vsize, hsize);
     } else {
-        svt_cdef_widen_rect(dst, dstride, &src[src_voffset * sstride + src_hoffset], sstride, vsize, hsize);
+        svt_aom_copy_rect8_8bit_to_16bit(
+            dst, dstride, &src[src_voffset * sstride + src_hoffset], sstride, vsize, hsize);
     }
 }
 
