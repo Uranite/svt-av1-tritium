@@ -401,9 +401,6 @@ void svt_cdef_filter_fb(uint8_t* dst8, uint16_t* dst16, int32_t dstride, uint16_
     }
 }
 
-#if CDEF_8BITS_PATH
-#include "cdef_copy.h"
-
 // Per-tap (drow,dcol) decode of eb_cdef_directions_padded, with the same +2-offset indexing as
 // svt_aom_eb_cdef_directions. The boundary-aware kernels (C and NEON) use these to test, per tap,
 // whether the tap lands off-frame (geometry) instead of reading an in-band 16-bit sentinel. Decoded
@@ -505,6 +502,9 @@ void svt_cdef_filter_block_8bit_bounded_c(uint8_t* dst, int32_t dstride, const u
         }
     }
 }
+
+#if CDEF_8BITS_PATH
+#include "cdef_copy.h"
 
 static AOM_INLINE void cdef_find_dir_8bit(const uint8_t* in, CdefList* dlist, int32_t var[CDEF_NBLOCKS][CDEF_NBLOCKS],
                                           int32_t cdef_count, int32_t coeff_shift,
