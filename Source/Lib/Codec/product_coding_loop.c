@@ -6480,11 +6480,27 @@ static bool lpd1_should_perform_tx(PictureControlSet* pcs, ModeDecisionContext* 
         }
     }
 
+#if OPT_LPD1_TX_SKIP_QP_MOD
+    // At low QP, reduce the skip score more aggressively, especially for luma-dominant input.
+    uint8_t qp_bias = 20;
+
+    if (ctx->qp_index < 32) {
+        score -= (qp_bias * (pcs->ppcs->is_luma_dominant_input ? 10 : 1));
+    } else if (ctx->qp_index < 64) {
+        score -= (qp_bias * (pcs->ppcs->is_luma_dominant_input ? 5 : 0));
+    } else if (ctx->qp_index < 128) {
+        score -= (qp_bias * (pcs->ppcs->is_luma_dominant_input ? 3 : 0));
+    }
+#else
     // Reduce score on grayscale-like input, where luma carries most of the signal energy
+#if OPT_IS_INPUT_LUMA_DOMINANT
+    if (pcs->ppcs->is_luma_dominant_input) {
+#else
     if (pcs->ppcs->is_grayscale_like_input) {
+#endif
         score -= 150;
     }
-
+#endif
     // Skip TX once the accumulated skip evidence reaches the configured threshold
     return score < ctx->lpd1_tx_skip_decision_ctrls.skip_tx_score_th;
 }
@@ -6649,6 +6665,7 @@ static bool lpd1_blk_skip_luma_rd(ModeDecisionContext* ctx, ModeDecisionCandidat
         lambda, y_coeff_bits + (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_ctx][0], y_dist[DIST_CALC_RESIDUAL]);
     const uint64_t skip_cost = RDCOST(
         lambda, (uint64_t)ctx->md_rate_est_ctx->skip_fac_bits[skip_ctx][1], y_dist[DIST_CALC_PREDICTION]);
+
     if (skip_cost * ctx->lpd1_blk_skip_luma_rd_pct < non_skip_cost * 100) {
         cand_bf->y_has_coeff     = 0;
         cand_bf->eob.y[0]        = 0;
@@ -6819,13 +6836,21 @@ static void full_loop_core_light_pd1(PictureControlSet* pcs, ModeDecisionContext
     // Skip-prediction (luma-only RD). See lpd1_blk_skip_luma_rd().
     // Inputs (prediction-SSD + residual-SSD) are produced by perform_dct_dct_tx_light_pd1 above.
     uint8_t perform_chroma = cand_bf->block_has_coeff || !(ctx->lpd1_tx_ctrls.zero_y_coeff_exit);
-
+#if OPT_LPD1_TX_SKIP_QP_MOD
+    if (ctx->lpd1_blk_skip_luma_rd_pct && perform_tx && cand_bf->block_has_coeff &&
+        is_inter_mode(cand->block_mi.mode)) {
+        if (lpd1_blk_skip_luma_rd(ctx, cand_bf, y_coeff_bits, y_full_distortion[DIST_SSD])) {
+            perform_chroma = false;
+        }
+    }
+#else
     if (ctx->lpd1_blk_skip_luma_rd_pct && perform_tx && cand_bf->block_has_coeff && ctx->blk_skip_decision &&
         is_inter_mode(cand->block_mi.mode) && !svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id)) {
         if (lpd1_blk_skip_luma_rd(ctx, cand_bf, y_coeff_bits, y_full_distortion[DIST_SSD])) {
             perform_chroma = false;
         }
     }
+#endif
 #else
     uint8_t perform_chroma = cand_bf->block_has_coeff || !(ctx->lpd1_tx_ctrls.zero_y_coeff_exit);
 #endif

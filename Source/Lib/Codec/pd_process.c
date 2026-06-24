@@ -5000,7 +5000,11 @@ static void copy_tf_params(SequenceControlSet* scs, PictureParentControlSet* pcs
 void svt_aom_is_screen_content(PictureParentControlSet* pcs);
 void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet* pcs);
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+bool svt_aom_is_input_luma_dominant(const EbPictureBufferDesc* input_pic);
+#else
 bool svt_aom_is_input_grayscale_like(const EbPictureBufferDesc* input_pic);
+#endif
 #endif
 /*
 * Update the list0 count try and the list1 count try based on the Enc-Mode, whether BASE or not, whether SC or not
@@ -5391,9 +5395,16 @@ static void perform_sc_detection(SequenceControlSet* scs, PictureParentControlSe
                 break;
             }
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+            // Luma-dominant detection in ST mode
+            if (scs->detect_luma_dominant_input) {
+                pcs->is_luma_dominant_input = svt_aom_is_input_luma_dominant(pcs->chroma_downsampled_pic);
+            }
+#else
             if (scs->detect_grayscale_like_input) {
                 pcs->is_grayscale_like_input = svt_aom_is_input_grayscale_like(pcs->chroma_downsampled_pic);
             }
+#endif
 #endif
         }
         ctx->last_i_picture_sc_class0 = pcs->sc_class0;
@@ -5405,9 +5416,12 @@ static void perform_sc_detection(SequenceControlSet* scs, PictureParentControlSe
         ctx->last_i_picture_sc_class5 = pcs->sc_class5;
 #endif
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+        ctx->last_i_is_luma_dominant_input = pcs->is_luma_dominant_input;
+#else
         ctx->last_i_picture_grayscale_like_input = pcs->is_grayscale_like_input;
 #endif
-
+#endif
     } else {
         pcs->sc_class0 = ctx->last_i_picture_sc_class0;
         pcs->sc_class1 = ctx->last_i_picture_sc_class1;
@@ -5418,7 +5432,11 @@ static void perform_sc_detection(SequenceControlSet* scs, PictureParentControlSe
         pcs->sc_class5 = ctx->last_i_picture_sc_class5;
 #endif
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+        pcs->is_luma_dominant_input = ctx->last_i_is_luma_dominant_input;
+#else
         pcs->is_grayscale_like_input = ctx->last_i_picture_grayscale_like_input;
+#endif
 #endif
     }
 }

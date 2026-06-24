@@ -1434,6 +1434,72 @@ void svt_aom_is_screen_content(PictureParentControlSet* pcs) {
 }
 
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+#define FRAME_LUMA_DOMINANT_SAMPLE_STEP 8
+#define FRAME_LUMA_DOMINANT_CORE_THR 16
+#define FRAME_LUMA_DOMINANT_TAIL_THR 18
+#define FRAME_LUMA_DOMINANT_MIN_CORE_PCT 85
+#define FRAME_LUMA_DOMINANT_MIN_TAIL_PCT 95
+#define FRAME_LUMA_DOMINANT_NEUTRAL_THR 6
+#define FRAME_LUMA_DOMINANT_UV_DIFF_THR 4
+#define FRAME_LUMA_DOMINANT_MIN_NEUTRAL_PCT 75
+
+bool svt_aom_is_input_luma_dominant(const EbPictureBufferDesc* input_pic) {
+    if (!input_pic || input_pic->color_format == EB_YUV400 || !input_pic->u_buffer || !input_pic->v_buffer) {
+        return false;
+    }
+
+    const uint32_t uv_w = input_pic->width >> 1;
+    const uint32_t uv_h = input_pic->height >> 1;
+
+    if (!uv_w || !uv_h) {
+        return false;
+    }
+
+    uint32_t sample_cnt  = 0;
+    uint32_t core_cnt    = 0;
+    uint32_t tail_cnt    = 0;
+    uint32_t neutral_cnt = 0;
+
+    const uint32_t core_thr_sq = FRAME_LUMA_DOMINANT_CORE_THR * FRAME_LUMA_DOMINANT_CORE_THR;
+    const uint32_t tail_thr_sq = FRAME_LUMA_DOMINANT_TAIL_THR * FRAME_LUMA_DOMINANT_TAIL_THR;
+
+    for (uint32_t y = 0; y < uv_h; y += FRAME_LUMA_DOMINANT_SAMPLE_STEP) {
+        const uint8_t* const ub = input_pic->u_buffer + y * input_pic->u_stride;
+        const uint8_t* const vb = input_pic->v_buffer + y * input_pic->v_stride;
+
+        for (uint32_t x = 0; x < uv_w; x += FRAME_LUMA_DOMINANT_SAMPLE_STEP) {
+            const int32_t  du            = (int32_t)ub[x] - 128;
+            const int32_t  dv            = (int32_t)vb[x] - 128;
+            const int32_t  uv            = (int32_t)ub[x] - (int32_t)vb[x];
+            const uint32_t chroma_mag_sq = (uint32_t)(du * du + dv * dv);
+            const int32_t  abs_du        = du < 0 ? -du : du;
+            const int32_t  abs_dv        = dv < 0 ? -dv : dv;
+            const int32_t  abs_uv        = uv < 0 ? -uv : uv;
+
+            // Most samples must stay inside a tight near-neutral chroma region,
+            // and almost all samples must stay inside a slightly looser region.
+            if (chroma_mag_sq <= core_thr_sq) {
+                core_cnt++;
+            }
+            if (chroma_mag_sq <= tail_thr_sq) {
+                tail_cnt++;
+            }
+            if (abs_du <= FRAME_LUMA_DOMINANT_NEUTRAL_THR && abs_dv <= FRAME_LUMA_DOMINANT_NEUTRAL_THR &&
+                abs_uv <= FRAME_LUMA_DOMINANT_UV_DIFF_THR) {
+                neutral_cnt++;
+            }
+
+            sample_cnt++;
+        }
+    }
+
+    return sample_cnt && core_cnt * 100 >= sample_cnt * FRAME_LUMA_DOMINANT_MIN_CORE_PCT &&
+        (tail_cnt * 100 >= sample_cnt * FRAME_LUMA_DOMINANT_MIN_TAIL_PCT ||
+         neutral_cnt * 100 >= sample_cnt * FRAME_LUMA_DOMINANT_MIN_NEUTRAL_PCT);
+}
+
+#else
 #define PD_FRAME_GRAYLIKE_SAMPLE_STEP 8
 #define PD_FRAME_GRAYLIKE_NEUTRAL_THR 6
 #define PD_FRAME_GRAYLIKE_UV_DIFF_THR 4
@@ -1475,6 +1541,7 @@ bool svt_aom_is_input_grayscale_like(const EbPictureBufferDesc* input_pic) {
 
     return sample_cnt && (neutral_cnt * 100 >= sample_cnt * PD_FRAME_GRAYLIKE_MIN_PASS_PCT);
 }
+#endif
 #endif
 
 /************************************************
@@ -1928,7 +1995,11 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
     pcs            = (PictureParentControlSet*)in_results_ptr->pcs_wrapper->object_ptr;
 
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+    pcs->is_luma_dominant_input = false;
+#else
     pcs->is_grayscale_like_input = false;
+#endif
 #endif
 
     // Mariana : save enhanced picture ptr, move this from here
@@ -2021,10 +2092,17 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
                 break;
             }
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+            // Luma-dominant detection in MT mode
+            if (scs->detect_luma_dominant_input) {
+                pcs->is_luma_dominant_input = svt_aom_is_input_luma_dominant(pcs->chroma_downsampled_pic);
+            }
+#else
             // Grayscale-like detection in MT mode
             if (scs->detect_grayscale_like_input) {
                 pcs->is_grayscale_like_input = svt_aom_is_input_grayscale_like(pcs->chroma_downsampled_pic);
             }
+#endif
 #endif
         }
     }

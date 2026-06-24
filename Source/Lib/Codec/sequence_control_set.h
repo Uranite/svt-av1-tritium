@@ -231,7 +231,11 @@ typedef struct SequenceControlSet {
     VqCtrls      vq_ctrls;
     uint8_t      calc_hist;
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+    uint8_t detect_luma_dominant_input;
+#else
     uint8_t detect_grayscale_like_input;
+#endif
 #endif
     TfControls tf_params_per_type[3]; // [I_SLICE][BASE][L1]
     MrpCtrls   mrp_ctrls;

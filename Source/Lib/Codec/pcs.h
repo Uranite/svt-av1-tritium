@@ -989,7 +989,11 @@ typedef struct PictureParentControlSet {
     uint8_t sc_class3;
     uint8_t sc_class4;
     uint8_t sc_class5;
-#if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+    // True when chroma stays near-neutral for the vast majority of the frame,
+    // indicating that most coding-relevant signal energy is carried by luma.
+    bool is_luma_dominant_input;
+#else
     // Frame-level grayscale-like hint computed during picture analysis from input chroma
     bool is_grayscale_like_input;
 #endif

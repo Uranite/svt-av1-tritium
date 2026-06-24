@@ -4573,11 +4573,19 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         scs->calculate_variance = 0;
     }
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+    if (allintra) {
+        scs->detect_luma_dominant_input = false;
+    } else {
+        scs->detect_luma_dominant_input = true;
+    }
+#else
     if (allintra) {
         scs->detect_grayscale_like_input = false;
     } else {
         scs->detect_grayscale_like_input = true;
     }
+#endif
 #endif
     scs->resize_pending_params.resize_state = ORIG;
     scs->resize_pending_params.resize_denom = SCALE_NUMERATOR;

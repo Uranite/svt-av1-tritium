@@ -119,6 +119,8 @@ extern "C" {
 #define CLN_RENAME_PD0             1 // Rename PD0 light identifiers (light pd0 -> pd0, very light pd0 -> pd0 lvl 6)
 #define OPT_PD0_RTC_M7             1 // Keep RTC M7 (<=360p) I-slices on light PD0_LVL_1 (off the new LVL_0)
 #define OPT_LPD1_TX_SKIP_DECISION  1 // Add LPD1 score-based early luma-TX skip decision with grayscale-aware gating
+#define OPT_IS_INPUT_LUMA_DOMINANT 1 // Replace the grayscale-like detector with a luma-dominant detector based on chroma distance from neutral in the UV plane
+#define OPT_LPD1_TX_SKIP_QP_MOD    1 // Add QP-based score bias for low picture QP
 //FOR DEBUGGING - Do not remove
 
 

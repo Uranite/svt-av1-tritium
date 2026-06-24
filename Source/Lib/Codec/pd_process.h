@@ -109,7 +109,11 @@ typedef struct PictureDecisionContext {
     uint8_t last_i_picture_sc_class5;
 #endif
 #if OPT_LPD1_TX_SKIP_DECISION
+#if OPT_IS_INPUT_LUMA_DOMINANT
+    bool last_i_is_luma_dominant_input;
+#else
     bool last_i_picture_grayscale_like_input;
+#endif
 #endif
     uint64_t                 last_long_base_pic;
     uint64_t                 key_poc;
