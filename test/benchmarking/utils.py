@@ -93,16 +93,19 @@ def get_max_workers(max_workers: int) -> int:
     return min(max_workers, int(cpu_count() * 2))
 
 
-def get_cmd_times(cmd, passes=1):
+def get_cmd_times(cmd, passes=1, return_stderr=False):
     """
     Execute command and return its execution time.
 
     Args:
         cmd: command line to run, as single string for shell=True usage
         passes: number of iterations
+        return_stderr: when True, return (time, stderr_of_last_run) so callers
+            that need the program's stderr (e.g. to parse an encoder's PSNR
+            summary) can get it without spending an extra run.
 
     Returns:
-        Process time in seconds
+        Process time in seconds, or (time, stderr) when return_stderr is True.
     """
 
     # use system `time` command in POSIX format
@@ -111,6 +114,7 @@ def get_cmd_times(cmd, passes=1):
     total_time = 0.0
     wallclock_time = 0.0
     actual_passes = 0
+    last_stderr = ""
 
     if passes > 0:
         # for fixed number of passes - do all at once
@@ -137,6 +141,7 @@ def get_cmd_times(cmd, passes=1):
         )
 
         res = subprocess.run(run_cmd, shell=True, capture_output=True, text=True)
+        last_stderr = res.stderr
 
         try:
             time_values = res.stderr.splitlines()[-3:]
@@ -153,13 +158,11 @@ def get_cmd_times(cmd, passes=1):
     wallclock_time = time.time() - time_s
 
     if actual_passes == 0:
-        return wallclock_time
+        return (wallclock_time, last_stderr) if return_stderr else wallclock_time
 
     use_usr_sys_time = True
-    if use_usr_sys_time:
-        return total_time / actual_passes
-
-    return wallclock_time / actual_passes
+    result_time = total_time / actual_passes if use_usr_sys_time else wallclock_time / actual_passes
+    return (result_time, last_stderr) if return_stderr else result_time
 
 
 def collect_nsys_stats(report_path):

@@ -676,10 +676,21 @@ class DataReaders:
             "input_size",
             "output_size",
             "encoded_path",
+            # present only in SVT-only PSNR fast mode (encoder-reported PSNR)
+            "psnr_y",
+            "psnr_cb",
+            "psnr_cr",
         ]
         # Only keep columns that exist in the DataFrame
         columns_to_keep = [col for col in columns_to_keep if col in df.columns]
         df = df[columns_to_keep]
+
+        # PSNR columns exist in the enc CSV only in SVT-only PSNR fast mode. In
+        # the normal pipeline they are present-but-empty; drop them so they don't
+        # collide with the decode/QM CSV's real psnr_* columns during merge.
+        for col in ["psnr_y", "psnr_cb", "psnr_cr"]:
+            if col in df.columns and df[col].isna().all():
+                df = df.drop(columns=[col])
 
         return df
 

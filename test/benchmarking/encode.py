@@ -10,13 +10,14 @@
 # https://www.aomedia.org/license/patent-license.
 
 import os
+import re
 import shutil
 import signal
 import subprocess
 import sys
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -26,7 +27,13 @@ from config_manager import ConfigManager
 from format_conversion import detect_source_format, generate_input_data_reformats
 from tqdm import tqdm
 
-config_path = sys.argv[1] if len(sys.argv) > 1 else None
+# First non-flag argument is the config path; flags (e.g. --svt-psnr-fast) may
+# follow it in any order.
+_args = [a for a in sys.argv[1:] if not a.startswith("--")]
+config_path = _args[0] if _args else None
+# SVT-only PSNR fast mode: append --enable-stat-report 1 and read PSNR straight
+# from the encoder stderr instead of a separate dav1d-decode + VMAF pass.
+SVT_PSNR_FAST = "--svt-psnr-fast" in sys.argv
 config_manager = ConfigManager(config_path=config_path)
 PATHS = config_manager.get_paths()
 BINARIES = config_manager.get_binaries()
@@ -73,6 +80,36 @@ class EncodeResult:
     nsys_report_path: str = ""
     cpu_sampling_top1_func: str = ""
     osrt_total_ms: float = 0.0
+    # Optional PSNR columns, populated only in SVT-only PSNR fast mode (parsed
+    # from the encoder's --enable-stat-report summary). None otherwise.
+    psnr_y: Optional[float] = None
+    psnr_cb: Optional[float] = None
+    psnr_cr: Optional[float] = None
+
+
+# Matches a PSNR value with its trailing dB unit, e.g. "40.69 dB".
+_PSNR_DB_RE = re.compile(r"(-?\d+\.\d+)\s*dB")
+
+
+def parse_svt_avg_psnr(
+    stderr_text: str,
+) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+    """Extract the encoder's "Average PSNR (using per-frame PSNR)" Y/U/V values.
+
+    The --enable-stat-report summary data line packs two PSNR groups split by
+    '|':  <frames> <qp> Y dB U dB V dB | Yo dB Uo dB Vo dB | ...SSIM... | kbps
+    The first segment holds the per-frame-averaged PSNR (the same quantity VMAF
+    reports as its pooled-mean PSNR); the second is the MSE-pooled "Overall
+    PSNR". We take the first for parity with the decode+VMAF pipeline.
+    """
+    for line in stderr_text.splitlines():
+        if "dB" not in line or "|" not in line or "kbps" not in line:
+            continue
+        first_group = line.split("|", 1)[0]
+        vals = _PSNR_DB_RE.findall(first_group)
+        if len(vals) >= 3:
+            return float(vals[0]), float(vals[1]), float(vals[2])
+    return None, None, None
 
 
 _profiler_warned = False
@@ -159,6 +196,10 @@ def encode_file(task: EncodeTask, output_dir: str) -> EncodeResult:
     if profiler_prefix:
         command = profiler_prefix + command
 
+    if SVT_PSNR_FAST:
+        # Make the encoder compute & print PSNR so we can skip decode + VMAF.
+        command = f"{command} --enable-stat-report 1"
+
     # Get input file size
     input_size = os.path.getsize(input_path)
     enc_logger.info(command)
@@ -172,7 +213,12 @@ def encode_file(task: EncodeTask, output_dir: str) -> EncodeResult:
         )
 
     try:
-        encode_time = utils.get_cmd_times(command, passes)
+        if SVT_PSNR_FAST:
+            encode_time, stderr_text = utils.get_cmd_times(
+                command, passes, return_stderr=True
+            )
+        else:
+            encode_time = utils.get_cmd_times(command, passes)
 
         # Get output file size
         output_size = os.path.getsize(encoded_path)
@@ -184,6 +230,15 @@ def encode_file(task: EncodeTask, output_dir: str) -> EncodeResult:
             input_size=input_size,
             nsys_report_path=profile_report_path,
         )
+        if SVT_PSNR_FAST:
+            result.psnr_y, result.psnr_cb, result.psnr_cr = parse_svt_avg_psnr(
+                stderr_text
+            )
+            if result.psnr_y is None:
+                enc_logger.warning(
+                    f"No PSNR parsed for {task.encoder_name} s{task.speed} "
+                    f"q{task.quality} {task.input_file}; encoder summary missing?"
+                )
         if profile_report_path and os.path.exists(profile_report_path):
             stats = utils.collect_nsys_stats(profile_report_path)
             result.cpu_sampling_top1_func = stats.get("cpu_sampling_top1_func", "")
