@@ -1,5 +1,46 @@
 # Changelog
 
+## [4.2.0-rc] - 2026-06-24
+
+VOD / Random Access
+
+- Added TUNE-VMAF mode targeting ~15% VMAF BD-rate improvement at minimal PSNR loss
+- Implement single-thread processing mode with RA handling
+- RA preset tuning and bitrate optimization for M3-M5
+- New CLI options: `--cqp`, `--enable-intrabc`, `--hbd-mds`, `--enable-kf-tf`
+- Added raw OBU output format as alternative to IVF
+- Signal `initial_display_delay` in sequence header to fix A/V sync on seek
+
+RTC / Low Delay
+
+- Added CBR rate control with Kalman-filter QP estimation, cyclic refresh, and frame re-encode
+- Added on-the-fly MG size, preset, bitrate, and frame rate changes
+- Added reference frame management API with LTR support and two-layer RPS structure
+- Exposed `--max-intra-bitrate-pct` and `--max-inter-bitrate-pct` parameters
+- Improved compression efficiency vs. cycle tradeoff across RTC presets
+
+Encoder (general)
+
+- Refactor entropy coding: direct tile-buffer writes, arithmetic coder simplifications, coefficient shaving
+- CDEF optimizations: 8-bit boundary-aware filter, persistent scratch buffers, luma/chroma specialization
+- MD and ME optimizations (LPD1 early-skip, VLPD0 fast path, static-block ME bypass)
+- Optimize still-image screen content detection
+
+Arm
+
+- Add lowbd (8-bit) int16 forward transform NEON kernels (4x4 through 32x32)
+- Add Neon SAD, quantize-matrix, SSIM, VMAF, variance, and pixel projection error kernels
+- Add SVE2 VMAF kernels and hardware CRC-32C for hash-based ME
+- Optimize convolution, full distortion, and SAD calculation functions
+
+Bug fixes and documentation
+
+- Fixed superres recode crash, RESIZE_DYNAMIC under `--rtc`, and RTC candidate-count overflow
+- Fixed signed left-shift UB, OOB reads, and race conditions in rate control
+- Added NVTX/Nsight Systems profiling hooks, PPC toolchain, and macOS universal binary support
+- Addressed cppcheck warnings and rewrote affected unit tests
+- General code cleanup, documentation updates, and test improvements
+
 ## [4.1] - 2026-03-23
 
 Encoder
