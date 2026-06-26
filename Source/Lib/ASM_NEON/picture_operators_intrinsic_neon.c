@@ -1091,8 +1091,8 @@ void svt_residual_kernel16bit_neon(uint16_t* input, uint32_t input_stride, uint1
     }
 }
 
-void svt_convert_8bit_to_16bit_neon(uint8_t* src, uint32_t src_stride, uint16_t* dst,
-                                     uint32_t dst_stride, uint32_t width, uint32_t height) {
+void svt_convert_8bit_to_16bit_neon(uint8_t* src, uint32_t src_stride, uint16_t* dst, uint32_t dst_stride,
+                                    uint32_t width, uint32_t height) {
     if (width == 8) {
         do {
             vst1q_u16(dst, vmovl_u8(vld1_u8(src)));
@@ -1101,12 +1101,12 @@ void svt_convert_8bit_to_16bit_neon(uint8_t* src, uint32_t src_stride, uint16_t*
         } while (--height != 0);
     } else {
         do {
-            uint32_t        w       = width;
-            const uint8_t*  src_ptr = src;
-            uint16_t*       dst_ptr = dst;
+            uint32_t       w       = width;
+            const uint8_t* src_ptr = src;
+            uint16_t*      dst_ptr = dst;
             while (w >= 16) {
                 const uint8x16_t s = vld1q_u8(src_ptr);
-                vst1q_u16(dst_ptr,     vmovl_u8(vget_low_u8(s)));
+                vst1q_u16(dst_ptr, vmovl_u8(vget_low_u8(s)));
                 vst1q_u16(dst_ptr + 8, vmovl_high_u8(s));
                 src_ptr += 16;
                 dst_ptr += 16;
@@ -1121,8 +1121,8 @@ void svt_convert_8bit_to_16bit_neon(uint8_t* src, uint32_t src_stride, uint16_t*
     }
 }
 
-void svt_convert_16bit_to_8bit_neon(uint16_t* src, uint32_t src_stride, uint8_t* dst,
-                                     uint32_t dst_stride, uint32_t width, uint32_t height) {
+void svt_convert_16bit_to_8bit_neon(uint16_t* src, uint32_t src_stride, uint8_t* dst, uint32_t dst_stride,
+                                    uint32_t width, uint32_t height) {
     if (width == 8) {
         do {
             vst1_u8(dst, vmovn_u16(vld1q_u16(src)));
