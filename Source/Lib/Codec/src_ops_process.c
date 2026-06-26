@@ -812,7 +812,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext* enc_ctx, SequenceCon
                     DECLARE_ALIGNED(32, uint16_t, tmp_dst_y[MAX_TPL_SAMPLES_PER_BLOCK]);
                     DECLARE_ALIGNED(16, uint8_t, seg_mask[2 * MAX_TPL_SAMPLES_PER_BLOCK]);
                     ConvolveParams conv_params_y = get_conv_params_no_round(
-                        0, 0, 0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
+                        0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
 
                     svt_aom_enc_make_inter_predictor(scs,
                                                      ref_pic_ptr->y_buffer,
@@ -900,7 +900,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext* enc_ctx, SequenceCon
                         DECLARE_ALIGNED(32, uint16_t, tmp_dst_y[MAX_TPL_SAMPLES_PER_BLOCK]);
                         DECLARE_ALIGNED(16, uint8_t, seg_mask[2 * MAX_TPL_SAMPLES_PER_BLOCK]);
                         ConvolveParams conv_params_y = get_conv_params_no_round(
-                            0, 0, 0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
+                            0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
 
                         svt_aom_enc_make_inter_predictor(scs,
                                                          ref_pic_ptr->y_buffer,
@@ -1002,7 +1002,7 @@ static void tpl_mc_flow_dispenser_sb_generic(EncodeContext* enc_ctx, SequenceCon
                 DECLARE_ALIGNED(32, uint16_t, tmp_dst_y[MAX_TPL_SAMPLES_PER_BLOCK]);
                 DECLARE_ALIGNED(16, uint8_t, seg_mask[2 * MAX_TPL_SAMPLES_PER_BLOCK]);
                 ConvolveParams conv_params_y = get_conv_params_no_round(
-                    0, 0, 0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
+                    0, tmp_dst_y, MAX_TPL_SIZE, 0 /*is_compound*/, 8 /*bit_depth*/);
 
                 svt_aom_enc_make_inter_predictor(scs,
                                                  ref_pic_ptr->y_buffer,

@@ -249,17 +249,13 @@ class AV1ConvolveTest : public ::testing::TestWithParam<ConvolveParam> {
                         ConvolveParams conv_params_tst;
                         if (is_jnt) {
                             conv_params_ref =
-                                get_conv_params_no_round(0,
-                                                         do_average,
-                                                         0,
+                                get_conv_params_no_round(do_average,
                                                          conv_buf_ref_.data(),
                                                          MAX_SB_SIZE,
                                                          1,
                                                          bd_);
                             conv_params_tst =
-                                get_conv_params_no_round(0,
-                                                         do_average,
-                                                         0,
+                                get_conv_params_no_round(do_average,
                                                          conv_buf_tst_.data(),
                                                          MAX_SB_SIZE,
                                                          1,
@@ -271,9 +267,9 @@ class AV1ConvolveTest : public ::testing::TestWithParam<ConvolveParam> {
 
                         } else {
                             conv_params_ref = get_conv_params_no_round(
-                                0, do_average, 0, nullptr, 0, 0, bd_);
+                                do_average, nullptr, 0, 0, bd_);
                             conv_params_tst = get_conv_params_no_round(
-                                0, do_average, 0, nullptr, 0, 0, bd_);
+                                do_average, nullptr, 0, 0, bd_);
                         }
 
                         test_convolve(has_subx_,

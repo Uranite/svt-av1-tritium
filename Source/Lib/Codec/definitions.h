@@ -665,13 +665,11 @@ static INLINE int svt_numbits(unsigned int x) {
 typedef uint16_t ConvBufType;
 
 typedef struct ConvolveParams {
-    int32_t      ref;
     int32_t      do_average;
     ConvBufType* dst;
     int32_t      dst_stride;
     int32_t      round_0;
     int32_t      round_1;
-    int32_t      plane;
     int32_t      is_compound;
     int32_t      use_jnt_comp_avg;
     int32_t      fwd_offset;

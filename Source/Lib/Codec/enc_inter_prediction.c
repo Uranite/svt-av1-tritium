@@ -808,7 +808,7 @@ static EbErrorType get_single_prediction_for_obmc_luma_hbd(SequenceControlSet* s
     assert(ref_pic_list0 != NULL);
     src_stride  = ref_pic_list0->y_stride;
     dst_stride  = prediction_ptr->y_stride;
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstY, 128, is_compound, bit_depth);
+    conv_params = get_conv_params_no_round(0, tmp_dstY, 128, is_compound, bit_depth);
 
     ScaleFactors sf;
     svt_av1_setup_scale_factors_for_frame(
@@ -873,7 +873,7 @@ static EbErrorType get_single_prediction_for_obmc_chroma_hbd(SequenceControlSet*
     //List0-Cb
     src_stride  = ref_pic_list0->u_stride;
     dst_stride  = prediction_ptr->u_stride;
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstCb, 64, is_compound, bit_depth);
+    conv_params = get_conv_params_no_round(0, tmp_dstCb, 64, is_compound, bit_depth);
 
     ScaleFactors sf;
     svt_av1_setup_scale_factors_for_frame(
@@ -919,7 +919,7 @@ static EbErrorType get_single_prediction_for_obmc_chroma_hbd(SequenceControlSet*
     //List0-Cr
     src_stride  = ref_pic_list0->v_stride;
     dst_stride  = prediction_ptr->v_stride;
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstCr, 64, is_compound, bit_depth);
+    conv_params = get_conv_params_no_round(0, tmp_dstCr, 64, is_compound, bit_depth);
 
     src_ptr_8b = ref_pic_list0->v_buffer;
     src_ptr_2b = ref_pic_list0->v_buffer_bit_inc;
@@ -978,7 +978,7 @@ static EbErrorType get_single_prediction_for_obmc_luma(SequenceControlSet* scs, 
     src_stride = ref_pic_list0->y_stride;
     dst_stride = prediction_ptr->y_stride;
 
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstY, 128, is_compound, EB_EIGHT_BIT);
+    conv_params = get_conv_params_no_round(0, tmp_dstY, 128, is_compound, EB_EIGHT_BIT);
 
     ScaleFactors sf;
     svt_av1_setup_scale_factors_for_frame(
@@ -1040,7 +1040,7 @@ static EbErrorType get_single_prediction_for_obmc_chroma(SequenceControlSet* scs
     src_stride = ref_pic_list0->u_stride;
     dst_stride = prediction_ptr->u_stride;
 
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstCb, 64, is_compound, EB_EIGHT_BIT);
+    conv_params = get_conv_params_no_round(0, tmp_dstCb, 64, is_compound, EB_EIGHT_BIT);
 
     ScaleFactors sf;
     svt_av1_setup_scale_factors_for_frame(
@@ -1086,7 +1086,7 @@ static EbErrorType get_single_prediction_for_obmc_chroma(SequenceControlSet* scs
     src_stride = ref_pic_list0->v_stride;
     dst_stride = prediction_ptr->v_stride;
 
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstCr, 64, is_compound, EB_EIGHT_BIT);
+    conv_params = get_conv_params_no_round(0, tmp_dstCr, 64, is_compound, EB_EIGHT_BIT);
 
     src_ptr = ref_pic_list0->v_buffer;
     dst_ptr = prediction_ptr->v_buffer + (ROUND_UV(dst_origin_x) >> ss_x) +
@@ -2688,7 +2688,7 @@ EbErrorType svt_aom_simple_luma_unipred(SequenceControlSet* scs, ScaleFactors sf
     int32_t dst_stride = prediction_ptr->y_stride;
     /*ScaleFactor*/
     const struct ScaleFactors* const sf = &sf_identity;
-    conv_params                         = get_conv_params_no_round(0, 0, 0, tmp_dstY, 128, is_compound, bit_depth);
+    conv_params                         = get_conv_params_no_round(0, tmp_dstY, 128, is_compound, bit_depth);
 
     tf_inter_predictor(scs,
                        src_ptr,
@@ -2735,10 +2735,9 @@ static void av1_inter_prediction_light_pd0(SequenceControlSet* scs, ModeDecision
     uint8_t* dst_ptr    = pred->y_buffer + ((dst_origin_x + (dst_origin_y)*pred->y_stride));
     int32_t  dst_stride = pred->y_stride;
 #if CLN_PD0
-    ConvolveParams conv_params = get_conv_params_no_round(
-        0, 0, 0, tmp_dstY, conv_buf_stride, is_compound, EB_EIGHT_BIT);
+    ConvolveParams conv_params = get_conv_params_no_round(0, tmp_dstY, conv_buf_stride, is_compound, EB_EIGHT_BIT);
 #else
-    ConvolveParams conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstY, 64, is_compound, EB_EIGHT_BIT);
+    ConvolveParams conv_params = get_conv_params_no_round(0, tmp_dstY, 64, is_compound, EB_EIGHT_BIT);
 #endif
     for (int ref_itr = 0; ref_itr < 1 + is_compound; ref_itr++) {
         SubpelParams subpel_params = {SCALE_SUBPEL_SHIFTS, SCALE_SUBPEL_SHIFTS, 0, 0};
@@ -2806,7 +2805,7 @@ static void av1_inter_prediction_light_pd1(SequenceControlSet* scs, ModeDecision
 
     // Luma prediction
     if (component_mask & PICTURE_BUFFER_DESC_LUMA_MASK) {
-        ConvolveParams conv_params_y = get_conv_params_no_round(0, 0, 0, tmp_dst_y, 64, is_compound, bit_depth);
+        ConvolveParams conv_params_y = get_conv_params_no_round(0, tmp_dst_y, 64, is_compound, bit_depth);
         uint8_t* dst_ptr_y = pred_pic->y_buffer + ((dst_origin_x + (dst_origin_y)*pred_pic->y_stride) << is_16bit);
 
         for (int i = 0; i < 1 + is_compound; i++) {
@@ -2861,8 +2860,8 @@ static void av1_inter_prediction_light_pd1(SequenceControlSet* scs, ModeDecision
             (((dst_origin_x) / 2 + (dst_origin_y) / 2 * pred_pic->u_stride) << is_16bit);
         uint8_t* dst_ptr_cr = pred_pic->v_buffer +
             (((dst_origin_x) / 2 + (dst_origin_y) / 2 * pred_pic->v_stride) << is_16bit);
-        ConvolveParams conv_params_cb      = get_conv_params_no_round(0, 0, 0, tmp_dst_cb, 32, is_compound, bit_depth);
-        ConvolveParams conv_params_cr      = get_conv_params_no_round(0, 0, 0, tmp_dst_cr, 32, is_compound, bit_depth);
+        ConvolveParams conv_params_cb      = get_conv_params_no_round(0, tmp_dst_cb, 32, is_compound, bit_depth);
+        ConvolveParams conv_params_cr      = get_conv_params_no_round(0, tmp_dst_cr, 32, is_compound, bit_depth);
         const int16_t  ref_origin_y_chroma = ref_origin_y / 2;
         const int16_t  ref_origin_x_chroma = ref_origin_x / 2;
 
@@ -3277,7 +3276,7 @@ EbErrorType svt_aom_inter_prediction(SequenceControlSet* scs, PictureControlSet*
     if (component_mask & PICTURE_BUFFER_DESC_LUMA_MASK) {
         const uint8_t  ss_x          = 0;
         const uint8_t  ss_y          = 0;
-        ConvolveParams conv_params_y = get_conv_params_no_round(0, 0, 0, tmp_dst_y, 128, is_compound, bit_depth);
+        ConvolveParams conv_params_y = get_conv_params_no_round(0, tmp_dst_y, 128, is_compound, bit_depth);
         uint8_t*       dst_ptr_y = pred_pic->y_buffer + ((dst_origin_x + (dst_origin_y)*pred_pic->y_stride) << is16bit);
 
         for (int ref_itr = 0; ref_itr < 1 + is_compound; ref_itr++) {
@@ -3348,8 +3347,8 @@ EbErrorType svt_aom_inter_prediction(SequenceControlSet* scs, PictureControlSet*
             ((ROUND_UV(dst_origin_x) / 2 + ROUND_UV(dst_origin_y) / 2 * pred_pic->u_stride) << is16bit);
         uint8_t* dst_ptr_cr = pred_pic->v_buffer +
             ((ROUND_UV(dst_origin_x) / 2 + ROUND_UV(dst_origin_y) / 2 * pred_pic->v_stride) << is16bit);
-        ConvolveParams  conv_params_cb     = get_conv_params_no_round(0, 0, 0, tmp_dst_cb, 64, is_compound, bit_depth);
-        ConvolveParams  conv_params_cr     = get_conv_params_no_round(0, 0, 0, tmp_dst_cr, 64, is_compound, bit_depth);
+        ConvolveParams  conv_params_cb     = get_conv_params_no_round(0, tmp_dst_cb, 64, is_compound, bit_depth);
+        ConvolveParams  conv_params_cr     = get_conv_params_no_round(0, tmp_dst_cr, 64, is_compound, bit_depth);
         const uint8_t   ss_x               = 1; // pd->subsampling_x;
         const uint8_t   ss_y               = 1; //pd->subsampling_y;
         const BlockSize bsize_uv           = get_plane_block_size(bsize, ss_x, ss_y);

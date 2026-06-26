@@ -796,7 +796,7 @@ class BuildCompDiffwtdMaskD16Test
         alignas(32) std::array<uint16_t, MAX_SB_SQUARE> src1;
 
         ConvolveParams conv_params =
-            get_conv_params_no_round(0 /*unused*/, 0, 0, NULL, 0, 1, bd);
+            get_conv_params_no_round(0, NULL, 0, 1, bd);
 
         const auto in_precision = bd + 2 * FILTER_BITS - conv_params.round_0 -
                                   conv_params.round_1 + 2;

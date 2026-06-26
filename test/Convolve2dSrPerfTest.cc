@@ -167,8 +167,7 @@ static double run_once(const Cell &c, int variant, const uint8_t *src,
     ConvolveSrFn fn = fn_pointer(c.fn, variant);
     if (!fn)
         return 0.0;
-    ConvolveParams conv_params =
-        get_conv_params_no_round(0, 0, 0, nullptr, 0, 0, 8);
+    ConvolveParams conv_params = get_conv_params_no_round(0, nullptr, 0, 0, 8);
 
     uint64_t acc = 0;
     auto t0 = clock::now();

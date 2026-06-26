@@ -142,7 +142,6 @@ void AV1WarpFilterTest::RunCheckOutput(const warp_affine_func test_impl) {
     const int num_iters = std::get<2>(params);
     int j;
     constexpr int bd = 8;
-    constexpr int32_t ref = 0;
 
     // The warp functions always write rows with widths that are multiples of 8.
     // So to avoid a buffer overflow, we may need to pad rows to a multiple
@@ -189,16 +188,10 @@ void AV1WarpFilterTest::RunCheckOutput(const warp_affine_func test_impl) {
                              ++do_average) {
                             ConvolveParams conv_params;
                             if (use_no_round) {
-                                conv_params =
-                                    get_conv_params_no_round(ref,
-                                                             do_average,
-                                                             0,
-                                                             dsta.data(),
-                                                             out_w,
-                                                             1,
-                                                             bd);
+                                conv_params = get_conv_params_no_round(
+                                    do_average, dsta.data(), out_w, 1, bd);
                             } else {
-                                conv_params = get_conv_params(ref, 0, 0, bd);
+                                conv_params = get_conv_params(0, bd);
                             }
                             if (jj >= 4) {
                                 conv_params.use_jnt_comp_avg = 0;
@@ -228,14 +221,8 @@ void AV1WarpFilterTest::RunCheckOutput(const warp_affine_func test_impl) {
                                                   gamma,
                                                   delta);
                             if (use_no_round) {
-                                conv_params =
-                                    get_conv_params_no_round(ref,
-                                                             do_average,
-                                                             0,
-                                                             dstb.data(),
-                                                             out_w,
-                                                             1,
-                                                             bd);
+                                conv_params = get_conv_params_no_round(
+                                    do_average, dstb.data(), out_w, 1, bd);
                             }
                             if (jj >= 4) {
                                 conv_params.use_jnt_comp_avg = 0;
@@ -328,7 +315,6 @@ void AV1HighbdWarpFilterTest::RunCheckOutput(
     const int is_delta_zero = TEST_GET_PARAM(4);
     const int out_w = std::get<0>(param), out_h = std::get<1>(param);
     const int bd = std::get<3>(param);
-    constexpr int32_t ref = 0;
     const int num_iters = std::get<2>(param);
     const int mask = (1 << bd) - 1;
     int i, j, sub_x, sub_y;
@@ -386,16 +372,10 @@ void AV1HighbdWarpFilterTest::RunCheckOutput(
                         for (int do_average = 0; do_average <= 1;
                              ++do_average) {
                             if (use_no_round) {
-                                conv_params =
-                                    get_conv_params_no_round(ref,
-                                                             do_average,
-                                                             0,
-                                                             dsta.data(),
-                                                             out_w,
-                                                             1,
-                                                             bd);
+                                conv_params = get_conv_params_no_round(
+                                    do_average, dsta.data(), out_w, 1, bd);
                             } else {
-                                conv_params = get_conv_params(ref, 0, 0, bd);
+                                conv_params = get_conv_params(0, bd);
                             }
                             if (jj >= 4) {
                                 conv_params.use_jnt_comp_avg = 0;
@@ -431,14 +411,8 @@ void AV1HighbdWarpFilterTest::RunCheckOutput(
                             if (use_no_round) {
                                 // TODO(angiebird): Change this to test_impl
                                 // once we have SIMD implementation
-                                conv_params =
-                                    get_conv_params_no_round(ref,
-                                                             do_average,
-                                                             0,
-                                                             dstb.data(),
-                                                             out_w,
-                                                             1,
-                                                             bd);
+                                conv_params = get_conv_params_no_round(
+                                    do_average, dstb.data(), out_w, 1, bd);
                             }
                             if (jj >= 4) {
                                 conv_params.use_jnt_comp_avg = 0;
