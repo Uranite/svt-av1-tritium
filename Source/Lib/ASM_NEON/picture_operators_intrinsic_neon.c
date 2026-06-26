@@ -1135,9 +1135,7 @@ void svt_convert_16bit_to_8bit_neon(uint16_t* src, uint32_t src_stride, uint8_t*
             const uint16_t* src_ptr = src;
             uint8_t*        dst_ptr = dst;
             while (w >= 16) {
-                const uint8x8_t lo = vmovn_u16(vld1q_u16(src_ptr));
-                const uint8x8_t hi = vmovn_u16(vld1q_u16(src_ptr + 8));
-                vst1q_u8(dst_ptr, vcombine_u8(lo, hi));
+                vst1q_u8(dst_ptr, vmovn_high_u16(vmovn_u16(vld1q_u16(src_ptr)), vld1q_u16(src_ptr + 8)));
                 src_ptr += 16;
                 dst_ptr += 16;
                 w -= 16;
