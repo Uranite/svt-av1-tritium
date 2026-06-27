@@ -166,6 +166,7 @@ static void derive_tf_32x32_block_split_flag(MeContext* me_ctx) {
         memset(&me_ctx->tf_16x16_block_split_flag[idx_32x32][0],
                0,
                sizeof(me_ctx->tf_16x16_block_split_flag[idx_32x32][0]) * 4);
+        return;
     }
 
     int min_subblock_error = INT_MAX;
@@ -1721,12 +1722,10 @@ static void tf_64x64_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-    const int32_t bw                    = mi_size_wide[BLOCK_64X64];
-    const int32_t bh                    = mi_size_high[BLOCK_64X64];
     blk_struct.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-    blk_struct.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+    blk_struct.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_64X64] - mirow) * MI_SIZE) * 8;
     blk_struct.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-    blk_struct.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+    blk_struct.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_64X64] - micol) * MI_SIZE) * 8;
     BlkStruct* blk_ptr                  = &blk_struct;
 
     // Set the starting MV and distortion
@@ -1832,12 +1831,10 @@ static void tf_32x32_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-    const int32_t bw                    = mi_size_wide[BLOCK_32X32];
-    const int32_t bh                    = mi_size_high[BLOCK_32X32];
     blk_struct.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-    blk_struct.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+    blk_struct.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_32X32] - mirow) * MI_SIZE) * 8;
     blk_struct.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-    blk_struct.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+    blk_struct.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_32X32] - micol) * MI_SIZE) * 8;
     BlkStruct* blk_ptr                  = &blk_struct;
 
     const uint32_t mv_index = idx_32x32;
@@ -1944,12 +1941,10 @@ static void tf_16x16_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
         int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
         int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-        const int32_t bw                 = mi_size_wide[BLOCK_16X16];
-        const int32_t bh                 = mi_size_high[BLOCK_16X16];
         blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-        blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+        blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_16X16] - mirow) * MI_SIZE) * 8;
         blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-        blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+        blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_16X16] - micol) * MI_SIZE) * 8;
 
         TF_SUBPEL_SEARCH_PARAMS tf_sp_param;
         tf_sp_param.subsampling_shift = pcs->tf_ctrls.sub_sampling_shift;
@@ -2057,12 +2052,10 @@ static void tf_8x8_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_ct
             int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
             int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-            const int32_t bw                 = mi_size_wide[BLOCK_8X8];
-            const int32_t bh                 = mi_size_high[BLOCK_8X8];
             blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-            blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+            blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_8X8] - mirow) * MI_SIZE) * 8;
             blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-            blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+            blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_8X8] - micol) * MI_SIZE) * 8;
 
             TF_SUBPEL_SEARCH_PARAMS tf_sp_param;
             tf_sp_param.subsampling_shift = pcs->tf_ctrls.sub_sampling_shift;
@@ -2157,12 +2150,10 @@ static void tf_64x64_inter_prediction(PictureParentControlSet* pcs, MeContext* m
     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-    const int32_t bw                 = mi_size_wide[BLOCK_64X64];
-    const int32_t bh                 = mi_size_high[BLOCK_64X64];
     blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-    blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+    blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_64X64] - mirow) * MI_SIZE) * 8;
     blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-    blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+    blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_64X64] - micol) * MI_SIZE) * 8;
 
     // Perform final pass using the 1/8 MV
     // AV1 MVs are always in 1/8th pel precision.
@@ -2264,12 +2255,14 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                     int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
                     int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-                    const int32_t bw                 = mi_size_wide[BLOCK_8X8];
-                    const int32_t bh                 = mi_size_high[BLOCK_8X8];
                     blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-                    blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
-                    blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-                    blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+                    blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_8X8] - mirow) *
+                                                        MI_SIZE) *
+                        8;
+                    blk_ptr.av1xd->mb_to_left_edge  = -(int32_t)((micol * MI_SIZE) * 8);
+                    blk_ptr.av1xd->mb_to_right_edge = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_8X8] - micol) *
+                                                       MI_SIZE) *
+                        8;
                     // Perform final pass using the 1/8 MV
                     //AV1 MVs are always in 1/8th pel precision.
                     BlockModeInfo block_mi = {
@@ -2321,12 +2314,14 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
                 int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
                 int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-                const int32_t bw                 = mi_size_wide[BLOCK_16X16];
-                const int32_t bh                 = mi_size_high[BLOCK_16X16];
                 blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-                blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
-                blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-                blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+                blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_16X16] - mirow) *
+                                                    MI_SIZE) *
+                    8;
+                blk_ptr.av1xd->mb_to_left_edge  = -(int32_t)((micol * MI_SIZE) * 8);
+                blk_ptr.av1xd->mb_to_right_edge = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_16X16] - micol) *
+                                                   MI_SIZE) *
+                    8;
                 // Perform final pass using the 1/8 MV
                 //AV1 MVs are always in 1/8th pel precision.
                 BlockModeInfo block_mi = {.mv[0]              = {{me_ctx->tf_16x16_mv_x[idx_32x32 * 4 + idx_16x16],
@@ -2378,12 +2373,10 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
         int32_t  mirow          = pu_origin_y >> MI_SIZE_LOG2;
         int32_t  micol          = pu_origin_x >> MI_SIZE_LOG2;
 
-        const int32_t bw                 = mi_size_wide[BLOCK_32X32];
-        const int32_t bh                 = mi_size_high[BLOCK_32X32];
         blk_ptr.av1xd->mb_to_top_edge    = -(int32_t)((mirow * MI_SIZE) * 8);
-        blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - bw - mirow) * MI_SIZE) * 8;
+        blk_ptr.av1xd->mb_to_bottom_edge = ((pcs->av1_cm->mi_rows - mi_size_high[BLOCK_32X32] - mirow) * MI_SIZE) * 8;
         blk_ptr.av1xd->mb_to_left_edge   = -(int32_t)((micol * MI_SIZE) * 8);
-        blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - bh - micol) * MI_SIZE) * 8;
+        blk_ptr.av1xd->mb_to_right_edge  = ((pcs->av1_cm->mi_cols - mi_size_wide[BLOCK_32X32] - micol) * MI_SIZE) * 8;
 
         // Perform final pass using the 1/8 MV
         //AV1 MVs are always in 1/8th pel precision.

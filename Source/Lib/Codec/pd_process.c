@@ -4416,8 +4416,9 @@ static EbErrorType derive_tf_window_params(SequenceControlSet* scs, EncodeContex
             // Update the key frame pred structure;
             int32_t idx = search_this_pic(pd_ctx->mg_pictures_array, pd_ctx->mg_size, pcs->picture_number + 1);
 
-            if (centre_pcs->hierarchical_levels != pcs->temp_filt_pcs_list[0]->hierarchical_levels ||
-                centre_pcs->hierarchical_levels != pd_ctx->mg_pictures_array[idx]->hierarchical_levels) {
+            if (idx >= 0 &&
+                (centre_pcs->hierarchical_levels != pcs->temp_filt_pcs_list[0]->hierarchical_levels ||
+                 centre_pcs->hierarchical_levels != pd_ctx->mg_pictures_array[idx]->hierarchical_levels)) {
                 centre_pcs->hierarchical_levels = pcs->temp_filt_pcs_list[0]->hierarchical_levels =
                     pd_ctx->mg_pictures_array[idx]->hierarchical_levels;
             }
