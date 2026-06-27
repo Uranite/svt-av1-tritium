@@ -16,6 +16,7 @@
 Bin
 Build
 build
+build-*/
 compile_commands.json
 test/vectors/
 test/docs/
