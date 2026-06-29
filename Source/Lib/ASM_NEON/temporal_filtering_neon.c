@@ -10,6 +10,7 @@
 */
 
 #include <assert.h>
+#include <math.h>
 #include <arm_neon.h>
 
 #include "definitions.h"
@@ -1454,7 +1455,7 @@ uint32_t svt_vmaf_compute_avg_mad_neon(const uint8_t* src, int width, int height
     return (uint32_t)(total_activity / (block_count * 64));
 }
 
-void svt_vmaf_apply_unsharp_row_neon(const uint8_t* src, const int16_t* blur, uint8_t* dst, int width, int amount,
+void svt_vmaf_apply_unsharp_row_neon(const uint8_t* src, const uint8_t* blur, uint8_t* dst, int width, int amount,
                                      int32_t max_delta) {
     assert(width % 8 == 0 && "width must be multiple of 8");
 
@@ -1467,7 +1468,7 @@ void svt_vmaf_apply_unsharp_row_neon(const uint8_t* src, const int16_t* blur, ui
 
     int j = 0;
     do {
-        uint16x8_t b_u16 = vreinterpretq_u16_s16(vld1q_s16(blur + j));
+        uint16x8_t b_u16 = vmovl_u8(vld1_u8(blur + j));
         uint8x8_t  s_u8  = vld1_u8(src + j);
         int16x8_t  s_s16 = vreinterpretq_s16_u16(vmovl_u8(s_u8));
 
@@ -1484,59 +1485,151 @@ void svt_vmaf_apply_unsharp_row_neon(const uint8_t* src, const int16_t* blur, ui
     } while (j != width);
 }
 
-void svt_vmaf_vpass_row_neon(const uint32_t* hpass, uint32_t* sc0, uint32_t* sc1, uint32_t* sc2, uint32_t* sc3,
-                             int16_t* blur_row, int alloc_width, int width, int steps_x, int do_output) {
+void svt_vmaf_vpass_row_neon(const int16_t* r0, const int16_t* r1, const int16_t* r2, const int16_t* r3,
+                             const int16_t* r4, uint8_t* blur_row, int width, int steps_x) {
     assert(width % 8 == 0 && "width must be multiple of 8");
-    assert(alloc_width % 4 == 0 && "alloc_width must be multiple of 4");
     assert(steps_x == 2 && "steps_x must be 2");
-    (void)width;
 
-    const int blur_start     = 2 * steps_x;
-    int16_t*  blur_start_ptr = blur_row - blur_start;
+    const int blur_start = 2 * steps_x;
 
-    int i = 0;
-    for (; i + 4 <= blur_start; i += 4) {
-        uint32x4_t hpass_vec = vld1q_u32(hpass + i);
-        uint32x4_t sc0_vec   = vld1q_u32(sc0 + i);
-        uint32x4_t sc1_vec   = vld1q_u32(sc1 + i);
-        uint32x4_t sc2_vec   = vld1q_u32(sc2 + i);
-
-        vst1q_u32(sc0 + i, hpass_vec);
-        uint32x4_t acc = vaddq_u32(sc0_vec, hpass_vec);
-
-        vst1q_u32(sc1 + i, acc);
-        acc = vaddq_u32(acc, sc1_vec);
-
-        vst1q_u32(sc2 + i, acc);
-        acc = vaddq_u32(acc, sc2_vec);
-
-        vst1q_u32(sc3 + i, acc);
+    for (int x = 0; x < width; x += 8) {
+        const int  j  = x + blur_start;
+        uint16x8_t a0 = vreinterpretq_u16_s16(vld1q_s16(r0 + j));
+        uint16x8_t a1 = vreinterpretq_u16_s16(vld1q_s16(r1 + j));
+        uint16x8_t a2 = vreinterpretq_u16_s16(vld1q_s16(r2 + j));
+        uint16x8_t a3 = vreinterpretq_u16_s16(vld1q_s16(r3 + j));
+        uint16x8_t a4 = vreinterpretq_u16_s16(vld1q_s16(r4 + j));
+        uint16x8_t v  = vaddq_u16(a0, a4);
+        v             = vaddq_u16(v, vmulq_n_u16(vaddq_u16(a1, a3), 4));
+        v             = vaddq_u16(v, vmulq_n_u16(a2, 6));
+        vst1_u8(blur_row + x, vqrshrn_n_u16(v, 8));
     }
+}
 
-    for (; i + 4 <= alloc_width; i += 4) {
-        uint32x4_t hpass_vec = vld1q_u32(hpass + i);
-        uint32x4_t sc0_vec   = vld1q_u32(sc0 + i);
-        uint32x4_t sc1_vec   = vld1q_u32(sc1 + i);
-        uint32x4_t sc2_vec   = vld1q_u32(sc2 + i);
-        uint32x4_t sc3_vec   = vld1q_u32(sc3 + i);
-
-        vst1q_u32(sc0 + i, hpass_vec);
-        uint32x4_t acc = vaddq_u32(sc0_vec, hpass_vec);
-
-        vst1q_u32(sc1 + i, acc);
-        acc = vaddq_u32(acc, sc1_vec);
-
-        vst1q_u32(sc2 + i, acc);
-        acc = vaddq_u32(acc, sc2_vec);
-
-        vst1q_u32(sc3 + i, acc);
-        acc = vaddq_u32(acc, sc3_vec);
-
-        if (do_output) {
-            int16x4_t blur_out = vreinterpret_s16_u16(vrshrn_n_u32(acc, 8));
-            vst1_s16(blur_start_ptr + i, blur_out);
+uint32_t svt_vmaf_count_detail_le_neon(const uint8_t* src, const uint8_t* blur, int width, int height, int src_stride,
+                                       int thresh) {
+    const int16x8_t thr   = vdupq_n_s16((int16_t)thresh);
+    uint32_t        count = 0;
+    for (int y = 0; y < height; y++) {
+        const uint8_t* src_row  = src + (size_t)y * src_stride;
+        const uint8_t* blur_row = blur + (size_t)y * width;
+        uint16x8_t     acc      = vdupq_n_u16(0);
+        int            x        = 0;
+        for (; x + 8 <= width; x += 8) {
+            int16x8_t  s = vreinterpretq_s16_u16(vmovl_u8(vld1_u8(src_row + x)));
+            int16x8_t  b = vreinterpretq_s16_u16(vmovl_u8(vld1_u8(blur_row + x)));
+            int16x8_t  d = vabdq_s16(s, b);
+            uint16x8_t m = vcleq_s16(d, thr);
+            acc          = vsubq_u16(acc, m);
+        }
+        count += vaddvq_u32(vpaddlq_u16(acc));
+        for (; x < width; x++) {
+            int32_t d = (int32_t)src_row[x] - (int32_t)blur_row[x];
+            if (d < 0) {
+                d = -d;
+            }
+            if (d <= thresh) {
+                count++;
+            }
         }
     }
+    return count;
+}
+
+static inline uint32_t vmaf_hpass_in_neon(const uint8_t* src_row, int width, int i) {
+    if (i < 0) {
+        i = 0;
+    }
+    if (i >= width) {
+        i = width - 1;
+    }
+    return src_row[i];
+}
+
+static inline uint32_t vmaf_hpass_out_scalar_neon(const uint8_t* src_row, int width, int j) {
+    const int c = j - 4;
+    return 1u * vmaf_hpass_in_neon(src_row, width, c - 2) + 4u * vmaf_hpass_in_neon(src_row, width, c - 1) +
+        6u * vmaf_hpass_in_neon(src_row, width, c) + 4u * vmaf_hpass_in_neon(src_row, width, c + 1) +
+        1u * vmaf_hpass_in_neon(src_row, width, c + 2);
+}
+
+void svt_vmaf_hpass_row_neon(const uint8_t* src_row, int width, int16_t* h_row) {
+    const int out_count = width + 4;
+    int       j         = 0;
+    for (; j < 6 && j < out_count; j++) {
+        h_row[j] = (int16_t)vmaf_hpass_out_scalar_neon(src_row, width, j);
+    }
+    for (; j <= width - 6; j += 8) {
+        const uint8_t* base = src_row + (j - 6);
+        uint16x8_t     tap0 = vmovl_u8(vld1_u8(base + 0));
+        uint16x8_t     tap1 = vmovl_u8(vld1_u8(base + 1));
+        uint16x8_t     tap2 = vmovl_u8(vld1_u8(base + 2));
+        uint16x8_t     tap3 = vmovl_u8(vld1_u8(base + 3));
+        uint16x8_t     tap4 = vmovl_u8(vld1_u8(base + 4));
+        uint16x8_t     acc  = vaddq_u16(tap0, tap4);
+        acc                 = vaddq_u16(acc, vmulq_n_u16(vaddq_u16(tap1, tap3), 4));
+        acc                 = vaddq_u16(acc, vmulq_n_u16(tap2, 6));
+        vst1q_s16(h_row + j, vreinterpretq_s16_u16(acc));
+    }
+    for (; j < out_count; j++) {
+        h_row[j] = (int16_t)vmaf_hpass_out_scalar_neon(src_row, width, j);
+    }
+}
+
+float svt_vmaf_compute_gradient_coherence_neon(const uint8_t* src, int width, int height, int stride) {
+    const uint16_t   idx0_data[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    const uint16_t   idx1_data[8] = {8, 9, 10, 11, 12, 13, 14, 15};
+    const uint16x8_t lane0        = vld1q_u16(idx0_data);
+    const uint16x8_t lane1        = vld1q_u16(idx1_data);
+    double           weighted_coh = 0.0;
+    double           weight_sum   = 0.0;
+
+    for (int by = 1; by < height - 1; by += 16) {
+        for (int bx = 1; bx < width - 1; bx += 16) {
+            const int        y_end      = (by + 16 < height - 1) ? by + 16 : height - 1;
+            const int        x_end      = (bx + 16 < width - 1) ? bx + 16 : width - 1;
+            const int        valid_cols = x_end - bx;
+            const uint16x8_t vc         = vdupq_n_u16((uint16_t)valid_cols);
+            const uint16x8_t mask0      = vcltq_u16(lane0, vc);
+            const uint16x8_t mask1      = vcltq_u16(lane1, vc);
+            uint32x4_t       acc_xx     = vdupq_n_u32(0);
+            uint32x4_t       acc_yy     = vdupq_n_u32(0);
+            int32x4_t        acc_xy     = vdupq_n_s32(0);
+            for (int y = by; y < y_end; y++) {
+                const uint8_t* row  = src + (size_t)y * stride;
+                const uint8_t* up   = src + (size_t)(y - 1) * stride;
+                const uint8_t* down = src + (size_t)(y + 1) * stride;
+                for (int half = 0; half < 2; half++) {
+                    const int       off  = half * 8;
+                    const int16x8_t mask = vreinterpretq_s16_u16(half ? mask1 : mask0);
+                    const uint8x8_t m8   = vmovn_u16(half ? mask1 : mask0);
+                    const uint8x8_t r8   = vld1_u8(row + bx + 1 + off);
+                    const uint8x8_t l8   = vld1_u8(row + bx - 1 + off);
+                    const uint8x8_t d8   = vld1_u8(down + bx + off);
+                    const uint8x8_t u8v  = vld1_u8(up + bx + off);
+                    const uint8x8_t agx  = vand_u8(vabd_u8(r8, l8), m8);
+                    const uint8x8_t agy  = vand_u8(vabd_u8(d8, u8v), m8);
+                    acc_xx               = vpadalq_u16(acc_xx, vmull_u8(agx, agx));
+                    acc_yy               = vpadalq_u16(acc_yy, vmull_u8(agy, agy));
+                    const int16x8_t gx   = vandq_s16(
+                        vsubq_s16(vreinterpretq_s16_u16(vmovl_u8(r8)), vreinterpretq_s16_u16(vmovl_u8(l8))), mask);
+                    const int16x8_t gy = vandq_s16(
+                        vsubq_s16(vreinterpretq_s16_u16(vmovl_u8(d8)), vreinterpretq_s16_u16(vmovl_u8(u8v))), mask);
+                    acc_xy = vmlal_s16(acc_xy, vget_low_s16(gx), vget_low_s16(gy));
+                    acc_xy = vmlal_high_s16(acc_xy, gx, gy);
+                }
+            }
+            const double xx = (double)vaddvq_u32(acc_xx);
+            const double yy = (double)vaddvq_u32(acc_yy);
+            const double xy = (double)(int64_t)vaddvq_s32(acc_xy);
+            weighted_coh += (double)sqrtf((float)((xx - yy) * (xx - yy) + 4.0 * xy * xy));
+            weight_sum += xx + yy;
+        }
+    }
+    if (weight_sum <= 0.0) {
+        return 1.0f;
+    }
+    return (float)(weighted_coh / weight_sum);
 }
 
 #endif // OPT_TUNE_VMAF

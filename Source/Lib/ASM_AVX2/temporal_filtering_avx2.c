@@ -938,7 +938,7 @@ uint32_t svt_vmaf_compute_avg_mad_avx2(const uint8_t* src, int width, int height
     return (uint32_t)(total_activity / ((uint64_t)block_count * 64));
 }
 
-void svt_vmaf_apply_unsharp_row_avx2(const uint8_t* src, const int16_t* blur, uint8_t* dst, int width, int amount,
+void svt_vmaf_apply_unsharp_row_avx2(const uint8_t* src, const uint8_t* blur, uint8_t* dst, int width, int amount,
                                      int32_t max_delta) {
     const int16_t max_delta_i16 = (int16_t)(max_delta > 32767 ? 32767 : max_delta);
     const __m256i amount_vec    = _mm256_set1_epi32(amount);
@@ -949,7 +949,7 @@ void svt_vmaf_apply_unsharp_row_avx2(const uint8_t* src, const int16_t* blur, ui
     int j = 0;
     for (; j + 16 <= width; j += 16) {
         __m256i src_16        = _mm256_cvtepu8_epi16(_mm_loadu_si128((__m128i const*)(src + j)));
-        __m256i blur_16       = _mm256_loadu_si256((__m256i const*)(blur + j));
+        __m256i blur_16       = _mm256_cvtepu8_epi16(_mm_loadu_si128((__m128i const*)(blur + j)));
         __m256i detail        = _mm256_sub_epi16(src_16, blur_16);
         detail                = _mm256_max_epi16(detail, clamp_min);
         detail                = _mm256_min_epi16(detail, clamp_max);
@@ -971,64 +971,34 @@ void svt_vmaf_apply_unsharp_row_avx2(const uint8_t* src, const int16_t* blur, ui
     }
 }
 
-void svt_vmaf_vpass_row_avx2(const uint32_t* hpass, uint32_t* sc0, uint32_t* sc1, uint32_t* sc2, uint32_t* sc3,
-                             int16_t* blur_row, int alloc_width, int width, int steps_x, int do_output) {
-    (void)width;
-    const __m256i rounding   = _mm256_set1_epi32(128);
-    const __m256i zero       = _mm256_setzero_si256();
+void svt_vmaf_vpass_row_avx2(const int16_t* r0, const int16_t* r1, const int16_t* r2, const int16_t* r3,
+                             const int16_t* r4, uint8_t* blur_row, int width, int steps_x) {
     const int     blur_start = 2 * steps_x;
-    int           i;
+    const __m256i w4         = _mm256_set1_epi16(4);
+    const __m256i w6         = _mm256_set1_epi16(6);
+    const __m256i round      = _mm256_set1_epi16(128);
+    int           x          = 0;
 
-    for (i = 0; i < blur_start; i++) {
-        uint32_t tmp1 = hpass[i];
-        uint32_t tmp2 = sc0[i] + tmp1;
-        sc0[i]        = tmp1;
-        tmp1          = sc1[i] + tmp2;
-        sc1[i]        = tmp2;
-        tmp2          = sc2[i] + tmp1;
-        sc2[i]        = tmp1;
-        tmp1          = sc3[i] + tmp2;
-        sc3[i]        = tmp2;
+    for (; x + 16 <= width; x += 16) {
+        const int j    = x + blur_start;
+        __m256i   a0   = _mm256_loadu_si256((const __m256i*)(r0 + j));
+        __m256i   a1   = _mm256_loadu_si256((const __m256i*)(r1 + j));
+        __m256i   a2   = _mm256_loadu_si256((const __m256i*)(r2 + j));
+        __m256i   a3   = _mm256_loadu_si256((const __m256i*)(r3 + j));
+        __m256i   a4   = _mm256_loadu_si256((const __m256i*)(r4 + j));
+        __m256i   v    = _mm256_add_epi16(a0, a4);
+        v              = _mm256_add_epi16(v, _mm256_mullo_epi16(_mm256_add_epi16(a1, a3), w4));
+        v              = _mm256_add_epi16(v, _mm256_mullo_epi16(a2, w6));
+        v              = _mm256_srli_epi16(_mm256_add_epi16(v, round), 8);
+        __m256i packed = _mm256_permute4x64_epi64(_mm256_packus_epi16(v, v), 0xD8);
+        _mm_storeu_si128((__m128i*)(blur_row + x), _mm256_castsi256_si128(packed));
     }
 
-    for (; i + 8 <= alloc_width; i += 8) {
-        __m256i hpass_val = _mm256_loadu_si256((__m256i const*)(hpass + i));
-        __m256i sc0_vec   = _mm256_loadu_si256((__m256i const*)(sc0 + i));
-        __m256i sc1_vec   = _mm256_loadu_si256((__m256i const*)(sc1 + i));
-        __m256i sc2_vec   = _mm256_loadu_si256((__m256i const*)(sc2 + i));
-        __m256i sc3_vec   = _mm256_loadu_si256((__m256i const*)(sc3 + i));
-
-        __m256i tmp = _mm256_add_epi32(sc0_vec, hpass_val);
-        _mm256_storeu_si256((__m256i*)(sc0 + i), hpass_val);
-        __m256i v_acc0 = _mm256_add_epi32(sc1_vec, tmp);
-        _mm256_storeu_si256((__m256i*)(sc1 + i), tmp);
-
-        tmp = _mm256_add_epi32(sc2_vec, v_acc0);
-        _mm256_storeu_si256((__m256i*)(sc2 + i), v_acc0);
-        __m256i v_acc2 = _mm256_add_epi32(sc3_vec, tmp);
-        _mm256_storeu_si256((__m256i*)(sc3 + i), tmp);
-
-        if (do_output) {
-            __m256i blur_out = _mm256_srli_epi32(_mm256_add_epi32(v_acc2, rounding), 8);
-            __m256i packed   = _mm256_packs_epi32(blur_out, zero);
-            packed           = _mm256_permute4x64_epi64(packed, 0xD8);
-            _mm_storeu_si128((__m128i*)(blur_row + (i - blur_start)), _mm256_castsi256_si128(packed));
-        }
-    }
-
-    for (; i < alloc_width; i++) {
-        uint32_t tmp1 = hpass[i];
-        uint32_t tmp2 = sc0[i] + tmp1;
-        sc0[i]        = tmp1;
-        tmp1          = sc1[i] + tmp2;
-        sc1[i]        = tmp2;
-        tmp2          = sc2[i] + tmp1;
-        sc2[i]        = tmp1;
-        tmp1          = sc3[i] + tmp2;
-        sc3[i]        = tmp2;
-        if (do_output) {
-            blur_row[i - blur_start] = (int16_t)((tmp1 + 128u) >> 8);
-        }
+    for (; x < width; x++) {
+        const int j = x + blur_start;
+        uint32_t  v = (uint32_t)r0[j] + (uint32_t)r4[j] + 4u * ((uint32_t)r1[j] + (uint32_t)r3[j]) +
+            6u * (uint32_t)r2[j];
+        blur_row[x] = (uint8_t)((v + 128u) >> 8);
     }
 }
 
@@ -1072,14 +1042,11 @@ float svt_vmaf_compute_gradient_coherence_avx2(const uint8_t* src, int width, in
                 acc_yy = _mm256_add_epi32(acc_yy, _mm256_madd_epi16(grad_y, grad_y));
                 acc_xy = _mm256_add_epi32(acc_xy, _mm256_madd_epi16(grad_x, grad_y));
             }
-            const double xx        = (double)hsum_epi32x8_to_i64(acc_xx);
-            const double yy        = (double)hsum_epi32x8_to_i64(acc_yy);
-            const double xy        = (double)hsum_epi32x8_to_i64(acc_xy);
-            const double energy    = xx + yy + 1e-6;
-            const double coherence = sqrt((xx - yy) * (xx - yy) + 4.0 * xy * xy) / energy;
-
-            weighted_coh += coherence * energy;
-            weight_sum += energy;
+            const double xx = (double)hsum_epi32x8_to_i64(acc_xx);
+            const double yy = (double)hsum_epi32x8_to_i64(acc_yy);
+            const double xy = (double)hsum_epi32x8_to_i64(acc_xy);
+            weighted_coh += (double)sqrtf((float)((xx - yy) * (xx - yy) + 4.0 * xy * xy));
+            weight_sum += xx + yy;
         }
     }
     if (weight_sum <= 0.0) {
@@ -1088,7 +1055,7 @@ float svt_vmaf_compute_gradient_coherence_avx2(const uint8_t* src, int width, in
     return (float)(weighted_coh / weight_sum);
 }
 
-uint32_t svt_vmaf_count_detail_le_avx2(const uint8_t* src, const int16_t* blur, int width, int height, int src_stride,
+uint32_t svt_vmaf_count_detail_le_avx2(const uint8_t* src, const uint8_t* blur, int width, int height, int src_stride,
                                        int thresh) {
     const __m256i ones       = _mm256_set1_epi16(1);
     const __m256i limit      = _mm256_set1_epi16((int16_t)(thresh + 1));
@@ -1097,11 +1064,11 @@ uint32_t svt_vmaf_count_detail_le_avx2(const uint8_t* src, const int16_t* blur, 
 
     for (int y = 0; y < height; y++) {
         const uint8_t* src_row  = src + (size_t)y * src_stride;
-        const int16_t* blur_row = blur + (size_t)y * width;
+        const uint8_t* blur_row = blur + (size_t)y * width;
         int            x        = 0;
         for (; x + 16 <= width; x += 16) {
             __m256i src_16  = _mm256_cvtepu8_epi16(_mm_loadu_si128((__m128i const*)(src_row + x)));
-            __m256i blur_16 = _mm256_loadu_si256((__m256i const*)(blur_row + x));
+            __m256i blur_16 = _mm256_cvtepu8_epi16(_mm_loadu_si128((__m128i const*)(blur_row + x)));
             __m256i detail  = _mm256_abs_epi16(_mm256_sub_epi16(src_16, blur_16));
             __m256i match   = _mm256_cmpgt_epi16(limit, detail);
             match_acc       = _mm256_add_epi32(match_acc, _mm256_madd_epi16(match, ones));
@@ -1140,14 +1107,14 @@ static INLINE uint32_t vmaf_hpass_out_scalar(const uint8_t* src_row, int width, 
         1u * vmaf_hpass_in(src_row, width, c + 2);
 }
 
-void svt_vmaf_hpass_row_avx2(const uint8_t* src_row, int width, uint32_t* h_row) {
+void svt_vmaf_hpass_row_avx2(const uint8_t* src_row, int width, int16_t* h_row) {
     const int     out_count = width + 4;
     const __m256i weight_4  = _mm256_set1_epi32(4);
     const __m256i weight_6  = _mm256_set1_epi32(6);
 
     int j = 0;
     for (; j < 6 && j < out_count; j++) {
-        h_row[j] = vmaf_hpass_out_scalar(src_row, width, j);
+        h_row[j] = (int16_t)vmaf_hpass_out_scalar(src_row, width, j);
     }
     for (; j + 7 <= width + 1; j += 8) {
         const uint8_t* base = src_row + (j - 6);
@@ -1159,10 +1126,11 @@ void svt_vmaf_hpass_row_avx2(const uint8_t* src_row, int width, uint32_t* h_row)
         __m256i        acc  = _mm256_add_epi32(tap0, tap4);
         acc                 = _mm256_add_epi32(acc, _mm256_mullo_epi32(_mm256_add_epi32(tap1, tap3), weight_4));
         acc                 = _mm256_add_epi32(acc, _mm256_mullo_epi32(tap2, weight_6));
-        _mm256_storeu_si256((__m256i*)(h_row + j), acc);
+        __m256i packed      = _mm256_permute4x64_epi64(_mm256_packus_epi32(acc, acc), 0xD8);
+        _mm_storeu_si128((__m128i*)(h_row + j), _mm256_castsi256_si128(packed));
     }
     for (; j < out_count; j++) {
-        h_row[j] = vmaf_hpass_out_scalar(src_row, width, j);
+        h_row[j] = (int16_t)vmaf_hpass_out_scalar(src_row, width, j);
     }
 }
 #endif

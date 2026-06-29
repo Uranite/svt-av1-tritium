@@ -43,11 +43,23 @@
 typedef struct PictureAnalysisContext {
     EbFifo* resource_coordination_results_input_fifo_ptr;
     EbFifo* picture_analysis_results_output_fifo_ptr;
+#if FTR_TUNE_VMAF
+    int16_t* vmaf_hring[5];
+    int      vmaf_padded_w;
+    uint8_t* vmaf_blur_plane;
+    int      vmaf_blur_pixels;
+#endif
 } PictureAnalysisContext;
 
 static void picture_analysis_context_dctor(EbPtr p) {
     EbThreadContext*        thread_ctx = (EbThreadContext*)p;
     PictureAnalysisContext* obj        = (PictureAnalysisContext*)thread_ctx->priv;
+#if FTR_TUNE_VMAF
+    for (int i = 0; i < 5; i++) {
+        EB_FREE_ARRAY(obj->vmaf_hring[i]);
+    }
+    EB_FREE_ARRAY(obj->vmaf_blur_plane);
+#endif
     EB_FREE_ARRAY(obj);
 }
 
@@ -1824,50 +1836,32 @@ static int32_t vmaf_get_delta_clip(int32_t base_qp, int busy_frame) {
  *  mask.
  *
  ********************************************************************************/
-static void vmaf_box_blur_frame(const uint8_t* luma_plane, int stride, int16_t* blur_plane, int width, int height) {
-    const int steps_x      = 2;
-    const int steps_y      = 2;
-    const int padded_width = width + 2 * steps_x;
+static void vmaf_box_blur_frame(const uint8_t* luma_plane, int stride, uint8_t* blur_plane, int width, int height,
+                                int16_t* const hring[5]) {
+    const int steps_x = 2;
+    const int steps_y = 2;
 
-    uint32_t* h_row = NULL;
-    EB_MALLOC_ARRAY_NO_CHECK(h_row, padded_width);
-    if (!h_row) {
-        return;
+    int16_t* r[5] = {hring[0], hring[1], hring[2], hring[3], hring[4]};
+    for (int k = 0; k < 4; k++) {
+        int row = k - steps_y;
+        row     = row < 0 ? 0 : (row >= height ? height - 1 : row);
+        svt_vmaf_hpass_row(luma_plane + (size_t)row * stride, width, r[k]);
     }
 
-    uint32_t* v_acc[4] = {NULL};
-    for (int i = 0; i < 4; i++) {
-        EB_CALLOC_ARRAY_NO_CHECK(v_acc[i], padded_width);
-        if (!v_acc[i]) {
-            for (int j = 0; j < i; j++) {
-                EB_FREE_ARRAY(v_acc[j]);
-            }
-            EB_FREE_ARRAY(h_row);
-            return;
-        }
+    for (int m = 0; m < height; m++) {
+        int row = m + steps_y;
+        row     = row >= height ? height - 1 : row;
+        svt_vmaf_hpass_row(luma_plane + (size_t)row * stride, width, r[4]);
+
+        svt_vmaf_vpass_row(r[0], r[1], r[2], r[3], r[4], blur_plane + (size_t)m * width, width, steps_x);
+
+        int16_t* oldest = r[0];
+        r[0]            = r[1];
+        r[1]            = r[2];
+        r[2]            = r[3];
+        r[3]            = r[4];
+        r[4]            = oldest;
     }
-
-    const uint8_t* luma_row = luma_plane;
-
-    for (int y = -steps_y; y < steps_y + height; y++) {
-        /* H-pass */
-        svt_vmaf_hpass_row(luma_row, width, h_row);
-
-        /* V-pass */
-        const int do_write = (y >= steps_y) ? 1 : 0;
-        int16_t*  blur_row = do_write ? blur_plane + (y - steps_y) * width : blur_plane;
-        svt_vmaf_vpass_row(
-            h_row, v_acc[0], v_acc[1], v_acc[2], v_acc[3], blur_row, padded_width, width, steps_x, do_write);
-
-        if (y >= 0 && y < height - 1) {
-            luma_row += stride;
-        }
-    }
-
-    for (int i = 0; i < 4; i++) {
-        EB_FREE_ARRAY(v_acc[i]);
-    }
-    EB_FREE_ARRAY(h_row);
 }
 
 /*********************************************************************************
@@ -1884,7 +1878,7 @@ static void vmaf_box_blur_frame(const uint8_t* luma_plane, int stride, int16_t* 
  *  written directly into the destination buffer.
  *
  ********************************************************************************/
-static void vmaf_unsharp_apply_frame(const uint8_t* src, const int16_t* blur_plane, uint8_t* dst, int width, int height,
+static void vmaf_unsharp_apply_frame(const uint8_t* src, const uint8_t* blur_plane, uint8_t* dst, int width, int height,
                                      int stride, int sharp_amount, int32_t delta_clip) {
     for (int y = 0; y < height; y++) {
         svt_vmaf_apply_unsharp_row(
@@ -1911,7 +1905,7 @@ static void vmaf_unsharp_apply_frame(const uint8_t* src, const int16_t* blur_pla
  *       sharpened luma back over the source.
  *
  ********************************************************************************/
-static void vmaf_preprocess_frame(PictureParentControlSet* pcs) {
+static void vmaf_preprocess_frame(PictureAnalysisContext* pa_ctx, PictureParentControlSet* pcs) {
     EbPictureBufferDesc* pic_ptr    = pcs->enhanced_pic;
     const int            pic_width  = pic_ptr->width;
     const int            pic_height = pic_ptr->height;
@@ -1925,13 +1919,36 @@ static void vmaf_preprocess_frame(PictureParentControlSet* pcs) {
     pcs->vmaf_sharpening_amount = sharp_amount;
 
     /* Step 2: build the low-pass reference by box-blurring the luma plane. */
-    uint8_t* luma       = pic_ptr->y_buffer;
-    int16_t* blur_plane = NULL;
-    EB_MALLOC_ARRAY_NO_CHECK(blur_plane, (size_t)pic_width * pic_height);
-    if (!blur_plane) {
-        return;
+    const int padded_width = pic_width + 2 * 2; /* 2 * steps_x */
+    if (pa_ctx->vmaf_padded_w < padded_width) {
+        for (int i = 0; i < 5; i++) {
+            EB_FREE_ARRAY(pa_ctx->vmaf_hring[i]);
+        }
+        pa_ctx->vmaf_padded_w = 0;
+        for (int i = 0; i < 5; i++) {
+            EB_MALLOC_ARRAY_NO_CHECK(pa_ctx->vmaf_hring[i], padded_width);
+        }
+        if (!pa_ctx->vmaf_hring[0] || !pa_ctx->vmaf_hring[1] || !pa_ctx->vmaf_hring[2] || !pa_ctx->vmaf_hring[3] ||
+            !pa_ctx->vmaf_hring[4]) {
+            return;
+        }
+        pa_ctx->vmaf_padded_w = padded_width;
     }
-    vmaf_box_blur_frame(luma, y_stride, blur_plane, pic_width, pic_height);
+
+    const int blur_pixels = pic_width * pic_height;
+    if (pa_ctx->vmaf_blur_pixels < blur_pixels) {
+        EB_FREE_ARRAY(pa_ctx->vmaf_blur_plane);
+        pa_ctx->vmaf_blur_pixels = 0;
+        EB_MALLOC_ARRAY_NO_CHECK(pa_ctx->vmaf_blur_plane, (size_t)blur_pixels);
+        if (!pa_ctx->vmaf_blur_plane) {
+            return;
+        }
+        pa_ctx->vmaf_blur_pixels = blur_pixels;
+    }
+
+    uint8_t* luma       = pic_ptr->y_buffer;
+    uint8_t* blur_plane = pa_ctx->vmaf_blur_plane;
+    vmaf_box_blur_frame(luma, y_stride, blur_plane, pic_width, pic_height, pa_ctx->vmaf_hring);
 
     /* Step 3: flag busy frames (under 85% flat pixels) and derive the per-pixel delta clip. */
     const int32_t  flat_detail_thr   = 12;
@@ -1946,8 +1963,6 @@ static void vmaf_preprocess_frame(PictureParentControlSet* pcs) {
 
     /* Step 4: apply the unsharp mask in place, writing the sharpened luma back over the source. */
     vmaf_unsharp_apply_frame(luma, blur_plane, luma, pic_width, pic_height, y_stride, sharp_amount, delta_clip);
-
-    EB_FREE_ARRAY(blur_plane);
 }
 #endif
 
@@ -2014,7 +2029,7 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
         {
 #if FTR_TUNE_VMAF
             if (scs->static_config.tune == TUNE_VMAF) {
-                vmaf_preprocess_frame(pcs);
+                vmaf_preprocess_frame(pa_ctx, pcs);
             }
 #endif
             // Padding for input pictures

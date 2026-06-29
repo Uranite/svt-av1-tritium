@@ -3640,7 +3640,7 @@ uint32_t svt_vmaf_compute_avg_mad_c(const uint8_t* src, int width, int height, i
     return (uint32_t)(total_activity / ((uint64_t)block_count * 64));
 }
 
-void svt_vmaf_apply_unsharp_row_c(const uint8_t* src, const int16_t* blur, uint8_t* dst, int width, int amount,
+void svt_vmaf_apply_unsharp_row_c(const uint8_t* src, const uint8_t* blur, uint8_t* dst, int width, int amount,
                                   int32_t max_delta) {
     for (int j = 0; j < width; j++) {
         int32_t detail = (int32_t)src[j] - (int32_t)blur[j];
@@ -3650,23 +3650,14 @@ void svt_vmaf_apply_unsharp_row_c(const uint8_t* src, const int16_t* blur, uint8
     }
 }
 
-void svt_vmaf_vpass_row_c(const uint32_t* hpass, uint32_t* sc0, uint32_t* sc1, uint32_t* sc2, uint32_t* sc3,
-                          int16_t* blur_row, int alloc_width, int width, int steps_x, int do_output) {
-    (void)width;
+void svt_vmaf_vpass_row_c(const int16_t* r0, const int16_t* r1, const int16_t* r2, const int16_t* r3, const int16_t* r4,
+                          uint8_t* blur_row, int width, int steps_x) {
     const int blur_start = 2 * steps_x;
-    for (int i = 0; i < alloc_width; i++) {
-        uint32_t tmp1 = hpass[i];
-        uint32_t tmp2 = sc0[i] + tmp1;
-        sc0[i]        = tmp1;
-        tmp1          = sc1[i] + tmp2;
-        sc1[i]        = tmp2;
-        tmp2          = sc2[i] + tmp1;
-        sc2[i]        = tmp1;
-        tmp1          = sc3[i] + tmp2;
-        sc3[i]        = tmp2;
-        if (do_output && i >= blur_start) {
-            blur_row[i - blur_start] = (int16_t)((tmp1 + 128u) >> 8);
-        }
+    for (int x = 0; x < width; x++) {
+        const int j = x + blur_start;
+        uint32_t  v = (uint32_t)r0[j] + (uint32_t)r4[j] + 4u * ((uint32_t)r1[j] + (uint32_t)r3[j]) +
+            6u * (uint32_t)r2[j];
+        blur_row[x] = (uint8_t)((v + 128u) >> 8);
     }
 }
 
@@ -3690,13 +3681,11 @@ float svt_vmaf_compute_gradient_coherence_c(const uint8_t* src, int width, int h
                     sum_xy += (int64_t)grad_x * grad_y;
                 }
             }
-            double xx        = (double)sum_xx;
-            double yy        = (double)sum_yy;
-            double xy        = (double)sum_xy;
-            double energy    = xx + yy + 1e-6;
-            double coherence = sqrt((xx - yy) * (xx - yy) + 4.0 * xy * xy) / energy;
-            weighted_coh += coherence * energy;
-            weight_sum += energy;
+            double xx = (double)sum_xx;
+            double yy = (double)sum_yy;
+            double xy = (double)sum_xy;
+            weighted_coh += (double)sqrtf((float)((xx - yy) * (xx - yy) + 4.0 * xy * xy));
+            weight_sum += xx + yy;
         }
     }
     if (weight_sum <= 0.0) {
@@ -3705,12 +3694,12 @@ float svt_vmaf_compute_gradient_coherence_c(const uint8_t* src, int width, int h
     return (float)(weighted_coh / weight_sum);
 }
 
-uint32_t svt_vmaf_count_detail_le_c(const uint8_t* src, const int16_t* blur, int width, int height, int src_stride,
+uint32_t svt_vmaf_count_detail_le_c(const uint8_t* src, const uint8_t* blur, int width, int height, int src_stride,
                                     int thresh) {
     uint32_t match_count = 0;
     for (int y = 0; y < height; y++) {
         const uint8_t* src_row  = src + (size_t)y * src_stride;
-        const int16_t* blur_row = blur + (size_t)y * width;
+        const uint8_t* blur_row = blur + (size_t)y * width;
         for (int x = 0; x < width; x++) {
             int32_t detail = abs((int32_t)src_row[x] - (int32_t)blur_row[x]);
             if (detail <= thresh) {
@@ -3721,7 +3710,7 @@ uint32_t svt_vmaf_count_detail_le_c(const uint8_t* src, const int16_t* blur, int
     return match_count;
 }
 
-void svt_vmaf_hpass_row_c(const uint8_t* src_row, int width, uint32_t* h_row) {
+void svt_vmaf_hpass_row_c(const uint8_t* src_row, int width, int16_t* h_row) {
     const int steps_x  = 2;
     uint32_t  h_acc[4] = {0};
     for (int x = -steps_x; x < width + steps_x; x++) {
@@ -3732,7 +3721,7 @@ void svt_vmaf_hpass_row_c(const uint8_t* src_row, int width, uint32_t* h_row) {
             tmp1          = h_acc[s + 1] + tmp2;
             h_acc[s + 1]  = tmp2;
         }
-        h_row[x + steps_x] = tmp1;
+        h_row[x + steps_x] = (int16_t)tmp1;
     }
 }
 #endif

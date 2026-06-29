@@ -167,7 +167,7 @@ INSTANTIATE_TEST_SUITE_P(
 #endif  // HAVE_NEON_I8MM
 #endif  // ARCH_AARCH64
 
-using VmafUnsharpRowFunc = void (*)(const uint8_t *src, const int16_t *blur,
+using VmafUnsharpRowFunc = void (*)(const uint8_t *src, const uint8_t *blur,
                                     uint8_t *dst, int width, int amount,
                                     int32_t max_delta);
 
@@ -191,7 +191,7 @@ class VmafUnsharpRowTest
     void SetUp() override {
         src_ = static_cast<uint8_t *>(
             svt_aom_memalign(16, (size_t)width_ * sizeof(*src_)));
-        blur_ = static_cast<int16_t *>(
+        blur_ = static_cast<uint8_t *>(
             svt_aom_memalign(16, (size_t)width_ * sizeof(*blur_)));
         dst_ref_ = static_cast<uint8_t *>(
             svt_aom_memalign(16, (size_t)width_ * sizeof(*dst_ref_)));
@@ -216,7 +216,7 @@ class VmafUnsharpRowTest
     int max_delta_;
     VmafUnsharpRowFunc test_func_;
     uint8_t *src_ = nullptr;
-    int16_t *blur_ = nullptr;
+    uint8_t *blur_ = nullptr;
     uint8_t *dst_ref_ = nullptr;
     uint8_t *dst_tst_ = nullptr;
 
@@ -272,19 +272,17 @@ INSTANTIATE_TEST_SUITE_P(
 #endif  // HAVE_SVE2
 #endif  // ARCH_AARCH64
 
-using VmafVpassRowFunc = void (*)(const uint32_t *hpass, uint32_t *sc0,
-                                  uint32_t *sc1, uint32_t *sc2, uint32_t *sc3,
-                                  int16_t *blur_row, int alloc_width, int width,
-                                  int steps_x, int do_output);
+using VmafVpassRowFunc = void (*)(const int16_t *r0, const int16_t *r1,
+                                  const int16_t *r2, const int16_t *r3,
+                                  const int16_t *r4, uint8_t *blur_row,
+                                  int width, int steps_x);
 
-using VmafVpassRowParam = std::tuple<int, int, VmafVpassRowFunc>;
+using VmafVpassRowParam = std::tuple<int, VmafVpassRowFunc>;
 
 class VmafVpassRowTest : public ::testing::TestWithParam<VmafVpassRowParam> {
   public:
     VmafVpassRowTest()
-        : width_(TEST_GET_PARAM(0)),
-          do_output_(TEST_GET_PARAM(1)),
-          test_func_(TEST_GET_PARAM(2)) {
+        : width_(TEST_GET_PARAM(0)), test_func_(TEST_GET_PARAM(1)) {
     }
 
     ~VmafVpassRowTest() override = default;
@@ -295,70 +293,32 @@ class VmafVpassRowTest : public ::testing::TestWithParam<VmafVpassRowParam> {
     void SetUp() override {
         const int steps_x = 2;
         const int alloc_width = width_ + 2 * steps_x;
-        hpass_ = static_cast<uint32_t *>(
-            svt_aom_memalign(16, (size_t)alloc_width * sizeof(*hpass_)));
-        sc0_ref_ = static_cast<uint32_t *>(
-            svt_aom_memalign(16, (size_t)alloc_width * sizeof(*sc0_ref_)));
-        sc1_ref_ = static_cast<uint32_t *>(
-            svt_aom_memalign(16, (size_t)alloc_width * sizeof(*sc1_ref_)));
-        sc2_ref_ = static_cast<uint32_t *>(
-            svt_aom_memalign(16, (size_t)alloc_width * sizeof(*sc2_ref_)));
-        sc3_ref_ = static_cast<uint32_t *>(
-            svt_aom_memalign(16, (size_t)alloc_width * sizeof(*sc3_ref_)));
-        sc0_tst_ = static_cast<uint32_t *>(
-            svt_aom_memalign(16, (size_t)alloc_width * sizeof(*sc0_tst_)));
-        sc1_tst_ = static_cast<uint32_t *>(
-            svt_aom_memalign(16, (size_t)alloc_width * sizeof(*sc1_tst_)));
-        sc2_tst_ = static_cast<uint32_t *>(
-            svt_aom_memalign(16, (size_t)alloc_width * sizeof(*sc2_tst_)));
-        sc3_tst_ = static_cast<uint32_t *>(
-            svt_aom_memalign(16, (size_t)alloc_width * sizeof(*sc3_tst_)));
-        blur_ref_ = static_cast<int16_t *>(
+        for (int k = 0; k < 5; ++k) {
+            rows_[k] = static_cast<int16_t *>(
+                svt_aom_memalign(16, (size_t)alloc_width * sizeof(int16_t)));
+            ASSERT_NE(rows_[k], nullptr);
+        }
+        blur_ref_ = static_cast<uint8_t *>(
             svt_aom_memalign(16, (size_t)width_ * sizeof(*blur_ref_)));
-        blur_tst_ = static_cast<int16_t *>(
+        blur_tst_ = static_cast<uint8_t *>(
             svt_aom_memalign(16, (size_t)width_ * sizeof(*blur_tst_)));
-
-        ASSERT_NE(hpass_, nullptr);
-        ASSERT_NE(sc0_ref_, nullptr);
-        ASSERT_NE(sc1_ref_, nullptr);
-        ASSERT_NE(sc2_ref_, nullptr);
-        ASSERT_NE(sc3_ref_, nullptr);
-        ASSERT_NE(sc0_tst_, nullptr);
-        ASSERT_NE(sc1_tst_, nullptr);
-        ASSERT_NE(sc2_tst_, nullptr);
-        ASSERT_NE(sc3_tst_, nullptr);
         ASSERT_NE(blur_ref_, nullptr);
         ASSERT_NE(blur_tst_, nullptr);
     }
 
     void TearDown() override {
-        svt_aom_free(hpass_);
-        svt_aom_free(sc0_ref_);
-        svt_aom_free(sc1_ref_);
-        svt_aom_free(sc2_ref_);
-        svt_aom_free(sc3_ref_);
-        svt_aom_free(sc0_tst_);
-        svt_aom_free(sc1_tst_);
-        svt_aom_free(sc2_tst_);
-        svt_aom_free(sc3_tst_);
+        for (int k = 0; k < 5; ++k) {
+            svt_aom_free(rows_[k]);
+        }
         svt_aom_free(blur_ref_);
         svt_aom_free(blur_tst_);
     }
 
     int width_;
-    int do_output_;
     VmafVpassRowFunc test_func_;
-    uint32_t *hpass_ = nullptr;
-    uint32_t *sc0_ref_ = nullptr;
-    uint32_t *sc1_ref_ = nullptr;
-    uint32_t *sc2_ref_ = nullptr;
-    uint32_t *sc3_ref_ = nullptr;
-    uint32_t *sc0_tst_ = nullptr;
-    uint32_t *sc1_tst_ = nullptr;
-    uint32_t *sc2_tst_ = nullptr;
-    uint32_t *sc3_tst_ = nullptr;
-    int16_t *blur_ref_ = nullptr;
-    int16_t *blur_tst_ = nullptr;
+    int16_t *rows_[5] = {nullptr, nullptr, nullptr, nullptr, nullptr};
+    uint8_t *blur_ref_ = nullptr;
+    uint8_t *blur_tst_ = nullptr;
 
     void run_match_test() {
         SVTRandom rnd(8, false);
@@ -366,61 +326,38 @@ class VmafVpassRowTest : public ::testing::TestWithParam<VmafVpassRowParam> {
         const int alloc_width = width_ + 2 * steps_x;
 
         for (int i = 0; i < kIterations; ++i) {
-            for (int x = 0; x < alloc_width; ++x) {
-                hpass_[x] = rnd.Rand8();
-                sc0_ref_[x] = rnd.Rand8();
-                sc1_ref_[x] = rnd.Rand8();
-                sc2_ref_[x] = rnd.Rand8();
-                sc3_ref_[x] = rnd.Rand8();
-                sc0_tst_[x] = sc0_ref_[x];
-                sc1_tst_[x] = sc1_ref_[x];
-                sc2_tst_[x] = sc2_ref_[x];
-                sc3_tst_[x] = sc3_ref_[x];
+            for (int k = 0; k < 5; ++k) {
+                for (int x = 0; x < alloc_width; ++x) {
+                    // H-pass outputs span [0, 16*255]; exercise the full range.
+                    rows_[k][x] = (int16_t)(rnd.Rand8() << 4);
+                }
             }
             for (int x = 0; x < width_; ++x) {
                 blur_ref_[x] = rnd.Rand8();
                 blur_tst_[x] = blur_ref_[x];
             }
 
-            svt_vmaf_vpass_row_c(hpass_,
-                                 sc0_ref_,
-                                 sc1_ref_,
-                                 sc2_ref_,
-                                 sc3_ref_,
+            svt_vmaf_vpass_row_c(rows_[0],
+                                 rows_[1],
+                                 rows_[2],
+                                 rows_[3],
+                                 rows_[4],
                                  blur_ref_,
-                                 alloc_width,
                                  width_,
-                                 steps_x,
-                                 do_output_);
-            test_func_(hpass_,
-                       sc0_tst_,
-                       sc1_tst_,
-                       sc2_tst_,
-                       sc3_tst_,
+                                 steps_x);
+            test_func_(rows_[0],
+                       rows_[1],
+                       rows_[2],
+                       rows_[3],
+                       rows_[4],
                        blur_tst_,
-                       alloc_width,
                        width_,
-                       steps_x,
-                       do_output_);
+                       steps_x);
 
-            for (int x = 0; x < alloc_width; ++x) {
-                ASSERT_EQ(sc0_ref_[x], sc0_tst_[x])
-                    << "sc0 mismatch, x " << x << ", alloc_width "
-                    << alloc_width << ", iteration " << i;
-                ASSERT_EQ(sc1_ref_[x], sc1_tst_[x])
-                    << "sc1 mismatch, x " << x << ", alloc_width "
-                    << alloc_width << ", iteration " << i;
-                ASSERT_EQ(sc2_ref_[x], sc2_tst_[x])
-                    << "sc2 mismatch, x " << x << ", alloc_width "
-                    << alloc_width << ", iteration " << i;
-                ASSERT_EQ(sc3_ref_[x], sc3_tst_[x])
-                    << "sc3 mismatch, x " << x << ", alloc_width "
-                    << alloc_width << ", iteration " << i;
-            }
             for (int x = 0; x < width_; ++x) {
                 ASSERT_EQ(blur_ref_[x], blur_tst_[x])
-                    << "blur_row mismatch, x " << x << ", alloc_width "
-                    << alloc_width << ", iteration " << i;
+                    << "blur_row mismatch, x " << x << ", width " << width_
+                    << ", iteration " << i;
             }
         }
     }
@@ -436,7 +373,6 @@ TEST_P(VmafVpassRowTest, MatchTest) {
 INSTANTIATE_TEST_SUITE_P(
     AVX2, VmafVpassRowTest,
     ::testing::Combine(::testing::ValuesIn(kVmafWidths),
-                       ::testing::Values(0, 1),
                        ::testing::Values(&svt_vmaf_vpass_row_avx2)));
 #endif  // ARCH_X86_64
 
@@ -444,8 +380,169 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     NEON, VmafVpassRowTest,
     ::testing::Combine(::testing::ValuesIn(kVmafWidths),
-                       ::testing::Values(0, 1),
                        ::testing::Values(&svt_vmaf_vpass_row_neon)));
+#endif  // ARCH_AARCH64
+
+using VmafCountDetailFunc = uint32_t (*)(const uint8_t *src,
+                                         const uint8_t *blur, int width,
+                                         int height, int src_stride,
+                                         int thresh);
+
+using VmafCountDetailParam =
+    std::tuple<std::pair<int, int>, int, VmafCountDetailFunc>;
+
+class VmafCountDetailTest
+    : public ::testing::TestWithParam<VmafCountDetailParam> {
+  public:
+    VmafCountDetailTest()
+        : size_(TEST_GET_PARAM(0)),
+          thresh_(TEST_GET_PARAM(1)),
+          test_func_(TEST_GET_PARAM(2)) {
+    }
+
+    ~VmafCountDetailTest() override = default;
+
+  protected:
+    static const int kIterations = 10;
+
+    void SetUp() override {
+        const int width = size_.first;
+        const int height = size_.second;
+        src_ = static_cast<uint8_t *>(
+            svt_aom_memalign(16, (size_t)width * height));
+        blur_ = static_cast<uint8_t *>(
+            svt_aom_memalign(16, (size_t)width * height));
+        ASSERT_NE(src_, nullptr);
+        ASSERT_NE(blur_, nullptr);
+    }
+
+    void TearDown() override {
+        svt_aom_free(src_);
+        svt_aom_free(blur_);
+    }
+
+    std::pair<int, int> size_;
+    int thresh_;
+    VmafCountDetailFunc test_func_;
+    uint8_t *src_ = nullptr;
+    uint8_t *blur_ = nullptr;
+
+    void run_match_test() {
+        SVTRandom rnd(8, false);
+        const int width = size_.first;
+        const int height = size_.second;
+        const int stride = width;
+
+        for (int i = 0; i < kIterations; ++i) {
+            for (int p = 0; p < width * height; ++p) {
+                src_[p] = rnd.Rand8();
+                blur_[p] = rnd.Rand8();
+            }
+            const uint32_t res_ref = svt_vmaf_count_detail_le_c(
+                src_, blur_, width, height, stride, thresh_);
+            const uint32_t res_tst =
+                test_func_(src_, blur_, width, height, stride, thresh_);
+            ASSERT_EQ(res_ref, res_tst) << "iteration " << i;
+        }
+    }
+};
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VmafCountDetailTest);
+
+TEST_P(VmafCountDetailTest, MatchTest) {
+    run_match_test();
+}
+
+#ifdef ARCH_X86_64
+INSTANTIATE_TEST_SUITE_P(
+    AVX2, VmafCountDetailTest,
+    ::testing::Combine(::testing::ValuesIn(kVmafSizes),
+                       ::testing::Values(0, 3, 10, 32, 255),
+                       ::testing::Values(&svt_vmaf_count_detail_le_avx2)));
+#endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, VmafCountDetailTest,
+    ::testing::Combine(::testing::ValuesIn(kVmafSizes),
+                       ::testing::Values(0, 3, 10, 32, 255),
+                       ::testing::Values(&svt_vmaf_count_detail_le_neon)));
+#endif  // ARCH_AARCH64
+
+using VmafGradientCoherenceFunc = float (*)(const uint8_t *src, int width,
+                                            int height, int stride);
+
+using VmafGradientCoherenceParam =
+    std::tuple<std::pair<int, int>, VmafGradientCoherenceFunc>;
+
+class VmafGradientCoherenceTest
+    : public ::testing::TestWithParam<VmafGradientCoherenceParam> {
+  public:
+    VmafGradientCoherenceTest()
+        : size_(TEST_GET_PARAM(0)), test_func_(TEST_GET_PARAM(1)) {
+    }
+
+    ~VmafGradientCoherenceTest() override = default;
+
+  protected:
+    static const int kIterations = 10;
+
+    void SetUp() override {
+        const int width = size_.first;
+        const int height = size_.second;
+        // The SIMD kernels do masked 16-wide loads past the block edge; pad the
+        // allocation to mirror the padded luma plane used in production.
+        src_ = static_cast<uint8_t *>(
+            svt_aom_memalign(16, (size_t)width * height + 128));
+        ASSERT_NE(src_, nullptr);
+    }
+
+    void TearDown() override {
+        svt_aom_free(src_);
+    }
+
+    std::pair<int, int> size_;
+    VmafGradientCoherenceFunc test_func_;
+    uint8_t *src_ = nullptr;
+
+    void run_match_test() {
+        SVTRandom rnd(8, false);
+        const int width = size_.first;
+        const int height = size_.second;
+        const int stride = width;
+
+        for (int i = 0; i < kIterations; ++i) {
+            for (int p = 0; p < width * height; ++p) {
+                src_[p] = rnd.Rand8();
+            }
+            const float res_ref = svt_vmaf_compute_gradient_coherence_c(
+                src_, width, height, stride);
+            const float res_tst = test_func_(src_, width, height, stride);
+            ASSERT_EQ(res_ref, res_tst) << "iteration " << i;
+        }
+    }
+};
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VmafGradientCoherenceTest);
+
+TEST_P(VmafGradientCoherenceTest, MatchTest) {
+    run_match_test();
+}
+
+#ifdef ARCH_X86_64
+INSTANTIATE_TEST_SUITE_P(
+    AVX2, VmafGradientCoherenceTest,
+    ::testing::Combine(
+        ::testing::ValuesIn(kVmafSizes),
+        ::testing::Values(&svt_vmaf_compute_gradient_coherence_avx2)));
+#endif  // ARCH_X86_64
+
+#ifdef ARCH_AARCH64
+INSTANTIATE_TEST_SUITE_P(
+    NEON, VmafGradientCoherenceTest,
+    ::testing::Combine(
+        ::testing::ValuesIn(kVmafSizes),
+        ::testing::Values(&svt_vmaf_compute_gradient_coherence_neon)));
 #endif  // ARCH_AARCH64
 
 #endif  // OPT_TUNE_VMAF

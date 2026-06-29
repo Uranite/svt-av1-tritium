@@ -512,6 +512,8 @@ Linux FFmpeg (n7.1, Static):
         exit 1
       fi
     - !reference [.ffmpeg-ffmpeg-script]
+    - $CI_PROJECT_DIR/ffmpeg -y -s:v 64x64 -f rawvideo -i /dev/zero -vframes 10 -c:v libsvtav1 -svtav1-params tune=5 -f ivf "$CI_PROJECT_DIR/tune5.ivf"
+    - $CI_PROJECT_DIR/ffmpeg -v error -c:v libdav1d -i "$CI_PROJECT_DIR/tune5.ivf" -f null -
     - ccache -s
   artifacts:
     untracked: false

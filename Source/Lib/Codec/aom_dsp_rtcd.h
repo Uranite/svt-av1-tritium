@@ -929,16 +929,16 @@ int32_t svt_estimate_noise_highbd_fp16_c(const uint16_t *src, int width, int hei
 #if OPT_TUNE_VMAF
 RTCD_EXTERN uint32_t (*svt_vmaf_compute_avg_mad)(const uint8_t *src, int width, int height, int stride);
 uint32_t svt_vmaf_compute_avg_mad_c(const uint8_t *src, int width, int height, int stride);
-RTCD_EXTERN void (*svt_vmaf_apply_unsharp_row)(const uint8_t *src, const int16_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
-void svt_vmaf_apply_unsharp_row_c(const uint8_t *src, const int16_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
-RTCD_EXTERN void (*svt_vmaf_vpass_row)(const uint32_t *hpass, uint32_t *sc0, uint32_t *sc1, uint32_t *sc2, uint32_t *sc3, int16_t *blur_row, int alloc_width, int width, int steps_x, int do_output);
-void svt_vmaf_vpass_row_c(const uint32_t *hpass, uint32_t *sc0, uint32_t *sc1, uint32_t *sc2, uint32_t *sc3, int16_t *blur_row, int alloc_width, int width, int steps_x, int do_output);
+RTCD_EXTERN void (*svt_vmaf_apply_unsharp_row)(const uint8_t *src, const uint8_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
+void svt_vmaf_apply_unsharp_row_c(const uint8_t *src, const uint8_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
+RTCD_EXTERN void (*svt_vmaf_vpass_row)(const int16_t *r0, const int16_t *r1, const int16_t *r2, const int16_t *r3, const int16_t *r4, uint8_t *blur_row, int width, int steps_x);
+void svt_vmaf_vpass_row_c(const int16_t *r0, const int16_t *r1, const int16_t *r2, const int16_t *r3, const int16_t *r4, uint8_t *blur_row, int width, int steps_x);
 RTCD_EXTERN float (*svt_vmaf_compute_gradient_coherence)(const uint8_t *src, int width, int height, int stride);
 float svt_vmaf_compute_gradient_coherence_c(const uint8_t *src, int width, int height, int stride);
-RTCD_EXTERN uint32_t (*svt_vmaf_count_detail_le)(const uint8_t *src, const int16_t *blur, int width, int height, int src_stride, int thresh);
-uint32_t svt_vmaf_count_detail_le_c(const uint8_t *src, const int16_t *blur, int width, int height, int src_stride, int thresh);
-RTCD_EXTERN void (*svt_vmaf_hpass_row)(const uint8_t *src_row, int width, uint32_t *h_row);
-void svt_vmaf_hpass_row_c(const uint8_t *src_row, int width, uint32_t *h_row);
+RTCD_EXTERN uint32_t (*svt_vmaf_count_detail_le)(const uint8_t *src, const uint8_t *blur, int width, int height, int src_stride, int thresh);
+uint32_t svt_vmaf_count_detail_le_c(const uint8_t *src, const uint8_t *blur, int width, int height, int src_stride, int thresh);
+RTCD_EXTERN void (*svt_vmaf_hpass_row)(const uint8_t *src_row, int width, int16_t *h_row);
+void svt_vmaf_hpass_row_c(const uint8_t *src_row, int width, int16_t *h_row);
 #endif
 RTCD_EXTERN void(*svt_copy_mi_map_grid)(MbModeInfo** mi_grid_ptr, uint32_t mi_stride, uint8_t num_rows, uint8_t num_cols);
 void svt_copy_mi_map_grid_c(MbModeInfo** mi_grid_ptr, uint32_t mi_stride, uint8_t num_rows, uint8_t num_cols);
@@ -1396,9 +1396,12 @@ int32_t svt_estimate_noise_highbd_fp16_neon(const uint16_t *src, int width, int 
 uint32_t svt_vmaf_compute_avg_mad_neon(const uint8_t *src, int width, int height, int stride);
 uint32_t svt_vmaf_compute_avg_mad_neon_dotprod(const uint8_t *src, int width, int height, int stride);
 uint32_t svt_vmaf_compute_avg_mad_neon_i8mm(const uint8_t *src, int width, int height, int stride);
-void svt_vmaf_apply_unsharp_row_neon(const uint8_t *src, const int16_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
-void svt_vmaf_apply_unsharp_row_sve2(const uint8_t *src, const int16_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
-void svt_vmaf_vpass_row_neon(const uint32_t *hpass, uint32_t *sc0, uint32_t *sc1, uint32_t *sc2, uint32_t *sc3, int16_t *blur_row, int alloc_width, int width, int steps_x, int do_output);
+void svt_vmaf_apply_unsharp_row_neon(const uint8_t *src, const uint8_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
+void svt_vmaf_apply_unsharp_row_sve2(const uint8_t *src, const uint8_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
+void svt_vmaf_vpass_row_neon(const int16_t *r0, const int16_t *r1, const int16_t *r2, const int16_t *r3, const int16_t *r4, uint8_t *blur_row, int width, int steps_x);
+float svt_vmaf_compute_gradient_coherence_neon(const uint8_t *src, int width, int height, int stride);
+uint32_t svt_vmaf_count_detail_le_neon(const uint8_t *src, const uint8_t *blur, int width, int height, int src_stride, int thresh);
+void svt_vmaf_hpass_row_neon(const uint8_t *src_row, int width, int16_t *h_row);
 #endif
 uint64_t svt_aom_compute_cdef_dist_8bit_neon(const uint8_t *dst8, int32_t dstride, const uint8_t *src8,
                                                 const CdefList *dlist, int32_t cdef_count, BlockSize bsize,
@@ -2364,11 +2367,11 @@ int32_t svt_estimate_noise_highbd_fp16_avx2(const uint16_t *src, int width, int 
 #endif
 #if OPT_TUNE_VMAF
 uint32_t svt_vmaf_compute_avg_mad_avx2(const uint8_t *src, int width, int height, int stride);
-void svt_vmaf_apply_unsharp_row_avx2(const uint8_t *src, const int16_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
-void svt_vmaf_vpass_row_avx2(const uint32_t *hpass, uint32_t *sc0, uint32_t *sc1, uint32_t *sc2, uint32_t *sc3, int16_t *blur_row, int alloc_width, int width, int steps_x, int do_output);
+void svt_vmaf_apply_unsharp_row_avx2(const uint8_t *src, const uint8_t *blur, uint8_t *dst, int width, int amount, int32_t max_delta);
+void svt_vmaf_vpass_row_avx2(const int16_t *r0, const int16_t *r1, const int16_t *r2, const int16_t *r3, const int16_t *r4, uint8_t *blur_row, int width, int steps_x);
 float svt_vmaf_compute_gradient_coherence_avx2(const uint8_t *src, int width, int height, int stride);
-uint32_t svt_vmaf_count_detail_le_avx2(const uint8_t *src, const int16_t *blur, int width, int height, int src_stride, int thresh);
-void svt_vmaf_hpass_row_avx2(const uint8_t *src_row, int width, uint32_t *h_row);
+uint32_t svt_vmaf_count_detail_le_avx2(const uint8_t *src, const uint8_t *blur, int width, int height, int src_stride, int thresh);
+void svt_vmaf_hpass_row_avx2(const uint8_t *src_row, int width, int16_t *h_row);
 #endif
 void svt_av1_add_block_observations_internal_avx2(uint32_t n, const double val, const double recp_sqr_norm, double *buffer, double *buffer_norm, double *b, double *A);
 void svt_av1_pointwise_multiply_avx2(const float *a, float *b, float *c, double *b_d, double *c_d, int32_t n);

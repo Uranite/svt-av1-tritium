@@ -970,6 +970,9 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_vmaf_compute_avg_mad, svt_vmaf_compute_avg_mad_c, svt_vmaf_compute_avg_mad_neon, svt_vmaf_compute_avg_mad_neon_dotprod, svt_vmaf_compute_avg_mad_neon_i8mm);
     SET_NEON_SVE2(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c, svt_vmaf_apply_unsharp_row_neon, svt_vmaf_apply_unsharp_row_sve2);
     SET_NEON(svt_vmaf_vpass_row, svt_vmaf_vpass_row_c, svt_vmaf_vpass_row_neon);
+    SET_NEON(svt_vmaf_compute_gradient_coherence, svt_vmaf_compute_gradient_coherence_c, svt_vmaf_compute_gradient_coherence_neon);
+    SET_NEON(svt_vmaf_count_detail_le, svt_vmaf_count_detail_le_c, svt_vmaf_count_detail_le_neon);
+    SET_NEON(svt_vmaf_hpass_row, svt_vmaf_hpass_row_c, svt_vmaf_hpass_row_neon);
 #endif
     SET_NEON(svt_copy_mi_map_grid, svt_copy_mi_map_grid_c, svt_copy_mi_map_grid_neon);
 #if CONFIG_ENABLE_FILM_GRAIN
@@ -1351,6 +1354,9 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_ONLY_C(svt_vmaf_compute_avg_mad, svt_vmaf_compute_avg_mad_c);
     SET_ONLY_C(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c);
     SET_ONLY_C(svt_vmaf_vpass_row, svt_vmaf_vpass_row_c);
+    SET_ONLY_C(svt_vmaf_compute_gradient_coherence, svt_vmaf_compute_gradient_coherence_c);
+    SET_ONLY_C(svt_vmaf_count_detail_le, svt_vmaf_count_detail_le_c);
+    SET_ONLY_C(svt_vmaf_hpass_row, svt_vmaf_hpass_row_c);
 #endif
     SET_ONLY_C(svt_copy_mi_map_grid, svt_copy_mi_map_grid_c);
 #if CONFIG_ENABLE_FILM_GRAIN
