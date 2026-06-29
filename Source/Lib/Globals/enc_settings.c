@@ -279,6 +279,26 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("Hierarchical Levels supported [0-5]\n");
 #endif
         return_error = EB_ErrorBadParameter;
+    } else {
+        for (uint8_t i = 0; i < config->hierarchical_levels + 1; ++i) {
+            if (config->qindex_offsets[i] < -64 || config->qindex_offsets[i] > 63) {
+                SVT_ERROR(
+                    "Invalid qindex_offsets for hierarchical level %d. Found %d, qindex_offsets must be [-64 - 63]\n",
+                    i,
+                    config->qindex_offsets[i]);
+                return_error = EB_ErrorBadParameter;
+            }
+        }
+        for (uint8_t i = 0; i < config->hierarchical_levels + 1; ++i) {
+            if (config->chroma_qindex_offsets[i] < -64 || config->chroma_qindex_offsets[i] > 63) {
+                SVT_ERROR(
+                    "Invalid chroma_qindex_offsets for hierarchical level %d. Found %d, chroma_qindex_offsets must be "
+                    "[-64 - 63]\n",
+                    i,
+                    config->chroma_qindex_offsets[i]);
+                return_error = EB_ErrorBadParameter;
+            }
+        }
     }
     if ((config->intra_period_length < -2 || config->intra_period_length > 2 * ((1 << 30) - 1)) &&
         config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF) {
@@ -376,12 +396,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    for (uint8_t i = 0; i < config->hierarchical_levels + 1; ++i) {
-        if (config->qindex_offsets[i] < -64 || config->qindex_offsets[i] > 63) {
-            SVT_ERROR("Invalid qindex_offsets. qindex_offsets must be [-64 - 63]\n");
-            return_error = EB_ErrorBadParameter;
-        }
-    }
     if (config->key_frame_chroma_qindex_offset < -64 || config->key_frame_chroma_qindex_offset > 63) {
         SVT_ERROR(
             "Invalid key_frame_chroma_qindex_offset. key_frame_chroma_qindex_offset "
@@ -419,12 +433,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
-    for (uint8_t i = 0; i < config->hierarchical_levels + 1; ++i) {
-        if (config->chroma_qindex_offsets[i] < -64 || config->chroma_qindex_offsets[i] > 63) {
-            SVT_ERROR("Invalid chroma_qindex_offsets. chroma_qindex_offsets must be [-64 - 63]\n");
-            return_error = EB_ErrorBadParameter;
-        }
-    }
     if (config->startup_qp_offset < -63 || config->startup_qp_offset > 63) {
         SVT_ERROR("Invalid startup_qp_offset. startup_qp_offset must be [-63 - 63]\n");
         return_error = EB_ErrorBadParameter;
