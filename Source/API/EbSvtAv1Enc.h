@@ -972,7 +972,7 @@ typedef struct EbSvtAv1EncConfiguration {
     /**
      * @brief High Bit-Depth Mode Decision, used to control the bit-depth of the mode decision path.
      * -1: preset determined (auto)
-     * 0: preset-determined
+     * 0: full 8-bit MD
      * 1: full 10-bit MD
      * 2: hybrid 8/10-bit MD
      * Default is -1

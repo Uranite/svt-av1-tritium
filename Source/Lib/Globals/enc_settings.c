@@ -1280,7 +1280,7 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
             SVT_INFO("SVT [config]: AC Bias Strength \t\t\t\t\t\t: %.2f\n", config->ac_bias);
         }
 
-        if (config->hbd_mds) {
+        if (config->hbd_mds != DEFAULT) {
             SVT_INFO("SVT [config]: High Bit Depth Mode Decision setting \t\t\t\t\t: %d\n", config->hbd_mds);
         }
     }
