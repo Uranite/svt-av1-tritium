@@ -37,8 +37,8 @@ typedef struct {
     int row_max;
 } SubpelMvLimits;
 
-#pragma pack(push, 1)
-
+// Keep natural alignment: x/y are read as int16_t through pointers into Mv arrays
+// (e.g. clip_mv_on_pic_boundary), so the type must not be byte-packed.
 typedef union Mv {
     struct {
         int16_t x;
@@ -47,8 +47,6 @@ typedef union Mv {
 
     uint32_t as_int; /* facilitates faster equality tests and copies */
 } Mv;
-
-#pragma pack(pop)
 
 typedef struct CandidateMv {
     Mv      this_mv;
