@@ -493,14 +493,15 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t* src, uint16_t width, uint16_
             gxb_lo            = vaddq_u16(gxb_lo, vaddl_u8(vget_low_u8(mat[1][2]), vget_low_u8(mat[1][2])));
             gxb_hi            = vaddq_u16(gxb_hi, vaddl_u8(vget_high_u8(mat[1][2]), vget_high_u8(mat[1][2])));
 
-            uint16x8_t gya_lo = vaddl_u8(vget_low_u8(mat[0][0]), vget_low_u8(mat[0][2]));
-            uint16x8_t gya_hi = vaddl_u8(vget_high_u8(mat[0][0]), vget_high_u8(mat[0][2]));
-            uint16x8_t gyb_lo = vaddl_u8(vget_low_u8(mat[2][0]), vget_low_u8(mat[2][2]));
-            uint16x8_t gyb_hi = vaddl_u8(vget_high_u8(mat[2][0]), vget_high_u8(mat[2][2]));
-            gya_lo            = vaddq_u16(gya_lo, vaddl_u8(vget_low_u8(mat[0][1]), vget_low_u8(mat[0][1])));
-            gya_hi            = vaddq_u16(gya_hi, vaddl_u8(vget_high_u8(mat[0][1]), vget_high_u8(mat[0][1])));
-            gyb_lo            = vaddq_u16(gyb_lo, vaddl_u8(vget_low_u8(mat[2][1]), vget_low_u8(mat[2][1])));
-            gyb_hi            = vaddq_u16(gyb_hi, vaddl_u8(vget_high_u8(mat[2][1]), vget_high_u8(mat[2][1])));
+            uint16x8_t diag0_lo = vaddl_u8(vget_low_u8(mat[0][0]), vget_low_u8(mat[0][2]));
+            uint16x8_t diag0_hi = vaddl_u8(vget_high_u8(mat[0][0]), vget_high_u8(mat[0][2]));
+            uint16x8_t diag1_lo = vaddl_u8(vget_low_u8(mat[2][0]), vget_low_u8(mat[2][2]));
+            uint16x8_t diag1_hi = vaddl_u8(vget_high_u8(mat[2][0]), vget_high_u8(mat[2][2]));
+
+            uint16x8_t gya_lo = vaddq_u16(diag0_lo, vaddl_u8(vget_low_u8(mat[0][1]), vget_low_u8(mat[0][1])));
+            uint16x8_t gya_hi = vaddq_u16(diag0_hi, vaddl_u8(vget_high_u8(mat[0][1]), vget_high_u8(mat[0][1])));
+            uint16x8_t gyb_lo = vaddq_u16(diag1_lo, vaddl_u8(vget_low_u8(mat[2][1]), vget_low_u8(mat[2][1])));
+            uint16x8_t gyb_hi = vaddq_u16(diag1_hi, vaddl_u8(vget_high_u8(mat[2][1]), vget_high_u8(mat[2][1])));
 
             uint16x8_t ga_lo = vabaq_u16(vabdq_u16(gxa_lo, gxb_lo), gya_lo, gyb_lo);
             uint16x8_t ga_hi = vabaq_u16(vabdq_u16(gxa_hi, gxb_hi), gya_hi, gyb_hi);
@@ -523,12 +524,8 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t* src, uint16_t width, uint16_
             uint16x8_t adj_hi  = vaddq_u16(adj0_hi, adj1_hi);
             adj_hi             = vaddq_u16(adj_hi, adj_hi);
 
-            uint16x8_t diag0_lo = vaddl_u8(vget_low_u8(mat[0][0]), vget_low_u8(mat[0][2]));
-            uint16x8_t diag0_hi = vaddl_u8(vget_high_u8(mat[0][0]), vget_high_u8(mat[0][2]));
-            uint16x8_t diag1_lo = vaddl_u8(vget_low_u8(mat[2][0]), vget_low_u8(mat[2][2]));
-            uint16x8_t diag1_hi = vaddl_u8(vget_high_u8(mat[2][0]), vget_high_u8(mat[2][2]));
-            uint16x8_t diag_lo  = vaddq_u16(diag0_lo, diag1_lo);
-            uint16x8_t diag_hi  = vaddq_u16(diag0_hi, diag1_hi);
+            uint16x8_t diag_lo = vaddq_u16(diag0_lo, diag1_lo);
+            uint16x8_t diag_hi = vaddq_u16(diag0_hi, diag1_hi);
 
             uint16x8_t v_lo = vaddq_u16(center_lo, diag_lo);
             v_lo            = vabdq_u16(v_lo, adj_lo);
@@ -564,10 +561,10 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t* src, uint16_t width, uint16_
             gxa            = vaddq_u16(gxa, vaddl_u8(mat[1][0], mat[1][0]));
             gxb            = vaddq_u16(gxb, vaddl_u8(mat[1][2], mat[1][2]));
 
-            uint16x8_t gya = vaddl_u8(mat[0][0], mat[0][2]);
-            uint16x8_t gyb = vaddl_u8(mat[2][0], mat[2][2]);
-            gya            = vaddq_u16(gya, vaddl_u8(mat[0][1], mat[0][1]));
-            gyb            = vaddq_u16(gyb, vaddl_u8(mat[2][1], mat[2][1]));
+            uint16x8_t diag0 = vaddl_u8(mat[0][0], mat[0][2]);
+            uint16x8_t diag1 = vaddl_u8(mat[2][0], mat[2][2]);
+            uint16x8_t gya   = vaddq_u16(diag0, vaddl_u8(mat[0][1], mat[0][1]));
+            uint16x8_t gyb   = vaddq_u16(diag1, vaddl_u8(mat[2][1], mat[2][1]));
 
             uint16x8_t ga = vabaq_u16(vabdq_u16(gxa, gxb), gya, gyb);
 
@@ -583,9 +580,7 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t* src, uint16_t width, uint16_
             uint16x8_t adj  = vaddq_u16(adj0, adj1);
             adj             = vaddq_u16(adj, adj);
 
-            uint16x8_t diag0 = vaddl_u8(mat[0][0], mat[0][2]);
-            uint16x8_t diag1 = vaddl_u8(mat[2][0], mat[2][2]);
-            uint16x8_t diag  = vaddq_u16(diag0, diag1);
+            uint16x8_t diag = vaddq_u16(diag0, diag1);
 
             uint16x8_t v = vaddq_u16(center, diag);
             v            = vabdq_u16(v, adj);
@@ -617,10 +612,10 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t* src, uint16_t width, uint16_
             gxa            = vaddq_u16(gxa, vaddl_u8(mat[1][0], mat[1][0]));
             gxb            = vaddq_u16(gxb, vaddl_u8(mat[1][2], mat[1][2]));
 
-            uint16x8_t gya = vaddl_u8(mat[0][0], mat[0][2]);
-            uint16x8_t gyb = vaddl_u8(mat[2][0], mat[2][2]);
-            gya            = vaddq_u16(gya, vaddl_u8(mat[0][1], mat[0][1]));
-            gyb            = vaddq_u16(gyb, vaddl_u8(mat[2][1], mat[2][1]));
+            uint16x8_t diag0 = vaddl_u8(mat[0][0], mat[0][2]);
+            uint16x8_t diag1 = vaddl_u8(mat[2][0], mat[2][2]);
+            uint16x8_t gya   = vaddq_u16(diag0, vaddl_u8(mat[0][1], mat[0][1]));
+            uint16x8_t gyb   = vaddq_u16(diag1, vaddl_u8(mat[2][1], mat[2][1]));
 
             uint16x8_t ga = vabaq_u16(vabdq_u16(gxa, gxb), gya, gyb);
 
@@ -636,9 +631,7 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t* src, uint16_t width, uint16_
             uint16x8_t adj  = vaddq_u16(adj0, adj1);
             adj             = vaddq_u16(adj, adj);
 
-            uint16x8_t diag0 = vaddl_u8(mat[0][0], mat[0][2]);
-            uint16x8_t diag1 = vaddl_u8(mat[2][0], mat[2][2]);
-            uint16x8_t diag  = vaddq_u16(diag0, diag1);
+            uint16x8_t diag = vaddq_u16(diag0, diag1);
 
             uint16x8_t v = vaddq_u16(center, diag);
             v            = vabdq_u16(v, adj);
@@ -684,7 +677,14 @@ int32_t svt_estimate_noise_fp16_neon(const uint8_t* src, uint16_t width, uint16_
     // We counted negatively, so subtract to get the final value.
     final_count -= vaddvq_s32(count);
     final_acc += vaddlvq_u32(acc);
-    return (final_count < SMOOTH_THRESHOLD) ? -1.0 : (double)(final_acc * SQRT_PI_BY_2_FP16) / (6 * final_count);
+
+    // If very few smooth pels, return -1 since the estimate is unreliable.
+    if (final_count < SMOOTH_THRESHOLD) {
+        return -65536 /*-1:fp16*/;
+    }
+
+    FP_ASSERT((((int64_t)final_acc * SQRT_PI_BY_2_FP16) / (6 * final_count)) < ((int64_t)1 << 31));
+    return (int32_t)((final_acc * SQRT_PI_BY_2_FP16) / (6 * final_count));
 }
 
 static void apply_filtering_central_loop_lbd(uint16_t w, uint16_t h, uint8_t* src, uint16_t src_stride, uint32_t* accum,
