@@ -3945,7 +3945,9 @@ EbErrorType svt_aom_estimate_transform(PictureControlSet* pcs, ModeDecisionConte
     (void)coeff_stride;
     (void)component_type;
 
-    if (svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id)) {
+    // Lossless uses a 4x4 WHT; guard on TX_4X4 so larger sizes fall through and
+    // fill the full coeff_buffer, avoiding an uninitialized read. Fixes gitlab#2373.
+    if (svt_av1_is_lossless_segment(pcs, ctx->blk_ptr->segment_id) && transform_size == TX_4X4) {
         assert(transform_type == DCT_DCT);
         int32_t dst[16];
 
