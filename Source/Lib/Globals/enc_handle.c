@@ -5228,7 +5228,9 @@ EB_API EbErrorType svt_av1_enc_set_parameter(EbComponentType*          svt_enc_c
     }
 
     set_param_based_on_input(scs);
-    // Initialize the Prediction Structure Group
+    // Initialize the Prediction Structure Group. Free any group from a previous
+    // svt_av1_enc_set_parameter() call on this handle so it is not leaked.
+    EB_DELETE(enc_handle->scs_instance->enc_ctx->prediction_structure_group_ptr);
     EB_NO_THROW_NEW(enc_handle->scs_instance->enc_ctx->prediction_structure_group_ptr,
                     svt_aom_prediction_structure_group_ctor);
     if (!enc_handle->scs_instance->enc_ctx->prediction_structure_group_ptr) {
