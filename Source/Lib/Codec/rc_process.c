@@ -221,8 +221,14 @@ int32_t svt_av1_compute_qdelta(double qstart, double qtarget, EbBitDepth bit_dep
     return target_index - start_index;
 }
 
+// r0 (TPL rate ratio) is normally in (0, 1] but can be exactly 0 for a zero-distortion (flat/static)
+// frame. Floor the divisor so factor/r0 stays finite: casting +inf to int is undefined behavior
+// (UBSan: float-cast-overflow). 1e-6 keeps the largest boost well under INT_MAX.
+#define R0_MIN_DIVISOR 1e-6
+
 int svt_av1_get_cqp_kf_boost_from_r0(double r0, int frames_to_key, ResolutionRange input_resolution) {
     double factor;
+    r0 = AOMMAX(r0, R0_MIN_DIVISOR);
     // when frames_to_key not available, it is set to -1. In this case the factor is set to average of min and max
     if (frames_to_key == -1) {
         factor = (10.0 + 4.0) / 2;
@@ -237,6 +243,7 @@ int svt_av1_get_cqp_kf_boost_from_r0(double r0, int frames_to_key, ResolutionRan
 }
 
 int svt_av1_get_gfu_boost_from_r0_lap(double min_factor, double max_factor, double r0, int frames_to_key) {
+    r0            = AOMMAX(r0, R0_MIN_DIVISOR);
     double factor = sqrt((double)frames_to_key);
     factor        = AOMMIN(factor, max_factor);
     factor        = AOMMAX(factor, min_factor);
