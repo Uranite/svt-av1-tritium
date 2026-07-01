@@ -2456,7 +2456,7 @@ void tf_inter_predictor(SequenceControlSet* scs, uint8_t* src_ptr, uint8_t* dst_
                           &pos_x);
 
     uint8_t* src_mod;
-    src_mod = src_ptr + ((pos_x + (pos_y * src_stride)) << is_highbd);
+    src_mod = src_ptr + ((pos_x + (pos_y * src_stride)) * (1 << is_highbd));
 
     if (is_highbd) {
         uint16_t* src16 = (uint16_t*)src_mod;
@@ -2577,7 +2577,7 @@ void svt_aom_enc_make_inter_predictor(SequenceControlSet* scs, uint8_t* src_ptr,
             src_mod    = src_ptr + ((pos_x + (pos_y * src_stride)));
             src_mod_2b = src_ptr_2b + ((pos_x + (pos_y * src_stride)));
         } else {
-            src_mod = src_ptr + ((pos_x + (pos_y * src_stride)) << is16bit);
+            src_mod = src_ptr + ((pos_x + (pos_y * src_stride)) * (1 << is16bit));
         }
         if (is_masked_compound) {
             conv_params->do_average = 0;

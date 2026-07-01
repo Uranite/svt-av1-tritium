@@ -2683,13 +2683,13 @@ static void perform_gm_detection(
 
             // Active block detection
             const int active_th = 4;
-            int       mx        = _MVXT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) << 2;
+            int       mx        = _MVXT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) * 4;
             if (mx < -active_th) {
                 per_sig_cnt[list_index][ref_pic_index][0][0]++;
             } else if (mx > active_th) {
                 per_sig_cnt[list_index][ref_pic_index][0][1]++;
             }
-            int my = _MVYT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) << 2;
+            int my = _MVYT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) * 4;
             if (my < -active_th) {
                 per_sig_cnt[list_index][ref_pic_index][1][0]++;
             } else if (my > active_th) {
@@ -2718,13 +2718,13 @@ static void perform_gm_detection(
 
             // Active block detection
             const int active_th = 32;
-            int       mx        = _MVXT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) << 2;
+            int       mx        = _MVXT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) * 4;
             if (mx < -active_th) {
                 per_sig_cnt[list_index][ref_pic_index][0][0]++;
             } else if (mx > active_th) {
                 per_sig_cnt[list_index][ref_pic_index][0][1]++;
             }
-            int my = _MVYT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) << 2;
+            int my = _MVYT(me_ctx->p_sb_best_mv[list_index][ref_pic_index][n_idx]) * 4;
             if (my < -active_th) {
                 per_sig_cnt[list_index][ref_pic_index][1][0]++;
             } else if (my > active_th) {

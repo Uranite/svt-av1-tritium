@@ -1928,8 +1928,8 @@ uint8_t svt_aom_wm_motion_refinement(PictureControlSet* pcs, ModeDecisionContext
     for (int iter = 0; iter < max_iterations; iter++) {
         // search the (0,0) offset position only for the first search iteration
         for (int i = (iter ? 1 : 0); i < (ctx->wm_ctrls.refine_diag ? 9 : 5); i++) {
-            const Mv test_mv = (Mv){{search_centre_mv.x + (neighbors[i].x << mv_prec_shift),
-                                     search_centre_mv.y + (neighbors[i].y << mv_prec_shift)}};
+            const Mv test_mv = (Mv){{search_centre_mv.x + (neighbors[i].x * (1 << mv_prec_shift)),
+                                     search_centre_mv.y + (neighbors[i].y * (1 << mv_prec_shift))}};
 
             // Don't re-test previously tested positions
             if (iter) {
