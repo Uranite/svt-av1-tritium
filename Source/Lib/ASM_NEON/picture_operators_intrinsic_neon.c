@@ -340,7 +340,7 @@ static inline void unpack_and_2bcompress_32_neon(uint16_t* in16b_buffer, uint8_t
 
         const uint32_t ext0123_packed32 = vget_lane_u32(
             vreinterpret_u32_u8(vqmovn_u16(vcombine_u16(vqmovn_u32(ext0123), vdup_n_u16(0)))), 0);
-        *((uint32_t*)(out2b_buffer + w * 4)) = ext0123_packed32;
+        memcpy(out2b_buffer + w * 4, &ext0123_packed32, sizeof(ext0123_packed32));
 
         const uint8x16_t out8_u8 = vcombine_u8(vqmovn_u16(vandq_u16(vshrq_n_u16(in1, 2), ymm_00ff)),
                                                vqmovn_u16(vandq_u16(vshrq_n_u16(in2, 2), ymm_00ff)));
@@ -697,15 +697,13 @@ void svt_enc_msb_pack2d_neon(uint8_t* in8_bit_buffer, uint32_t in8_stride, uint8
 
     if (width == 4) {
         for (count_height = 0; count_height < height; count_height += 2) {
-            vst1_u16(
-                out16_bit_buffer,
-                vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(inn_bit_buffer))),
-                                                        vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(in8_bit_buffer))))),
-                           6));
+            vst1_u16(out16_bit_buffer,
+                     vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(load_unaligned_u8_4x1(inn_bit_buffer),
+                                                             load_unaligned_u8_4x1(in8_bit_buffer))),
+                                6));
             vst1_u16(out16_bit_buffer + out_stride,
-                     vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(
-                                    vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(inn_bit_buffer + inn_stride))),
-                                    vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(in8_bit_buffer + in8_stride))))),
+                     vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(load_unaligned_u8_4x1(inn_bit_buffer + inn_stride),
+                                                             load_unaligned_u8_4x1(in8_bit_buffer + in8_stride))),
                                 6));
 
             out16_bit_buffer += (out_stride << 1);
@@ -879,15 +877,13 @@ void svt_enc_msb_pack2d_neon(uint8_t* in8_bit_buffer, uint32_t in8_stride, uint8
             for (count_height = 0; count_height < height; count_height += 2) {
                 for (count_width = 0; count_width < width; count_width += 4) {
                     vst1_u16(out16_bit_buffer,
-                             vshr_n_u16(vreinterpret_u16_u8(
-                                            vzip1_u8(vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(inn_bit_buffer))),
-                                                     vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(in8_bit_buffer))))),
+                             vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(load_unaligned_u8_4x1(inn_bit_buffer),
+                                                                     load_unaligned_u8_4x1(in8_bit_buffer))),
                                         6));
                     vst1_u16(
                         out16_bit_buffer + out_stride,
-                        vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(
-                                       vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(inn_bit_buffer + inn_stride))),
-                                       vreinterpret_u8_u32(vdup_n_u32(*(uint32_t*)(in8_bit_buffer + in8_stride))))),
+                        vshr_n_u16(vreinterpret_u16_u8(vzip1_u8(load_unaligned_u8_4x1(inn_bit_buffer + inn_stride),
+                                                                load_unaligned_u8_4x1(in8_bit_buffer + in8_stride))),
                                    6));
 
                     out16_bit_buffer += 4;
