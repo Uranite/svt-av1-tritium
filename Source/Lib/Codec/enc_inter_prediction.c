@@ -2837,7 +2837,7 @@ static void av1_inter_prediction_light_pd1(SequenceControlSet* scs, ModeDecision
 
             assert(IMPLIES(conv_params_y.do_average, is_compound));
             src_mod    = ref_pic->y_buffer + ((pos_x + (pos_y)*ref_pic->y_stride));
-            src_mod_2b = ref_pic->y_buffer_bit_inc + ((pos_x + (pos_y)*ref_pic->y_stride_bit_inc));
+            src_mod_2b = ADD_OFFSET_OR_NULL(ref_pic->y_buffer_bit_inc, pos_x + (pos_y)*ref_pic->y_stride_bit_inc);
             svt_inter_predictor_light_pd1(src_mod,
                                           src_mod_2b,
                                           ref_pic->y_stride,
@@ -2895,7 +2895,7 @@ static void av1_inter_prediction_light_pd1(SequenceControlSet* scs, ModeDecision
                                   &pos_x);
             if (component_mask & PICTURE_BUFFER_DESC_Cb_FLAG) {
                 src_mod    = ref_pic->u_buffer + (pos_x + pos_y * ref_pic->u_stride);
-                src_mod_2b = ref_pic->u_buffer_bit_inc + (pos_x + pos_y * ref_pic->u_stride_bit_inc);
+                src_mod_2b = ADD_OFFSET_OR_NULL(ref_pic->u_buffer_bit_inc, pos_x + pos_y * ref_pic->u_stride_bit_inc);
                 svt_inter_predictor_light_pd1(src_mod,
                                               src_mod_2b,
                                               ref_pic->u_stride,
@@ -2911,7 +2911,7 @@ static void av1_inter_prediction_light_pd1(SequenceControlSet* scs, ModeDecision
 
             if (component_mask & PICTURE_BUFFER_DESC_Cr_FLAG) {
                 src_mod    = ref_pic->v_buffer + ((pos_x + (pos_y)*ref_pic->v_stride));
-                src_mod_2b = ref_pic->v_buffer_bit_inc + ((pos_x + (pos_y)*ref_pic->v_stride_bit_inc));
+                src_mod_2b = ADD_OFFSET_OR_NULL(ref_pic->v_buffer_bit_inc, pos_x + (pos_y)*ref_pic->v_stride_bit_inc);
                 svt_inter_predictor_light_pd1(src_mod,
                                               src_mod_2b,
                                               ref_pic->v_stride,

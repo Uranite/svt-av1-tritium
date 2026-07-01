@@ -1040,6 +1040,9 @@ typedef enum TxClass {
 #define AOMMIN(x, y) (((x) < (y)) ? (x) : (y))
 #define AOMMAX(x, y) (((x) > (y)) ? (x) : (y))
 
+// Offset a possibly-NULL pointer without forming NULL + offset (UB).
+#define ADD_OFFSET_OR_NULL(base, offset) ((base) ? (base) + (offset) : NULL)
+
 // frame transform mode
 typedef enum ATTRIBUTE_PACKED {
     ONLY_4X4, // use only 4x4 transform

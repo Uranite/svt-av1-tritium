@@ -1341,9 +1341,9 @@ static void apply_filtering_block_plane_wise(MeContext* me_ctx, int block_row, i
                                                                     count_ptr[PLANE_V]);
         } else {
             uint8_t* src_ptr[MAX_PLANES] = {
-                src[PLANE_Y] + offset_src_buffer_Y,
-                src[PLANE_U] + offset_src_buffer_U,
-                src[PLANE_V] + offset_src_buffer_V,
+                ADD_OFFSET_OR_NULL(src[PLANE_Y], offset_src_buffer_Y),
+                ADD_OFFSET_OR_NULL(src[PLANE_U], offset_src_buffer_U),
+                ADD_OFFSET_OR_NULL(src[PLANE_V], offset_src_buffer_V),
             };
             svt_av1_apply_temporal_filter_planewise_medium(me_ctx,
                                                            src_ptr[PLANE_Y],
@@ -1396,9 +1396,9 @@ static void apply_filtering_block_plane_wise(MeContext* me_ctx, int block_row, i
                                                                         encoder_bit_depth);
         } else {
             uint16_t* src_ptr_16bit[MAX_PLANES] = {
-                src_16bit[PLANE_Y] + offset_src_buffer_Y,
-                src_16bit[PLANE_U] + offset_src_buffer_U,
-                src_16bit[PLANE_V] + offset_src_buffer_V,
+                ADD_OFFSET_OR_NULL(src_16bit[PLANE_Y], offset_src_buffer_Y),
+                ADD_OFFSET_OR_NULL(src_16bit[PLANE_U], offset_src_buffer_U),
+                ADD_OFFSET_OR_NULL(src_16bit[PLANE_V], offset_src_buffer_V),
             };
 
             svt_av1_apply_temporal_filter_planewise_medium_hbd(me_ctx,
@@ -1697,18 +1697,21 @@ static void tf_64x64_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
         prediction_ptr.y_buffer = (uint8_t*)pred_16bit[PLANE_Y];
         prediction_ptr.u_buffer = (uint8_t*)pred_16bit[PLANE_U];
         prediction_ptr.v_buffer = (uint8_t*)pred_16bit[PLANE_V];
-        reference_ptr.y_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_Y] + pic_ptr_ref->border +
-                                            (pic_ptr_ref->y_stride * pic_ptr_ref->border));
-        reference_ptr.u_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_U] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.v_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_V] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.border    = pic_ptr_ref->border;
-        reference_ptr.y_stride  = pic_ptr_ref->y_stride;
-        reference_ptr.u_stride  = pic_ptr_ref->u_stride;
-        reference_ptr.v_stride  = pic_ptr_ref->v_stride;
-        reference_ptr.width     = pic_ptr_ref->width;
-        reference_ptr.height    = pic_ptr_ref->height;
+        reference_ptr.y_buffer  = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_Y],
+            pic_ptr_ref->border + (pic_ptr_ref->y_stride * pic_ptr_ref->border));
+        reference_ptr.u_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_U],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.v_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_V],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.border           = pic_ptr_ref->border;
+        reference_ptr.y_stride         = pic_ptr_ref->y_stride;
+        reference_ptr.u_stride         = pic_ptr_ref->u_stride;
+        reference_ptr.v_stride         = pic_ptr_ref->v_stride;
+        reference_ptr.width            = pic_ptr_ref->width;
+        reference_ptr.height           = pic_ptr_ref->height;
         reference_ptr.y_buffer_bit_inc = NULL;
         reference_ptr.u_buffer_bit_inc = NULL;
         reference_ptr.v_buffer_bit_inc = NULL;
@@ -1804,18 +1807,21 @@ static void tf_32x32_sub_pel_search(PictureParentControlSet* pcs, MeContext* me_
         prediction_ptr.y_buffer = (uint8_t*)pred_16bit[PLANE_Y];
         prediction_ptr.u_buffer = (uint8_t*)pred_16bit[PLANE_U];
         prediction_ptr.v_buffer = (uint8_t*)pred_16bit[PLANE_V];
-        reference_ptr.y_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_Y] + pic_ptr_ref->border +
-                                            (pic_ptr_ref->y_stride * pic_ptr_ref->border));
-        reference_ptr.u_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_U] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.v_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_V] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.border    = pic_ptr_ref->border;
-        reference_ptr.y_stride  = pic_ptr_ref->y_stride;
-        reference_ptr.u_stride  = pic_ptr_ref->u_stride;
-        reference_ptr.v_stride  = pic_ptr_ref->v_stride;
-        reference_ptr.width     = pic_ptr_ref->width;
-        reference_ptr.height    = pic_ptr_ref->height;
+        reference_ptr.y_buffer  = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_Y],
+            pic_ptr_ref->border + (pic_ptr_ref->y_stride * pic_ptr_ref->border));
+        reference_ptr.u_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_U],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.v_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_V],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.border           = pic_ptr_ref->border;
+        reference_ptr.y_stride         = pic_ptr_ref->y_stride;
+        reference_ptr.u_stride         = pic_ptr_ref->u_stride;
+        reference_ptr.v_stride         = pic_ptr_ref->v_stride;
+        reference_ptr.width            = pic_ptr_ref->width;
+        reference_ptr.height           = pic_ptr_ref->height;
         reference_ptr.y_buffer_bit_inc = NULL;
         reference_ptr.u_buffer_bit_inc = NULL;
         reference_ptr.v_buffer_bit_inc = NULL;
@@ -2126,18 +2132,21 @@ static void tf_64x64_inter_prediction(PictureParentControlSet* pcs, MeContext* m
         prediction_ptr.y_buffer = (uint8_t*)pred_16bit[PLANE_Y];
         prediction_ptr.u_buffer = (uint8_t*)pred_16bit[PLANE_U];
         prediction_ptr.v_buffer = (uint8_t*)pred_16bit[PLANE_V];
-        reference_ptr.y_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_Y] + pic_ptr_ref->border +
-                                            (pic_ptr_ref->y_stride * pic_ptr_ref->border));
-        reference_ptr.u_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_U] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.v_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_V] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.border    = pic_ptr_ref->border;
-        reference_ptr.y_stride  = pic_ptr_ref->y_stride;
-        reference_ptr.u_stride  = pic_ptr_ref->u_stride;
-        reference_ptr.v_stride  = pic_ptr_ref->v_stride;
-        reference_ptr.width     = pic_ptr_ref->width;
-        reference_ptr.height    = pic_ptr_ref->height;
+        reference_ptr.y_buffer  = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_Y],
+            pic_ptr_ref->border + (pic_ptr_ref->y_stride * pic_ptr_ref->border));
+        reference_ptr.u_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_U],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.v_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_V],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.border           = pic_ptr_ref->border;
+        reference_ptr.y_stride         = pic_ptr_ref->y_stride;
+        reference_ptr.u_stride         = pic_ptr_ref->u_stride;
+        reference_ptr.v_stride         = pic_ptr_ref->v_stride;
+        reference_ptr.width            = pic_ptr_ref->width;
+        reference_ptr.height           = pic_ptr_ref->height;
         reference_ptr.y_buffer_bit_inc = NULL;
         reference_ptr.u_buffer_bit_inc = NULL;
         reference_ptr.v_buffer_bit_inc = NULL;
@@ -2220,18 +2229,21 @@ static void tf_32x32_inter_prediction(PictureParentControlSet* pcs, MeContext* m
         prediction_ptr.y_buffer = (uint8_t*)pred_16bit[PLANE_Y];
         prediction_ptr.u_buffer = (uint8_t*)pred_16bit[PLANE_U];
         prediction_ptr.v_buffer = (uint8_t*)pred_16bit[PLANE_V];
-        reference_ptr.y_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_Y] + pic_ptr_ref->border +
-                                            (pic_ptr_ref->y_stride * pic_ptr_ref->border));
-        reference_ptr.u_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_U] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.v_buffer  = (uint8_t*)(pcs_ref->altref_buffer_highbd[PLANE_V] + (pic_ptr_ref->border >> ss_x) +
-                                            (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
-        reference_ptr.border    = pic_ptr_ref->border;
-        reference_ptr.y_stride  = pic_ptr_ref->y_stride;
-        reference_ptr.u_stride  = pic_ptr_ref->u_stride;
-        reference_ptr.v_stride  = pic_ptr_ref->v_stride;
-        reference_ptr.width     = pic_ptr_ref->width;
-        reference_ptr.height    = pic_ptr_ref->height;
+        reference_ptr.y_buffer  = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_Y],
+            pic_ptr_ref->border + (pic_ptr_ref->y_stride * pic_ptr_ref->border));
+        reference_ptr.u_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_U],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->u_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.v_buffer = (uint8_t*)ADD_OFFSET_OR_NULL(
+            pcs_ref->altref_buffer_highbd[PLANE_V],
+            (pic_ptr_ref->border >> ss_x) + (pic_ptr_ref->v_stride * (pic_ptr_ref->border >> ss_x)));
+        reference_ptr.border           = pic_ptr_ref->border;
+        reference_ptr.y_stride         = pic_ptr_ref->y_stride;
+        reference_ptr.u_stride         = pic_ptr_ref->u_stride;
+        reference_ptr.v_stride         = pic_ptr_ref->v_stride;
+        reference_ptr.width            = pic_ptr_ref->width;
+        reference_ptr.height           = pic_ptr_ref->height;
         reference_ptr.y_buffer_bit_inc = NULL;
         reference_ptr.u_buffer_bit_inc = NULL;
         reference_ptr.v_buffer_bit_inc = NULL;
@@ -2608,8 +2620,11 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
     if (is_highbd) {
         EB_MALLOC_ALIGNED_ARRAY(predictor_16bit, BLK_PELS * MAX_PLANES);
     }
-    EbByte    pred[MAX_PLANES]       = {predictor, predictor + BLK_PELS, predictor + (BLK_PELS << 1)};
-    uint16_t* pred_16bit[MAX_PLANES] = {predictor_16bit, predictor_16bit + BLK_PELS, predictor_16bit + (BLK_PELS << 1)};
+    EbByte pred[MAX_PLANES] = {
+        predictor, ADD_OFFSET_OR_NULL(predictor, BLK_PELS), ADD_OFFSET_OR_NULL(predictor, BLK_PELS << 1)};
+    uint16_t* pred_16bit[MAX_PLANES] = {predictor_16bit,
+                                        ADD_OFFSET_OR_NULL(predictor_16bit, BLK_PELS),
+                                        ADD_OFFSET_OR_NULL(predictor_16bit, BLK_PELS << 1)};
     int       encoder_bit_depth      = scs->static_config.encoder_bit_depth;
 
     // chroma subsampling
@@ -2641,14 +2656,15 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
         input_picture_ptr_central->y_buffer, input_picture_ptr_central->u_buffer, input_picture_ptr_central->v_buffer};
 
     uint16_t* altref_buffer_highbd_start[MAX_PLANES] = {
-        centre_pcs->altref_buffer_highbd[PLANE_Y] +
-            input_picture_ptr_central->border * input_picture_ptr_central->y_stride + input_picture_ptr_central->border,
-        centre_pcs->altref_buffer_highbd[PLANE_U] +
-            (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->u_stride +
-            (input_picture_ptr_central->border >> ss_x),
-        centre_pcs->altref_buffer_highbd[PLANE_V] +
-            (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->v_stride +
-            (input_picture_ptr_central->border >> ss_x),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_Y],
+                           input_picture_ptr_central->border * input_picture_ptr_central->y_stride +
+                               input_picture_ptr_central->border),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_U],
+                           (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->u_stride +
+                               (input_picture_ptr_central->border >> ss_x)),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_V],
+                           (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->v_stride +
+                               (input_picture_ptr_central->border >> ss_x)),
     };
     int decay_control[MAX_PLANES];
 
@@ -3184,8 +3200,11 @@ static EbErrorType produce_temporally_filtered_pic_ld(PictureParentControlSet** 
     if (is_highbd) {
         EB_MALLOC_ALIGNED_ARRAY(predictor_16bit, BLK_PELS * MAX_PLANES);
     }
-    EbByte    pred[MAX_PLANES]       = {predictor, predictor + BLK_PELS, predictor + (BLK_PELS << 1)};
-    uint16_t* pred_16bit[MAX_PLANES] = {predictor_16bit, predictor_16bit + BLK_PELS, predictor_16bit + (BLK_PELS << 1)};
+    EbByte pred[MAX_PLANES] = {
+        predictor, ADD_OFFSET_OR_NULL(predictor, BLK_PELS), ADD_OFFSET_OR_NULL(predictor, BLK_PELS << 1)};
+    uint16_t* pred_16bit[MAX_PLANES] = {predictor_16bit,
+                                        ADD_OFFSET_OR_NULL(predictor_16bit, BLK_PELS),
+                                        ADD_OFFSET_OR_NULL(predictor_16bit, BLK_PELS << 1)};
     int       encoder_bit_depth      = scs->static_config.encoder_bit_depth;
 
     // chroma subsampling
@@ -3217,14 +3236,15 @@ static EbErrorType produce_temporally_filtered_pic_ld(PictureParentControlSet** 
         input_picture_ptr_central->y_buffer, input_picture_ptr_central->u_buffer, input_picture_ptr_central->v_buffer};
 
     uint16_t* altref_buffer_highbd_start[MAX_PLANES] = {
-        centre_pcs->altref_buffer_highbd[PLANE_Y] +
-            input_picture_ptr_central->border * input_picture_ptr_central->y_stride + input_picture_ptr_central->border,
-        centre_pcs->altref_buffer_highbd[PLANE_U] +
-            (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->u_stride +
-            (input_picture_ptr_central->border >> ss_x),
-        centre_pcs->altref_buffer_highbd[PLANE_V] +
-            (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->v_stride +
-            (input_picture_ptr_central->border >> ss_x),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_Y],
+                           input_picture_ptr_central->border * input_picture_ptr_central->y_stride +
+                               input_picture_ptr_central->border),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_U],
+                           (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->u_stride +
+                               (input_picture_ptr_central->border >> ss_x)),
+        ADD_OFFSET_OR_NULL(centre_pcs->altref_buffer_highbd[PLANE_V],
+                           (input_picture_ptr_central->border >> ss_y) * input_picture_ptr_central->v_stride +
+                               (input_picture_ptr_central->border >> ss_x)),
     };
     int decay_control;
 
