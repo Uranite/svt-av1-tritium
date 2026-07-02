@@ -139,6 +139,7 @@ typedef struct EncDecSet {
     EbPictureBufferDesc*            recon_pic;
     EbPictureBufferDesc*            recon_pic_16bit;
     EbPictureBufferDesc**           quantized_coeff;
+    SvtPicBufDescPool               quantized_coeff_pool; // backs quantized_coeff[] with one allocation
     EbObjectWrapper*                enc_dec_wrapper;
     struct PictureParentControlSet* ppcs; // The parent of this PCS.
     EbObjectWrapper*                ppcs_wrapper;
@@ -211,19 +212,19 @@ typedef struct PictureControlSet {
     uint64_t** cdef_mse_ptr[2];
     // Persistent apply scratch (svt_av1_cdef_frame): line/col border buffers + row-filtered flags,
     // lazily (re)allocated on grow instead of malloc/free every frame. Sizes track the current alloc.
-    uint16_t*    cdef_linebuf[3];
-    uint16_t*    cdef_colbuf[3];
-    uint8_t*     cdef_row_cdef;
-    uint32_t     cdef_linebuf_sz[3];
-    uint32_t     cdef_colbuf_sz[3];
-    uint32_t     cdef_row_cdef_sz;
-    EbByte       cdef_input_recon[3]; // DLF'd recon
-    EbByte       cdef_input_source[3]; // Input video
-    uint32_t     tot_seg_searched_rest;
-    EbHandle     rest_search_mutex;
-    uint16_t     rest_segments_total_count;
-    uint8_t      rest_segments_column_count;
-    uint8_t      rest_segments_row_count;
+    uint16_t* cdef_linebuf[3];
+    uint16_t* cdef_colbuf[3];
+    uint8_t*  cdef_row_cdef;
+    uint32_t  cdef_linebuf_sz[3];
+    uint32_t  cdef_colbuf_sz[3];
+    uint32_t  cdef_row_cdef_sz;
+    EbByte    cdef_input_recon[3]; // DLF'd recon
+    EbByte    cdef_input_source[3]; // Input video
+    uint32_t  tot_seg_searched_rest;
+    EbHandle  rest_search_mutex;
+    uint16_t  rest_segments_total_count;
+    uint8_t   rest_segments_column_count;
+    uint8_t   rest_segments_row_count;
     // flag to indicate whether the frame is extended for restoration search
     bool rest_extend_flag[3];
 
@@ -460,12 +461,12 @@ typedef struct MotionEstimationData {
 } MotionEstimationData;
 
 typedef struct TplControls {
-    uint8_t              enable; // 0: TPL OFF; 1: TPL ON
-    uint8_t              compute_rate; // 1: use rate 1: no rate
-    uint8_t              enable_tpl_qps; // 0:OFF 1:ON - QPS in TPL
-    uint8_t              disable_intra_pred_nref; // 0:OFF 1:ON - Disable intra prediction in NREF
-    PredictionMode       intra_mode_end; // The MAX intra mode to be tested in TPL
-    TxCoeffShape         pf_shape;
+    uint8_t        enable; // 0: TPL OFF; 1: TPL ON
+    uint8_t        compute_rate; // 1: use rate 1: no rate
+    uint8_t        enable_tpl_qps; // 0:OFF 1:ON - QPS in TPL
+    uint8_t        disable_intra_pred_nref; // 0:OFF 1:ON - Disable intra prediction in NREF
+    PredictionMode intra_mode_end; // The MAX intra mode to be tested in TPL
+    TxCoeffShape   pf_shape;
     // Use SAD as a distortion metric when searching the best mode (based on src pic). If false, will use SATD
     uint8_t use_sad_in_src_search;
     int8_t  reduced_tpl_group;

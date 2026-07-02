@@ -123,13 +123,12 @@ EbErrorType svt_aom_me_sb_results_ctor(MeSbResults* obj_ptr, PictureControlSetIn
 
 void recon_coef_dctor(EbPtr p) {
     EncDecSet* obj = (EncDecSet*)p;
-
     EB_DELETE(obj->recon_pic_16bit);
     EB_DELETE(obj->recon_pic);
-    for (uint16_t sb_index = 0; sb_index < obj->init_b64_total_count; ++sb_index) {
-        EB_DELETE(obj->quantized_coeff[sb_index]); // OMK2
-    }
-    EB_DELETE_PTR_ARRAY(obj->quantized_coeff, obj->init_b64_total_count);
+    // quantized_coeff[] descriptors are borrowed from the pool; free the pool backing +
+    // descriptor storage once, then the (alias) pointer array.
+    svt_aom_pic_buf_desc_pool_dctor(&obj->quantized_coeff_pool);
+    EB_FREE_ARRAY(obj->quantized_coeff);
 }
 
 static void picture_control_set_dctor(EbPtr p) {
@@ -354,10 +353,14 @@ static EbErrorType recon_coef_ctor(EncDecSet* object_ptr, EbPtr object_init_data
     coeff_init_data.border             = 0;
     coeff_init_data.split_mode         = false;
     coeff_init_data.is_16bit_pipeline  = init_data_ptr->is_16bit_pipeline;
+    // One backing allocation for all per-SB coeff descriptors (was one alloc per SB).
+    EbErrorType pool_err = svt_aom_pic_buf_desc_pool_ctor(
+        &object_ptr->quantized_coeff_pool, &coeff_init_data, object_ptr->init_b64_total_count);
+    if (pool_err != EB_ErrorNone) {
+        return pool_err;
+    }
     for (sb_index = 0; sb_index < object_ptr->init_b64_total_count; ++sb_index) {
-        EB_NEW(object_ptr->quantized_coeff[sb_index], //OMK2
-               svt_picture_buffer_desc_ctor,
-               (EbPtr)&coeff_init_data);
+        object_ptr->quantized_coeff[sb_index] = &object_ptr->quantized_coeff_pool.descs[sb_index];
     }
 
     return EB_ErrorNone;

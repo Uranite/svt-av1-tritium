@@ -105,18 +105,15 @@ typedef struct {
     uint8_t      resize_denom;
 } ResizePendingParams;
 
-EbErrorType svt_aom_rate_control_coded_frames_stats_context_ctor(coded_frames_stats_entry* entry_ptr,
-                                                                 uint64_t                  picture_number);
-
 typedef struct RATE_CONTROL {
-    int     last_boosted_qindex; // Last boosted GF/KF/ARF q
-    int     gfu_boost;
-    int     kf_boost;
-    double  rate_correction_factors[MAX_TEMPORAL_LAYERS + 1];
-    int     baseline_gf_interval;
-    int     constrained_gf_group;
-    int     frames_to_key;
-    int     frames_since_key;
+    int    last_boosted_qindex; // Last boosted GF/KF/ARF q
+    int    gfu_boost;
+    int    kf_boost;
+    double rate_correction_factors[MAX_TEMPORAL_LAYERS + 1];
+    int    baseline_gf_interval;
+    int    constrained_gf_group;
+    int    frames_to_key;
+    int    frames_since_key;
 #if FIX_RTC_M13
     int frames_since_cdf_update;
 #endif
@@ -172,6 +169,7 @@ typedef struct RATE_CONTROL {
     int64_t gf_group_bits;
     // Rate Control stat Queue
     coded_frames_stats_entry** coded_frames_stat_queue;
+    coded_frames_stats_entry*  coded_frames_stat_pool; // backs coded_frames_stat_queue[] with one allocation
     uint32_t                   coded_frames_stat_queue_head_index;
 
 #if DEBUG_RC_CAP_LOG

@@ -112,8 +112,8 @@ typedef EbErrorType (*EbAv1FullCostFunc)(PictureControlSet* pcs, struct ModeDeci
 /**************************************
     * Extern Function Declarations
     **************************************/
-EbErrorType svt_aom_mode_decision_cand_bf_ctor(ModeDecisionCandidateBuffer* buffer_ptr, EbBitDepth max_bitdepth,
-                                               uint8_t sb_size, uint32_t buffer_mask,
+EbErrorType svt_aom_mode_decision_cand_bf_ctor(ModeDecisionCandidateBuffer* buffer_ptr, EbPictureBufferDesc* pred,
+                                               EbPictureBufferDesc* rec_coeff, EbPictureBufferDesc* quant,
                                                EbPictureBufferDesc* temp_residual, EbPictureBufferDesc* temp_recon_ptr,
                                                uint64_t* fast_cost, uint64_t* full_cost, uint64_t* full_cost_ssim_ptr);
 

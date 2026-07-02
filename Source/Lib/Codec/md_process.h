@@ -980,6 +980,18 @@ typedef struct ModeDecisionContext {
     MdRateEstimationContext*      md_rate_est_ctx;
     MdRateEstimationContext*      rate_est_table;
     BlkStruct*                    md_blk_arr_nsq;
+    // Backing pools for the per-block bypass-encdec coeff/recon buffers (one alloc each
+    // instead of one per block); populated only when bypass_encdec is enabled.
+    SvtPicBufDescPool coeff_tmp_pool;
+    SvtPicBufDescPool recon_tmp_pool;
+    // Backing pools for the candidate buffers' pred/rec_coeff/quant (one alloc each
+    // across all max_nics_uv candidates) and the per-transform-type recon/coeff buffers.
+    SvtPicBufDescPool cand_pred_pool;
+    SvtPicBufDescPool cand_rec_coeff_pool;
+    SvtPicBufDescPool cand_quant_pool;
+    SvtPicBufDescPool tx_recon_coeff_pool;
+    SvtPicBufDescPool tx_recon_pool;
+    SvtPicBufDescPool tx_quant_coeff_pool;
     // used to set the array in PC_TREE by the same name. Implemented as a separate allocation
     // to easily zero out the whole array (for all blocks) without looping over entire pc_tree.
     bool (*tested_blk)[PART_S][4];
@@ -1184,15 +1196,15 @@ typedef struct ModeDecisionContext {
     RefResults             ref_filtering_res[TOT_INTER_GROUP][MAX_NUM_OF_REF_PIC_LIST][REF_LIST_MAX_DEPTH];
     RefPruningControls     ref_pruning_ctrls;
     // Signal to control initial and final pass PD setting(s)
-    PdPass               pd_pass;
-    CflCtrls             cfl_ctrls;
-    TxsControls          txs_ctrls;
-    TxtControls          txt_ctrls;
-    CandReductionCtrls   cand_reduction_ctrls;
-    NsqGeomCtrls         nsq_geom_ctrls;
-    NsqSearchCtrls       nsq_search_ctrls;
-    DepthEarlyExitCtrls  depth_early_exit_ctrls;
-    RdoqCtrls            rdoq_ctrls;
+    PdPass              pd_pass;
+    CflCtrls            cfl_ctrls;
+    TxsControls         txs_ctrls;
+    TxtControls         txt_ctrls;
+    CandReductionCtrls  cand_reduction_ctrls;
+    NsqGeomCtrls        nsq_geom_ctrls;
+    NsqSearchCtrls      nsq_search_ctrls;
+    DepthEarlyExitCtrls depth_early_exit_ctrls;
+    RdoqCtrls           rdoq_ctrls;
 #if OPT_COEFF_SHAVING
     CoeffShavingCtrls coeff_shaving_ctrls;
 #endif

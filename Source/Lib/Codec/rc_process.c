@@ -159,14 +159,6 @@ typedef struct RateControlContext {
     EbFifo* picture_decision_results_output_fifo_ptr;
 } RateControlContext;
 
-EbErrorType svt_aom_rate_control_coded_frames_stats_context_ctor(coded_frames_stats_entry* entry_ptr,
-                                                                 uint64_t                  picture_number) {
-    entry_ptr->picture_number         = picture_number;
-    entry_ptr->frame_total_bit_actual = -1;
-
-    return EB_ErrorNone;
-}
-
 static void rate_control_context_dctor(EbPtr p) {
     EbThreadContext*    thread_ctx = (EbThreadContext*)p;
     RateControlContext* obj        = (RateControlContext*)thread_ctx->priv;

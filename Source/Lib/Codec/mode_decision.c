@@ -618,10 +618,9 @@ void svt_aom_choose_best_av1_mv_pred(ModeDecisionContext* ctx, MvReferenceFrame 
 }
 
 static void mode_decision_cand_bf_dctor(EbPtr p) {
-    ModeDecisionCandidateBuffer* obj = (ModeDecisionCandidateBuffer*)p;
-    EB_DELETE(obj->pred);
-    EB_DELETE(obj->rec_coeff);
-    EB_DELETE(obj->quant);
+    // pred/rec_coeff/quant are borrowed from the MD-context pools; residual/recon are
+    // shared (temp_*). Nothing is owned by the candidate buffer itself.
+    (void)p;
 }
 
 static void mode_decision_scratch_cand_bf_dctor(EbPtr p) {
@@ -636,46 +635,22 @@ static void mode_decision_scratch_cand_bf_dctor(EbPtr p) {
 /***************************************
 * Mode Decision Candidate Ctor
 ***************************************/
-EbErrorType svt_aom_mode_decision_cand_bf_ctor(ModeDecisionCandidateBuffer* buffer_ptr, EbBitDepth max_bitdepth,
-                                               uint8_t sb_size, uint32_t buffer_desc_mask,
+EbErrorType svt_aom_mode_decision_cand_bf_ctor(ModeDecisionCandidateBuffer* buffer_ptr, EbPictureBufferDesc* pred,
+                                               EbPictureBufferDesc* rec_coeff, EbPictureBufferDesc* quant,
                                                EbPictureBufferDesc* temp_residual, EbPictureBufferDesc* temp_recon_ptr,
                                                uint64_t* fast_cost, uint64_t* full_cost, uint64_t* full_cost_ssim) {
-    EbPictureBufferDescInitData picture_buffer_desc_init_data;
-
-    EbPictureBufferDescInitData thirty_two_width_picture_buffer_desc_init_data;
-
     buffer_ptr->dctor = mode_decision_cand_bf_dctor;
-
-    // Init Picture Data
-    picture_buffer_desc_init_data.max_width          = sb_size;
-    picture_buffer_desc_init_data.max_height         = sb_size;
-    picture_buffer_desc_init_data.bit_depth          = max_bitdepth;
-    picture_buffer_desc_init_data.color_format       = EB_YUV420;
-    picture_buffer_desc_init_data.buffer_enable_mask = buffer_desc_mask;
-    picture_buffer_desc_init_data.border             = 0;
-    picture_buffer_desc_init_data.split_mode         = false;
-    picture_buffer_desc_init_data.is_16bit_pipeline  = max_bitdepth > EB_EIGHT_BIT;
-
-    thirty_two_width_picture_buffer_desc_init_data.max_width          = sb_size;
-    thirty_two_width_picture_buffer_desc_init_data.max_height         = sb_size;
-    thirty_two_width_picture_buffer_desc_init_data.bit_depth          = EB_THIRTYTWO_BIT;
-    thirty_two_width_picture_buffer_desc_init_data.color_format       = EB_YUV420;
-    thirty_two_width_picture_buffer_desc_init_data.buffer_enable_mask = buffer_desc_mask;
-    thirty_two_width_picture_buffer_desc_init_data.border             = 0;
-    thirty_two_width_picture_buffer_desc_init_data.split_mode         = false;
-    thirty_two_width_picture_buffer_desc_init_data.is_16bit_pipeline  = true;
 
     // Candidate Ptr
     buffer_ptr->cand = NULL;
 
-    // Video Buffers
-    EB_NEW(buffer_ptr->pred, svt_picture_buffer_desc_ctor, (EbPtr)&picture_buffer_desc_init_data);
-    // Reuse the residual_ptr memory in MD context
-    buffer_ptr->residual = temp_residual;
-    EB_NEW(buffer_ptr->rec_coeff, svt_picture_buffer_desc_ctor, (EbPtr)&thirty_two_width_picture_buffer_desc_init_data);
-    EB_NEW(buffer_ptr->quant, svt_picture_buffer_desc_ctor, (EbPtr)&thirty_two_width_picture_buffer_desc_init_data);
-    // Reuse the recon_ptr memory in MD context
-    buffer_ptr->recon = temp_recon_ptr;
+    // Video Buffers — pred/rec_coeff/quant borrowed from MD-context pools; residual/recon
+    // shared with the MD context.
+    buffer_ptr->pred      = pred;
+    buffer_ptr->residual  = temp_residual;
+    buffer_ptr->rec_coeff = rec_coeff;
+    buffer_ptr->quant     = quant;
+    buffer_ptr->recon     = temp_recon_ptr;
 
     // Costs
     buffer_ptr->fast_cost      = fast_cost;
