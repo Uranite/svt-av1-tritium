@@ -62,7 +62,10 @@ static void mode_decision_context_dctor(EbPtr p) {
     // Per-block coeff_tmp/recon_tmp are borrowed from these pools (freed once each).
     svt_aom_pic_buf_desc_pool_dctor(&obj->coeff_tmp_pool);
     svt_aom_pic_buf_desc_pool_dctor(&obj->recon_tmp_pool);
-    EB_DELETE_PTR_ARRAY(obj->cand_bf_ptr_array, obj->max_nics_uv);
+    // cand_bf_ptr_array[] entries are borrowed from cand_bf_pool; free the pool + the (alias)
+    // pointer array once each — do NOT per-element delete.
+    EB_FREE_ARRAY(obj->cand_bf_pool);
+    EB_FREE_ARRAY(obj->cand_bf_ptr_array);
     // Candidate pred/rec_coeff/quant are borrowed from these pools (freed once each).
     svt_aom_pic_buf_desc_pool_dctor(&obj->cand_pred_pool);
     svt_aom_pic_buf_desc_pool_dctor(&obj->cand_rec_coeff_pool);
@@ -695,6 +698,9 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
 
     // Candidate Buffers
     EB_ALLOC_PTR_ARRAY(ctx->cand_bf_ptr_array, ctx->max_nics_uv);
+    // The candidate-buffer structs themselves share one backing allocation (calloc to match
+    // EB_NEW zero-init) instead of one allocation per candidate.
+    EB_CALLOC_ARRAY(ctx->cand_bf_pool, ctx->max_nics_uv);
 
     // pred/rec_coeff/quant for all candidates share one backing allocation each (instead of
     // 3 allocations per candidate). Slots [0, max_nics) use the full luma+chroma mask; slots
@@ -737,16 +743,19 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
     }
 
     for (buffer_index = 0; buffer_index < ctx->max_nics_uv; ++buffer_index) {
-        EB_NEW(ctx->cand_bf_ptr_array[buffer_index],
-               svt_aom_mode_decision_cand_bf_ctor,
-               &ctx->cand_pred_pool.descs[buffer_index],
-               &ctx->cand_rec_coeff_pool.descs[buffer_index],
-               &ctx->cand_quant_pool.descs[buffer_index],
-               ctx->temp_residual,
-               ctx->temp_recon_ptr,
-               &(ctx->fast_cost_array[buffer_index]),
-               &(ctx->full_cost_array[buffer_index]),
-               &(ctx->full_cost_ssim_array[buffer_index]));
+        ctx->cand_bf_ptr_array[buffer_index] = &ctx->cand_bf_pool[buffer_index];
+        EbErrorType cbf_err                  = svt_aom_mode_decision_cand_bf_ctor(ctx->cand_bf_ptr_array[buffer_index],
+                                                                 &ctx->cand_pred_pool.descs[buffer_index],
+                                                                 &ctx->cand_rec_coeff_pool.descs[buffer_index],
+                                                                 &ctx->cand_quant_pool.descs[buffer_index],
+                                                                 ctx->temp_residual,
+                                                                 ctx->temp_recon_ptr,
+                                                                 &(ctx->fast_cost_array[buffer_index]),
+                                                                 &(ctx->full_cost_array[buffer_index]),
+                                                                 &(ctx->full_cost_ssim_array[buffer_index]));
+        if (cbf_err != EB_ErrorNone) {
+            return cbf_err;
+        }
     }
 
     return EB_ErrorNone;

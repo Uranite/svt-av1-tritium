@@ -77,10 +77,9 @@ EbErrorType segmentation_map_ctor(SegmentationNeighborMap* seg_neighbor_map, uin
 }
 
 static void me_sb_results_dctor(EbPtr p) {
-    MeSbResults* obj = (MeSbResults*)p;
-    EB_FREE_ARRAY(obj->me_candidate_array);
-    EB_FREE_ARRAY(obj->me_mv_array);
-    EB_FREE_ARRAY(obj->total_me_candidate_index);
+    // me_mv_array / me_candidate_array / total_me_candidate_index are borrowed from per-parent-PCS
+    // pools (freed in the parent-PCS dctor).
+    (void)p;
 }
 
 /*
@@ -93,7 +92,8 @@ void svt_aom_get_max_allocated_me_refs(uint8_t ref_count_used_list0, uint8_t ref
         (ref_count_used_list0 - 1) + (ref_count_used_list1 == 3 ? 1 : 0);
 }
 
-EbErrorType svt_aom_me_sb_results_ctor(MeSbResults* obj_ptr, PictureControlSetInitData* init_data_ptr) {
+EbErrorType svt_aom_me_sb_results_ctor(MeSbResults* obj_ptr, PictureControlSetInitData* init_data_ptr,
+                                       MotionEstimationData* me_data, uint16_t sb_index, uint16_t all_sb) {
     obj_ptr->dctor = me_sb_results_dctor;
 
     uint8_t max_ref_to_alloc, max_cand_to_alloc;
@@ -114,10 +114,16 @@ EbErrorType svt_aom_me_sb_results_ctor(MeSbResults* obj_ptr, PictureControlSetIn
             : MAX_SB64_PU_COUNT_NO_8X8
         : MAX_SB64_PU_COUNT_WO_16X16;
 
-    EB_MALLOC_ARRAY(obj_ptr->me_mv_array, number_of_pus * max_ref_to_alloc);
-    EB_MALLOC_ARRAY(obj_ptr->me_candidate_array, number_of_pus * max_cand_to_alloc);
-
-    EB_MALLOC_ARRAY(obj_ptr->total_me_candidate_index, number_of_pus);
+    // All SBs resolve to identical number_of_pus, so back the whole me_results array with one
+    // allocation each (created on the first SB) and hand each SB a slice.
+    if (sb_index == 0) {
+        EB_MALLOC_ARRAY(me_data->me_sb_mv_pool, (size_t)all_sb * number_of_pus * max_ref_to_alloc);
+        EB_MALLOC_ARRAY(me_data->me_sb_cand_pool, (size_t)all_sb * number_of_pus * max_cand_to_alloc);
+        EB_MALLOC_ARRAY(me_data->me_sb_totidx_pool, (size_t)all_sb * number_of_pus);
+    }
+    obj_ptr->me_mv_array              = me_data->me_sb_mv_pool + (size_t)sb_index * number_of_pus * max_ref_to_alloc;
+    obj_ptr->me_candidate_array       = me_data->me_sb_cand_pool + (size_t)sb_index * number_of_pus * max_cand_to_alloc;
+    obj_ptr->total_me_candidate_index = me_data->me_sb_totidx_pool + (size_t)sb_index * number_of_pus;
     return EB_ErrorNone;
 }
 
@@ -182,6 +188,10 @@ static void picture_control_set_dctor(EbPtr p) {
         EB_DELETE_PTR_ARRAY(obj->md_txfm_context_array[depth], tile_cnt);
     }
     EB_DELETE_PTR_ARRAY(obj->sb_ptr_array, obj->sb_total_count_unscaled);
+    // Per-SB pools backing the SuperBlock final_blk_arr / av1xd / ptree (borrowed by each SB).
+    EB_FREE_ARRAY(obj->sb_final_blk_arr_pool);
+    EB_FREE_ARRAY(obj->sb_av1xd_pool);
+    EB_FREE_ARRAY(obj->sb_ptree_pool);
     EB_FREE_ARRAY(obj->sb_intra);
     EB_FREE_ARRAY(obj->sb_skip);
     EB_FREE_ARRAY(obj->sb_64x64_mvp);
@@ -1395,6 +1405,10 @@ static EbErrorType picture_parent_control_set_ctor(PictureParentControlSet* obje
 static void me_dctor(EbPtr p) {
     MotionEstimationData* obj = (MotionEstimationData*)p;
     EB_DELETE_PTR_ARRAY(obj->me_results, obj->init_b64_total_count);
+    // Per-SB ME pools backing the MeSbResults arrays (borrowed by each SB).
+    EB_FREE_ARRAY(obj->me_sb_mv_pool);
+    EB_FREE_ARRAY(obj->me_sb_cand_pool);
+    EB_FREE_ARRAY(obj->me_sb_totidx_pool);
     if (obj->tpl_stats) {
         EB_FREE_2D(obj->tpl_stats);
     }
@@ -1442,7 +1456,12 @@ static EbErrorType me_ctor(MotionEstimationData* object_ptr, EbPtr object_init_d
         EB_ALLOC_PTR_ARRAY(object_ptr->me_results, sb_total_count);
 
         for (uint16_t sb_index = 0; sb_index < sb_total_count; ++sb_index) {
-            EB_NEW(object_ptr->me_results[sb_index], svt_aom_me_sb_results_ctor, init_data_ptr);
+            EB_NEW(object_ptr->me_results[sb_index],
+                   svt_aom_me_sb_results_ctor,
+                   init_data_ptr,
+                   object_ptr,
+                   sb_index,
+                   sb_total_count);
         }
     }
     uint16_t adaptive_picture_width_in_mb  = (uint16_t)((init_data_ptr->picture_width + 15) / 16);

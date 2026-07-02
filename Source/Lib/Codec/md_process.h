@@ -975,6 +975,7 @@ typedef struct ModeDecisionContext {
     EbFifo*                       mode_decision_output_fifo_ptr;
     ModeDecisionCandidate*        fast_cand_array;
     ModeDecisionCandidateBuffer** cand_bf_ptr_array;
+    ModeDecisionCandidateBuffer*  cand_bf_pool; // backs cand_bf_ptr_array[] with one allocation
     ModeDecisionCandidateBuffer*  cand_bf_tx_depth_1;
     ModeDecisionCandidateBuffer*  cand_bf_tx_depth_2;
     MdRateEstimationContext*      md_rate_est_ctx;

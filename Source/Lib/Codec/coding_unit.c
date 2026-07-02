@@ -17,10 +17,8 @@
 #include "enc_mode_config.h"
 
 void svt_aom_largest_coding_unit_dctor(EbPtr p) {
-    SuperBlock* obj = (SuperBlock*)p;
-    EB_FREE_ARRAY(obj->av1xd);
-    EB_FREE_ARRAY(obj->final_blk_arr);
-    EB_FREE_ARRAY(obj->ptree);
+    // av1xd / final_blk_arr / ptree are borrowed from per-PCS pools (freed in the PCS dctor).
+    (void)p;
 }
 
 static void setup_ptree(PARTITION_TREE* pc_tree, int index, BlockSize bsize, const int min_sq_size) {
@@ -125,9 +123,6 @@ EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock* larget_coding_unit_ptr,
     // Do NOT initialize the final_blk_arr here
     // Malloc maximum but only initialize it only when actually used.
     // This will help to same actually memory usage
-    EB_MALLOC_ARRAY(larget_coding_unit_ptr->final_blk_arr, tot_blk_num);
-    EB_MALLOC_ARRAY(larget_coding_unit_ptr->av1xd, 1);
-
     // Alloc ptree, which is used to store final block data/mode info for the SB that is passed
     // from encdec to EC
     uint8_t min_bsize        = disallow_8x8 ? 16 : disallow_4x4 ? 8 : 4;
@@ -137,7 +132,18 @@ EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock* larget_coding_unit_ptr,
     for (int i = min_bsize; i <= sb_size_pix; i <<= 1, blocks_per_depth >>= 2) {
         blocks_to_alloc += blocks_per_depth;
     }
-    EB_CALLOC_ARRAY(larget_coding_unit_ptr->ptree, blocks_to_alloc);
+    // All SBs in a PCS resolve to identical tot_blk_num / blocks_to_alloc, so back the whole
+    // sb_ptr_array with one allocation each (created on the first SB) and hand each SB a slice,
+    // instead of 3 allocations per SB.
+    const uint16_t all_sb = pcs->sb_total_count;
+    if (sb_index == 0) {
+        EB_MALLOC_ARRAY(pcs->sb_final_blk_arr_pool, (size_t)all_sb * tot_blk_num);
+        EB_MALLOC_ARRAY(pcs->sb_av1xd_pool, all_sb);
+        EB_CALLOC_ARRAY(pcs->sb_ptree_pool, (size_t)all_sb * blocks_to_alloc);
+    }
+    larget_coding_unit_ptr->final_blk_arr = pcs->sb_final_blk_arr_pool + (size_t)sb_index * tot_blk_num;
+    larget_coding_unit_ptr->av1xd         = pcs->sb_av1xd_pool + sb_index;
+    larget_coding_unit_ptr->ptree         = pcs->sb_ptree_pool + (size_t)sb_index * blocks_to_alloc;
     setup_ptree(larget_coding_unit_ptr->ptree, 0, sb_size_pix == 128 ? BLOCK_128X128 : BLOCK_64X64, min_bsize);
 
     return EB_ErrorNone;
