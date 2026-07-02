@@ -206,7 +206,7 @@ void svt_muxing_queue_dctor(EbPtr p) {
  * svt_muxing_queue_ctor
  **************************************/
 static EbErrorType svt_muxing_queue_ctor(EbMuxingQueue* queue_ptr, uint32_t object_total_count,
-                                         uint32_t process_total_count, bool single_thread) {
+                                         uint32_t process_total_count, bool single_thread, bool is_empty_queue) {
     uint32_t    process_index;
     EbErrorType return_error = EB_ErrorNone;
 
@@ -224,10 +224,24 @@ static EbErrorType svt_muxing_queue_ctor(EbMuxingQueue* queue_ptr, uint32_t obje
     }
     (void)single_thread;
 
-    // Construct Object Circular Buffer
-    EB_NEW(queue_ptr->object_queue, svt_circular_buffer_ctor, object_total_count);
-    // Construct Process Circular Buffer
-    EB_NEW(queue_ptr->process_queue, svt_circular_buffer_ctor, queue_ptr->process_total_count);
+    // Construct Object Circular Buffer. In single-thread mode only the empty queue uses it
+    // (empty pool: fill / get_empty / release); the full queue delivers via the process-FIFO
+    // linked list, so its object_queue is unused.
+#if CONFIG_SINGLE_THREAD_KERNEL
+    if (is_empty_queue || !single_thread)
+#endif
+    {
+        EB_NEW(queue_ptr->object_queue, svt_circular_buffer_ctor, object_total_count);
+    }
+    (void)is_empty_queue;
+    // Construct Process Circular Buffer (only used by the multi-thread dispatcher
+    // svt_muxing_queue_assignation; unused in single-thread mode).
+#if CONFIG_SINGLE_THREAD_KERNEL
+    if (!single_thread)
+#endif
+    {
+        EB_NEW(queue_ptr->process_queue, svt_circular_buffer_ctor, queue_ptr->process_total_count);
+    }
     // Construct the Process Fifos
     EB_ALLOC_PTR_ARRAY(queue_ptr->process_fifo_ptr_array, queue_ptr->process_total_count);
 
@@ -252,6 +266,14 @@ static EbErrorType svt_muxing_queue_assignation(EbMuxingQueue* queue_ptr) {
     EbErrorType      return_error = EB_ErrorNone;
     EbFifo*          process_fifo_ptr;
     EbObjectWrapper* wrapper_ptr;
+
+#if CONFIG_SINGLE_THREAD_KERNEL
+    // Single-thread mode pops empties directly from object_queue and posts full objects straight
+    // to the consumer FIFO; the object->process dispatch (and process_queue) is unused.
+    if (queue_ptr->single_thread_mode) {
+        return EB_ErrorNone;
+    }
+#endif
 
     // while loop
     while ((svt_circular_buffer_empty_check(queue_ptr->object_queue) == false) &&
@@ -512,7 +534,8 @@ EbErrorType svt_system_resource_ctor(EbSystemResource* resource_ptr, uint32_t ob
            svt_muxing_queue_ctor,
            resource_ptr->object_total_count,
            producer_process_total_count,
-           single_thread);
+           single_thread,
+           /*is_empty_queue=*/true);
     // Fill the Empty Fifo with every ObjectWrapper
     for (wrapper_index = 0; wrapper_index < resource_ptr->object_total_count; ++wrapper_index) {
         svt_muxing_queue_object_push_back(resource_ptr->empty_queue, resource_ptr->wrapper_ptr_pool[wrapper_index]);
@@ -528,7 +551,8 @@ EbErrorType svt_system_resource_ctor(EbSystemResource* resource_ptr, uint32_t ob
                svt_muxing_queue_ctor,
                resource_ptr->object_total_count,
                consumer_process_total_count,
-               single_thread);
+               single_thread,
+               /*is_empty_queue=*/false);
     } else {
         resource_ptr->full_queue = NULL;
     }
