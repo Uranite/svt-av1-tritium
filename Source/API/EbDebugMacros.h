@@ -121,6 +121,10 @@ extern "C" {
 #define OPT_LPD1_TX_SKIP_DECISION  1 // Add LPD1 score-based early luma-TX skip decision with grayscale-aware gating
 #define OPT_IS_INPUT_LUMA_DOMINANT 1 // Replace the grayscale-like detector with a luma-dominant detector based on chroma distance from neutral in the UV plane
 #define OPT_LPD1_TX_SKIP_QP_MOD    1 // Add QP-based score bias for low picture QP
+
+#define CLN_RTC_FLAT_CHECKS        1 // Remove unnecessary Flat checks
+#define TUNE_LPD1_LVL_0_FLAT_RTC   1 // Tuning LPD1_LVL_0 in M8/M7 FLAT RTC.
+
 //FOR DEBUGGING - Do not remove
 
 

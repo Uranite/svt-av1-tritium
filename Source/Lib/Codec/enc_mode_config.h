@@ -29,7 +29,11 @@ uint8_t svt_aom_get_update_cdf_level_rtc(EncMode enc_mode, SliceType is_islice, 
 uint8_t svt_aom_get_update_cdf_level_allintra(EncMode enc_mode);
 uint8_t svt_aom_get_chroma_level_default(EncMode enc_mode, const uint8_t is_islice);
 #if TUNE_SIMPLIFY_SETTINGS
+#if CLN_RTC_FLAT_CHECKS
+uint8_t svt_aom_get_chroma_level_rtc(EncMode enc_mode);
+#else
 uint8_t svt_aom_get_chroma_level_rtc(EncMode enc_mode, const bool use_flat_ipp);
+#endif
 #else
 uint8_t svt_aom_get_chroma_level_rtc(EncMode enc_mode, const uint8_t is_islice);
 #endif
@@ -43,7 +47,11 @@ uint8_t svt_aom_get_nic_level_default(EncMode enc_mode, uint8_t is_base);
 uint8_t svt_aom_get_nic_level_default(EncMode enc_mode, uint8_t is_base, uint8_t sc_class1);
 #endif
 #if TUNE_RTC
+#if CLN_RTC_FLAT_CHECKS
+uint8_t svt_aom_get_nic_level_rtc(EncMode enc_mode);
+#else
 uint8_t svt_aom_get_nic_level_rtc(EncMode enc_mode, bool use_flat_ipp);
+#endif
 #else
 #if TUNE_SIMPLIFY_SETTINGS
 uint8_t svt_aom_get_nic_level_rtc(EncMode enc_mode);

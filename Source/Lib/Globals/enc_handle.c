@@ -3567,7 +3567,7 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->pme_ref0_only            = 1;
         mrp_ctrl->use_best_references      = 3;
 #if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 0;
+        mrp_ctrl->early_hme_l0_prune_th = 150;
 #endif
         break;
     case 10:
