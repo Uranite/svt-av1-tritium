@@ -367,12 +367,10 @@ static EbErrorType recon_coef_ctor(EncDecSet* object_ptr, EbPtr object_init_data
 }
 
 uint32_t svt_aom_get_out_buffer_size(uint32_t picture_width, uint32_t picture_height) {
-    uint32_t frame_size = picture_width * picture_height * 3 / 2; //assuming 4:2:0;
-    if (frame_size > INPUT_SIZE_4K_TH) {
-        return frame_size;
-    } else {
-        return BITSTREAM_BUFFER_SIZE(picture_width * picture_height);
-    }
+    // Compressed frames are far smaller than the raw 4:2:0 frame, so start the bitstream
+    // capacity at raw/4. The entropy writer grows on demand if a (pathological, very low-QP)
+    // frame ever exceeds it, so this stays correct while cutting the previous over-provisioning.
+    return picture_width * picture_height * 3 / 2 / 4; // raw 4:2:0 frame size / 4
 }
 
 /*
