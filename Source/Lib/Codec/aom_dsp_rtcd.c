@@ -957,7 +957,7 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_NEON(svt_av1_calc_indices_dim1, svt_av1_calc_indices_dim1_c, svt_av1_calc_indices_dim1_neon);
     SET_NEON(svt_av1_calc_indices_dim2, svt_av1_calc_indices_dim2_c, svt_av1_calc_indices_dim2_neon);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
-    SET_ONLY_C(variance_highbd, svt_aom_variance_highbd_c);
+    SET_NEON(variance_highbd, svt_aom_variance_highbd_c, svt_aom_variance_highbd_neon);
 #endif
     SET_NEON(svt_unpack_and_2bcompress, svt_unpack_and_2bcompress_c, svt_unpack_and_2bcompress_neon);
     SET_NEON(svt_estimate_noise_fp16, svt_estimate_noise_fp16_c, svt_estimate_noise_fp16_neon);
