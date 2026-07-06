@@ -1163,6 +1163,7 @@ typedef struct ModeDecisionContext {
     // Store OBMC pre-computed data
     uint8_t*       obmc_buff_0;
     uint8_t*       obmc_buff_1;
+    uint16_t*      obmc_conv_buf;
     int32_t*       wsrc_buf;
     int32_t*       mask_buf;
     uint8_t*       above_txfm_context;

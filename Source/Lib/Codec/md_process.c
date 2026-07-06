@@ -131,6 +131,9 @@ static void mode_decision_context_dctor(EbPtr p) {
     if (obj->obmc_buff_1) {
         EB_FREE(obj->obmc_buff_1);
     }
+    if (obj->obmc_conv_buf) {
+        EB_FREE(obj->obmc_conv_buf);
+    }
     if (obj->wsrc_buf) {
         EB_FREE(obj->wsrc_buf);
     }
@@ -446,6 +449,7 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
         const uint8_t bits = ctx->hbd_md > EB_8_BIT_MD ? 2 : 1;
         EB_MALLOC(ctx->obmc_buff_0, sb_size * sb_size * bits * MAX_PLANES * sizeof(ctx->obmc_buff_0[0]));
         EB_MALLOC(ctx->obmc_buff_1, sb_size * sb_size * bits * MAX_PLANES * sizeof(ctx->obmc_buff_1[0]));
+        EB_MALLOC(ctx->obmc_conv_buf, sb_size * sb_size * sizeof(ctx->obmc_conv_buf[0]));
         EB_MALLOC(ctx->wsrc_buf, sb_size * sb_size * sizeof(ctx->wsrc_buf[0]));
         EB_MALLOC(ctx->mask_buf, sb_size * sb_size * sizeof(ctx->mask_buf[0]));
     }
