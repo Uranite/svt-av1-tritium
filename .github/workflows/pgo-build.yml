@@ -24,9 +24,9 @@ jobs:
         ffms2: "ffms2"
 
     - id: detect-icelake-server-znver5
-      run: ls BuildAction/icelake-server+znver5/static/SvtAv1EncApp.exe
+      run: ls BuildAction/icelake-server+znver5/static/ffms2/SvtAv1EncApp.exe
       continue-on-error: true
-    - run: cd BuildAction/icelake-server+znver5/static && tar cJf Windows_x86-64_icelake-server+znver5.tar.xz SvtAv1EncApp.exe
+    - run: cd BuildAction/icelake-server+znver5/static/ffms2 && tar cJf ../Windows_x86-64_icelake-server+znver5.tar.xz SvtAv1EncApp.exe
       if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
     - uses: actions/upload-artifact@v4
       with:
@@ -35,9 +35,9 @@ jobs:
       if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
 
     - id: detect-znver2
-      run: ls BuildAction/znver2/static/SvtAv1EncApp.exe
+      run: ls BuildAction/znver2/static/ffms2/SvtAv1EncApp.exe
       continue-on-error: true
-    - run: cd BuildAction/znver2/static && tar cJf Windows_x86-64_znver2.tar.xz SvtAv1EncApp.exe
+    - run: cd BuildAction/znver2/static/ffms2 && tar cJf ../Windows_x86-64_znver2.tar.xz SvtAv1EncApp.exe
       if: ${{ steps.detect-znver2.outcome != 'failure' }}
     - uses: actions/upload-artifact@v4
       with:
@@ -45,8 +45,8 @@ jobs:
         path: BuildAction/znver2/static/Windows_x86-64_znver2.tar.xz
       if: ${{ steps.detect-znver2.outcome != 'failure' }}
 
-    - run: ls BuildAction/x86-64-v3+znver2/static/SvtAv1EncApp.exe
-    - run: cd BuildAction/x86-64-v3+znver2/static && tar cJf Windows_x86-64_x86-64-v3+znver2.tar.xz SvtAv1EncApp.exe
+    - run: ls BuildAction/x86-64-v3+znver2/static/ffms2/SvtAv1EncApp.exe
+    - run: cd BuildAction/x86-64-v3+znver2/static/ffms2 && tar cJf ../Windows_x86-64_x86-64-v3+znver2.tar.xz SvtAv1EncApp.exe
     - uses: actions/upload-artifact@v4
       with:
         name: Windows_x86-64_x86-64-v3-znver2
@@ -70,8 +70,8 @@ jobs:
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "ffms2"
 
-    - run: ls BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/SvtAv1EncApp.exe
-    - run: cd BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static && tar cJf Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz SvtAv1EncApp.exe
+    - run: ls BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2/SvtAv1EncApp.exe
+    - run: cd BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2 && tar cJf ../Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz SvtAv1EncApp.exe
     - uses: actions/upload-artifact@v4
       with:
         name: Windows_arm64_armv8.7-a-crypto-sm4-sha3-fp16-sve-sve2-oryon-1
@@ -93,9 +93,9 @@ jobs:
         ffms2: "ffms2"
 
     - id: detect-icelake-server-znver5
-      run: ls BuildAction/icelake-server+znver5/static/SvtAv1EncApp
+      run: ls BuildAction/icelake-server+znver5/static/ffms2/SvtAv1EncApp
       continue-on-error: true
-    - run: cd BuildAction/icelake-server+znver5/static && tar cJf Linux_x86-64_icelake-server+znver5.tar.xz SvtAv1EncApp
+    - run: cd BuildAction/icelake-server+znver5/static/ffms2 && tar cJf ../Linux_x86-64_icelake-server+znver5.tar.xz SvtAv1EncApp
       if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
     - uses: actions/upload-artifact@v4
       with:
@@ -104,9 +104,9 @@ jobs:
       if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
 
     - id: detect-znver2
-      run: ls BuildAction/znver2/static/SvtAv1EncApp
+      run: ls BuildAction/znver2/static/ffms2/SvtAv1EncApp
       continue-on-error: true
-    - run: cd BuildAction/znver2/static && tar cJf Linux_x86-64_znver2.tar.xz SvtAv1EncApp
+    - run: cd BuildAction/znver2/static/ffms2 && tar cJf ../Linux_x86-64_znver2.tar.xz SvtAv1EncApp
       if: ${{ steps.detect-znver2.outcome != 'failure' }}
     - uses: actions/upload-artifact@v4
       with:
@@ -114,8 +114,8 @@ jobs:
         path: BuildAction/znver2/static/Linux_x86-64_znver2.tar.xz
       if: ${{ steps.detect-znver2.outcome != 'failure' }}
 
-    - run: ls BuildAction/x86-64-v3+znver2/static/SvtAv1EncApp
-    - run: cd BuildAction/x86-64-v3+znver2/static && tar cJf Linux_x86-64_x86-64-v3+znver2.tar.xz SvtAv1EncApp
+    - run: ls BuildAction/x86-64-v3+znver2/static/ffms2/SvtAv1EncApp
+    - run: cd BuildAction/x86-64-v3+znver2/static/ffms2 && tar cJf ../Linux_x86-64_x86-64-v3+znver2.tar.xz SvtAv1EncApp
     - uses: actions/upload-artifact@v4
       with:
         name: Linux_x86-64_x86-64-v3-znver2
@@ -136,8 +136,8 @@ jobs:
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "ffms2"
 
-    - run: ls BuildAction/armv8.5-a+simd+crypto+apple-m3/static/SvtAv1EncApp
-    - run: cd BuildAction/armv8.5-a+simd+crypto+apple-m3/static && tar cJf macOS_arm64_armv8.5-a+simd+crypto+apple-m3.tar.xz SvtAv1EncApp
+    - run: ls BuildAction/armv8.5-a+simd+crypto+apple-m3/static/ffms2/SvtAv1EncApp
+    - run: cd BuildAction/armv8.5-a+simd+crypto+apple-m3/static/ffms2 && tar cJf ../macOS_arm64_armv8.5-a+simd+crypto+apple-m3.tar.xz SvtAv1EncApp
     - uses: actions/upload-artifact@v4
       with:
         name: macOS_arm64_armv8.5-a-simd-crypto-apple-m3
@@ -158,8 +158,8 @@ jobs:
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "ffms2"
 
-    - run: ls BuildAction/skylake/static/SvtAv1EncApp
-    - run: cd BuildAction/skylake/static && tar cJf macOS_x86-64_skylake.tar.xz SvtAv1EncApp
+    - run: ls BuildAction/skylake/static/ffms2/SvtAv1EncApp
+    - run: cd BuildAction/skylake/static/ffms2 && tar cJf ../macOS_x86-64_skylake.tar.xz SvtAv1EncApp
     - uses: actions/upload-artifact@v4
       with:
         name: macOS_x86-64_skylake
