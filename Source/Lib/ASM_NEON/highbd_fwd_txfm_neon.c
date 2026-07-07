@@ -7993,3 +7993,44 @@ void svt_av1_fwd_txfm2d_64x32_N4_neon(int16_t* input, int32_t* output, uint32_t 
     }
     write_buffer_64xh_N4(buf1, output, 32);
 }
+
+void svt_av1_fwht4x4_neon(int16_t* input, int32_t* output, uint32_t stride) {
+    int16x4_t in0, in1, in2, in3;
+    load_s16_4x4(input, (ptrdiff_t)stride, &in0, &in1, &in2, &in3);
+
+    int32x4_t op0 = vmovl_s16(in0);
+    int32x4_t op1 = vmovl_s16(in1);
+    int32x4_t op2 = vmovl_s16(in2);
+    int32x4_t op3 = vmovl_s16(in3);
+
+    for (int i = 0; i < 2; ++i) {
+        int32x4_t a1 = op0, b1 = op1, c1 = op2, d1 = op3;
+
+        a1           = vaddq_s32(a1, b1);
+        d1           = vsubq_s32(d1, c1);
+        int32x4_t e1 = vshrq_n_s32(vsubq_s32(a1, d1), 1);
+        b1           = vsubq_s32(e1, b1);
+        c1           = vsubq_s32(e1, c1);
+        a1           = vsubq_s32(a1, c1);
+        d1           = vaddq_s32(d1, b1);
+
+        op0 = a1;
+        op1 = c1;
+        op2 = d1;
+        op3 = b1;
+
+        if (i == 0) {
+            transpose_elems_inplace_s32_4x4(&op0, &op1, &op2, &op3);
+        }
+    }
+
+    op0 = vshlq_n_s32(op0, UNIT_QUANT_SHIFT);
+    op1 = vshlq_n_s32(op1, UNIT_QUANT_SHIFT);
+    op2 = vshlq_n_s32(op2, UNIT_QUANT_SHIFT);
+    op3 = vshlq_n_s32(op3, UNIT_QUANT_SHIFT);
+
+    vst1q_s32(output + 0, op0);
+    vst1q_s32(output + 4, op1);
+    vst1q_s32(output + 8, op2);
+    vst1q_s32(output + 12, op3);
+}

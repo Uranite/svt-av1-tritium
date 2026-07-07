@@ -1321,6 +1321,8 @@ uint64_t svt_handle_transform64x16_N2_N4_neon(int32_t *output);
 uint64_t svt_handle_transform64x32_N2_N4_neon(int32_t *output);
 uint64_t svt_handle_transform64x64_N2_N4_neon(int32_t *output);
 
+void svt_av1_fwht4x4_neon(int16_t *input, int32_t *output, uint32_t stride);
+
 void svt_av1_fwd_txfm2d_4x4_neon(int16_t *input, int32_t *coeff, uint32_t stride, TxType tx_type, uint8_t bd);
 void svt_av1_fwd_txfm2d_4x8_neon(int16_t *input, int32_t *coeff, uint32_t stride, TxType tx_type, uint8_t bd);
 void svt_av1_fwd_txfm2d_4x16_neon(int16_t *input, int32_t *coeff, uint32_t stride, TxType tx_type, uint8_t bd);
