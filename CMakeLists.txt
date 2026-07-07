@@ -681,65 +681,66 @@ endif()
 
 option(USE_FFMS2 "Enable FFMS2 support (Install FFMS2 first)" OFF)
 if(USE_FFMS2)
-    unset(FFMS2_LIBRARY CACHE)
-    unset(FFMS2_INCLUDE_DIR CACHE)
-    unset(FFMS2_LIBRARY)
-    unset(FFMS2_INCLUDE_DIR)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(PC_FFMS2 ffms2 QUIET)
+    endif()
 
     find_path(FFMS2_INCLUDE_DIR
         NAMES ffms.h
+        HINTS ${PC_FFMS2_INCLUDE_DIRS}
         PATHS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ffms2/include
     )
-    find_library(FFMS2_LIBRARY
-        NAMES ffms2 libffms2
-        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ffms2/lib
-    )
 
-    if(FFMS2_INCLUDE_DIR AND FFMS2_LIBRARY)
+    if(FFMS2_INCLUDE_DIR)
         set_target_properties(SvtAv1EncApp PROPERTIES LINKER_LANGUAGE CXX)
-        message(STATUS "Found FFMS2: ${FFMS2_LIBRARY}")
-        target_include_directories(SvtAv1EncApp PRIVATE ${FFMS2_INCLUDE_DIR})
-        target_link_libraries(SvtAv1EncApp PRIVATE ${FFMS2_LIBRARY})
-        target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=1)
-    else()
-        find_package(PkgConfig)
-        if(PkgConfig_FOUND)
-            pkg_check_modules(PC_FFMS2 ffms2 QUIET)
+
+        if (WIN32 AND NOT MINGW AND NOT PC_FFMS2_FOUND)
+            message(WARNING "FFMS2 static and shared building is not guaranteed here without pkg-config.")
         endif()
 
-        if(PC_FFMS2_FOUND)
-            set_target_properties(SvtAv1EncApp PROPERTIES LINKER_LANGUAGE CXX)
-            set(FFMS2_LIBRARY_DIR ${PC_FFMS2_LIBRARY_DIRS})
-            set(FFMS2_INCLUDE_DIR ${PC_FFMS2_INCLUDE_DIRS})
+        if(EXT_LIB_STATIC)
+            target_compile_definitions(SvtAv1EncApp PRIVATE FFMS_STATIC)
+        endif()
 
-            if (WIN32 AND NOT MINGW)
-                message(WARNING "FFMS2 static and shared building is not guaranteed here.")
-            endif()
-
+        if(NOT FFMS2_REQUIRED_LIBRARIES)
             if(EXT_LIB_STATIC)
-                # need this for static build
-                target_compile_definitions(SvtAv1EncApp PRIVATE FFMS_STATIC)
                 set(FFMS2_REQUIRED_LIBRARIES ${PC_FFMS2_STATIC_LIBRARIES})
-                
-                foreach(BASE ${FFMS2_REQUIRED_LIBRARIES})
-                    list(APPEND FFMS2_LIBRARY "${BASE}${SUFFIX}")
-                endforeach()
             else()
                 set(FFMS2_REQUIRED_LIBRARIES ${PC_FFMS2_LIBRARIES})
-                foreach(BASE ${FFMS2_REQUIRED_LIBRARIES})
-                    list(APPEND FFMS2_LIBRARY "${BASE}${SUFFIX}")
-                endforeach()
             endif()
-
-            message(STATUS "Found FFMS2: ${FFMS2_LIBRARY}")
-            target_include_directories(SvtAv1EncApp PRIVATE ${FFMS2_INCLUDE_DIR})
-            target_link_libraries(SvtAv1EncApp PRIVATE ${FFMS2_LIBRARY})
-            target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=1)
-            target_link_directories(SvtAv1EncApp PRIVATE ${FFMS2_LIBRARY_DIR})
-        else()
-            message(WARNING "FFMS2 not found, building without FFMS2 support")
-            target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=0)
         endif()
+
+        if(NOT FFMS2_REQUIRED_LIBRARIES)
+            set(FFMS2_REQUIRED_LIBRARIES "ffms2")
+        endif()
+
+        set(FFMS2_RESOLVED_LIBS "")
+        foreach(LIB_NAME ${FFMS2_REQUIRED_LIBRARIES})
+            # Strip non-alphanumeric chars to make valid CMake variable name
+            string(REGEX REPLACE "[^a-zA-Z0-9]" "_" SAFE_LIB_NAME "${LIB_NAME}")
+            string(TOUPPER "${SAFE_LIB_NAME}" UPPER_LIB_NAME)
+            
+            find_library(${UPPER_LIB_NAME}_LIBRARY
+                NAMES ${LIB_NAME}
+                HINTS ${PC_FFMS2_LIBRARY_DIRS}
+                PATHS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ffms2/lib
+            )
+            
+            if(${UPPER_LIB_NAME}_LIBRARY)
+                list(APPEND FFMS2_RESOLVED_LIBS ${${UPPER_LIB_NAME}_LIBRARY})
+            else()
+                list(APPEND FFMS2_RESOLVED_LIBS ${LIB_NAME})
+            endif()
+        endforeach()
+
+        message(STATUS "Found FFMS2: ${FFMS2_RESOLVED_LIBS}")
+        target_include_directories(SvtAv1EncApp PRIVATE ${FFMS2_INCLUDE_DIR})
+        target_link_libraries(SvtAv1EncApp PRIVATE ${FFMS2_RESOLVED_LIBS})
+        target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=1)
+    else()
+        message(WARNING "FFMS2 not found, building without FFMS2 support")
+        target_compile_definitions(SvtAv1EncApp PRIVATE HAVE_FFMS2=0)
     endif()
 endif()
 
