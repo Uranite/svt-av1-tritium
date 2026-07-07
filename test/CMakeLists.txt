@@ -93,6 +93,7 @@ set(multi_arch_files
     FilterIntraPredTest.cc
     FullDistortionPerfTest.cc
     FwdTxfm2dAsmTest.cc
+    FwhtAsmTest.cc
     HashTest.cc
     HbdVarianceTest.cc
     InvTxfm2dAsmTest.cc
