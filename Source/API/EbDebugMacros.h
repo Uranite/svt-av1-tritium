@@ -124,6 +124,7 @@ extern "C" {
 
 #define CLN_RTC_FLAT_CHECKS        1 // Remove unnecessary Flat checks
 #define TUNE_LPD1_LVL_0_FLAT_RTC   1 // Tuning LPD1_LVL_0 in M8/M7 FLAT RTC.
+#define TUNE_RTC_3                 1 // // Tune RTC FLAT M13-M8
 
 //FOR DEBUGGING - Do not remove
 

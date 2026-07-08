@@ -8,6 +8,14 @@
 
 #define LOW_8x8_DIST_VAR_TH 25000
 #define HIGH_8x8_DIST_VAR_TH 50000
+
+// Frame spatial-variance (pic_avg_variance) thresholds for RTC content adaptation.
+// LOW: camera-like low-variance content (richer LPD1 / HME-L1 enrichment).
+// ULTRA_LOW: very flat/dark/slow "super-easy" content that over-drops on the fast
+//            presets; used to keep the M12/M13 preset ladder continuous.
+#define RTC_LOW_VARIANCE_TH 1000
+#define RTC_ULTRA_LOW_VARIANCE_TH 350
+
 #if CLN_RENAME_PD0
 #define MAX_PD0_LVL 8 // Max supported pd0 levels
 #else
@@ -144,7 +152,11 @@ uint8_t svt_aom_get_enable_me_8x8(EncMode enc_mode, ResolutionRange input_resolu
     uint8_t enable_me_8x8 = 0;
     if (rtc_tune) {
 #if TUNE_SHIFT_PRESETS_RTC
+#if TUNE_RTC_3
+        if (enc_mode <= ENC_M8) {
+#else
         if (enc_mode <= ENC_M9) {
+#endif
 #else
         if (enc_mode <= ENC_M10) {
 #endif
@@ -2988,7 +3000,7 @@ void svt_aom_sig_deriv_multi_processes_rtc(SequenceControlSet* scs, PictureParen
     pcs->enable_hme_level0_flag = 1;
     if (use_flat_ipp) {
 #if TUNE_RTC
-        if (enc_mode <= ENC_M11) {
+        if (enc_mode <= ENC_M11 || (enc_mode <= ENC_M12 && pcs->pic_avg_variance < RTC_LOW_VARIANCE_TH)) {
 #else
 #if TUNE_SHIFT_PRESETS_RTC
         if (enc_mode <= ENC_M10) {
@@ -3094,6 +3106,13 @@ void svt_aom_sig_deriv_multi_processes_rtc(SequenceControlSet* scs, PictureParen
                 cdef_search_level = is_islice ? 5 : 10;
             }
 #else
+            } else if (enc_mode <= ENC_M12 && pcs->pic_avg_variance < RTC_ULTRA_LOW_VARIANCE_TH) {
+                // Ultra-easy M12: keep M11-grade CDEF search for preset continuity.
+                if (pcs->input_resolution <= INPUT_SIZE_360p_RANGE) {
+                    cdef_search_level = 6;
+                } else {
+                    cdef_search_level = is_islice ? 5 : 8;
+                }
             } else {
 #if OPT_CDEF_PRI_ONLY
                 cdef_search_level = is_islice ? 5 : 9;
@@ -8943,7 +8962,11 @@ static void get_max_block_size_rtc(PictureControlSet* pcs, ModeDecisionContext* 
 
     uint32_t base_me_var_th;
 #if TUNE_SHIFT_PRESETS_RTC
+#if TUNE_RTC_3
+    if (enc_mode <= ENC_M8) {
+#else
     if (enc_mode <= ENC_M9) {
+#endif
 #else
     if (enc_mode <= ENC_M10) {
 #endif
@@ -9993,7 +10016,11 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
     }
     uint8_t ref_skip_perc = pcs->ref_skip_percentage;
 #if OPT_LPD1_GLOBALMV_BYPASS
+#if TUNE_RTC_3
+    if (pcs->enc_mode <= ENC_M12) {
+#else
     if (pcs->enc_mode <= ENC_M11) {
+#endif
         ctx->lpd1_globalmv_bypass_th = 0;
     } else {
         ctx->lpd1_globalmv_bypass_th = 10;
@@ -12293,7 +12320,11 @@ uint8_t svt_aom_get_chroma_level_default(EncMode enc_mode, const uint8_t is_isli
 #if CLN_RTC_FLAT_CHECKS
 uint8_t svt_aom_get_chroma_level_rtc(EncMode enc_mode) {
     uint8_t chroma_level;
+#if TUNE_RTC_3
+    if (enc_mode <= ENC_M10) {
+#else
     if (enc_mode <= ENC_M9) {
+#endif
         chroma_level = 4;
     } else {
         chroma_level = 5;
@@ -13734,7 +13765,11 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
     if (use_flat_ipp) {
         if (enc_mode <= ENC_M7) {
             pcs->rdoq_level = 1;
+#if TUNE_RTC_3
+        } else if (enc_mode <= ENC_M10) {
+#else
         } else if (enc_mode <= ENC_M11) {
+#endif
             pcs->rdoq_level = is_islice ? 1 : 0;
         } else {
             pcs->rdoq_level = 0;
@@ -13768,8 +13803,11 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         }
 #endif
     }
-
+#if TUNE_RTC_3
+    if (enc_mode <= ENC_M10) {
+#else
     if (enc_mode <= ENC_M11) {
+#endif
         pcs->rate_est_level = 1;
     } else {
         pcs->rate_est_level = 0;
@@ -13864,12 +13902,22 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
 #if CLN_RTC_FLAT_CHECKS
         if (enc_mode <= ENC_M8) {
             pcs->skip_intra = 0;
+#if TUNE_RTC_3
+        } else if (enc_mode <= ENC_M12) {
+#else
         } else if (enc_mode <= ENC_M11) {
+#endif
             pcs->skip_intra = pcs->ppcs->norm_me_dist > 5000 ? 0 : 1;
+#if !TUNE_RTC_3
         } else if (enc_mode <= ENC_M12) {
             pcs->skip_intra = pcs->ppcs->norm_me_dist > 7500 ? 0 : 1;
+#endif
         } else {
+#if TUNE_RTC_3
+            pcs->skip_intra = pcs->ppcs->norm_me_dist > 10000 ? 0 : 1;
+#else
             pcs->skip_intra = pcs->ppcs->norm_me_dist > 20000 ? 0 : 1;
+#endif
         }
 #else
 #if TUNE_RTC
@@ -13966,7 +14014,11 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
 #if CLN_RTC_FLAT_CHECKS
     if (enc_mode <= ENC_M8) {
         pcs->txt_level = is_base ? 7 : 9;
+#if TUNE_RTC_3
+    } else if (enc_mode <= ENC_M11) {
+#else
     } else if (enc_mode <= ENC_M10) {
+#endif
         pcs->txt_level = 9;
     } else {
         pcs->txt_level = 0;
@@ -14091,7 +14143,11 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
     // ME distortion ratio-weighted variance bias for VLPD0 inter-depth decision
     // 0: off (default offsets), 512..1024: min weight = 50%..100% of default offset
 #if CLN_RTC_FLAT_CHECKS
+#if TUNE_RTC_3
+    if (enc_mode <= ENC_M12) {
+#else
     if (enc_mode <= ENC_M11) {
+#endif
         pcs->pd0_cost_bias_weight = 0;
     } else {
         pcs->pd0_cost_bias_weight = 600;
@@ -14257,7 +14313,11 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
     if (enc_mode <= ENC_M7) {
         pcs->txs_level = is_base ? 2 : 0;
 #if OPT_RTC_M13_FAST
+#if TUNE_RTC_3
+    } else if (enc_mode <= ENC_M11) {
+#else
     } else if (enc_mode <= ENC_M12) {
+#endif
 #else
     } else {
 #endif
@@ -14332,9 +14392,9 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
             pcs->me_subpel_level = 6;
         } else {
 #if FIX_RTC_M13
-            pcs->me_subpel_level = 9;
+            pcs->me_subpel_level = ppcs->pic_avg_variance < RTC_ULTRA_LOW_VARIANCE_TH ? 6 : 9;
 #else
-            pcs->me_subpel_level = 10;
+            pcs->me_subpel_level = ppcs->pic_avg_variance < RTC_ULTRA_LOW_VARIANCE_TH ? 6 : 10;
 #endif
         }
 #else
@@ -14408,12 +14468,18 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
 #if FIX_RTC_M13
     if (transition_present) {
         pcs->pic_depth_removal_level = 0;
+    } else if (enc_mode <= ENC_M8) {
+        pcs->pic_depth_removal_level = 0;
+    } else if (enc_mode <= ENC_M9) {
+        pcs->pic_depth_removal_level = 4;
+    } else if (enc_mode <= ENC_M10) {
+        pcs->pic_depth_removal_level = 5;
+    } else if (enc_mode <= ENC_M11) {
+        pcs->pic_depth_removal_level = 6;
+    } else if (enc_mode <= ENC_M12) {
+        pcs->pic_depth_removal_level = pcs->ppcs->pic_avg_variance < RTC_ULTRA_LOW_VARIANCE_TH ? 6 : 7;
     } else {
-        if (enc_mode <= ENC_M12) {
-            pcs->pic_depth_removal_level = 0;
-        } else {
-            pcs->pic_depth_removal_level = 7;
-        }
+        pcs->pic_depth_removal_level = 7;
     }
 #else
     pcs->pic_depth_removal_level = 0;
@@ -14440,35 +14506,48 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         }
     }
 
-    if (enc_mode <= ENC_M7) {
-        if (use_flat_ipp) {
-            pcs->pic_lpd1_lvl = is_islice ? 0 : 1;
-        } else {
-            pcs->pic_lpd1_lvl = 0;
-        }
-    } else if (enc_mode <= ENC_M8) {
-        pcs->pic_lpd1_lvl = is_islice ? 0 : 2;
-#if TUNE_SHIFT_PRESETS_RTC
+    // Low source variance benefits from more thorough LPD1.
+    const bool lpd1_low_var       = ppcs->pic_avg_variance < RTC_LOW_VARIANCE_TH;
+    const bool lpd1_ultra_low_var = ppcs->pic_avg_variance < RTC_ULTRA_LOW_VARIANCE_TH;
+    if (is_islice) {
+        pcs->pic_lpd1_lvl = 0;
+    } else if (enc_mode <= ENC_M7) {
+        pcs->pic_lpd1_lvl = use_flat_ipp ? 1 : 0;
+#if TUNE_RTC_3
     } else if (enc_mode <= ENC_M9) {
+#else
+    } else if (enc_mode <= ENC_M8) {
+#endif
+        pcs->pic_lpd1_lvl = 2;
+#if TUNE_SHIFT_PRESETS_RTC
+#if TUNE_RTC_3
+    } else if (enc_mode <= ENC_M10) {
+#else
+    } else if (enc_mode <= ENC_M9) {
+#endif
 #else
     } else if (enc_mode <= ENC_M10) {
 #endif
-        pcs->pic_lpd1_lvl = is_base ? 0 : 4;
+        pcs->pic_lpd1_lvl = is_base ? 0 : (lpd1_low_var ? 3 : 4);
 #if TUNE_SHIFT_PRESETS_RTC
+#if TUNE_RTC_3
+    } else if (enc_mode <= ENC_M11) {
+#else
     } else if (enc_mode <= ENC_M10) {
+#endif
 #else
     } else if (enc_mode <= ENC_M11) {
 #endif
-        pcs->pic_lpd1_lvl = is_islice ? 0 : is_base ? 2 : 5;
+        pcs->pic_lpd1_lvl = is_base ? 2 : (lpd1_low_var ? 3 : 5);
 #if OPT_RTC_M13_FAST
-    } else if (enc_mode <= ENC_M12) {
-        pcs->pic_lpd1_lvl = is_islice ? 0 : is_base ? 4 : 8;
+    } else if (enc_mode <= ENC_M12 || lpd1_ultra_low_var) {
+        pcs->pic_lpd1_lvl = is_base ? 4 : (lpd1_low_var ? 5 : 8);
     } else {
-        pcs->pic_lpd1_lvl = is_islice ? 0 : is_base ? 6 : 8;
+        pcs->pic_lpd1_lvl = is_base ? 6 : (lpd1_low_var ? 6 : 8);
     }
 #else
     } else {
-        pcs->pic_lpd1_lvl = is_islice ? 0 : is_base ? 4 : 8;
+        pcs->pic_lpd1_lvl = is_base ? 4 : (lpd1_low_var ? 5 : 8);
     }
 #endif
     // Can only use light-PD1 under the following conditions
