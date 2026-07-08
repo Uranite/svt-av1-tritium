@@ -73,7 +73,7 @@ jobs:
       with:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
-        ffms2: "true"
+        ffms2: "false"
 
     - id: detect-icelake-server-znver5
       run: ls BuildAction/icelake-server+znver5/static/ffms2/SvtAv1EncApp.exe
@@ -105,30 +105,30 @@ jobs:
         files: BuildAction/x86-64-v3+znver2/static/ffms2/Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz
 
 
-  build-windows-arm64:
-    needs: [tag, release]
-    runs-on: "windows-11-arm"
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        fetch-depth: 0
-        fetch-tags: true
+  # build-windows-arm64:
+  #   needs: [tag, release]
+  #   runs-on: "windows-11-arm"
+  #   defaults:
+  #     run:
+  #       shell: msys2 {0}
+  #   steps:
+  #   - uses: actions/checkout@v7
+  #     with:
+  #       fetch-depth: 0
+  #       fetch-tags: true
 
-    - uses: Akatmks/build-svt-av1@ffms2-test-win
-      with:
-        pgo-video: "FoodMarket2"
-        pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
-        ffms2: "true"
+  #   - uses: Akatmks/build-svt-av1@ffms2-test-win
+  #     with:
+  #       pgo-video: "FoodMarket2"
+  #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
+  #       ffms2: "true"
 
-    - run: ls BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2/SvtAv1EncApp.exe
-    - run: cd BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2 && tar cJf Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz SvtAv1EncApp.exe
-    - uses: softprops/action-gh-release@v3
-      with:
-        tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2/Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz
+  #   - run: ls BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2/SvtAv1EncApp.exe
+  #   - run: cd BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2 && tar cJf Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz SvtAv1EncApp.exe
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2/Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz
 
 
   # build-linux-x86-64:
