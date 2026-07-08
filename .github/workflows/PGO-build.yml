@@ -75,6 +75,8 @@ jobs:
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "true"
 
+        base-arch-only: "true" # Testing
+
     - id: detect-icelake-server-znver5
       run: ls BuildAction/icelake-server+znver5/static/ffms2/SvtAv1EncApp.exe
       continue-on-error: true
@@ -97,12 +99,19 @@ jobs:
         files: BuildAction/znver2/static/ffms2/Windows_x86-64_ffms2_znver2.tar.xz
       if: ${{ steps.detect-znver2.outcome != 'failure' }}
 
-    - run: ls BuildAction/x86-64-v3+znver2/static/ffms2/SvtAv1EncApp.exe
-    - run: cd BuildAction/x86-64-v3+znver2/static/ffms2 && tar cJf Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz SvtAv1EncApp.exe
+    # - run: ls BuildAction/x86-64-v3+znver2/static/ffms2/SvtAv1EncApp.exe
+    # - run: cd BuildAction/x86-64-v3+znver2/static/ffms2 && tar cJf Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz SvtAv1EncApp.exe
+    # - uses: softprops/action-gh-release@v3
+    #   with:
+    #     tag_name: ${{ needs.tag.outputs.tag }}
+    #     files: BuildAction/x86-64-v3+znver2/static/ffms2/Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz
+
+    - run: ls BuildAction/x86-64-v3+znver2/static/SvtAv1EncApp.exe
+    - run: cd BuildAction/x86-64-v3+znver2/static && tar cJf Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz SvtAv1EncApp.exe
     - uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/x86-64-v3+znver2/static/ffms2/Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz
+        files: BuildAction/x86-64-v3+znver2/static/Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz
 
 
   build-windows-arm64:
@@ -123,12 +132,12 @@ jobs:
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "true"
 
-    - run: ls BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/base/SvtAv1EncApp.exe
-    - run: cd BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/base && tar cJf Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz SvtAv1EncApp.exe
+    - run: ls BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2/SvtAv1EncApp.exe
+    - run: cd BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2 && tar cJf Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz SvtAv1EncApp.exe
     - uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/base/Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz
+        files: BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2/Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz
 
 
   # build-linux-x86-64:
