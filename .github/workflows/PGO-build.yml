@@ -57,202 +57,202 @@ jobs:
         make_latest: "true"
 
 
-  # build-windows-x86-64:
-  #   needs: [tag, release]
-  #   runs-on: "windows-latest"
-  #   defaults:
-  #     run:
-  #       shell: msys2 {0}
-  #   steps:
-  #   - uses: actions/checkout@v7
-  #     with:
-  #       fetch-depth: 0
-  #       fetch-tags: true
-
-  #   - uses: Akatmks/build-svt-av1@ffms2-test
-  #     with:
-  #       pgo-video: "FoodMarket2"
-  #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
-  #       ffms2: "true"
-
-  #   - id: detect-icelake-server-znver5
-  #     run: ls BuildAction/icelake-server+znver5/static/ffms2/SvtAv1EncApp.exe
-  #     continue-on-error: true
-  #   - run: cd BuildAction/icelake-server+znver5/static/ffms2 && tar cJf Windows_x86-64_ffms2_icelake-server+znver5.tar.xz SvtAv1EncApp.exe
-  #     if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
-  #   - uses: softprops/action-gh-release@v3
-  #     with:
-  #       tag_name: ${{ needs.tag.outputs.tag }}
-  #       files: BuildAction/icelake-server+znver5/static/ffms2/Windows_x86-64_ffms2_icelake-server+znver5.tar.xz
-  #     if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
-
-  #   - id: detect-znver2
-  #     run: ls BuildAction/znver2/static/ffms2/SvtAv1EncApp.exe
-  #     continue-on-error: true
-  #   - run: cd BuildAction/znver2/static/ffms2 && tar cJf Windows_x86-64_ffms2_znver2.tar.xz SvtAv1EncApp.exe
-  #     if: ${{ steps.detect-znver2.outcome != 'failure' }}
-  #   - uses: softprops/action-gh-release@v3
-  #     with:
-  #       tag_name: ${{ needs.tag.outputs.tag }}
-  #       files: BuildAction/znver2/static/ffms2/Windows_x86-64_ffms2_znver2.tar.xz
-  #     if: ${{ steps.detect-znver2.outcome != 'failure' }}
-
-  #   - run: ls BuildAction/x86-64-v3+znver2/static/ffms2/SvtAv1EncApp.exe
-  #   - run: cd BuildAction/x86-64-v3+znver2/static/ffms2 && tar cJf Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz SvtAv1EncApp.exe
-  #   - uses: softprops/action-gh-release@v3
-  #     with:
-  #       tag_name: ${{ needs.tag.outputs.tag }}
-  #       files: BuildAction/x86-64-v3+znver2/static/ffms2/Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz
-
-
-  # build-windows-arm64:
-  #   needs: [tag, release]
-  #   runs-on: "windows-11-arm"
-  #   defaults:
-  #     run:
-  #       shell: msys2 {0}
-  #   steps:
-  #   - uses: actions/checkout@v7
-  #     with:
-  #       fetch-depth: 0
-  #       fetch-tags: true
-
-  #   - uses: Akatmks/build-svt-av1@ffms2-test
-  #     with:
-  #       pgo-video: "FoodMarket2"
-  #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
-  #       ffms2: "true"
-
-  #   - run: ls BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/base/SvtAv1EncApp.exe
-  #   - run: cd BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/base && tar cJf Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz SvtAv1EncApp.exe
-  #   - uses: softprops/action-gh-release@v3
-  #     with:
-  #       tag_name: ${{ needs.tag.outputs.tag }}
-  #       files: BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/base/Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz
-
-
-  build-linux-x86-64:
+  build-windows-x86-64:
     needs: [tag, release]
-    runs-on: "ubuntu-latest"
+    runs-on: "windows-latest"
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
     - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         fetch-tags: true
 
-    - uses: Akatmks/build-svt-av1@ffms2-test
+    - uses: Akatmks/build-svt-av1@v1
       with:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "true"
 
     - id: detect-icelake-server-znver5
-      run: ls BuildAction/icelake-server+znver5/static/base/SvtAv1EncApp
+      run: ls BuildAction/icelake-server+znver5/static/ffms2/SvtAv1EncApp.exe
       continue-on-error: true
-    - run: cd BuildAction/icelake-server+znver5/static/base && tar cJf Linux_x86-64_icelake-server+znver5.tar.xz SvtAv1EncApp
+    - run: cd BuildAction/icelake-server+znver5/static/ffms2 && tar cJf Windows_x86-64_ffms2_icelake-server+znver5.tar.xz SvtAv1EncApp.exe
       if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
     - uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/icelake-server+znver5/static/base/Linux_x86-64_icelake-server+znver5.tar.xz
-      if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
-    - run: ls BuildAction/icelake-server+znver5/static/ffms2/SvtAv1EncApp
-      if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
-    - run: cd BuildAction/icelake-server+znver5/static/ffms2 && tar cJf Linux_x86-64_ffms2_icelake-server+znver5.tar.xz SvtAv1EncApp
-      if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
-    - uses: softprops/action-gh-release@v3
-      with:
-        tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/icelake-server+znver5/static/ffms2/Linux_x86-64_ffms2_icelake-server+znver5.tar.xz
+        files: BuildAction/icelake-server+znver5/static/ffms2/Windows_x86-64_ffms2_icelake-server+znver5.tar.xz
       if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
 
     - id: detect-znver2
-      run: ls BuildAction/znver2/static/base/SvtAv1EncApp
+      run: ls BuildAction/znver2/static/ffms2/SvtAv1EncApp.exe
       continue-on-error: true
-    - run: cd BuildAction/znver2/static/base && tar cJf Linux_x86-64_znver2.tar.xz SvtAv1EncApp
+    - run: cd BuildAction/znver2/static/ffms2 && tar cJf Windows_x86-64_ffms2_znver2.tar.xz SvtAv1EncApp.exe
       if: ${{ steps.detect-znver2.outcome != 'failure' }}
     - uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/znver2/static/base/Linux_x86-64_znver2.tar.xz
-      if: ${{ steps.detect-znver2.outcome != 'failure' }}
-    - run: ls BuildAction/znver2/static/ffms2/SvtAv1EncApp
-      if: ${{ steps.detect-znver2.outcome != 'failure' }}
-    - run: cd BuildAction/znver2/static/ffms2 && tar cJf Linux_x86-64_ffms2_znver2.tar.xz SvtAv1EncApp
-      if: ${{ steps.detect-znver2.outcome != 'failure' }}
-    - uses: softprops/action-gh-release@v3
-      with:
-        tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/znver2/static/ffms2/Linux_x86-64_ffms2_znver2.tar.xz
+        files: BuildAction/znver2/static/ffms2/Windows_x86-64_ffms2_znver2.tar.xz
       if: ${{ steps.detect-znver2.outcome != 'failure' }}
 
-    - run: ls BuildAction/x86-64-v3+znver2/static/base/SvtAv1EncApp
-    - run: cd BuildAction/x86-64-v3+znver2/static/base && tar cJf Linux_x86-64_x86-64-v3+znver2.tar.xz SvtAv1EncApp
+    - run: ls BuildAction/x86-64-v3+znver2/static/ffms2/SvtAv1EncApp.exe
+    - run: cd BuildAction/x86-64-v3+znver2/static/ffms2 && tar cJf Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz SvtAv1EncApp.exe
     - uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/x86-64-v3+znver2/static/base/Linux_x86-64_x86-64-v3+znver2.tar.xz
-    - run: ls BuildAction/x86-64-v3+znver2/static/ffms2/SvtAv1EncApp
-    - run: cd BuildAction/x86-64-v3+znver2/static/ffms2 && tar cJf Linux_x86-64_ffms2_x86-64-v3+znver2.tar.xz SvtAv1EncApp
-    - uses: softprops/action-gh-release@v3
-      with:
-        tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/x86-64-v3+znver2/static/ffms2/Linux_x86-64_ffms2_x86-64-v3+znver2.tar.xz
+        files: BuildAction/x86-64-v3+znver2/static/ffms2/Windows_x86-64_ffms2_x86-64-v3+znver2.tar.xz
 
 
-  build-macos-arm64:
+  build-windows-arm64:
     needs: [tag, release]
-    runs-on: "macos-latest"
+    runs-on: "windows-11-arm"
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
     - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         fetch-tags: true
 
-    - uses: Akatmks/build-svt-av1@ffms2-test
+    - uses: Akatmks/build-svt-av1@v1
       with:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "true"
 
-    - run: ls BuildAction/armv8.5-a+simd+crypto+apple-m3/static/base/SvtAv1EncApp
-    - run: cd BuildAction/armv8.5-a+simd+crypto+apple-m3/static/base && tar cJf macOS_arm64_armv8.5-a+simd+crypto+apple-m3.tar.xz SvtAv1EncApp
+    - run: ls BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/base/SvtAv1EncApp.exe
+    - run: cd BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/base && tar cJf Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz SvtAv1EncApp.exe
     - uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/armv8.5-a+simd+crypto+apple-m3/static/base/macOS_arm64_armv8.5-a+simd+crypto+apple-m3.tar.xz
-    - run: ls BuildAction/armv8.5-a+simd+crypto+apple-m3/static/ffms2/SvtAv1EncApp
-    - run: cd BuildAction/armv8.5-a+simd+crypto+apple-m3/static/ffms2 && tar cJf macOS_arm64_ffms2_armv8.5-a+simd+crypto+apple-m3.tar.xz SvtAv1EncApp
-    - uses: softprops/action-gh-release@v3
-      with:
-        tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/armv8.5-a+simd+crypto+apple-m3/static/ffms2/macOS_arm64_ffms2_armv8.5-a+simd+crypto+apple-m3.tar.xz
+        files: BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/base/Windows_arm64_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz
 
 
-  build-macos-x86-64:
-    needs: [tag, release]
-    runs-on: "macos-26-intel"
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        fetch-depth: 0
-        fetch-tags: true
+  # build-linux-x86-64:
+  #   needs: [tag, release]
+  #   runs-on: "ubuntu-latest"
+  #   steps:
+  #   - uses: actions/checkout@v7
+  #     with:
+  #       fetch-depth: 0
+  #       fetch-tags: true
 
-    - uses: Akatmks/build-svt-av1@ffms2-test
-      with:
-        pgo-video: "FoodMarket2"
-        pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
-        ffms2: "true"
+  #   - uses: Akatmks/build-svt-av1@v1
+  #     with:
+  #       pgo-video: "FoodMarket2"
+  #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
+  #       ffms2: "true"
 
-    - run: ls BuildAction/skylake/static/base/SvtAv1EncApp
-    - run: cd BuildAction/skylake/static/base && tar cJf macOS_x86-64_skylake.tar.xz SvtAv1EncApp
-    - uses: softprops/action-gh-release@v3
-      with:
-        tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/skylake/static/base/macOS_x86-64_skylake.tar.xz
-    - run: ls BuildAction/skylake/static/ffms2/SvtAv1EncApp
-    - run: cd BuildAction/skylake/static/ffms2 && tar cJf macOS_x86-64_ffms2_skylake.tar.xz SvtAv1EncApp
-    - uses: softprops/action-gh-release@v3
-      with:
-        tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/skylake/static/ffms2/macOS_x86-64_ffms2_skylake.tar.xz
+  #   - id: detect-icelake-server-znver5
+  #     run: ls BuildAction/icelake-server+znver5/static/base/SvtAv1EncApp
+  #     continue-on-error: true
+  #   - run: cd BuildAction/icelake-server+znver5/static/base && tar cJf Linux_x86-64_icelake-server+znver5.tar.xz SvtAv1EncApp
+  #     if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/icelake-server+znver5/static/base/Linux_x86-64_icelake-server+znver5.tar.xz
+  #     if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
+  #   - run: ls BuildAction/icelake-server+znver5/static/ffms2/SvtAv1EncApp
+  #     if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
+  #   - run: cd BuildAction/icelake-server+znver5/static/ffms2 && tar cJf Linux_x86-64_ffms2_icelake-server+znver5.tar.xz SvtAv1EncApp
+  #     if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/icelake-server+znver5/static/ffms2/Linux_x86-64_ffms2_icelake-server+znver5.tar.xz
+  #     if: ${{ steps.detect-icelake-server-znver5.outcome != 'failure' }}
+
+  #   - id: detect-znver2
+  #     run: ls BuildAction/znver2/static/base/SvtAv1EncApp
+  #     continue-on-error: true
+  #   - run: cd BuildAction/znver2/static/base && tar cJf Linux_x86-64_znver2.tar.xz SvtAv1EncApp
+  #     if: ${{ steps.detect-znver2.outcome != 'failure' }}
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/znver2/static/base/Linux_x86-64_znver2.tar.xz
+  #     if: ${{ steps.detect-znver2.outcome != 'failure' }}
+  #   - run: ls BuildAction/znver2/static/ffms2/SvtAv1EncApp
+  #     if: ${{ steps.detect-znver2.outcome != 'failure' }}
+  #   - run: cd BuildAction/znver2/static/ffms2 && tar cJf Linux_x86-64_ffms2_znver2.tar.xz SvtAv1EncApp
+  #     if: ${{ steps.detect-znver2.outcome != 'failure' }}
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/znver2/static/ffms2/Linux_x86-64_ffms2_znver2.tar.xz
+  #     if: ${{ steps.detect-znver2.outcome != 'failure' }}
+
+  #   - run: ls BuildAction/x86-64-v3+znver2/static/base/SvtAv1EncApp
+  #   - run: cd BuildAction/x86-64-v3+znver2/static/base && tar cJf Linux_x86-64_x86-64-v3+znver2.tar.xz SvtAv1EncApp
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/x86-64-v3+znver2/static/base/Linux_x86-64_x86-64-v3+znver2.tar.xz
+  #   - run: ls BuildAction/x86-64-v3+znver2/static/ffms2/SvtAv1EncApp
+  #   - run: cd BuildAction/x86-64-v3+znver2/static/ffms2 && tar cJf Linux_x86-64_ffms2_x86-64-v3+znver2.tar.xz SvtAv1EncApp
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/x86-64-v3+znver2/static/ffms2/Linux_x86-64_ffms2_x86-64-v3+znver2.tar.xz
+
+
+  # build-macos-arm64:
+  #   needs: [tag, release]
+  #   runs-on: "macos-latest"
+  #   steps:
+  #   - uses: actions/checkout@v7
+  #     with:
+  #       fetch-depth: 0
+  #       fetch-tags: true
+
+  #   - uses: Akatmks/build-svt-av1@v1
+  #     with:
+  #       pgo-video: "FoodMarket2"
+  #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
+  #       ffms2: "true"
+
+  #   - run: ls BuildAction/armv8.5-a+simd+crypto+apple-m3/static/base/SvtAv1EncApp
+  #   - run: cd BuildAction/armv8.5-a+simd+crypto+apple-m3/static/base && tar cJf macOS_arm64_armv8.5-a+simd+crypto+apple-m3.tar.xz SvtAv1EncApp
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/armv8.5-a+simd+crypto+apple-m3/static/base/macOS_arm64_armv8.5-a+simd+crypto+apple-m3.tar.xz
+  #   - run: ls BuildAction/armv8.5-a+simd+crypto+apple-m3/static/ffms2/SvtAv1EncApp
+  #   - run: cd BuildAction/armv8.5-a+simd+crypto+apple-m3/static/ffms2 && tar cJf macOS_arm64_ffms2_armv8.5-a+simd+crypto+apple-m3.tar.xz SvtAv1EncApp
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/armv8.5-a+simd+crypto+apple-m3/static/ffms2/macOS_arm64_ffms2_armv8.5-a+simd+crypto+apple-m3.tar.xz
+
+
+  # build-macos-x86-64:
+  #   needs: [tag, release]
+  #   runs-on: "macos-26-intel"
+  #   steps:
+  #   - uses: actions/checkout@v7
+  #     with:
+  #       fetch-depth: 0
+  #       fetch-tags: true
+
+  #   - uses: Akatmks/build-svt-av1@v1
+  #     with:
+  #       pgo-video: "FoodMarket2"
+  #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
+  #       ffms2: "true"
+
+  #   - run: ls BuildAction/skylake/static/base/SvtAv1EncApp
+  #   - run: cd BuildAction/skylake/static/base && tar cJf macOS_x86-64_skylake.tar.xz SvtAv1EncApp
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/skylake/static/base/macOS_x86-64_skylake.tar.xz
+  #   - run: ls BuildAction/skylake/static/ffms2/SvtAv1EncApp
+  #   - run: cd BuildAction/skylake/static/ffms2 && tar cJf macOS_x86-64_ffms2_skylake.tar.xz SvtAv1EncApp
+  #   - uses: softprops/action-gh-release@v3
+  #     with:
+  #       tag_name: ${{ needs.tag.outputs.tag }}
+  #       files: BuildAction/skylake/static/ffms2/macOS_x86-64_ffms2_skylake.tar.xz
