@@ -1105,15 +1105,7 @@ void svt_aom_sig_deriv_me(SequenceControlSet* scs, PictureParentControlSet* pcs,
     // skip all HME + integer ME, set all MVs to (0,0), approximate sub-block SADs.
     // Unlike me_early_exit_th which only shrinks search range per-reference.
     if (rtc_tune) {
-#if OPT_RTC_M13_FAST
-        if (enc_mode <= ENC_M12) {
-            me_ctx->me_static_b64_th = BLOCK_SIZE_64 * BLOCK_SIZE_64;
-        } else {
-            me_ctx->me_static_b64_th = BLOCK_SIZE_64 * BLOCK_SIZE_64 * 2;
-        }
-#else
         me_ctx->me_static_b64_th = BLOCK_SIZE_64 * BLOCK_SIZE_64;
-#endif
     } else {
         me_ctx->me_static_b64_th = 0;
     }
@@ -10016,15 +10008,7 @@ void svt_aom_sig_deriv_enc_dec_light_pd1_rtc(PictureControlSet* pcs, ModeDecisio
     }
     uint8_t ref_skip_perc = pcs->ref_skip_percentage;
 #if OPT_LPD1_GLOBALMV_BYPASS
-#if TUNE_RTC_3
-    if (pcs->enc_mode <= ENC_M12) {
-#else
-    if (pcs->enc_mode <= ENC_M11) {
-#endif
-        ctx->lpd1_globalmv_bypass_th = 0;
-    } else {
-        ctx->lpd1_globalmv_bypass_th = 10;
-    }
+    ctx->lpd1_globalmv_bypass_th = 0;
 #endif
 
     // Set candidate reduction levels
@@ -13705,13 +13689,9 @@ static INLINE bool should_disable_cdf_update(SequenceControlSet* scs, EncMode en
 
     if (enc_mode <= ENC_M10) {
         return false;
-    } else if (enc_mode <= ENC_M12) {
-        cdf_update_warmup_period  = 30;
-        cdf_update_refresh_period = 8;
-    } else {
-        cdf_update_warmup_period  = 4;
-        cdf_update_refresh_period = INT_MAX;
     }
+    cdf_update_warmup_period  = 30;
+    cdf_update_refresh_period = 8;
 
     return (enc_ctx->rc.frames_since_key >= cdf_update_warmup_period &&
             enc_ctx->rc.frames_since_cdf_update < cdf_update_refresh_period);
@@ -13788,11 +13768,7 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         pcs->coeff_shaving_level = 0;
     } else {
 #if OPT_SHAVE_COEFF_LIN
-        if (enc_mode <= ENC_M8) {
-            pcs->coeff_shaving_level = 0;
-        } else {
-            pcs->coeff_shaving_level = 1;
-        }
+        pcs->coeff_shaving_level = 1;
 #else
         if (enc_mode <= ENC_M8) {
             pcs->coeff_shaving_level = 0;
@@ -13903,22 +13879,18 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
         if (enc_mode <= ENC_M8) {
             pcs->skip_intra = 0;
 #if TUNE_RTC_3
-        } else if (enc_mode <= ENC_M12) {
+        } else {
+            pcs->skip_intra = pcs->ppcs->norm_me_dist > 5000 ? 0 : 1;
+        }
 #else
         } else if (enc_mode <= ENC_M11) {
-#endif
             pcs->skip_intra = pcs->ppcs->norm_me_dist > 5000 ? 0 : 1;
-#if !TUNE_RTC_3
         } else if (enc_mode <= ENC_M12) {
             pcs->skip_intra = pcs->ppcs->norm_me_dist > 7500 ? 0 : 1;
-#endif
         } else {
-#if TUNE_RTC_3
-            pcs->skip_intra = pcs->ppcs->norm_me_dist > 10000 ? 0 : 1;
-#else
             pcs->skip_intra = pcs->ppcs->norm_me_dist > 20000 ? 0 : 1;
-#endif
         }
+#endif
 #else
 #if TUNE_RTC
         if (use_flat_ipp) {
@@ -14543,7 +14515,7 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
     } else if (enc_mode <= ENC_M12 || lpd1_ultra_low_var) {
         pcs->pic_lpd1_lvl = is_base ? 4 : (lpd1_low_var ? 5 : 8);
     } else {
-        pcs->pic_lpd1_lvl = is_base ? 6 : (lpd1_low_var ? 6 : 8);
+        pcs->pic_lpd1_lvl = is_base ? (lpd1_low_var ? 4 : 6) : (lpd1_low_var ? 6 : 8);
     }
 #else
     } else {
