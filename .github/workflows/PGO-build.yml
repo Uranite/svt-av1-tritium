@@ -69,7 +69,7 @@ jobs:
         fetch-depth: 0
         fetch-tags: true
 
-    - uses: Akatmks/build-svt-av1@v1
+    - uses: Akatmks/build-svt-av1@ffms2-test-win
       with:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
@@ -129,7 +129,7 @@ jobs:
   #       fetch-depth: 0
   #       fetch-tags: true
 
-  #   - uses: Akatmks/build-svt-av1@v1
+  #   - uses: Akatmks/build-svt-av1@ffms2-test-win
   #     with:
   #       pgo-video: "FoodMarket2"
   #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
@@ -152,7 +152,7 @@ jobs:
   #       fetch-depth: 0
   #       fetch-tags: true
 
-  #   - uses: Akatmks/build-svt-av1@v1
+  #   - uses: Akatmks/build-svt-av1@ffms2-test-win
   #     with:
   #       pgo-video: "FoodMarket2"
   #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
@@ -221,7 +221,7 @@ jobs:
   #       fetch-depth: 0
   #       fetch-tags: true
 
-  #   - uses: Akatmks/build-svt-av1@v1
+  #   - uses: Akatmks/build-svt-av1@ffms2-test-win
   #     with:
   #       pgo-video: "FoodMarket2"
   #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
@@ -250,7 +250,7 @@ jobs:
   #       fetch-depth: 0
   #       fetch-tags: true
 
-  #   - uses: Akatmks/build-svt-av1@v1
+  #   - uses: Akatmks/build-svt-av1@ffms2-test-win
   #     with:
   #       pgo-video: "FoodMarket2"
   #       pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
