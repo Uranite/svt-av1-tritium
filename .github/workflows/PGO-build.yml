@@ -1,6 +1,6 @@
 name: pgo-build
-# on: workflow_dispatch
-on: push # testing only
+on: workflow_dispatch
+# on: push # testing only
 
 jobs:
   tag:
@@ -45,12 +45,12 @@ jobs:
           macOS | arm64 | LLVM Project Clang LLD | `armv8.5-a+simd+crypto` + `apple-m3` | LTO PGO  
           macOS | x86-64 | LLVM Project Clang LLD | `skylake` | LTO PGO  
 
+          On Windows x86-64, FFMS2 is built into the binary and is always available.  
+          On Linux and macOS, if you want to use FFMS2, in addition to downloading the FFMS2 version, you need to install `ffms2` from your system package manager. For people that only uses pipe input, you can grab the non-FFMS2 version.  
+
           On x86-64 systems, no matter if you're on an Intel or AMD system, you should try these builds in the order of `icelake-server` + `znver5` ⇒ `znver2` ⇒ `x86-64-v3` + `znver2`.  
           If your CPU doesn't support the features required by the `icelake-server` + `znver5` version, often indicated by crashing outright when attempting to make any encodes, you can try the `znver2` version and see if that works. If not, then the `x86-64-v3` + `znver2` version, which should always work on any modern systems.  
           Some versions might not be available if the GitHub Actions runners we get this time don't support the respective features.  
-
-          On Windows x86-64, FFMS2 is built into the binary and is always available.  
-          On Linux and macOS, if you want to use FFMS2, in addition to downloading the FFMS2 version, you need to install `ffms2` from your system package manager. For people that only uses pipe input, you can grab the non-FFMS2 version.  
 
           Thanks to studies and contributions from afed, Emre, Ironclad, Itachi Uchiha, Khaoklong, Miss Ashenlight, Soda, SwareJonge, Trix, Yiss, and other people in the community for discovering the method to build the fastest binary.  
         prerelease: false
