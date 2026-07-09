@@ -45,7 +45,7 @@ jobs:
           macOS | arm64 | LLVM Project Clang LLD | `armv8.5-a+simd+crypto` + `apple-m3` | LTO PGO  
           macOS | x86-64 | LLVM Project Clang LLD | `skylake` | LTO PGO  
 
-          On Windows x86-64, FFMS2 is built into the binary and is always available.  
+          On Windows, FFMS2 is built into the binary and is always available.  
           On Linux and macOS, if you want to use FFMS2, in addition to downloading the FFMS2 version, you need to install `ffms2` from your system package manager. For people that only uses pipe input, you can grab the non-FFMS2 version.  
 
           On x86-64 systems, no matter if you're on an Intel or AMD system, you should try these builds in the order of `icelake-server` + `znver5` ⇒ `znver2` ⇒ `x86-64-v3` + `znver2`.  
