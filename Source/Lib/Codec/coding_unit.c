@@ -137,6 +137,11 @@ EbErrorType svt_aom_largest_coding_unit_ctor(SuperBlock* larget_coding_unit_ptr,
     // instead of 3 allocations per SB.
     const uint16_t all_sb = pcs->sb_total_count;
     if (sb_index == 0) {
+        // This ctor is re-run per frame on the resize/superres path (superres_setup_child_pcs),
+        // so free any pool from a prior setup before reallocating (NULL-safe on first use).
+        EB_FREE_ARRAY(pcs->sb_final_blk_arr_pool);
+        EB_FREE_ARRAY(pcs->sb_av1xd_pool);
+        EB_FREE_ARRAY(pcs->sb_ptree_pool);
         EB_MALLOC_ARRAY(pcs->sb_final_blk_arr_pool, (size_t)all_sb * tot_blk_num);
         EB_MALLOC_ARRAY(pcs->sb_av1xd_pool, all_sb);
         EB_CALLOC_ARRAY(pcs->sb_ptree_pool, (size_t)all_sb * blocks_to_alloc);

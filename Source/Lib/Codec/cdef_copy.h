@@ -16,7 +16,6 @@
 #ifndef EbCdefCopy_h
 #define EbCdefCopy_h
 
-#include <assert.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -63,9 +62,10 @@ static inline void svt_cdef_copy_rect8(uint8_t* dst, int dstride, const uint8_t*
         break;
     }
 #undef CDEF_RECT_CW
-    // No other width is expected from the CDEF gather. Cover correctness with a plain memcpy and
-    // assert in debug to catch any new geometry that should be added as a case above.
-    assert(0 && "svt_cdef_copy_rect8: unexpected width");
+    // Other widths are legitimate when the coded frame width is not a multiple of the CDEF block
+    // size (e.g. reference scaling / --resize-mode produces partial right-edge filter blocks).
+    // The fast cases above cover the common geometries; any other width uses this variable-width
+    // memcpy fallback.
     for (int r = 0; r < v; r++) {
         memcpy(dst, base, (size_t)h);
         dst += dstride;
