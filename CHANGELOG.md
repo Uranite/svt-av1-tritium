@@ -1,14 +1,14 @@
 # Changelog
 
-## [4.2.0-rc] - 2026-06-24
+## [4.2.0] - 2026-07-14
 
 VOD / Random Access
 
 - Added TUNE-VMAF mode targeting ~15% VMAF BD-rate improvement at minimal PSNR loss
-- Implement single-thread processing mode with RA handling
+- Implemented single-thread processing mode with RA handling
 - RA preset tuning and bitrate optimization for M3-M5
 - New CLI options: `--cqp`, `--enable-intrabc`, `--hbd-mds`, `--enable-kf-tf`
-- Added raw OBU output format as alternative to IVF
+- Added raw OBU output format as an alternative to IVF
 - Signal `initial_display_delay` in sequence header to fix A/V sync on seek
 
 RTC / Low Delay
@@ -18,27 +18,33 @@ RTC / Low Delay
 - Added reference frame management API with LTR support and two-layer RPS structure
 - Exposed `--max-intra-bitrate-pct` and `--max-inter-bitrate-pct` parameters
 - Improved compression efficiency vs. cycle tradeoff across RTC presets
+- Optimized memory footprint for RTC mode with small resolutions
+- Further speed and quality tuning for RTC
 
 Encoder (general)
 
-- Refactor entropy coding: direct tile-buffer writes, arithmetic coder simplifications, coefficient shaving
+- Refactored entropy coding: direct tile-buffer writes, arithmetic coder simplifications, coefficient shaving
 - CDEF optimizations: 8-bit boundary-aware filter, persistent scratch buffers, luma/chroma specialization
 - MD and ME optimizations (LPD1 early-skip, VLPD0 fast path, static-block ME bypass)
-- Optimize still-image screen content detection
+- Optimized still-image screen content detection
+- Optimized TPL dispatch when TPL is disabled
+- Added `ENABLE_STACK_PROTECTOR` CMake option to prevent the stack protector flag from being added
 
 Arm
 
-- Add lowbd (8-bit) int16 forward transform NEON kernels (4x4 through 32x32)
-- Add Neon SAD, quantize-matrix, SSIM, VMAF, variance, and pixel projection error kernels
-- Add SVE2 VMAF kernels and hardware CRC-32C for hash-based ME
-- Optimize convolution, full distortion, and SAD calculation functions
+- Added lowbd (8-bit) int16 forward transform NEON kernels (4x4 through 32x32)
+- Added Neon SAD, quantize-matrix, SSIM, VMAF, variance, and pixel projection error kernels
+- Added SVE2 VMAF kernels and hardware CRC-32C for hash-based ME
+- Optimized convolution, full distortion, and SAD calculation functions
 
 Bug fixes and documentation
 
-- Fixed superres recode crash, RESIZE_DYNAMIC under `--rtc`, and RTC candidate-count overflow
+- Fixed superres recode crash, RESIZE_DYNAMIC under `--rtc`, RTC candidate-count overflow, recon output, and memory leak
 - Fixed signed left-shift UB, OOB reads, and race conditions in rate control
 - Added NVTX/Nsight Systems profiling hooks, PPC toolchain, and macOS universal binary support
 - Addressed cppcheck warnings and rewrote affected unit tests
+- Addressed USAN and MSAN warnings
+- Reduced OBMC stack usage to fix a crash with PGO
 - General code cleanup, documentation updates, and test improvements
 
 ## [4.1] - 2026-03-23
