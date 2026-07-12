@@ -25,9 +25,13 @@ jobs:
         ref: "refs/heads/pgo-build-tags"
     - run: GH_TOKEN=${{ github.token }} gh release delete ${{ needs.tag.outputs.tag }} --cleanup-tag
       continue-on-error: true
-    - run: git config user.email Akatsumekusa@protonmail.com && git config user.name "Akatsumekusa"
-    - run: git fetch --depth=1 origin ${{ github.ref }}
-    - run: git restore -s ${{ github.sha }} . && git add --all && git commit --allow-empty -m ${{ needs.tag.outputs.tag }} && git push origin pgo-build-tags
+    - name: Commit and push tag to pgo-build-tags branch
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git fetch origin pgo-build-tags
+        NEW_COMMIT=$(git commit-tree HEAD^{tree} -p FETCH_HEAD -m "${{ needs.tag.outputs.tag }}")
+        git push origin $NEW_COMMIT:refs/heads/pgo-build-tags
     - uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ needs.tag.outputs.tag }}
