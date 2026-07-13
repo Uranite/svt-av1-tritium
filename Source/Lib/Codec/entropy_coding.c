@@ -411,7 +411,6 @@ static int32_t av1_write_coeffs_txb_1d(PictureParentControlSet* ppcs, FRAME_CONT
         aom_write_literal(ec_writer, eob_extra, cnt);
     }
 
-#if OPT_EC_DC_ONLY
     // Fast path for eob==1: single DC coefficient.
     // Contexts are known: coeff_ctx=0 (get_lower_levels_ctx_eob returns 0 for scan_idx=0),
     // br_ctx=0 (DC position with all-zero neighbors).
@@ -443,7 +442,6 @@ static int32_t av1_write_coeffs_txb_1d(PictureParentControlSet* ppcs, FRAME_CONT
         set_dc_sign(&cul_level, coeff_buffer_ptr[0]);
         return cul_level;
     }
-#endif
 
     const int bwl    = get_txb_bwl(tx_size);
     const int width  = get_txb_wide(tx_size);
@@ -457,7 +455,6 @@ static int32_t av1_write_coeffs_txb_1d(PictureParentControlSet* ppcs, FRAME_CONT
 
     svt_av1_get_nz_map_contexts(levels, scan, eob, tx_size, tx_type_to_class[tx_type], ec_ctx->coeff_contexts);
 
-#if OPT_EC_MERGE_COEFF_LOOPS
     // Merged approach: backward pass caches level/sign per coefficient,
     // accumulates cul_level, then a forward pass emits signs from cache.
     // Avoids re-reading coeff_buffer_ptr[scan[c]] in the forward pass.
@@ -544,63 +541,6 @@ static int32_t av1_write_coeffs_txb_1d(PictureParentControlSet* ppcs, FRAME_CONT
     cul_level = AOMMIN(COEFF_CONTEXT_MASK, cul_level);
     set_dc_sign(&cul_level, coeff_buffer_ptr[0]);
     return cul_level;
-#else
-    // Pre-compute CDF base pointers (loop-invariant outer dimensions)
-    AomCdfProb(*base_cdf)[CDF_SIZE(4)]         = frame_context->coeff_base_cdf[txs_ctx][component_type];
-    AomCdfProb(*base_eob_cdf)[CDF_SIZE(3)]     = frame_context->coeff_base_eob_cdf[txs_ctx][component_type];
-    AomCdfProb(*br_cdf)[CDF_SIZE(BR_CDF_SIZE)] = frame_context->coeff_br_cdf[AOMMIN(txs_ctx, TX_32X32)][component_type];
-    for (c = eob - 1; c >= 0; --c) {
-        const int16_t pos       = scan[c];
-        const int32_t v         = coeff_buffer_ptr[pos];
-        const int16_t coeff_ctx = ec_ctx->coeff_contexts[pos];
-        int32_t       level     = ABS(v);
-
-        if (c == eob - 1) {
-            aom_write_symbol(ec_writer, AOMMIN(level, 3) - 1, base_eob_cdf[coeff_ctx], 3);
-        } else {
-            aom_write_symbol(ec_writer, AOMMIN(level, 3), base_cdf[coeff_ctx], 4);
-        }
-        if (level > NUM_BASE_LEVELS) {
-            // level is above 1.
-            int32_t base_range = level - 1 - NUM_BASE_LEVELS;
-            int16_t br_ctx     = get_br_ctx(levels, pos, bwl, tx_type_to_class[tx_type]);
-            for (int32_t idx = 0; idx < COEFF_BASE_RANGE; idx += BR_CDF_SIZE - 1) {
-                const int32_t k = AOMMIN(base_range - idx, BR_CDF_SIZE - 1);
-                aom_write_symbol(ec_writer, k, br_cdf[br_ctx], BR_CDF_SIZE);
-                if (k < BR_CDF_SIZE - 1) {
-                    break;
-                }
-            }
-        }
-    }
-    // Loop to code all signs in the transform block,
-    // starting with the sign of DC (if applicable)
-
-    int32_t cul_level = 0;
-    for (c = 0; c < eob; ++c) {
-        const int16_t pos   = scan[c];
-        const int32_t v     = coeff_buffer_ptr[pos];
-        int32_t       level = ABS(v);
-        cul_level += level;
-
-        const int32_t sign = (v < 0) ? 1 : 0;
-        if (level) {
-            if (c == 0) {
-                aom_write_symbol(ec_writer, sign, frame_context->dc_sign_cdf[component_type][dc_sign_ctx], 2);
-            } else {
-                aom_write_bit(ec_writer, sign);
-            }
-            if (level > COEFF_BASE_RANGE + NUM_BASE_LEVELS) {
-                write_golomb(ec_writer, level - COEFF_BASE_RANGE - 1 - NUM_BASE_LEVELS);
-            }
-        }
-    }
-
-    cul_level = AOMMIN(COEFF_CONTEXT_MASK, cul_level);
-    // DC value
-    set_dc_sign(&cul_level, coeff_buffer_ptr[0]);
-    return cul_level;
-#endif
 }
 
 static EbErrorType av1_encode_tx_coef_y(PictureControlSet* pcs, EntropyCodingContext* ec_ctx,
@@ -5452,15 +5392,8 @@ static EbErrorType write_modes_b(PictureControlSet* pcs, EntropyCodingContext* e
             }
         }
     }
-#if OPT_STATS_MUTEX
     ec_ctx->tot_qindex += (uint64_t)blk_ptr->qindex * bwidth * bheight;
     ec_ctx->valid_area += bwidth * bheight;
-#else
-    svt_block_on_mutex(pcs->entropy_coding_pic_mutex);
-    pcs->ppcs->tot_qindex += blk_ptr->qindex * bwidth * bheight;
-    pcs->ppcs->valid_qindex_area += bwidth * bheight;
-    svt_release_mutex(pcs->entropy_coding_pic_mutex);
-#endif
     // Update the neighbors
     ec_update_neighbors(pcs, ec_ctx, blk_org_x, blk_org_y, tile_idx, bsize);
 

@@ -1243,11 +1243,7 @@ static uint8_t get_superres_denom_from_qindex_energy(int qindex, double* energy,
     return 3 * SCALE_NUMERATOR - k;
 }
 
-#if ADD_ON_THE_FLY_MG
 int32_t svt_aom_get_frame_update_type(PictureParentControlSet* pcs) {
-#else
-int32_t svt_aom_get_frame_update_type(SequenceControlSet* scs, PictureParentControlSet* pcs) {
-#endif
     // Reasons why not use gf_group->update_type:
     //   1. It is valid only in 2nd pass of 2-pass encoding or lap_rc is true. E.g. It's invalid in 1-pass CQP mode.
     //   2. It is set in RC process, so can't use it in processes before RC.
@@ -1255,11 +1251,7 @@ int32_t svt_aom_get_frame_update_type(SequenceControlSet* scs, PictureParentCont
         return SVT_AV1_KF_UPDATE;
     }
 
-#if ADD_ON_THE_FLY_MG
     if (pcs->hierarchical_levels > 0) {
-#else
-    if (scs->max_temporal_layers > 0) {
-#endif
         if (pcs->temporal_layer_index == 0) {
             return SVT_AV1_ARF_UPDATE;
         } else if (pcs->temporal_layer_index == pcs->hierarchical_levels) {
@@ -1275,11 +1267,7 @@ int32_t svt_aom_get_frame_update_type(SequenceControlSet* scs, PictureParentCont
 static uint8_t get_superres_denom_for_qindex(SequenceControlSet* scs, PictureParentControlSet* pcs, int qindex,
                                              int sr_kf, int sr_arf) {
     // Use superres for Key-frames and Alt-ref frames only.
-#if ADD_ON_THE_FLY_MG
     int32_t update_type = svt_aom_get_frame_update_type(pcs);
-#else
-    int32_t update_type = svt_aom_get_frame_update_type(scs, pcs);
-#endif
     if (update_type != SVT_AV1_KF_UPDATE && update_type != SVT_AV1_ARF_UPDATE) {
         return SCALE_NUMERATOR;
     }
@@ -1387,11 +1375,7 @@ static void calc_superres_params(superres_params_type* spr_params, SequenceContr
                 }
             } else { // SUPERRES_AUTO_ALL
                 assert(sr_search_type == SUPERRES_AUTO_ALL);
-#if ADD_ON_THE_FLY_MG
                 int32_t update_type = svt_aom_get_frame_update_type(pcs);
-#else
-                int32_t update_type = svt_aom_get_frame_update_type(scs, pcs);
-#endif
                 if (update_type == SVT_AV1_KF_UPDATE || update_type == SVT_AV1_ARF_UPDATE) {
                     for (int i = 0; i < NUM_SR_SCALES + 1; i++) {
                         if (i < SCALE_NUMERATOR) {

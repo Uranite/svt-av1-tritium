@@ -120,11 +120,7 @@ EbErrorType svt_aom_mode_decision_cand_bf_ctor(ModeDecisionCandidateBuffer* buff
 EbErrorType svt_aom_mode_decision_scratch_cand_bf_ctor(ModeDecisionCandidateBuffer* buffer_ptr, uint8_t sb_size,
                                                        EbBitDepth max_bitdepth);
 
-#if CLN_RENAME_PD0
 uint32_t product_full_mode_decision_pd0(struct ModeDecisionContext* ctx, BlkStruct* blk_ptr,
-#else
-uint32_t product_full_mode_decision_light_pd0(struct ModeDecisionContext* ctx, BlkStruct* blk_ptr,
-#endif
                                         ModeDecisionCandidateBuffer** buffer_ptr_array);
 
 void        svt_aom_product_full_mode_decision_light_pd1(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
@@ -140,11 +136,7 @@ EbErrorType generate_md_stage_0_cand(PictureControlSet* pcs, struct ModeDecision
                                      const struct PC_TREE* const pc_tree, uint32_t* fast_candidate_total_count);
 void        generate_md_stage_0_cand_light_pd1(struct ModeDecisionContext* ctx, uint32_t* fast_candidate_total_count,
                                                PictureControlSet* pcs);
-#if CLN_RENAME_PD0
 EbErrorType generate_md_stage_0_cand_pd0(struct ModeDecisionContext* ctx, uint32_t* fast_candidate_total_count,
-#else
-EbErrorType generate_md_stage_0_cand_light_pd0(struct ModeDecisionContext* ctx, uint32_t* fast_candidate_total_count,
-#endif
                                          PictureControlSet* pcs);
 
 static INLINE int svt_aom_is_interintra_allowed_bsize(const BlockSize bsize) {

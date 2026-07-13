@@ -1122,7 +1122,6 @@ void svt_aom_init_xd(PictureControlSet* pcs, ModeDecisionContext* ctx) {
     xd->mi[0]->partition = from_shape_to_part[ctx->shape];
 }
 
-#if OPT_LPD1_GLOBALMV_BYPASS
 // Lightweight inter_mode_ctx derivation: same neighbor scan pattern as setup_ref_mv_list
 // but only tracks the 3 counters needed for mode_context, skipping ref_mv_stack/MV/weight/sort.
 // Assumes block size >= 8x8 (LPD1 minimum).
@@ -1326,7 +1325,6 @@ void svt_aom_compute_inter_mode_ctx_light(ModeDecisionContext* ctx, BlkStruct* b
     // GLOBALMV_OFFSET bit: always 0 when MFMV is off (no TPL scan sets it)
     ctx->inter_mode_ctx[ref_frame] = mode_ctx;
 }
-#endif
 
 void svt_aom_generate_av1_mvp_table(ModeDecisionContext* ctx, BlkStruct* blk_ptr, const BlockGeom* blk_geom,
                                     uint16_t blk_org_x, uint16_t blk_org_y, MvReferenceFrame* ref_frames,

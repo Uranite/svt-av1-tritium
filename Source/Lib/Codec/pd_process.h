@@ -105,16 +105,8 @@ typedef struct PictureDecisionContext {
     uint8_t                  last_i_picture_sc_class2;
     uint8_t                  last_i_picture_sc_class3;
     uint8_t                  last_i_picture_sc_class4;
-#if TUNE_SIMPLIFY_SETTINGS
-    uint8_t last_i_picture_sc_class5;
-#endif
-#if OPT_LPD1_TX_SKIP_DECISION
-#if OPT_IS_INPUT_LUMA_DOMINANT
-    bool last_i_is_luma_dominant_input;
-#else
-    bool last_i_picture_grayscale_like_input;
-#endif
-#endif
+    uint8_t                  last_i_picture_sc_class5;
+    bool                     last_i_is_luma_dominant_input;
     uint64_t                 last_long_base_pic;
     uint64_t                 key_poc;
     uint8_t                  tf_level;
@@ -154,15 +146,5 @@ typedef struct PictureDecisionContext {
     //   pic_id_per_dpb_slot[i] : application pic_id held in DPB slot i (0 = none).
     // The STOREd-slot bitmask is derived on demand via ref_mgmt_stored_mask().
     uint32_t pic_id_per_dpb_slot[REF_FRAMES];
-#if ADD_ON_THE_FLY_MG && !OTF_MG_IMMEDIATELY
-    // Dynamic hierarchical_levels change support for LOW_DELAY prediction structure.
-    // When pcs->hierarchical_levels (set by resource_coordination) differs from the
-    // currently active level, the change is deferred until the next base picture
-    // (temporal_layer_index == 0) to avoid splitting a mini-GOP mid-flight.
-    uint8_t  ld_active_hierarchical_levels; // currently applied hierarchical level
-    uint8_t  ld_new_hierarchical_levels; // requested new hierarchical level
-    bool     ld_hierarchical_levels_change_pending; // true when a change is awaiting a base frame
-    uint64_t last_base_pic; // pic number of the previous base frame
-#endif
 } PictureDecisionContext;
 #endif // EbPictureDecision_h

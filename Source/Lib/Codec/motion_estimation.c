@@ -28,9 +28,7 @@
 
 #include "svt_log.h"
 #include "resize.h"
-#if USE_FRAME_TYPE_BOOST
 #include "enc_mode_config.h"
-#endif
 
 /********************************************
  * Constants
@@ -1650,11 +1648,7 @@ static void prehme_b64(PictureParentControlSet* pcs, uint32_t org_x, uint32_t or
             }
         } // End ref pic loop
     } // End list loop
-#if USE_FRAME_TYPE_BOOST
     if (!frame_is_boosted(pcs) && best_sad < me_ctx->me_hme_prune_ctrls.phme_sad_th) {
-#else
-    if (me_ctx->temporal_layer_index > 0 && best_sad < me_ctx->me_hme_prune_ctrls.phme_sad_th) {
-#endif
         for (int list_i = REF_LIST_0; list_i < me_ctx->num_of_list_to_search; ++list_i) {
             for (uint8_t ref_i = 0; ref_i < me_ctx->num_of_ref_pic_to_search[list_i]; ++ref_i) {
                 if (!me_ctx->search_results[list_i][ref_i].do_ref) {
@@ -2215,11 +2209,7 @@ static void init_zz_sad(PictureParentControlSet* pcs, MeContext* me_ctx, uint32_
         }
     }
     const uint32_t zz_th = me_ctx->me_hme_prune_ctrls.zz_sad_th;
-#if USE_FRAME_TYPE_BOOST
     if (!frame_is_boosted(pcs) && best_zz_sad < zz_th) {
-#else
-    if (me_ctx->temporal_layer_index > 0 && best_zz_sad < zz_th) {
-#endif
         for (int list_i = REF_LIST_0; list_i < me_ctx->num_of_list_to_search; ++list_i) {
             for (uint8_t ref_i = 0; ref_i < me_ctx->num_of_ref_pic_to_search[list_i]; ++ref_i) {
                 if (ref_i == 0) {
@@ -2237,13 +2227,9 @@ static void init_zz_sad(PictureParentControlSet* pcs, MeContext* me_ctx, uint32_
     const uint32_t safe_limit_zz_th = me_ctx->me_safe_limit_zz_th;
     if (safe_limit_zz_th) {
         bool me_safe_limit_refs = false;
-        if (pcs->hierarchical_levels > 0 && me_ctx->num_of_list_to_search == 2 &&
-#if USE_FRAME_TYPE_BOOST
-            frame_is_leaf(pcs) && pcs->similar_brightness_refs &&
-#else
-            pcs->temporal_layer_index >= pcs->hierarchical_levels && pcs->similar_brightness_refs &&
-#endif
-            me_ctx->zz_sad[0][0] < safe_limit_zz_th && me_ctx->zz_sad[1][0] < safe_limit_zz_th) {
+        if (pcs->hierarchical_levels > 0 && me_ctx->num_of_list_to_search == 2 && frame_is_leaf(pcs) &&
+            pcs->similar_brightness_refs && me_ctx->zz_sad[0][0] < safe_limit_zz_th &&
+            me_ctx->zz_sad[1][0] < safe_limit_zz_th) {
             me_safe_limit_refs = true;
         }
 
@@ -2839,7 +2825,6 @@ static INLINE void init_me_hme_data(MeContext* me_ctx) {
 *   performs ME on 64x64 blocks
 *******************************************/
 
-#if OPT_ME_STATIC_B64
 // Early-exit path for static 64x64 blocks. If the list0/ref0 (0,0) SAD is
 // below me_ctx->me_static_b64_th, populate the minimal set of outputs that
 // downstream consumers (construct_me_candidate_array*, compute_distortion)
@@ -2900,7 +2885,6 @@ static bool me_static_b64_bypass(MeContext* me_ctx, uint32_t b64_origin_x, uint3
     }
     return true;
 }
-#endif
 
 EbErrorType svt_aom_motion_estimation_b64(
     PictureParentControlSet* pcs, // input parameter, Picture Control Set Ptr
@@ -2933,9 +2917,7 @@ EbErrorType svt_aom_motion_estimation_b64(
     // processed b64, which can drive an out-of-bounds reference fetch in inter prediction
     // (observed as a SIGSEGV in svt_av1_convolve_2d_copy_sr_neon on edge SBs at >=1080p RTC).
     init_me_hme_data(me_ctx);
-#if OPT_ME_STATIC_B64
     if (!me_static_b64_bypass(me_ctx, b64_origin_x, b64_origin_y)) {
-#endif
         // HME: Perform Hierarchical Motion Estimation for all reference frames for the current 64x64 block.
         hme_b64(pcs, b64_origin_x, b64_origin_y, me_ctx, input_ptr);
 
@@ -2954,9 +2936,7 @@ EbErrorType svt_aom_motion_estimation_b64(
         if (prune_ref && me_ctx->me_hme_prune_ctrls.enable_me_hme_ref_pruning) {
             me_prune_ref(me_ctx);
         }
-#if OPT_ME_STATIC_B64
     }
-#endif
 
     if (me_ctx->me_type != ME_MCTF) {
         {

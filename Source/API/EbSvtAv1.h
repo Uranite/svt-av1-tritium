@@ -248,9 +248,7 @@ typedef enum {
     REF_STORE_EVENT, // Ref-frame management: STORE current frame in DPB with pic_id (payload: SvtAv1RefFrameCmd)
     REF_CLEAR_EVENT, // Ref-frame management: release a previously STOREd pic_id (payload: SvtAv1RefFrameCmd)
     REF_USE_EVENT, // Ref-frame management: predict current frame from a STOREd ref (payload: SvtAv1RefFrameCmd)
-#if ADD_ON_THE_FLY_MG
     MG_SIZE_CHANGE_EVENT, //MG size change data per picture
-#endif
     PRIVATE_DATA_TYPES // end of private data types
 } PrivDataType;
 
@@ -340,12 +338,10 @@ typedef struct SvtAv1PresetInfo {
     int8_t enc_mode;
 } SvtAv1PresetInfo;
 
-#if ADD_ON_THE_FLY_MG
 typedef struct SvtAv1MgSizeInfo {
     // New hierarchical levels to apply from this frame onwards.
     uint32_t hierarchical_levels;
 } SvtAv1MgSizeInfo;
-#endif
 
 typedef struct SvtAv1ComputeQualityInfo {
     bool compute_psnr;

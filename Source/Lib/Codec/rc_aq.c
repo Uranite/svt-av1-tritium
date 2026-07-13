@@ -279,22 +279,18 @@ void svt_av1_variance_adjust_qp(PictureControlSet* pcs) {
 
 #define BOOST_MAX 10
 
-#if FIX_CR_BAND_WRAPPING
 // Returns true if b64_idx is inside the cyclic-refresh band [sb_start, sb_end).
 // When sb_start > sb_end the band wraps around the frame: [sb_start, total) U [0, sb_end).
 static INLINE int is_in_cr_band(uint32_t b64_idx, uint32_t sb_start, uint32_t sb_end) {
     return (sb_start <= sb_end) ? (b64_idx >= sb_start && b64_idx < sb_end) : (b64_idx >= sb_start || b64_idx < sb_end);
 }
-#endif
 
-#if OPT_CR_MOTION_GATE
 // Returns true if the SB is eligible for cyclic-refresh boost:
 // 8x8 ME distortion below `dist_reject_thresh` AND ME MV within ±1 full pel.
 static INLINE int is_cr_motion_static(PictureParentControlSet* ppcs, uint32_t b64_idx, uint64_t dist_reject_thresh) {
     Mv mv = ppcs->pa_me_data->me_results[b64_idx]->me_mv_array[0];
     return ppcs->me_8x8_distortion[b64_idx] < dist_reject_thresh && ABS(mv.x) <= 1 && ABS(mv.y) <= 1;
 }
-#endif
 
 void svt_aom_cyclic_refresh_setup(PictureParentControlSet* ppcs) {
     CyclicRefresh* cr = &ppcs->cyclic_refresh;
@@ -303,28 +299,14 @@ void svt_aom_cyclic_refresh_setup(PictureParentControlSet* ppcs) {
     cr->me_distortion[1] = 0;
     cr->me_distortion[2] = 0;
 
-    cr->actual_num_seg1_sbs = 0;
-    cr->actual_num_seg2_sbs = 0;
-    uint64_t seg2_dist      = 0;
-    uint64_t avg_me_dist    = ppcs->norm_me_dist;
-#if OPT_CR_MOTION_GATE
+    cr->actual_num_seg1_sbs     = 0;
+    cr->actual_num_seg2_sbs     = 0;
+    uint64_t seg2_dist          = 0;
+    uint64_t avg_me_dist        = ppcs->norm_me_dist;
     uint64_t dist_reject_thresh = avg_me_dist * 2 + 1;
-#endif
     for (uint32_t b64_idx = 0; b64_idx < ppcs->b64_total_count; ++b64_idx) {
-#if FIX_CR_BAND_WRAPPING || OPT_CR_MOTION_GATE
-#if FIX_CR_BAND_WRAPPING
         const int in_cr_range = is_in_cr_band(b64_idx, cr->sb_start, cr->sb_end);
-#else
-        const int in_cr_range = (b64_idx >= cr->sb_start && b64_idx < cr->sb_end);
-#endif
-#if OPT_CR_MOTION_GATE
         if (in_cr_range && is_cr_motion_static(ppcs, b64_idx, dist_reject_thresh)) {
-#else
-        if (in_cr_range) {
-#endif
-#else
-        if (b64_idx >= cr->sb_start && b64_idx < cr->sb_end) {
-#endif
             if (ppcs->me_8x8_distortion[b64_idx] < avg_me_dist) {
                 seg2_dist += ppcs->me_8x8_distortion[b64_idx];
                 cr->me_distortion[2] += ppcs->me_64x64_distortion[b64_idx];
@@ -343,20 +325,14 @@ void svt_aom_cyclic_refresh_setup(PictureParentControlSet* ppcs) {
     cr->me_distortion[1]    = cr->actual_num_seg1_sbs ? cr->me_distortion[1] / cr->actual_num_seg1_sbs : 0;
     cr->me_distortion[2]    = cr->actual_num_seg2_sbs ? cr->me_distortion[2] / cr->actual_num_seg2_sbs : 0;
 
-#if OPT_CR_MOTION_GATE
     // If motion gate rejected ALL SBs in the refresh range, disable CR for this frame
     // to avoid delta_q_present signaling overhead with no actual delta-Q benefit.
     if (cr->actual_num_seg1_sbs + cr->actual_num_seg2_sbs == 0) {
         cr->apply_cyclic_refresh = 0;
         return;
     }
-#endif
     int rate_boost_fac = cr->rate_boost_fac;
-#if TUNE_SIMPLIFY_SETTINGS
     if (cr->actual_num_seg2_sbs) {
-#else
-    if (!ppcs->sc_class1 && cr->actual_num_seg2_sbs) {
-#endif
         seg2_dist    = seg2_dist / cr->actual_num_seg2_sbs;
         uint64_t dev = (avg_me_dist - seg2_dist) * 100 / avg_me_dist;
         // Quadratic Scaling; boost = BOOST_MAX * (dev/100)^2
@@ -378,27 +354,17 @@ static void cyclic_sb_qp_assignment(PictureControlSet* pcs) {
     ppcs->frm_hdr.delta_q_params.delta_q_present = 1;
 
     int base_q_idx = ppcs->frm_hdr.quantization_params.base_q_idx;
-#if OPT_CR_MOTION_GATE
     // High-motion gate: don't boost SBs with distortion far above average
     // or with large MV (boosting them wastes bits that motion destroys next frame).
     uint64_t dist_reject_thresh = ppcs->norm_me_dist * 2 + 1;
-#endif
     for (uint32_t b64_idx = 0; b64_idx < ppcs->b64_total_count; ++b64_idx) {
         SuperBlock* sb     = pcs->sb_ptr_array[b64_idx];
         int         offset = 0;
-#if FIX_CR_BAND_WRAPPING
         if (is_in_cr_band(b64_idx, cr->sb_start, cr->sb_end)) {
-#else
-        if (b64_idx >= cr->sb_start && b64_idx < cr->sb_end) {
-#endif
-#if OPT_CR_MOTION_GATE
             if (!is_cr_motion_static(ppcs, b64_idx, dist_reject_thresh)) {
                 // Non-static SB (any non-zero MV or high distortion): no boost
                 offset = 0;
             } else if (ppcs->me_8x8_distortion[b64_idx] < ppcs->norm_me_dist) {
-#else
-            if (ppcs->me_8x8_distortion[b64_idx] < ppcs->norm_me_dist) {
-#endif
                 offset = cr->qindex_delta[2];
             } else {
                 offset = cr->qindex_delta[1];

@@ -22,9 +22,7 @@
 #include "common_utils.h"
 #include "ac_bias.h"
 #include "inv_transforms.h"
-#if USE_FRAME_TYPE_BOOST
 #include "enc_mode_config.h"
-#endif
 
 #define DLF_MAX_LVL 4
 static const int32_t  inter_frame_multiplier[INPUT_SIZE_COUNT]      = {6017, 6017, 6017, 12034, 12034, 12034, 12034};
@@ -960,17 +958,12 @@ static void me_based_dlf_skip(PictureControlSet* pcs, uint16_t prev_dlf_dist_th,
     }
 
     const uint8_t in_res = pcs->ppcs->input_resolution;
-#if USE_FRAME_TYPE_BOOST
     // For flat, mult should be based on update_type since all pics are temporal layer 0
     const int      mult                 = pcs->ppcs->hierarchical_levels ? (pcs->temporal_layer_index + 1)
                              : frame_is_boosted(pcs->ppcs)               ? 1
                              : frame_is_leaf(pcs->ppcs)                  ? 3
                                                                          : 2;
     const uint32_t use_zero_strength_th = disable_dlf_th[pcs->ppcs->dlf_ctrls.zero_filter_strength_lvl][in_res] * mult;
-#else
-    const uint32_t use_zero_strength_th = disable_dlf_th[pcs->ppcs->dlf_ctrls.zero_filter_strength_lvl][in_res] *
-        (pcs->temporal_layer_index + 1);
-#endif
     if (!use_zero_strength_th) {
         return;
     }
@@ -1005,11 +998,7 @@ static void me_based_dlf_skip(PictureControlSet* pcs, uint16_t prev_dlf_dist_th,
         }
     }
 
-#if USE_FRAME_TYPE_BOOST
     if (!prev_dlf_dist_th || (prev_dlf_dist < (prev_dlf_dist_th * mult))) {
-#else
-    if (!prev_dlf_dist_th || (prev_dlf_dist < prev_dlf_dist_th * (pcs->temporal_layer_index + 1))) {
-#endif
         if (average_me_sad < use_zero_strength_th) {
             *do_y = false;
         }
@@ -1094,7 +1083,6 @@ void svt_av1_pick_filter_level_by_q(PictureControlSet* pcs, uint8_t qindex, int3
     if (!do_uv) {
         filt_guess_chroma = 0;
     }
-#if USE_FRAME_TYPE_BOOST
     // Force filter_level to 0 if loop-filter is shut for 1 (or many) of the sub-layer reference frame(s)
     filter_level[0] = min_ref_filter_level[0] || frame_is_boosted(pcs->ppcs)
         ? clamp(filt_guess, min_filter_level, max_filter_level)
@@ -1111,24 +1099,6 @@ void svt_av1_pick_filter_level_by_q(PictureControlSet* pcs, uint8_t qindex, int3
     filter_level[3] = min_ref_filter_level_v || frame_is_boosted(pcs->ppcs)
         ? clamp(filt_guess_chroma, min_filter_level, max_filter_level)
         : 0;
-#else
-    // Force filter_level to 0 if loop-filter is shut for 1 (or many) of the sub-layer reference frame(s)
-    filter_level[0] = min_ref_filter_level[0] || !pcs->ppcs->temporal_layer_index
-        ? clamp(filt_guess, min_filter_level, max_filter_level)
-        : 0;
-
-    filter_level[1] = min_ref_filter_level[1] || !pcs->ppcs->temporal_layer_index
-        ? clamp(filt_guess, min_filter_level, max_filter_level)
-        : 0;
-
-    filter_level[2] = min_ref_filter_level_u || !pcs->ppcs->temporal_layer_index
-        ? clamp(filt_guess_chroma, min_filter_level, max_filter_level)
-        : 0;
-
-    filter_level[3] = min_ref_filter_level_v || !pcs->ppcs->temporal_layer_index
-        ? clamp(filt_guess_chroma, min_filter_level, max_filter_level)
-        : 0;
-#endif
 }
 
 /*************************************************************************************************
@@ -1236,11 +1206,7 @@ EbErrorType svt_av1_pick_filter_level(EbPictureBufferDesc* srcBuffer, // source 
 
         if (!do_y) {
             lf->filter_level[0] = lf->filter_level[1] = 0;
-#if USE_FRAME_TYPE_BOOST
         } else if (frame_is_boosted(pcs->ppcs) || !pcs->ppcs->dlf_ctrls.use_ref_avg_y ||
-#else
-        } else if (!pcs->temporal_layer_index || !pcs->ppcs->dlf_ctrls.use_ref_avg_y ||
-#endif
                    pcs->ppcs->tot_ref_frame_types == 0) {
             lf->filter_level[0] = lf->filter_level[1] = search_filter_level(srcBuffer,
                                                                             temp_lf_recon_buffer,
@@ -1283,13 +1249,8 @@ EbErrorType svt_av1_pick_filter_level(EbPictureBufferDesc* srcBuffer, // source 
             // chroma filtering not allowed if luma filters off
             lf->filter_level_u = 0;
             lf->filter_level_v = 0;
-#if USE_FRAME_TYPE_BOOST
         } else if (!frame_is_boosted(pcs->ppcs) && pcs->ppcs->dlf_ctrls.use_ref_avg_uv &&
                    pcs->ppcs->tot_ref_frame_types > 0) {
-#else
-        } else if (pcs->temporal_layer_index && pcs->ppcs->dlf_ctrls.use_ref_avg_uv &&
-                   pcs->ppcs->tot_ref_frame_types > 0) {
-#endif
             //use avg-ref for chroma
             lf->filter_level_u = last_frame_filter_level[2];
             lf->filter_level_v = last_frame_filter_level[3];

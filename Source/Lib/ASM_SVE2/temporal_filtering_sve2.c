@@ -13,7 +13,6 @@
 
 #include "definitions.h"
 
-#if OPT_TUNE_VMAF
 void svt_vmaf_apply_unsharp_row_sve2(const uint8_t* src, const uint8_t* blur, uint8_t* dst, int width, int amount,
                                      int32_t max_delta) {
     const int16_t amount_s16    = (int16_t)(amount > INT16_MAX ? INT16_MAX : amount);
@@ -55,4 +54,3 @@ void svt_vmaf_apply_unsharp_row_sve2(const uint8_t* src, const uint8_t* blur, ui
         svst1b_u16(pg_s16, dst + j, svreinterpret_u16_u8(svqxtunb_s16(res)));
     }
 }
-#endif // OPT_TUNE_VMAF

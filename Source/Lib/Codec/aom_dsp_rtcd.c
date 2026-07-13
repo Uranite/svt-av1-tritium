@@ -580,14 +580,12 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_AVX2(svt_estimate_noise_highbd_fp16, svt_estimate_noise_highbd_fp16_c, svt_estimate_noise_highbd_fp16_avx2);
 #endif
-#if OPT_TUNE_VMAF
     SET_AVX2(svt_vmaf_compute_avg_mad,   svt_vmaf_compute_avg_mad_c,   svt_vmaf_compute_avg_mad_avx2);
     SET_AVX2(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c, svt_vmaf_apply_unsharp_row_avx2);
     SET_AVX2(svt_vmaf_vpass_row,         svt_vmaf_vpass_row_c,         svt_vmaf_vpass_row_avx2);
     SET_AVX2(svt_vmaf_compute_gradient_coherence, svt_vmaf_compute_gradient_coherence_c, svt_vmaf_compute_gradient_coherence_avx2);
     SET_AVX2(svt_vmaf_count_detail_le, svt_vmaf_count_detail_le_c, svt_vmaf_count_detail_le_avx2);
     SET_AVX2(svt_vmaf_hpass_row, svt_vmaf_hpass_row_c, svt_vmaf_hpass_row_avx2);
-#endif
     SET_AVX2(svt_copy_mi_map_grid, svt_copy_mi_map_grid_c, svt_copy_mi_map_grid_avx2);
 #if CONFIG_ENABLE_FILM_GRAIN
     SET_AVX2(svt_av1_add_block_observations_internal, svt_av1_add_block_observations_internal_c, svt_av1_add_block_observations_internal_avx2);
@@ -966,14 +964,12 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_NEON(svt_estimate_noise_highbd_fp16, svt_estimate_noise_highbd_fp16_c, svt_estimate_noise_highbd_fp16_neon);
 #endif
-#if OPT_TUNE_VMAF
     SET_NEON_NEON_DOTPROD_NEON_I8MM(svt_vmaf_compute_avg_mad, svt_vmaf_compute_avg_mad_c, svt_vmaf_compute_avg_mad_neon, svt_vmaf_compute_avg_mad_neon_dotprod, svt_vmaf_compute_avg_mad_neon_i8mm);
     SET_NEON_SVE2(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c, svt_vmaf_apply_unsharp_row_neon, svt_vmaf_apply_unsharp_row_sve2);
     SET_NEON(svt_vmaf_vpass_row, svt_vmaf_vpass_row_c, svt_vmaf_vpass_row_neon);
     SET_NEON(svt_vmaf_compute_gradient_coherence, svt_vmaf_compute_gradient_coherence_c, svt_vmaf_compute_gradient_coherence_neon);
     SET_NEON(svt_vmaf_count_detail_le, svt_vmaf_count_detail_le_c, svt_vmaf_count_detail_le_neon);
     SET_NEON(svt_vmaf_hpass_row, svt_vmaf_hpass_row_c, svt_vmaf_hpass_row_neon);
-#endif
     SET_NEON(svt_copy_mi_map_grid, svt_copy_mi_map_grid_c, svt_copy_mi_map_grid_neon);
 #if CONFIG_ENABLE_FILM_GRAIN
     SET_ONLY_C(svt_av1_add_block_observations_internal, svt_av1_add_block_observations_internal_c);
@@ -1350,14 +1346,12 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
     SET_ONLY_C(svt_estimate_noise_highbd_fp16, svt_estimate_noise_highbd_fp16_c);
 #endif
-#if OPT_TUNE_VMAF
     SET_ONLY_C(svt_vmaf_compute_avg_mad, svt_vmaf_compute_avg_mad_c);
     SET_ONLY_C(svt_vmaf_apply_unsharp_row, svt_vmaf_apply_unsharp_row_c);
     SET_ONLY_C(svt_vmaf_vpass_row, svt_vmaf_vpass_row_c);
     SET_ONLY_C(svt_vmaf_compute_gradient_coherence, svt_vmaf_compute_gradient_coherence_c);
     SET_ONLY_C(svt_vmaf_count_detail_le, svt_vmaf_count_detail_le_c);
     SET_ONLY_C(svt_vmaf_hpass_row, svt_vmaf_hpass_row_c);
-#endif
     SET_ONLY_C(svt_copy_mi_map_grid, svt_copy_mi_map_grid_c);
 #if CONFIG_ENABLE_FILM_GRAIN
     SET_ONLY_C(svt_av1_add_block_observations_internal, svt_av1_add_block_observations_internal_c);

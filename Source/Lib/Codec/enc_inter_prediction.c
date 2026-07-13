@@ -2493,18 +2493,10 @@ void tf_inter_predictor(SequenceControlSet* scs, uint8_t* src_ptr, uint8_t* dst_
     }
 }
 
-#if CLN_RENAME_PD0
 static void enc_make_inter_predictor_pd0(uint8_t* src, uint8_t* dst, SubpelParams* subpel_params,
-#else
-static void enc_make_inter_predictor_light_pd0(uint8_t* src, uint8_t* dst, SubpelParams* subpel_params,
-#endif
                                          ConvolveParams* conv_params, uint8_t blk_width, uint8_t blk_height,
                                          int32_t src_stride, int32_t dst_stride) {
-#if CLN_RENAME_PD0
     svt_inter_predictor_pd0(src, src_stride, dst, dst_stride, blk_width, blk_height, subpel_params, conv_params);
-#else
-    svt_inter_predictor_light_pd0(src, src_stride, dst, dst_stride, blk_width, blk_height, subpel_params, conv_params);
-#endif
 }
 
 void svt_aom_enc_make_inter_predictor(SequenceControlSet* scs, uint8_t* src_ptr, uint8_t* src_ptr_2b, uint8_t* dst_ptr,
@@ -2717,11 +2709,7 @@ EbErrorType svt_aom_simple_luma_unipred(SequenceControlSet* scs, ScaleFactors sf
     return return_error;
 }
 
-#if CLN_RENAME_PD0
 static void av1_inter_prediction_pd0(SequenceControlSet* scs, ModeDecisionContext* ctx, BlockModeInfo* block_mi,
-#else
-static void av1_inter_prediction_light_pd0(SequenceControlSet* scs, ModeDecisionContext* ctx, BlockModeInfo* block_mi,
-#endif
                                      EbPictureBufferDesc* ref_pic_0, EbPictureBufferDesc* ref_pic_1,
                                      EbPictureBufferDesc* pred, ScaleFactors* sf0, ScaleFactors* sf1) {
     const BlockGeom* blk_geom     = ctx->blk_geom;
@@ -2732,19 +2720,11 @@ static void av1_inter_prediction_light_pd0(SequenceControlSet* scs, ModeDecision
     const uint8_t    bwidth       = blk_geom->bwidth;
     const uint8_t    bheight      = blk_geom->bheight;
     const uint8_t    is_compound  = has_second_ref(block_mi);
-#if CLN_PD0
     DECLARE_ALIGNED(32, uint16_t, tmp_dstY[128 * 128]);
-    const int32_t conv_buf_stride = scs->super_block_size == 128 ? 128 : 64;
-#else
-    DECLARE_ALIGNED(32, uint16_t, tmp_dstY[64 * 64]);
-#endif
-    uint8_t* dst_ptr    = pred->y_buffer + ((dst_origin_x + (dst_origin_y)*pred->y_stride));
-    int32_t  dst_stride = pred->y_stride;
-#if CLN_PD0
-    ConvolveParams conv_params = get_conv_params_no_round(0, tmp_dstY, conv_buf_stride, is_compound, EB_EIGHT_BIT);
-#else
-    ConvolveParams conv_params = get_conv_params_no_round(0, tmp_dstY, 64, is_compound, EB_EIGHT_BIT);
-#endif
+    const int32_t  conv_buf_stride = scs->super_block_size == 128 ? 128 : 64;
+    uint8_t*       dst_ptr         = pred->y_buffer + ((dst_origin_x + (dst_origin_y)*pred->y_stride));
+    int32_t        dst_stride      = pred->y_stride;
+    ConvolveParams conv_params     = get_conv_params_no_round(0, tmp_dstY, conv_buf_stride, is_compound, EB_EIGHT_BIT);
     for (int ref_itr = 0; ref_itr < 1 + is_compound; ref_itr++) {
         SubpelParams subpel_params = {SCALE_SUBPEL_SHIFTS, SCALE_SUBPEL_SHIFTS, 0, 0};
         int32_t      pos_x         = ref_origin_x + (block_mi->mv[ref_itr].x >> 3);
@@ -2779,11 +2759,7 @@ static void av1_inter_prediction_light_pd0(SequenceControlSet* scs, ModeDecision
         }
 
         assert(IMPLIES(conv_params.do_average, is_compound));
-#if CLN_RENAME_PD0
         enc_make_inter_predictor_pd0(
-#else
-        enc_make_inter_predictor_light_pd0(
-#endif
             src_ptr, dst_ptr, &subpel_params, &conv_params, bwidth, bheight, ref_pic->y_stride, dst_stride);
     }
 }
@@ -3728,11 +3704,7 @@ void svt_aom_search_compound_diff_wedge(PictureControlSet* pcs, ModeDecisionCont
 
 /*
  */
-#if CLN_RENAME_PD0
 EbErrorType svt_aom_inter_pu_prediction_av1_pd0(uint8_t hbd_md, ModeDecisionContext* ctx, PictureControlSet* pcs,
-#else
-EbErrorType svt_aom_inter_pu_prediction_av1_light_pd0(uint8_t hbd_md, ModeDecisionContext* ctx, PictureControlSet* pcs,
-#endif
                                                 ModeDecisionCandidateBuffer* cand_bf) {
     UNUSED(hbd_md);
     ModeDecisionCandidate* const cand = cand_bf->cand;
@@ -3758,11 +3730,7 @@ EbErrorType svt_aom_inter_pu_prediction_av1_light_pd0(uint8_t hbd_md, ModeDecisi
                                               pcs->ppcs->enhanced_pic->height);
     }
 
-#if CLN_RENAME_PD0
     av1_inter_prediction_pd0(scs,
-#else
-    av1_inter_prediction_light_pd0(scs,
-#endif
                              ctx,
                              &cand->block_mi,
                              ref_pic_list0,

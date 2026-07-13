@@ -1253,11 +1253,7 @@ void highbd_convolve_2d_for_intrabc(const uint16_t* src, int src_stride, uint16_
 
 /*
 */
-#if CLN_RENAME_PD0
 void svt_inter_predictor_pd0(const uint8_t* src, int32_t src_stride, uint8_t* dst, int32_t dst_stride, int32_t w,
-#else
-void svt_inter_predictor_light_pd0(const uint8_t* src, int32_t src_stride, uint8_t* dst, int32_t dst_stride, int32_t w,
-#endif
                              int32_t h, SubpelParams* subpel_params, ConvolveParams* conv_params) {
     const int32_t is_scaled = has_scale(subpel_params->xs, subpel_params->ys);
     if (is_scaled) {

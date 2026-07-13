@@ -387,11 +387,7 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         min_child              = 1; // max_child is 1 for LD
         uint8_t max_refs       = dpb_frames;
         // For special, known, RPS structures and ref frame counts, we can reduce the number of ref buffers
-#if REMOVE_USE_FLAT_IPP
         if (scs->static_config.rtc && scs->static_config.hierarchical_levels == 0) {
-#else
-        if (scs->use_flat_ipp) {
-#endif
             max_refs = scs->mrp_ctrls.flat_max_refs;
             // For flat IPP the previous frame is always used as a reference. Therefore, that picture does
             // not require a special buffer for use as a TF ref.
@@ -403,10 +399,8 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         } else if (scs->mrp_ctrls.ld_reduce_ref_buffs == 2) {
             max_refs = 2;
         }
-#if ADD_ON_THE_FLY_MG
         // Set flat_max_refs in case we switch MG size
         scs->mrp_ctrls.flat_max_refs = max_refs;
-#endif
 
         min_ref = 1 /*current pic*/ + max_refs;
         // Ref-frame management: app may hold up to max_managed_refs anchors
@@ -1328,38 +1322,27 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     {
         // The segment Width & Height Arrays are in units of SBs, not samples
         PictureControlSetInitData input_data;
-        input_data.picture_width       = scs->max_input_luma_width;
-        input_data.picture_height      = scs->max_input_luma_height;
-        input_data.border              = scs->border;
-        input_data.color_format        = color_format;
-        input_data.b64_size            = scs->b64_size;
-        input_data.enc_mode            = scs->static_config.enc_mode;
-        input_data.hbd_md              = scs->enable_hbd_mode_decision;
-        input_data.bit_depth           = scs->static_config.encoder_bit_depth;
-        input_data.log2_tile_rows      = scs->static_config.tile_rows;
-        input_data.log2_tile_cols      = scs->static_config.tile_columns;
-        input_data.log2_sb_size        = (scs->super_block_size == 128) ? 5 : 4;
-        input_data.is_16bit_pipeline   = scs->is_16bit_pipeline;
-        input_data.non_m8_pad_w        = scs->max_input_pad_right;
-        input_data.non_m8_pad_h        = scs->max_input_pad_bottom;
-        input_data.enable_tpl_la       = scs->tpl;
-        input_data.enc_dec_segment_col = (uint16_t)scs->tpl_segment_col_count_array;
-        input_data.enc_dec_segment_row = (uint16_t)scs->tpl_segment_row_count_array;
-        MrpCtrls* mrp_ctrl             = &(scs->mrp_ctrls);
-#if TUNE_SIMPLIFY_SETTINGS
+        input_data.picture_width        = scs->max_input_luma_width;
+        input_data.picture_height       = scs->max_input_luma_height;
+        input_data.border               = scs->border;
+        input_data.color_format         = color_format;
+        input_data.b64_size             = scs->b64_size;
+        input_data.enc_mode             = scs->static_config.enc_mode;
+        input_data.hbd_md               = scs->enable_hbd_mode_decision;
+        input_data.bit_depth            = scs->static_config.encoder_bit_depth;
+        input_data.log2_tile_rows       = scs->static_config.tile_rows;
+        input_data.log2_tile_cols       = scs->static_config.tile_columns;
+        input_data.log2_sb_size         = (scs->super_block_size == 128) ? 5 : 4;
+        input_data.is_16bit_pipeline    = scs->is_16bit_pipeline;
+        input_data.non_m8_pad_w         = scs->max_input_pad_right;
+        input_data.non_m8_pad_h         = scs->max_input_pad_bottom;
+        input_data.enable_tpl_la        = scs->tpl;
+        input_data.enc_dec_segment_col  = (uint16_t)scs->tpl_segment_col_count_array;
+        input_data.enc_dec_segment_row  = (uint16_t)scs->tpl_segment_row_count_array;
+        MrpCtrls* mrp_ctrl              = &(scs->mrp_ctrls);
         input_data.ref_count_used_list0 = MAX(mrp_ctrl->base_ref_list0_count, mrp_ctrl->non_base_ref_list0_count);
         input_data.ref_count_used_list1 = MAX(mrp_ctrl->base_ref_list1_count, mrp_ctrl->non_base_ref_list1_count);
-#else
-        input_data.ref_count_used_list0 = MAX(
-            mrp_ctrl->sc_base_ref_list0_count,
-            MAX(mrp_ctrl->base_ref_list0_count,
-                MAX(mrp_ctrl->sc_non_base_ref_list0_count, mrp_ctrl->non_base_ref_list0_count)));
-        input_data.ref_count_used_list1 = MAX(
-            mrp_ctrl->sc_base_ref_list1_count,
-            MAX(mrp_ctrl->base_ref_list1_count,
-                MAX(mrp_ctrl->sc_non_base_ref_list1_count, mrp_ctrl->non_base_ref_list1_count)));
-#endif
-        input_data.tpl_synth_size = svt_aom_set_tpl_group(NULL,
+        input_data.tpl_synth_size       = svt_aom_set_tpl_group(NULL,
                                                           svt_aom_get_tpl_group_level(1, scs->static_config.enc_mode),
                                                           input_data.picture_width,
                                                           input_data.picture_height);
@@ -1380,11 +1363,7 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.hbd_mds             = scs->static_config.hbd_mds;
         input_data.static_config       = scs->static_config;
         input_data.allintra            = scs->allintra;
-#if REMOVE_USE_FLAT_IPP
-        input_data.use_flat_ipp = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
-#else
-        input_data.use_flat_ipp = scs->use_flat_ipp;
-#endif
+        input_data.use_flat_ipp        = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
         EB_NEW(enc_handle_ptr->picture_parent_control_set_pool_ptr,
                svt_system_resource_ctor,
                scs->picture_control_set_pool_init_count, //enc_handle_ptr->pcs_pool_total_count,
@@ -1444,13 +1423,9 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.is_scale         = scs->static_config.superres_mode > SUPERRES_NONE ||
             scs->static_config.resize_mode > RESIZE_NONE;
 
-        input_data.rtc_tune = scs->static_config.rtc;
-        input_data.allintra = scs->allintra;
-#if REMOVE_USE_FLAT_IPP
+        input_data.rtc_tune     = scs->static_config.rtc;
+        input_data.allintra     = scs->allintra;
         input_data.use_flat_ipp = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
-#else
-        input_data.use_flat_ipp = scs->use_flat_ipp;
-#endif
         EB_NEW(enc_handle_ptr->enc_dec_pool_ptr,
                svt_system_resource_ctor,
                scs->enc_dec_pool_init_count, //EB_PictureControlSetPoolInitCountChild,
@@ -1494,13 +1469,9 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
         input_data.is_scale         = scs->static_config.superres_mode > SUPERRES_NONE ||
             scs->static_config.resize_mode > RESIZE_NONE;
 
-        input_data.rtc_tune = scs->static_config.rtc;
-        input_data.allintra = scs->allintra;
-#if REMOVE_USE_FLAT_IPP
+        input_data.rtc_tune     = scs->static_config.rtc;
+        input_data.allintra     = scs->allintra;
         input_data.use_flat_ipp = scs->static_config.rtc && scs->static_config.hierarchical_levels == 0;
-#else
-        input_data.use_flat_ipp = scs->use_flat_ipp;
-#endif
         EB_NEW(enc_handle_ptr->picture_control_set_pool_ptr,
                svt_system_resource_ctor,
                scs->picture_control_set_pool_init_count_child, //EB_PictureControlSetPoolInitCountChild,
@@ -3286,21 +3257,8 @@ static void derive_tf_params(SequenceControlSet* scs) {
     const EncMode enc_mode = scs->static_config.enc_mode;
     uint8_t       tf_level = 0;
     if (scs->static_config.pred_structure == LOW_DELAY) {
-#if TUNE_SIMPLIFY_SETTINGS
         // TF disabled for all LD
         tf_level = 0;
-#else
-        // For LD, only use TF for non-SC content in RTC mode; the TF is tuned for RTC content
-        if (!do_tf || scs->static_config.screen_content_mode == 1 || !scs->static_config.rtc) {
-            tf_level = 0;
-        } else if ((!scs->use_flat_ipp && enc_mode <= ENC_M7) || (scs->use_flat_ipp && enc_mode <= ENC_M6)) {
-            tf_level = 1;
-        } else if ((!scs->use_flat_ipp && enc_mode <= ENC_M8) || (scs->use_flat_ipp && enc_mode <= ENC_M7)) {
-            tf_level = 2;
-        } else {
-            tf_level = 0;
-        }
-#endif
         tf_ld_controls(scs, tf_level);
         return;
     }
@@ -3324,13 +3282,7 @@ static void derive_tf_params(SequenceControlSet* scs) {
 static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp_ctrl, uint8_t mrp_level) {
     switch (mrp_level) {
     case 0:
-        mrp_ctrl->referencing_scheme = 0;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 1;
-        mrp_ctrl->sc_base_ref_list1_count     = 0;
-        mrp_ctrl->sc_non_base_ref_list0_count = 1;
-        mrp_ctrl->sc_non_base_ref_list1_count = 0;
-#endif
+        mrp_ctrl->referencing_scheme       = 0;
         mrp_ctrl->base_ref_list0_count     = 1;
         mrp_ctrl->base_ref_list1_count     = 0;
         mrp_ctrl->non_base_ref_list0_count = 1;
@@ -3341,19 +3293,11 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 0;
         mrp_ctrl->pme_ref0_only            = 0;
         mrp_ctrl->use_best_references      = 0;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 0;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 0;
         break;
 
     case 1:
-        mrp_ctrl->referencing_scheme = 1;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 2;
-        mrp_ctrl->sc_non_base_ref_list1_count = 2;
-#endif
+        mrp_ctrl->referencing_scheme       = 1;
         mrp_ctrl->base_ref_list0_count     = 4;
         mrp_ctrl->base_ref_list1_count     = 3;
         mrp_ctrl->non_base_ref_list0_count = 4;
@@ -3364,19 +3308,11 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 0;
         mrp_ctrl->pme_ref0_only            = 0;
         mrp_ctrl->use_best_references      = 0;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 0;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 0;
         break;
 
     case 2:
-        mrp_ctrl->referencing_scheme = 1;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 2;
-        mrp_ctrl->sc_non_base_ref_list1_count = 2;
-#endif
+        mrp_ctrl->referencing_scheme       = 1;
         mrp_ctrl->base_ref_list0_count     = 4;
         mrp_ctrl->base_ref_list1_count     = 3;
         mrp_ctrl->non_base_ref_list0_count = 4;
@@ -3387,18 +3323,10 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 1;
         mrp_ctrl->pme_ref0_only            = 0;
         mrp_ctrl->use_best_references      = 0;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 0;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 0;
         break;
     case 3:
-        mrp_ctrl->referencing_scheme = 1;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 2;
-        mrp_ctrl->sc_non_base_ref_list1_count = 2;
-#endif
+        mrp_ctrl->referencing_scheme       = 1;
         mrp_ctrl->base_ref_list0_count     = 4;
         mrp_ctrl->base_ref_list1_count     = 3;
         mrp_ctrl->non_base_ref_list0_count = 4;
@@ -3409,18 +3337,10 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 1;
         mrp_ctrl->pme_ref0_only            = 0;
         mrp_ctrl->use_best_references      = 2;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 0;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 0;
         break;
     case 4:
-        mrp_ctrl->referencing_scheme = 1;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 2;
-        mrp_ctrl->sc_non_base_ref_list1_count = 2;
-#endif
+        mrp_ctrl->referencing_scheme       = 1;
         mrp_ctrl->base_ref_list0_count     = 4;
         mrp_ctrl->base_ref_list1_count     = 3;
         mrp_ctrl->non_base_ref_list0_count = 4;
@@ -3431,18 +3351,10 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 1;
         mrp_ctrl->pme_ref0_only            = 1;
         mrp_ctrl->use_best_references      = 3;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 0;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 0;
         break;
     case 5:
-        mrp_ctrl->referencing_scheme = 0;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 2;
-        mrp_ctrl->sc_non_base_ref_list1_count = 2;
-#endif
+        mrp_ctrl->referencing_scheme       = 0;
         mrp_ctrl->base_ref_list0_count     = 4;
         mrp_ctrl->base_ref_list1_count     = 3;
         mrp_ctrl->non_base_ref_list0_count = 4;
@@ -3453,18 +3365,10 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 1;
         mrp_ctrl->pme_ref0_only            = 1;
         mrp_ctrl->use_best_references      = 3;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 0;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 0;
         break;
     case 6:
-        mrp_ctrl->referencing_scheme = 0;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 1;
-        mrp_ctrl->sc_non_base_ref_list1_count = 1;
-#endif
+        mrp_ctrl->referencing_scheme       = 0;
         mrp_ctrl->base_ref_list0_count     = 3;
         mrp_ctrl->base_ref_list1_count     = 2;
         mrp_ctrl->non_base_ref_list0_count = 3;
@@ -3475,11 +3379,8 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 1;
         mrp_ctrl->pme_ref0_only            = 1;
         mrp_ctrl->use_best_references      = 3;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 170;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 170;
         break;
-#if OPT_MRP_HME_L0_DETECT
     case 7:
         mrp_ctrl->referencing_scheme       = 0;
         mrp_ctrl->base_ref_list0_count     = 3;
@@ -3508,54 +3409,8 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->use_best_references      = 3;
         mrp_ctrl->early_hme_l0_prune_th    = 0;
         break;
-#else
-    case 7:
-        mrp_ctrl->referencing_scheme = 0;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 1;
-        mrp_ctrl->sc_non_base_ref_list1_count = 1;
-#endif
-        mrp_ctrl->base_ref_list0_count     = 3;
-        mrp_ctrl->base_ref_list1_count     = 2;
-        mrp_ctrl->non_base_ref_list0_count = 2;
-        mrp_ctrl->non_base_ref_list1_count = 2;
-        mrp_ctrl->more_5L_refs             = 0;
-        mrp_ctrl->safe_limit_nref          = 2;
-        mrp_ctrl->safe_limit_zz_th         = 60000;
-        mrp_ctrl->only_l_bwd               = 1;
-        mrp_ctrl->pme_ref0_only            = 1;
-        mrp_ctrl->use_best_references      = 3;
-        break;
-    case 8:
-        mrp_ctrl->referencing_scheme = 0;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 1;
-        mrp_ctrl->sc_non_base_ref_list1_count = 1;
-#endif
-        mrp_ctrl->base_ref_list0_count     = 2;
-        mrp_ctrl->base_ref_list1_count     = 2;
-        mrp_ctrl->non_base_ref_list0_count = 2;
-        mrp_ctrl->non_base_ref_list1_count = 2;
-        mrp_ctrl->more_5L_refs             = 0;
-        mrp_ctrl->safe_limit_nref          = 2;
-        mrp_ctrl->safe_limit_zz_th         = 60000;
-        mrp_ctrl->only_l_bwd               = 1;
-        mrp_ctrl->pme_ref0_only            = 1;
-        mrp_ctrl->use_best_references      = 3;
-        break;
-#endif
     case 9:
-        mrp_ctrl->referencing_scheme = 0;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 1;
-        mrp_ctrl->sc_non_base_ref_list1_count = 1;
-#endif
+        mrp_ctrl->referencing_scheme       = 0;
         mrp_ctrl->base_ref_list0_count     = 3;
         mrp_ctrl->base_ref_list1_count     = 2;
         mrp_ctrl->non_base_ref_list0_count = 1;
@@ -3566,18 +3421,10 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 1;
         mrp_ctrl->pme_ref0_only            = 1;
         mrp_ctrl->use_best_references      = 3;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 150;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 150;
         break;
     case 10:
-        mrp_ctrl->referencing_scheme = 0;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 2;
-        mrp_ctrl->sc_base_ref_list1_count     = 2;
-        mrp_ctrl->sc_non_base_ref_list0_count = 1;
-        mrp_ctrl->sc_non_base_ref_list1_count = 1;
-#endif
+        mrp_ctrl->referencing_scheme       = 0;
         mrp_ctrl->base_ref_list0_count     = 2;
         mrp_ctrl->base_ref_list1_count     = 2;
         mrp_ctrl->non_base_ref_list0_count = 1;
@@ -3588,18 +3435,10 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 1;
         mrp_ctrl->pme_ref0_only            = 1;
         mrp_ctrl->use_best_references      = 3;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 0;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 0;
         break;
     case 11:
-        mrp_ctrl->referencing_scheme = 0;
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list0_count     = 1;
-        mrp_ctrl->sc_base_ref_list1_count     = 1;
-        mrp_ctrl->sc_non_base_ref_list0_count = 1;
-        mrp_ctrl->sc_non_base_ref_list1_count = 1;
-#endif
+        mrp_ctrl->referencing_scheme       = 0;
         mrp_ctrl->base_ref_list0_count     = 1;
         mrp_ctrl->base_ref_list1_count     = 1;
         mrp_ctrl->non_base_ref_list0_count = 1;
@@ -3610,9 +3449,7 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
         mrp_ctrl->only_l_bwd               = 0;
         mrp_ctrl->pme_ref0_only            = 0;
         mrp_ctrl->use_best_references      = 0;
-#if OPT_MRP_HME_L0_DETECT
-        mrp_ctrl->early_hme_l0_prune_th = 0;
-#endif
+        mrp_ctrl->early_hme_l0_prune_th    = 0;
         break;
     default:
         assert(0);
@@ -3620,17 +3457,9 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
     }
     // For low delay mode, list1 references are not used
     if (scs->static_config.pred_structure == LOW_DELAY && scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) {
-#if !TUNE_SIMPLIFY_SETTINGS
-        mrp_ctrl->sc_base_ref_list1_count     = 0;
-        mrp_ctrl->sc_non_base_ref_list1_count = 0;
-#endif
         mrp_ctrl->base_ref_list1_count     = 0;
         mrp_ctrl->non_base_ref_list1_count = 0;
-#if REMOVE_USE_FLAT_IPP
         if (scs->static_config.rtc && scs->static_config.hierarchical_levels == 0) {
-#else
-        if (scs->use_flat_ipp) {
-#endif
             mrp_ctrl->referencing_scheme  = 0;
             mrp_ctrl->more_5L_refs        = 0;
             mrp_ctrl->safe_limit_nref     = 0;
@@ -3641,28 +3470,11 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
     }
 
     if (scs->static_config.pred_structure == LOW_DELAY) {
-#if REMOVE_USE_FLAT_IPP
         if (scs->static_config.rtc && scs->static_config.hierarchical_levels == 0) {
-#else
-        if (scs->use_flat_ipp) {
-#endif
-#if TUNE_SIMPLIFY_SETTINGS
             mrp_ctrl->flat_max_refs = MAX(MAX(mrp_ctrl->base_ref_list0_count, mrp_ctrl->base_ref_list1_count),
                                           MAX(mrp_ctrl->non_base_ref_list0_count, mrp_ctrl->non_base_ref_list1_count));
-#else
-            const uint8_t max_sc_refs = MAX(
-                MAX(mrp_ctrl->sc_non_base_ref_list0_count, mrp_ctrl->sc_non_base_ref_list1_count),
-                MAX(mrp_ctrl->sc_base_ref_list0_count, mrp_ctrl->sc_base_ref_list1_count));
-            const uint8_t max_nsc_refs = MAX(
-                MAX(mrp_ctrl->base_ref_list0_count, mrp_ctrl->base_ref_list1_count),
-                MAX(mrp_ctrl->non_base_ref_list0_count, mrp_ctrl->non_base_ref_list1_count));
-            mrp_ctrl->flat_max_refs = scs->static_config.screen_content_mode == 2 ? MAX(max_sc_refs, max_nsc_refs)
-                : scs->static_config.screen_content_mode == 1                     ? max_sc_refs
-                                                                                  : max_nsc_refs;
-#endif
         }
 
-#if TUNE_SIMPLIFY_SETTINGS
         mrp_ctrl->ld_reduce_ref_buffs = (mrp_ctrl->base_ref_list0_count <= 1 && mrp_ctrl->base_ref_list1_count <= 1 &&
                                          mrp_ctrl->non_base_ref_list0_count <= 1 &&
                                          mrp_ctrl->non_base_ref_list1_count <= 1)
@@ -3671,44 +3483,6 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
                mrp_ctrl->non_base_ref_list0_count <= 2 && mrp_ctrl->non_base_ref_list1_count <= 2)
             ? 1
             : 0;
-#else
-        // If content type (SC/NSC) is known, can allocate refs based on settings, else consider worst-case
-        if (scs->static_config.screen_content_mode == 1) {
-            mrp_ctrl->ld_reduce_ref_buffs = (mrp_ctrl->sc_base_ref_list0_count <= 1 &&
-                                             mrp_ctrl->sc_base_ref_list1_count <= 1 &&
-                                             mrp_ctrl->sc_non_base_ref_list0_count <= 1 &&
-                                             mrp_ctrl->sc_non_base_ref_list1_count <= 1)
-                ? 2
-                : (mrp_ctrl->sc_base_ref_list0_count <= 2 && mrp_ctrl->sc_base_ref_list1_count <= 2 &&
-                   mrp_ctrl->sc_non_base_ref_list0_count <= 2 && mrp_ctrl->sc_non_base_ref_list1_count <= 2)
-                ? 1
-                : 0;
-        } else if (scs->static_config.screen_content_mode == 0) {
-            mrp_ctrl->ld_reduce_ref_buffs = (mrp_ctrl->base_ref_list0_count <= 1 &&
-                                             mrp_ctrl->base_ref_list1_count <= 1 &&
-                                             mrp_ctrl->non_base_ref_list0_count <= 1 &&
-                                             mrp_ctrl->non_base_ref_list1_count <= 1)
-                ? 2
-                : (mrp_ctrl->base_ref_list0_count <= 2 && mrp_ctrl->base_ref_list1_count <= 2 &&
-                   mrp_ctrl->non_base_ref_list0_count <= 2 && mrp_ctrl->non_base_ref_list1_count <= 2)
-                ? 1
-                : 0;
-        } else {
-            mrp_ctrl->ld_reduce_ref_buffs = (mrp_ctrl->sc_base_ref_list0_count <= 1 &&
-                                             mrp_ctrl->sc_base_ref_list1_count <= 1 &&
-                                             mrp_ctrl->sc_non_base_ref_list0_count <= 1 &&
-                                             mrp_ctrl->sc_non_base_ref_list1_count <= 1) &&
-                    (mrp_ctrl->base_ref_list0_count <= 1 && mrp_ctrl->base_ref_list1_count <= 1 &&
-                     mrp_ctrl->non_base_ref_list0_count <= 1 && mrp_ctrl->non_base_ref_list1_count <= 1)
-                ? 2
-                : (mrp_ctrl->sc_base_ref_list0_count <= 2 && mrp_ctrl->sc_base_ref_list1_count <= 2 &&
-                   mrp_ctrl->sc_non_base_ref_list0_count <= 2 && mrp_ctrl->sc_non_base_ref_list1_count <= 2) &&
-                    (mrp_ctrl->base_ref_list0_count <= 2 && mrp_ctrl->base_ref_list1_count <= 2 &&
-                     mrp_ctrl->non_base_ref_list0_count <= 2 && mrp_ctrl->non_base_ref_list1_count <= 2)
-                ? 1
-                : 0;
-        }
-#endif
     } else {
         mrp_ctrl->ld_reduce_ref_buffs = 0;
     }
@@ -3719,30 +3493,14 @@ static void set_mrp_ctrl_with_level(const SequenceControlSet* scs, MrpCtrls* mrp
 // (e.g. LTR override) call set_mrp_ctrl_with_level directly.
 static void set_mrp_ctrl(const SequenceControlSet* scs, MrpCtrls* mrp_ctrl, EncMode enc_mode) {
     uint8_t mrp_level;
-#if TUNE_SIMPLIFY_SETTINGS
     if (scs->static_config.rtc) {
-#if REMOVE_USE_FLAT_IPP
         if (scs->static_config.hierarchical_levels == 0) {
-#else
-        if (scs->use_flat_ipp) {
-#endif
-#if TUNE_SHIFT_PRESETS_RTC
             if (enc_mode <= ENC_M8) {
                 mrp_level = 6;
             } else {
                 mrp_level = 0;
             }
-#else
-            if (enc_mode <= ENC_M8) {
-                mrp_level = 6;
-            } else if (enc_mode <= ENC_M9) {
-                mrp_level = 9;
-            } else {
-                mrp_level = 0;
-            }
-#endif
         } else {
-#if TUNE_SHIFT_PRESETS_RTC
             if (enc_mode <= ENC_M9) {
                 mrp_level = 6;
             } else if (enc_mode <= ENC_M10) {
@@ -3750,26 +3508,7 @@ static void set_mrp_ctrl(const SequenceControlSet* scs, MrpCtrls* mrp_ctrl, EncM
             } else {
                 mrp_level = 0;
             }
-#else
-            if (enc_mode <= ENC_M10) {
-                mrp_level = 6;
-            } else if (enc_mode <= ENC_M11) {
-                mrp_level = 9;
-            } else {
-                mrp_level = 0;
-            }
-#endif
         }
-#else
-    if (scs->static_config.rtc) {
-        if (enc_mode <= ENC_M8 || (!scs->use_flat_ipp && enc_mode <= ENC_M10)) {
-            mrp_level = 6;
-        } else if ((scs->use_flat_ipp && enc_mode <= ENC_M9) || (!scs->use_flat_ipp && enc_mode <= ENC_M11)) {
-            mrp_level = 9;
-        } else {
-            mrp_level = 0;
-        }
-#endif
     }
 
     else {
@@ -3817,12 +3556,6 @@ void svt_aom_clamp_mrp_ctrls_to_runtime_preset(SequenceControlSet* scs, EncMode 
     CLAMP(base_ref_list1_count);
     CLAMP(non_base_ref_list0_count);
     CLAMP(non_base_ref_list1_count);
-#if !TUNE_SIMPLIFY_SETTINGS
-    CLAMP(sc_base_ref_list0_count);
-    CLAMP(sc_base_ref_list1_count);
-    CLAMP(sc_non_base_ref_list0_count);
-    CLAMP(sc_non_base_ref_list1_count);
-#endif
 #undef CLAMP
 
     // Publish mutable fields one-by-one. NOT updating ld_reduce_ref_buffs
@@ -3839,12 +3572,6 @@ void svt_aom_clamp_mrp_ctrls_to_runtime_preset(SequenceControlSet* scs, EncMode 
     scs->mrp_ctrls.only_l_bwd               = tmp.only_l_bwd;
     scs->mrp_ctrls.pme_ref0_only            = tmp.pme_ref0_only;
     scs->mrp_ctrls.use_best_references      = tmp.use_best_references;
-#if !TUNE_SIMPLIFY_SETTINGS
-    scs->mrp_ctrls.sc_base_ref_list0_count     = tmp.sc_base_ref_list0_count;
-    scs->mrp_ctrls.sc_base_ref_list1_count     = tmp.sc_base_ref_list1_count;
-    scs->mrp_ctrls.sc_non_base_ref_list0_count = tmp.sc_non_base_ref_list0_count;
-    scs->mrp_ctrls.sc_non_base_ref_list1_count = tmp.sc_non_base_ref_list1_count;
-#endif
 }
 
 static uint8_t get_tpl(uint8_t pred_structure, uint8_t superres_mode, uint8_t resize_mode, uint8_t aq_mode,
@@ -4011,8 +3738,7 @@ void set_qp_based_th_scaling_ctrls_default(SequenceControlSet* scs) {
 }
 
 void set_qp_based_th_scaling_ctrls_rtc(SequenceControlSet* scs) {
-    QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
-#if TUNE_SIMPLIFY_SETTINGS
+    QpBasedThScaling* qp_ctrls                 = &scs->qp_based_th_scaling_ctrls;
     qp_ctrls->tf_me_qp_based_th_scaling        = 1;
     qp_ctrls->tf_ref_qp_based_th_scaling       = 1;
     qp_ctrls->depths_qp_based_th_scaling       = 1;
@@ -4026,46 +3752,12 @@ void set_qp_based_th_scaling_ctrls_rtc(SequenceControlSet* scs) {
     qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
     qp_ctrls->lpd0_qp_based_th_scaling         = 1;
     qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
-#else
-    const EncMode enc_mode = scs->static_config.enc_mode;
-
-    if (enc_mode <= ENC_MR) {
-        qp_ctrls->tf_me_qp_based_th_scaling        = 0;
-        qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
-        qp_ctrls->depths_qp_based_th_scaling       = 0;
-        qp_ctrls->hme_qp_based_th_scaling          = 0;
-        qp_ctrls->me_qp_based_th_scaling           = 0;
-        qp_ctrls->nsq_qp_based_th_scaling          = 0;
-        qp_ctrls->nic_max_qp_based_th_scaling      = 0;
-        qp_ctrls->nic_pruning_qp_based_th_scaling  = 0;
-        qp_ctrls->pme_qp_based_th_scaling          = 0;
-        qp_ctrls->txt_qp_based_th_scaling          = 0;
-        qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
-        qp_ctrls->lpd0_qp_based_th_scaling         = 1;
-        qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
-    } else {
-        qp_ctrls->tf_me_qp_based_th_scaling        = 1;
-        qp_ctrls->tf_ref_qp_based_th_scaling       = 1;
-        qp_ctrls->depths_qp_based_th_scaling       = 1;
-        qp_ctrls->hme_qp_based_th_scaling          = 1;
-        qp_ctrls->me_qp_based_th_scaling           = 1;
-        qp_ctrls->nsq_qp_based_th_scaling          = 1;
-        qp_ctrls->nic_max_qp_based_th_scaling      = 1;
-        qp_ctrls->nic_pruning_qp_based_th_scaling  = 1;
-        qp_ctrls->pme_qp_based_th_scaling          = 1;
-        qp_ctrls->txt_qp_based_th_scaling          = 1;
-        qp_ctrls->cap_max_size_qp_based_th_scaling = 1;
-        qp_ctrls->lpd0_qp_based_th_scaling         = 1;
-        qp_ctrls->intra_bc_mesh_qp_scaling         = 1;
-    }
-#endif
 }
 
 void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
     QpBasedThScaling* qp_ctrls = &scs->qp_based_th_scaling_ctrls;
     const EncMode     enc_mode = scs->static_config.enc_mode;
 
-#if FIX_MR_STILL_IMAGE
     if (enc_mode <= ENC_MR) {
         qp_ctrls->tf_me_qp_based_th_scaling        = 0;
         qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
@@ -4081,9 +3773,6 @@ void set_qp_based_th_scaling_ctrls_all_intra(SequenceControlSet* scs) {
         qp_ctrls->lpd0_qp_based_th_scaling         = 0;
         qp_ctrls->intra_bc_mesh_qp_scaling         = 0;
     } else if (enc_mode <= ENC_M3) {
-#else
-    if (enc_mode <= ENC_M3) {
-#endif
         qp_ctrls->tf_me_qp_based_th_scaling        = 0;
         qp_ctrls->tf_ref_qp_based_th_scaling       = 0;
         qp_ctrls->depths_qp_based_th_scaling       = 0;
@@ -4377,11 +4066,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         if (scs->allintra) {
             nsq_geom_level = svt_aom_get_nsq_geom_level_allintra(scs->static_config.enc_mode);
         } else if (scs->static_config.rtc) {
-#if TUNE_SIMPLIFY_SETTINGS
             nsq_geom_level = svt_aom_get_nsq_geom_level_rtc();
-#else
-            nsq_geom_level = svt_aom_get_nsq_geom_level_rtc(scs->static_config.enc_mode);
-#endif
         } else {
             nsq_geom_level = svt_aom_get_nsq_geom_level_default(scs->static_config.enc_mode, coeff_lvl);
         }
@@ -4401,11 +4086,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         disallow_4x4 = svt_aom_get_disallow_4x4_allintra(scs->static_config.enc_mode);
         disallow_8x8 = svt_aom_get_disallow_8x8_allintra();
     } else if (scs->static_config.rtc) {
-#if TUNE_SIMPLIFY_SETTINGS
         disallow_4x4 = svt_aom_get_disallow_4x4_rtc();
-#else
-        disallow_4x4 = svt_aom_get_disallow_4x4_rtc(scs->static_config.enc_mode);
-#endif
         disallow_8x8 = svt_aom_get_disallow_8x8_rtc(
             scs->static_config.enc_mode, scs->max_input_luma_width, scs->max_input_luma_height);
     } else {
@@ -4539,7 +4220,6 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     if (scs->static_config.max_managed_refs > 0) {
         const uint8_t safe_pool_size = (uint8_t)svt_numbits(svt_aom_ref_mgmt_storeable_slots_mask(scs));
         if (safe_pool_size < scs->static_config.max_managed_refs) {
-#if REMOVE_USE_FLAT_IPP
             SVT_ERROR(
                 "LTR invariant: safe-pool %u < max_managed_refs %u "
                 "(ld_reduce=%u list0=%u/%u hier=%u rtc=%u)\n",
@@ -4550,18 +4230,6 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
                 (unsigned)scs->mrp_ctrls.non_base_ref_list0_count,
                 (unsigned)scs->static_config.hierarchical_levels,
                 (unsigned)scs->static_config.rtc);
-#else
-            SVT_ERROR(
-                "LTR invariant: safe-pool %u < max_managed_refs %u "
-                "(ld_reduce=%u list0=%u/%u hier=%u flat_ipp=%u)\n",
-                (unsigned)safe_pool_size,
-                (unsigned)scs->static_config.max_managed_refs,
-                (unsigned)scs->mrp_ctrls.ld_reduce_ref_buffs,
-                (unsigned)scs->mrp_ctrls.base_ref_list0_count,
-                (unsigned)scs->mrp_ctrls.non_base_ref_list0_count,
-                (unsigned)scs->static_config.hierarchical_levels,
-                (unsigned)scs->use_flat_ipp);
-#endif
             assert(0 && "LTR safe-pool size < max_managed_refs");
         }
     }
@@ -4576,33 +4244,15 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     } else {
         scs->calculate_variance = 0;
     }
-#if OPT_LPD1_TX_SKIP_DECISION
-#if OPT_IS_INPUT_LUMA_DOMINANT
     if (allintra) {
         scs->detect_luma_dominant_input = false;
     } else {
         scs->detect_luma_dominant_input = true;
     }
-#else
-    if (allintra) {
-        scs->detect_grayscale_like_input = false;
-    } else {
-        scs->detect_grayscale_like_input = true;
-    }
-#endif
-#endif
     scs->resize_pending_params.resize_state = ORIG;
     scs->resize_pending_params.resize_denom = SCALE_NUMERATOR;
 
-#if OPT_GATE_SB_LAMBDA_MOD
-#if TUNE_SHIFT_PRESETS_RTC
     scs->stats_based_sb_lambda_modulation = (scs->static_config.enc_mode <= (rtc_tune ? ENC_M10 : ENC_M11)) ? 1 : 0;
-#else
-    scs->stats_based_sb_lambda_modulation = (scs->static_config.enc_mode <= ENC_M11) ? 1 : 0;
-#endif
-#else
-    scs->stats_based_sb_lambda_modulation = 1;
-#endif
 
     scs->fast_aa_aware_screen_detection_mode = (scs->static_config.enc_mode >= ENC_M3) ? 1 : 0;
 }
@@ -4643,22 +4293,13 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.intra_refresh_type = config_struct->intra_refresh_type;
     scs->static_config.enc_mode           = config_struct->enc_mode;
     if (scs->allintra) {
-#if FIX_MR_STILL_IMAGE
         if (scs->static_config.enc_mode > ENC_M9) {
-#else
-        if (scs->static_config.enc_mode == ENC_MR) {
-            SVT_WARN("The lowest supported preset for all-intra and still-image is M0.\n");
-            scs->static_config.enc_mode = ENC_M0;
-        } else if (scs->static_config.enc_mode > ENC_M9) {
-#endif
             SVT_WARN("Preset M%d is mapped to M9.\n", scs->static_config.enc_mode);
             scs->static_config.enc_mode = ENC_M9;
         }
     }
 
     else if (scs->static_config.rtc) {
-#if TUNE_SHIFT_PRESETS_RTC
-#if FTR_ADD_RTC_M12_M13
         if (scs->static_config.enc_mode > ENC_M13) {
             SVT_WARN("Preset M%d is mapped to M13.\n", scs->static_config.enc_mode);
             scs->static_config.enc_mode = ENC_M13;
@@ -4667,24 +4308,6 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         if (scs->static_config.enc_mode == ENC_M13) {
             SVT_WARN("Preset M13 is experimental and intended for speed evaluation\n");
         }
-#else
-        if (scs->static_config.enc_mode > ENC_M11) {
-            SVT_WARN("Preset M%d is mapped to M11.\n", scs->static_config.enc_mode);
-            scs->static_config.enc_mode = ENC_M11;
-        }
-#endif
-#else
-        if (scs->static_config.enc_mode > ENC_M12) {
-            SVT_WARN("Preset M%d is mapped to M12.\n", scs->static_config.enc_mode);
-            scs->static_config.enc_mode = ENC_M12;
-        }
-#if TUNE_SIMPLIFY_SETTINGS
-        else if (scs->static_config.enc_mode == ENC_M9) {
-            SVT_WARN("Preset M%d is temporarily mapped to M10 (placeholder).\n", scs->static_config.enc_mode);
-            scs->static_config.enc_mode = ENC_M10;
-        }
-#endif
-#endif
     }
 
     else if (scs->static_config.enc_mode > ENC_M11) {
@@ -4805,13 +4428,6 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.tune                = config_struct->tune;
     scs->static_config.hierarchical_levels = config_struct->hierarchical_levels;
 
-#if !REMOVE_USE_FLAT_IPP
-    if (scs->static_config.rtc && scs->static_config.hierarchical_levels == 0) {
-        scs->static_config.hierarchical_levels = HIERARCHICAL_LEVELS_AUTO;
-        // Mimic flat prediction structure
-        scs->use_flat_ipp = 1;
-    }
-#endif
     // Set the default hierarchical levels
     if (scs->static_config.hierarchical_levels == HIERARCHICAL_LEVELS_AUTO) {
         scs->static_config.hierarchical_levels = scs->static_config.pred_structure == LOW_DELAY &&
@@ -4827,25 +4443,15 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
             : 5;
     }
     if (scs->static_config.pass == ENC_SINGLE_PASS && scs->static_config.pred_structure == LOW_DELAY) {
-        if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR &&
-#if OPT_USE_HL0_FLAT
-            scs->static_config.hierarchical_levels > 2) {
+        if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR && scs->static_config.hierarchical_levels > 2) {
             scs->static_config.hierarchical_levels = 2;
             SVT_WARN("Low delay CBR supports hierarchical_levels [0-2]. Forced hierarchical_levels = 2.\n");
-#else
-            scs->static_config.hierarchical_levels != 2) {
-            scs->static_config.hierarchical_levels = 2;
-            SVT_WARN("Forced Low delay CBR mode to use HierarchicalLevels = 2\n");
-#endif
         }
     }
     // Set hierarchical_levels to 2 to reduce memory allocation; 2 is the minimum currently supported
     if (scs->allintra) {
         scs->static_config.hierarchical_levels = 2;
     }
-#if !ADD_ON_THE_FLY_MG
-    scs->max_temporal_layers = scs->static_config.hierarchical_levels;
-#endif
     scs->static_config.look_ahead_distance    = config_struct->look_ahead_distance;
     scs->static_config.frame_rate_denominator = config_struct->frame_rate_denominator;
     scs->static_config.frame_rate_numerator   = config_struct->frame_rate_numerator;
@@ -4907,10 +4513,7 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->subsampling_y     = (scs->chroma_format_idc >= EB_YUV422 ? 0 : 1);
     // Force screen-content detection OFF when allintra
     const bool allintra = scs->allintra;
-#if TUNE_SIMPLIFY_SETTINGS
-    const bool rtc = scs->static_config.rtc;
-#endif
-#if OPT_SC_STILL_IMAGE
+    const bool rtc      = scs->static_config.rtc;
     if (allintra) {
         if (config_struct->screen_content_mode <= 1) {
             scs->static_config.screen_content_mode = config_struct->screen_content_mode;
@@ -4922,14 +4525,7 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
                 "Screen-content detection and tools are disabled for all-intra coding at M8 and above; forcing NSC "
                 "path\n");
         }
-#else
-    if (allintra && config_struct->screen_content_mode > 1) {
-        scs->static_config.screen_content_mode = 0;
-        SVT_WARN("Screen-content detection is disabled for all-intra coding; forcing NSC path\n");
-#endif
-    }
-#if TUNE_SIMPLIFY_SETTINGS
-    else if (rtc) {
+    } else if (rtc) {
         if (config_struct->screen_content_mode <= 1 && scs->static_config.enc_mode <= ENC_M8) {
             scs->static_config.screen_content_mode = config_struct->screen_content_mode;
         } else if (scs->static_config.enc_mode <= ENC_M8) {
@@ -4940,10 +4536,7 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
                 "Screen-content detection and tools are disabled for RTC mode coding at M9 and above; forcing NSC "
                 "path\n");
         }
-    }
-#endif
-    else {
-#if TUNE_SIMPLIFY_SETTINGS
+    } else {
         if (config_struct->screen_content_mode <= 1 && scs->static_config.enc_mode <= ENC_M8) {
             scs->static_config.screen_content_mode = config_struct->screen_content_mode;
         } else if (scs->static_config.enc_mode <= ENC_M8) {
@@ -4954,9 +4547,6 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
                 "Screen-content detection and tools are disabled for RA mode coding at M9 and above; forcing NSC "
                 "path\n");
         }
-#else
-        scs->static_config.screen_content_mode = config_struct->screen_content_mode;
-#endif
     }
     // Annex A parameters
     scs->static_config.profile     = config_struct->profile;
@@ -5171,12 +4761,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         scs->static_config.enable_variance_boost   = 1;
         scs->static_config.variance_boost_strength = 3;
         scs->static_config.variance_boost_curve    = 2;
-    }
-#if FTR_TUNE_VMAF
-    else if (scs->static_config.tune == TUNE_VMAF) {
+    } else if (scs->static_config.tune == TUNE_VMAF) {
         SVT_WARN("Tune VMAF: a pre-processing / unsharp masking is applied\n");
     }
-#endif
     return;
 }
 
@@ -5914,9 +5501,7 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
                     return EB_ErrorBadParameter;
                 }
             }
-        }
-#if ADD_ON_THE_FLY_MG
-        else if (node->node_type == MG_SIZE_CHANGE_EVENT) {
+        } else if (node->node_type == MG_SIZE_CHANGE_EVENT) {
             SvtAv1MgSizeInfo* node_data = (SvtAv1MgSizeInfo*)node->data;
             if (!((scs->static_config.pred_structure == LOW_DELAY) &&
                   (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CBR) && scs->static_config.rtc)) {
@@ -5930,7 +5515,6 @@ static EbErrorType validate_on_the_fly_settings(EbBufferHeaderType* input_ptr, S
                 return EB_ErrorBadParameter;
             }
         }
-#endif
         node = node->next;
     }
     return EB_ErrorNone;

@@ -81,11 +81,7 @@ static const uint32_t idx_32x32_to_idx_8x8[4][4][4] = {
 };
 // clang-format on
 
-#if ADD_ON_THE_FLY_MG
 int32_t svt_aom_get_frame_update_type(PictureParentControlSet* pcs);
-#else
-int32_t svt_aom_get_frame_update_type(SequenceControlSet* scs, PictureParentControlSet* pcs);
-#endif
 #if DEBUG_SCALING
 // save YUV to file - auxiliary function for debug
 void save_YUV_to_file(char* filename, EbByte y_buffer, EbByte buffer_u, EbByte buffer_v, uint16_t width,
@@ -2740,11 +2736,7 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
          * TF STRENGTH CALCULATION
          */
     // Get the frame update type for the current frame
-#if ADD_ON_THE_FLY_MG
     const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs);
-#else
-    const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
-#endif
 
     if (scs->static_config.enable_tf > 1) {
         uint8_t adaptive_tf_shift_factor = calculate_tf_shift_factor(ctx);
@@ -3272,11 +3264,7 @@ static EbErrorType produce_temporally_filtered_pic_ld(PictureParentControlSet** 
      * TF STRENGTH CALCULATION (2)
      */
     // Get the frame update type for the current frame
-#if ADD_ON_THE_FLY_MG
     const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs);
-#else
-    const uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
-#endif
 
     if (scs->static_config.enable_tf > 1) {
         uint8_t adaptive_tf_shift_factor = calculate_tf_shift_factor(ctx);
@@ -3631,7 +3619,6 @@ int32_t svt_estimate_noise_highbd_fp16_c(const uint16_t* src, int width, int hei
 }
 #endif
 
-#if OPT_TUNE_VMAF
 uint32_t svt_vmaf_compute_avg_mad_c(const uint8_t* src, int width, int height, int stride) {
     uint64_t total_activity = 0;
     int      block_count    = 0;
@@ -3744,7 +3731,6 @@ void svt_vmaf_hpass_row_c(const uint8_t* src_row, int width, int16_t* h_row) {
         h_row[x + steps_x] = (int16_t)tmp1;
     }
 }
-#endif
 
 void pad_and_decimate_filtered_pic(PictureParentControlSet* centre_pcs) {
     // reference structures (padded pictures + downsampled versions)
@@ -4003,14 +3989,10 @@ EbErrorType svt_av1_init_temporal_filtering(PictureParentControlSet** pcs_list, 
 
         // save original source picture (to be replaced by the temporally filtered pic)
         // if PSNR or SSIM computation needed or if superres recode is enabled
-        SUPERRES_MODE             superres_mode = centre_pcs->scs->static_config.superres_mode;
-        SUPERRES_AUTO_SEARCH_TYPE search_type   = centre_pcs->scs->static_config.superres_auto_search_type;
-#if ADD_ON_THE_FLY_MG
-        uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs);
-#else
-        uint32_t frame_update_type = svt_aom_get_frame_update_type(centre_pcs->scs, centre_pcs);
-#endif
-        bool superres_recode_enabled = (superres_mode == SUPERRES_AUTO) &&
+        SUPERRES_MODE             superres_mode           = centre_pcs->scs->static_config.superres_mode;
+        SUPERRES_AUTO_SEARCH_TYPE search_type             = centre_pcs->scs->static_config.superres_auto_search_type;
+        uint32_t                  frame_update_type       = svt_aom_get_frame_update_type(centre_pcs);
+        bool                      superres_recode_enabled = (superres_mode == SUPERRES_AUTO) &&
             ((search_type == SUPERRES_AUTO_DUAL) || (search_type == SUPERRES_AUTO_ALL)) // auto-dual or auto-all
             && ((frame_update_type == SVT_AV1_KF_UPDATE) ||
                 (frame_update_type == SVT_AV1_ARF_UPDATE)); // recode only applies to key and arf

@@ -17,8 +17,6 @@
 #include "temporal_filtering_neon.h"
 #include "temporal_filtering_neon_dotprod.h"
 
-#if OPT_TUNE_VMAF
-
 DECLARE_ALIGNED(16, static const uint8_t, mean_broadcast_tbl[16]) = {1, 1, 1, 1, 1, 1, 1, 1, 9, 9, 9, 9, 9, 9, 9, 9};
 
 static inline uint8x16_t avg8x8x2_neon_i8mm(const uint8x16_t s[8]) {
@@ -75,5 +73,3 @@ uint32_t svt_vmaf_compute_avg_mad_neon_i8mm(const uint8_t* src, int width, int h
 
     return (uint32_t)(total_activity / (block_count * 64));
 }
-
-#endif // OPT_TUNE_VMAF

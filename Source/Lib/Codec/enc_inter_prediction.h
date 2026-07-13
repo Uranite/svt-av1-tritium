@@ -52,12 +52,8 @@ void        svt_aom_search_compound_diff_wedge(PictureControlSet* pcs, struct Mo
 bool        svt_aom_calc_pred_masked_compound(PictureControlSet* pcs, struct ModeDecisionContext* ctx,
                                               ModeDecisionCandidate* cand);
 
-#if CLN_RENAME_PD0
-EbErrorType svt_aom_inter_pu_prediction_av1_pd0(uint8_t hbd_md, struct ModeDecisionContext* ctx,
-#else
-EbErrorType svt_aom_inter_pu_prediction_av1_light_pd0(uint8_t hbd_md, struct ModeDecisionContext* ctx,
-#endif
-                                                PictureControlSet* pcs, ModeDecisionCandidateBuffer* cand_bf);
+EbErrorType svt_aom_inter_pu_prediction_av1_pd0(uint8_t hbd_md, struct ModeDecisionContext* ctx, PictureControlSet* pcs,
+                                                ModeDecisionCandidateBuffer* cand_bf);
 EbErrorType svt_aom_inter_pu_prediction_av1_light_pd1(uint8_t hbd_md, struct ModeDecisionContext* ctx,
                                                       PictureControlSet* pcs, ModeDecisionCandidateBuffer* cand_bf);
 EbErrorType svt_aom_inter_pu_prediction_av1(uint8_t hbd_md, struct ModeDecisionContext* ctx, PictureControlSet* pcs,

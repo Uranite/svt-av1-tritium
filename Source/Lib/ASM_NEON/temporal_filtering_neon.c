@@ -1356,8 +1356,6 @@ void svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_neon(
     }
 }
 
-#if OPT_TUNE_VMAF
-
 DECLARE_ALIGNED(16, static const uint8_t, mean_broadcast_tbl[16]) = {0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2};
 
 static inline uint16x8_t avg8x8x2_neon(uint8x16_t s[8]) {
@@ -1631,5 +1629,3 @@ float svt_vmaf_compute_gradient_coherence_neon(const uint8_t* src, int width, in
     }
     return (float)(weighted_coh / weight_sum);
 }
-
-#endif // OPT_TUNE_VMAF

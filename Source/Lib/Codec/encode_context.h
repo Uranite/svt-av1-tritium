@@ -181,18 +181,14 @@ typedef struct EncodeContext {
     // reference scaling random access event
     EbRefFrameScale resize_evt;
     //Superblock end index for cycling refresh through the frame.
-    uint32_t cr_sb_end;
-#if FIX_CR_BAND_WRAPPING
-    uint32_t cr_sb_index; // SB cycling index (persists across frames)
-#endif
+    uint32_t         cr_sb_end;
+    uint32_t         cr_sb_index; // SB cycling index (persists across frames)
     SvtAv1RoiMapEvt* roi_map_evt;
     Quants           quants_bd; // follows input bit depth
     Dequants         deq_bd; // follows input bit depth
     Quants           quants_8bit; // 8bit
     Dequants         deq_8bit; // 8bit
-#if OPT_PERIODIC_CDF_UPDATE
-    uint32_t frames_since_last_cdf_update; // For selective CDF disable
-#endif
+    uint32_t         frames_since_last_cdf_update; // For selective CDF disable
 #if CONFIG_SINGLE_THREAD_KERNEL
     void* st_me_context; // MotionEstimationContext_t* for inline TF in ST mode
 #endif

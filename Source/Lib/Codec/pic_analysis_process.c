@@ -15,10 +15,8 @@
 
 #include "aom_dsp_rtcd.h"
 #include "definitions.h"
-#if OPT_TUNE_VMAF
 #include <math.h>
 #include "temporal_filtering.h"
-#endif
 #include "enc_handle.h"
 #include "sys_resource_manager.h"
 #include "pcs.h"
@@ -41,25 +39,21 @@
  * Context
  **************************************/
 typedef struct PictureAnalysisContext {
-    EbFifo* resource_coordination_results_input_fifo_ptr;
-    EbFifo* picture_analysis_results_output_fifo_ptr;
-#if FTR_TUNE_VMAF
+    EbFifo*  resource_coordination_results_input_fifo_ptr;
+    EbFifo*  picture_analysis_results_output_fifo_ptr;
     int16_t* vmaf_hring[5];
     int      vmaf_padded_w;
     uint8_t* vmaf_blur_plane;
     int      vmaf_blur_pixels;
-#endif
 } PictureAnalysisContext;
 
 static void picture_analysis_context_dctor(EbPtr p) {
     EbThreadContext*        thread_ctx = (EbThreadContext*)p;
     PictureAnalysisContext* obj        = (PictureAnalysisContext*)thread_ctx->priv;
-#if FTR_TUNE_VMAF
     for (int i = 0; i < 5; i++) {
         EB_FREE_ARRAY(obj->vmaf_hring[i]);
     }
     EB_FREE_ARRAY(obj->vmaf_blur_plane);
-#endif
     EB_FREE_ARRAY(obj);
 }
 
@@ -1317,25 +1311,14 @@ void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet* pcs) 
     int           pass        = 0;
 
     for (int i = 0; i < 4; ++i) {
-#if OPT_SC_STILL_IMAGE
         if ((counts_8X8.region_palette[i] * blk_area8 * 10 > region_area) &&
             (counts_8X8.region_intrabc[i] * blk_area8 * 25 > region_area)) {
-#else
-        if ((counts_8X8.region_palette[i] * blk_area8 * 18 > region_area) &&
-            (counts_8X8.region_intrabc[i] * blk_area8 * 50 > region_area)) {
-#endif
             pass++;
         }
     }
     pcs->sc_class4 = (pass >= 3) && (count_palette_8 * blk_area8 * 5 > area);
-#if OPT_SC_STILL_IMAGE
     pcs->sc_class5 = (pass >= 3) &&
         ((count_palette_8 * blk_area8 * 10 > area) && (count_intrabc_8 * blk_area8 * 23 > area));
-#else
-    pcs->sc_class5 = (pass >= 2) &&
-        ((count_palette_8 * blk_area8 * 18 > area) && (count_intrabc_8 * blk_area8 * 50 > area));
-
-#endif
 #if DEBUG_AA_SCM
     fprintf(stats_file,
             "block count palette: %" PRId64 ", count intrabc: %" PRId64 ", count photo: %" PRId64 ", total: %d\n",
@@ -1445,8 +1428,6 @@ void svt_aom_is_screen_content(PictureParentControlSet* pcs) {
         (counts_2 * blk_h * blk_w * 20 > input_pic->width * input_pic->height);
 }
 
-#if OPT_LPD1_TX_SKIP_DECISION
-#if OPT_IS_INPUT_LUMA_DOMINANT
 #define FRAME_LUMA_DOMINANT_SAMPLE_STEP 8
 #define FRAME_LUMA_DOMINANT_CORE_THR 16
 #define FRAME_LUMA_DOMINANT_TAIL_THR 18
@@ -1510,51 +1491,6 @@ bool svt_aom_is_input_luma_dominant(const EbPictureBufferDesc* input_pic) {
         (tail_cnt * 100 >= sample_cnt * FRAME_LUMA_DOMINANT_MIN_TAIL_PCT ||
          neutral_cnt * 100 >= sample_cnt * FRAME_LUMA_DOMINANT_MIN_NEUTRAL_PCT);
 }
-
-#else
-#define PD_FRAME_GRAYLIKE_SAMPLE_STEP 8
-#define PD_FRAME_GRAYLIKE_NEUTRAL_THR 6
-#define PD_FRAME_GRAYLIKE_UV_DIFF_THR 4
-#define PD_FRAME_GRAYLIKE_MIN_PASS_PCT 75
-
-bool svt_aom_is_input_grayscale_like(const EbPictureBufferDesc* input_pic) {
-    if (!input_pic || input_pic->color_format == EB_YUV400 || !input_pic->u_buffer || !input_pic->v_buffer) {
-        return false;
-    }
-
-    const uint32_t uv_w = input_pic->width >> 1;
-    const uint32_t uv_h = input_pic->height >> 1;
-
-    if (!uv_w || !uv_h) {
-        return false;
-    }
-
-    uint32_t sample_cnt  = 0;
-    uint32_t neutral_cnt = 0;
-
-    for (uint32_t y = 0; y < uv_h; y += PD_FRAME_GRAYLIKE_SAMPLE_STEP) {
-        const uint8_t* const ub = input_pic->u_buffer + y * input_pic->u_stride;
-        const uint8_t* const vb = input_pic->v_buffer + y * input_pic->v_stride;
-
-        for (uint32_t x = 0; x < uv_w; x += PD_FRAME_GRAYLIKE_SAMPLE_STEP) {
-            const int32_t du = (int32_t)ub[x] - 128;
-            const int32_t dv = (int32_t)vb[x] - 128;
-            const int32_t uv = (int32_t)ub[x] - (int32_t)vb[x];
-
-            if ((du < 0 ? -du : du) <= PD_FRAME_GRAYLIKE_NEUTRAL_THR &&
-                (dv < 0 ? -dv : dv) <= PD_FRAME_GRAYLIKE_NEUTRAL_THR &&
-                (uv < 0 ? -uv : uv) <= PD_FRAME_GRAYLIKE_UV_DIFF_THR) {
-                neutral_cnt++;
-            }
-
-            sample_cnt++;
-        }
-    }
-
-    return sample_cnt && (neutral_cnt * 100 >= sample_cnt * PD_FRAME_GRAYLIKE_MIN_PASS_PCT);
-}
-#endif
-#endif
 
 /************************************************
  * 1/4 & 1/16 input picture downsampling (filtering)
@@ -1678,7 +1614,6 @@ void svt_aom_pad_input_pictures(SequenceControlSet* scs, EbPictureBufferDesc* in
     }
 }
 
-#if OPT_TUNE_VMAF
 /*********************************************************************************
  *
  * @brief
@@ -1816,9 +1751,7 @@ static int32_t vmaf_get_delta_clip(int32_t base_qp, int busy_frame) {
 
     return busy_frame ? qp_delta - 4 : qp_delta;
 }
-#endif
 
-#if FTR_TUNE_VMAF
 /*********************************************************************************
  *
  * @brief
@@ -1964,7 +1897,6 @@ static void vmaf_preprocess_frame(PictureAnalysisContext* pa_ctx, PictureParentC
     /* Step 4: apply the unsharp mask in place, writing the sharpened luma back over the source. */
     vmaf_unsharp_apply_frame(luma, blur_plane, luma, pic_width, pic_height, y_stride, sharp_amount, delta_clip);
 }
-#endif
 
 /* Picture Analysis Kernel */
 
@@ -2009,13 +1941,7 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
     in_results_ptr = (ResourceCoordinationResults*)in_results_wrapper_ptr->object_ptr;
     pcs            = (PictureParentControlSet*)in_results_ptr->pcs_wrapper->object_ptr;
 
-#if OPT_LPD1_TX_SKIP_DECISION
-#if OPT_IS_INPUT_LUMA_DOMINANT
     pcs->is_luma_dominant_input = false;
-#else
-    pcs->is_grayscale_like_input = false;
-#endif
-#endif
 
     // Mariana : save enhanced picture ptr, move this from here
     pcs->enhanced_unscaled_pic = pcs->enhanced_pic;
@@ -2027,11 +1953,9 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
         input_pic               = pcs->enhanced_pic;
         EbPictureBufferDesc* input_padded_pic;
         {
-#if FTR_TUNE_VMAF
             if (scs->static_config.tune == TUNE_VMAF) {
                 vmaf_preprocess_frame(pa_ctx, pcs);
             }
-#endif
             // Padding for input pictures
             svt_aom_pad_input_pictures(scs, input_pic);
 
@@ -2081,21 +2005,12 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
         // If running multi-threaded mode, perform SC detection in svt_aom_picture_analysis_kernel, else in svt_aom_picture_decision_kernel
         if (scs->static_config.level_of_parallelism != 1) {
             switch (scs->static_config.screen_content_mode) {
-#if OPT_SC_STILL_IMAGE
             case 0:
                 pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = pcs->sc_class5 = 0;
                 break;
             case 1:
                 pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = pcs->sc_class5 = 1;
                 break;
-#else
-            case 0:
-                pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = 0;
-                break;
-            case 1:
-                pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = 1;
-                break;
-#endif
             case 2:
                 // SC Detection is OFF for 4K and higher
                 if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
@@ -2106,19 +2021,10 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
                 svt_aom_is_screen_content_antialiasing_aware(pcs);
                 break;
             }
-#if OPT_LPD1_TX_SKIP_DECISION
-#if OPT_IS_INPUT_LUMA_DOMINANT
             // Luma-dominant detection in MT mode
             if (scs->detect_luma_dominant_input) {
                 pcs->is_luma_dominant_input = svt_aom_is_input_luma_dominant(pcs->chroma_downsampled_pic);
             }
-#else
-            // Grayscale-like detection in MT mode
-            if (scs->detect_grayscale_like_input) {
-                pcs->is_grayscale_like_input = svt_aom_is_input_grayscale_like(pcs->chroma_downsampled_pic);
-            }
-#endif
-#endif
         }
     }
 

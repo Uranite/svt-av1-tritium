@@ -273,11 +273,7 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     }
 
     if (config->hierarchical_levels > 5) {
-#if OPT_USE_HL0_FLAT
         SVT_ERROR("Hierarchical Levels supported: [0-5]\n");
-#else
-        SVT_ERROR("Hierarchical Levels supported [0-5]\n");
-#endif
         return_error = EB_ErrorBadParameter;
     } else {
         for (uint8_t i = 0; i < config->hierarchical_levels + 1; ++i) {
@@ -533,7 +529,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
             config->fast_decode);
         return_error = EB_ErrorBadParameter;
     }
-#if FTR_TUNE_VMAF
     if (config->tune > TUNE_VMAF) {
         SVT_ERROR(
             "Invalid tune flag [0 - 5, 0 for VQ, 1 for PSNR, 2 for SSIM, 3 for IQ, 4 for MS_SSIM, and 5 for VMAF], "
@@ -578,24 +573,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     if (config->tune == TUNE_IQ && config->pred_structure == LOW_DELAY) {
         SVT_WARN("Tune IQ with low delay prediction structure is experimental\n");
     }
-#else
-    if (config->tune > TUNE_MS_SSIM) {
-        SVT_ERROR(
-            "Invalid tune flag [0 - 4, 0 for VQ, 1 for PSNR, 2 for SSIM, 3 for IQ, and 4 for MS_SSIM], your input: "
-            "%d\n",
-            config->tune);
-        return_error = EB_ErrorBadParameter;
-    }
-    if (config->tune == TUNE_SSIM || config->tune == TUNE_IQ || config->tune == TUNE_MS_SSIM) {
-        if (config->rate_control_mode != 0 || config->pred_structure == LOW_DELAY) {
-            SVT_ERROR("tune %s only supports CRF rate control mode currently\n",
-                      config->tune == TUNE_SSIM     ? "SSIM"
-                          : config->tune == TUNE_IQ ? "IQ"
-                                                    : "MS_SSIM");
-            return_error = EB_ErrorBadParameter;
-        }
-    }
-#endif
 
     if (config->superres_mode > SUPERRES_AUTO) {
         SVT_ERROR("invalid superres-mode %d, should be in the range [%d - %d]\n",
@@ -671,12 +648,6 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
             "color format.\n");
         return_error = EB_ErrorBadParameter;
     }
-#if !OPT_USE_HL0_FLAT
-    if (config->hierarchical_levels < 2 || config->hierarchical_levels > 5) {
-        SVT_ERROR("Only hierarchical levels 2-5 is currently supported.\n");
-        return_error = EB_ErrorBadParameter;
-    }
-#endif
 
     if (config->rate_control_mode == SVT_AV1_RC_MODE_VBR && config->intra_period_length == -1) {
         SVT_ERROR(
@@ -1161,7 +1132,6 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                 : config->encoder_color_format == EB_YUV444 ? "YUV444"
                                                             : "Unknown color format");
 
-#if FTR_TUNE_VMAF
         SVT_INFO("SVT [config]: preset / tune / pred struct \t\t\t\t\t: %d / %s / %s\n",
                  config->enc_mode,
                  config->tune == TUNE_VQ            ? "VQ"
@@ -1174,19 +1144,6 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                      : config->pred_structure == RANDOM_ACCESS ? "random access"
                      : config->pred_structure == ALL_INTRA     ? "all intra"
                                                                : "Unknown pred structure");
-#else
-        SVT_INFO("SVT [config]: preset / tune / pred struct \t\t\t\t\t: %d / %s / %s\n",
-                 config->enc_mode,
-                 config->tune == TUNE_VQ            ? "VQ"
-                     : config->tune == TUNE_PSNR    ? "PSNR"
-                     : config->tune == TUNE_SSIM    ? "SSIM"
-                     : config->tune == TUNE_MS_SSIM ? "MS_SSIM"
-                                                    : "IQ",
-                 config->pred_structure == LOW_DELAY           ? "low delay"
-                     : config->pred_structure == RANDOM_ACCESS ? "random access"
-                     : config->pred_structure == ALL_INTRA     ? "all intra"
-                                                               : "Unknown pred structure");
-#endif
         SVT_INFO(
             "SVT [config]: gop size / mini-gop size / key-frame type \t\t\t: "
             "%d / %d / %s\n",

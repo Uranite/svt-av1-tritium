@@ -437,28 +437,9 @@ void search_palette_luma(PictureControlSet* pcs, ModeDecisionContext* ctx, Palet
             }
         }
     }
-#if !OPT_SC_STILL_IMAGE
-    uint16_t  color_cache[2 * PALETTE_MAX_SIZE];
-    const int n_cache = svt_get_palette_cache_y(ctx->blk_ptr->av1xd, color_cache);
-#endif
-#if !OPT_SC_STILL_IMAGE
-    //  Extract dominant colors
-    int top_colors[PALETTE_MAX_SIZE] = {0};
-    for (int i = 0; i < max_n; ++i) {
-        int max_count = 0;
-        for (int j = 0; j < (1 << palette_bit_depth); ++j) {
-            if (count_buf[j] > max_count) {
-                max_count     = count_buf[j];
-                top_colors[i] = j;
-            }
-        }
-        count_buf[top_colors[i]] = 0;
-    }
-#endif
     //  Dominant-color search
     uint8_t dominant_color_step = pcs->ppcs->palette_ctrls.dominant_color_step;
     if (dominant_color_step != (uint8_t)~0) {
-#if OPT_SC_STILL_IMAGE
         //  Extract dominant colors
         int top_colors[PALETTE_MAX_SIZE] = {0};
         for (int i = 0; i < max_n; ++i) {
@@ -471,7 +452,6 @@ void search_palette_luma(PictureControlSet* pcs, ModeDecisionContext* ctx, Palet
             }
             count_buf[top_colors[i]] = 0;
         }
-#endif
         for (int n = max_n; n >= min_n; n -= dominant_color_step) {
             for (int i = 0; i < n; ++i) {
                 centroids[i] = top_colors[i];
@@ -487,13 +467,8 @@ void search_palette_luma(PictureControlSet* pcs, ModeDecisionContext* ctx, Palet
                          data,
                          centroids,
                          n,
-#if OPT_SC_STILL_IMAGE
                          NULL,
                          0,
-#else
-                         color_cache,
-                         n_cache,
-#endif
                          palette_bit_depth);
 
             if (palette_size_array[cand_index] >= PALETTE_MIN_SIZE) {
@@ -505,10 +480,8 @@ void search_palette_luma(PictureControlSet* pcs, ModeDecisionContext* ctx, Palet
     // K-means search
     uint8_t kmean_color_step = pcs->ppcs->palette_ctrls.kmean_color_step;
     if (kmean_color_step != (uint8_t)~0) {
-#if OPT_SC_STILL_IMAGE
         uint16_t  color_cache[2 * PALETTE_MAX_SIZE];
         const int n_cache = svt_get_palette_cache_y(ctx->blk_ptr->av1xd, color_cache);
-#endif
         for (int n = max_n; n >= min_n; n -= kmean_color_step) {
             if (colors == PALETTE_MIN_SIZE) {
                 centroids[0] = lb;
@@ -517,7 +490,6 @@ void search_palette_luma(PictureControlSet* pcs, ModeDecisionContext* ctx, Palet
                 for (int i = 0; i < n; ++i) {
                     centroids[i] = lb + (2 * i + 1) * (ub - lb) / n / 2;
                 }
-#if OPT_SC_STILL_IMAGE
                 av1_k_means(data,
                             centroids,
                             palette_cand[*tot_palette_cands].color_idx_map,
@@ -525,9 +497,6 @@ void search_palette_luma(PictureControlSet* pcs, ModeDecisionContext* ctx, Palet
                             n,
                             1,
                             pcs->ppcs->palette_ctrls.k_means_max_itr);
-#else
-                av1_k_means(data, centroids, palette_cand[*tot_palette_cands].color_idx_map, rows * cols, n, 1, 50);
-#endif
             }
             if (pcs->ppcs->palette_ctrls.centroid_refinement) {
                 cache_based_centroid_refinement(data,

@@ -901,7 +901,6 @@ void svt_aom_apply_filtering_central_highbd_avx2(MeContext* me_ctx, EbPictureBuf
     }
 }
 
-#if OPT_TUNE_VMAF
 uint32_t svt_vmaf_compute_avg_mad_avx2(const uint8_t* src, int width, int height, int stride) {
     const __m128i zero           = _mm_setzero_si128();
     const __m128i ones           = _mm_set1_epi16(1);
@@ -1133,7 +1132,6 @@ void svt_vmaf_hpass_row_avx2(const uint8_t* src_row, int width, int16_t* h_row) 
         h_row[j] = (int16_t)vmaf_hpass_out_scalar(src_row, width, j);
     }
 }
-#endif
 
 int32_t svt_estimate_noise_fp16_avx2(const uint8_t* src, uint16_t width, uint16_t height, uint16_t y_stride) {
     int64_t sum = 0;

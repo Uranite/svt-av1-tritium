@@ -2290,12 +2290,8 @@ uint8_t svt_aom_obmc_motion_refinement(PictureControlSet* pcs, ModeDecisionConte
 /*
    inject ME candidates for Light PD0
 */
-#if CLN_RENAME_PD0
-static void inject_new_candidates_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx,
-#else
-static void inject_new_candidates_light_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx,
-#endif
-                                      uint32_t* candidate_total_cnt, const bool allow_bipred) {
+static void inject_new_candidates_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx, uint32_t* candidate_total_cnt,
+                                      const bool allow_bipred) {
     const uint32_t         me_sb_addr       = ctx->me_sb_addr;
     const uint32_t         me_block_offset  = ctx->me_block_offset;
     ModeDecisionCandidate* cand_array       = ctx->fast_cand_array;
@@ -2313,11 +2309,7 @@ static void inject_new_candidates_light_pd0(PictureControlSet* pcs, ModeDecision
         const uint8_t      list0_ref_index      = me_block_results_ptr->ref_idx_l0;
         const uint8_t      list1_ref_index      = me_block_results_ptr->ref_idx_l1;
 
-#if CLN_RENAME_PD0
         if (ctx->pd0_ctrls.pd0_level == PD0_LVL_6 && inter_direction == BI_PRED) {
-#else
-        if (ctx->lpd0_ctrls.pd0_level == VERY_LIGHT_PD0 && inter_direction == BI_PRED) {
-#endif
             continue;
         }
 
@@ -2828,11 +2820,7 @@ static void inject_pme_candidates(PictureControlSet* pcs, ModeDecisionContext* c
     (*candidate_total_cnt) = cand_total_cnt;
 }
 
-#if CLN_RENAME_PD0
 static void inject_inter_candidates_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx,
-#else
-static void inject_inter_candidates_light_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx,
-#endif
                                         uint32_t* candidate_total_cnt) {
     FrameHeader* frm_hdr = &pcs->ppcs->frm_hdr;
     // Bipred prediction is only allowed when both dimensions are > 4 and the frame-header reference mode allows it.
@@ -2842,11 +2830,7 @@ static void inject_inter_candidates_light_pd0(PictureControlSet* pcs, ModeDecisi
         ? false
         : true;
 
-#if CLN_RENAME_PD0
     inject_new_candidates_pd0(pcs, ctx, candidate_total_cnt, allow_bipred);
-#else
-    inject_new_candidates_light_pd0(pcs, ctx, candidate_total_cnt, allow_bipred);
-#endif
 }
 
 static void inject_inter_candidates_light_pd1(PictureControlSet* pcs, ModeDecisionContext* ctx,
@@ -3177,11 +3161,7 @@ static void inject_intra_bc_candidates(PictureControlSet* pcs, ModeDecisionConte
     }
 }
 
-#if CLN_RENAME_PD0
 static void inject_intra_candidates_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx,
-#else
-static void inject_intra_candidates_light_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx,
-#endif
                                         uint32_t* candidate_total_cnt) {
     uint32_t               cand_total_cnt     = 0;
     ModeDecisionCandidate* cand               = &ctx->fast_cand_array[cand_total_cnt];
@@ -3511,30 +3491,18 @@ static uint32_t reject_candidate_sframe(PictureControlSet* pcs, ModeDecisionCont
     return cand_total_cnt;
 }
 
-#if CLN_RENAME_PD0
 EbErrorType generate_md_stage_0_cand_pd0(ModeDecisionContext* ctx, uint32_t* candidate_total_count_ptr,
-#else
-EbErrorType generate_md_stage_0_cand_light_pd0(ModeDecisionContext* ctx, uint32_t* candidate_total_count_ptr,
-#endif
                                          PictureControlSet* pcs) {
     const SliceType slice_type     = pcs->slice_type;
     uint32_t        cand_total_cnt = 0;
     //----------------------
     // Intra
     if (ctx->blk_geom->sq_size < 128 && ctx->intra_ctrls.enable_intra) {
-#if CLN_RENAME_PD0
         inject_intra_candidates_pd0(pcs, ctx, &cand_total_cnt);
-#else
-        inject_intra_candidates_light_pd0(pcs, ctx, &cand_total_cnt);
-#endif
     }
 
     if (slice_type != I_SLICE) {
-#if CLN_RENAME_PD0
         inject_inter_candidates_pd0(pcs, ctx, &cand_total_cnt);
-#else
-        inject_inter_candidates_light_pd0(pcs, ctx, &cand_total_cnt);
-#endif
     }
 
     // For I_SLICE, DC is always injected, and therefore there is no a risk of no candidates @ md_stage_0()

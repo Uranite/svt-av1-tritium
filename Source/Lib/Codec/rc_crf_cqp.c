@@ -395,15 +395,7 @@ static int cqp_qindex_calc(PictureControlSet* pcs, int qindex) {
     if (scs->allintra) {
         return qindex;
     }
-#if CLN_REMOVE_RTC_FROM_VBR
     if (ppcs->hierarchical_levels == 0 && pcs->slice_type != I_SLICE) {
-#else
-#if REMOVE_USE_FLAT_IPP
-    if (scs->static_config.rtc && ppcs->hierarchical_levels == 0 && pcs->slice_type != I_SLICE) {
-#else
-    if (scs->use_flat_ipp && pcs->slice_type != I_SLICE) {
-#endif
-#endif
         return qindex;
     }
     int q;
@@ -561,7 +553,6 @@ void svt_av1_rc_calc_qindex_crf_cqp(PictureControlSet* pcs, SequenceControlSet* 
     // Calculate chroma delta q for Cb and Cr
     q_params->delta_q_dc[1] = q_params->delta_q_ac[1] = CLIP3(-64, 63, chroma_qindex - new_qindex);
     q_params->delta_q_dc[2] = q_params->delta_q_ac[2] = CLIP3(-64, 63, chroma_qindex - new_qindex);
-#if OPT_TUNE_VMAF
     if (scs->static_config.tune == TUNE_VMAF) {
         const int   cfg_offset         = frame_is_intra_only(ppcs)
                       ? scs->static_config.key_frame_chroma_qindex_offset
@@ -581,7 +572,6 @@ void svt_av1_rc_calc_qindex_crf_cqp(PictureControlSet* pcs, SequenceControlSet* 
         q_params->delta_q_dc[2] = (int8_t)CLIP3(-64, 63, d);
         q_params->delta_q_ac[2] = (int8_t)CLIP3(-64, 63, d);
     }
-#endif
     q_params->base_q_idx = new_qindex;
 }
 

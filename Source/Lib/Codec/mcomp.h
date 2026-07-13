@@ -104,15 +104,9 @@ typedef struct {
     SUBPEL_SEARCH_VAR_PARAMS var_params;
 } SUBPEL_MOTION_SEARCH_PARAMS;
 
-#if OPT_SUBPEL_CTRL
 typedef int(fractional_mv_step_fp)(void* ictx, MacroBlockD* xd, const struct AV1Common* const cm,
                                    SUBPEL_MOTION_SEARCH_PARAMS* ms_params, Mv start_mv, Mv* bestmv, int* distortion,
                                    unsigned int* sse1, BlockSize bsize);
-#else
-typedef int(fractional_mv_step_fp)(void* ictx, MacroBlockD* xd, const struct AV1Common* const cm,
-                                   SUBPEL_MOTION_SEARCH_PARAMS* ms_params, Mv start_mv, Mv* bestmv, int* distortion,
-                                   unsigned int* sse1, int qp, BlockSize bsize, uint8_t is_intra_bordered);
-#endif
 extern fractional_mv_step_fp svt_av1_find_best_sub_pixel_tree;
 extern fractional_mv_step_fp svt_av1_find_best_sub_pixel_tree_pruned;
 

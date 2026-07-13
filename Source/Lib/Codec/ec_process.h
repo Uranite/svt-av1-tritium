@@ -61,10 +61,8 @@ typedef struct EntropyCodingContext {
    */
     WienerInfo  wiener_info[MAX_PLANES];
     SgrprojInfo sgrproj_info[MAX_PLANES];
-#if OPT_STATS_MUTEX
-    uint64_t tot_qindex; // qindex accumulator
-    uint32_t valid_area; // valid area accumulator
-#endif
+    uint64_t    tot_qindex; // qindex accumulator
+    uint32_t    valid_area; // valid area accumulator
     // Pre-allocated buffers for av1_write_coeffs_txb_1d (moved off stack)
     uint8_t levels_buf[TX_PAD_2D];
     DECLARE_ALIGNED(16, int8_t, coeff_contexts[MAX_TX_SQUARE]);

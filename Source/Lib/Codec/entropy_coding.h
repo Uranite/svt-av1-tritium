@@ -52,11 +52,7 @@ EbErrorType svt_aom_txb_estimate_coeff_bits(ModeDecisionContext* ctx, uint8_t al
                                             uint64_t* cr_txb_coeff_bits, TxSize txsize, TxSize txsize_uv,
                                             TxType tx_type, TxType tx_type_uv, COMPONENT_TYPE component_type);
 
-#if CLN_RENAME_PD0
 EbErrorType svt_aom_txb_estimate_coeff_bits_pd0(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
-#else
-EbErrorType svt_aom_txb_estimate_coeff_bits_light_pd0(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
-#endif
                                                 uint32_t txb_origin_index, EbPictureBufferDesc* coeff_buffer_sb,
                                                 uint32_t y_eob, uint64_t* y_txb_coeff_bits, TxSize txsize);
 

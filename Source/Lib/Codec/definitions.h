@@ -114,14 +114,6 @@ typedef struct MrpCtrls {
      */
     uint8_t referencing_scheme;
 
-#if !TUNE_SIMPLIFY_SETTINGS
-    // SC signals
-    uint8_t sc_base_ref_list0_count;
-    uint8_t sc_base_ref_list1_count;
-    uint8_t sc_non_base_ref_list0_count;
-    uint8_t sc_non_base_ref_list1_count;
-    // non-SC signals
-#endif
     uint8_t base_ref_list0_count;
     uint8_t base_ref_list1_count;
     uint8_t non_base_ref_list0_count;
@@ -155,10 +147,8 @@ typedef struct MrpCtrls {
     uint8_t ld_reduce_ref_buffs;
     // When flat rtc structure is used, this is the number of refs to use (from previous consecutive frames)
     uint8_t flat_max_refs;
-#if OPT_MRP_HME_L0_DETECT
     // HME L0 MRP detector threshold. 0: off. Higher values are more conservative.
     uint16_t early_hme_l0_prune_th;
-#endif
 
 } MrpCtrls;
 
@@ -746,37 +736,14 @@ typedef enum PdPass {
 } PdPass;
 
 typedef enum ATTRIBUTE_PACKED {
-#if !CLN_PD0
-    REGULAR_PD0 =
-        -1, // The regular PD0 path; negative so that LPD1 can start at 0 (easy for indexing arrays in lpd0_ctrls)
-#endif
-#if CLN_RENAME_PD0
     PD0_LVL_0 = 0,
     PD0_LVL_1 = 1,
     PD0_LVL_2 = 2,
     PD0_LVL_3 = 3,
     PD0_LVL_4 = 4,
-#else
-    LPD0_LVL_0 = 0,
-    LPD0_LVL_1 = 1,
-    LPD0_LVL_2 = 2,
-    LPD0_LVL_3 = 3,
-    LPD0_LVL_4 = 4,
-#endif
-#if CLN_PD0
-#if CLN_RENAME_PD0
     PD0_LVL_5 = 5,
     PD0_LVL_6 = 6, // Lightest PD0 path, doesn't perform TX
     PD0_LEVELS // Number of PD0 paths
-#else
-    LPD0_LVL_5     = 5,
-    VERY_LIGHT_PD0 = 6, // Lightest PD0 path, doesn't perform TX
-    LPD0_LEVELS // Number of light-PD0 paths
-#endif
-#else
-    VERY_LIGHT_PD0 = 5, // Lightest PD0 path, doesn't perform TX
-    LPD0_LEVELS // Number of light-PD0 paths (regular PD0 isn't a light-PD0 path)
-#endif
 } Pd0Level;
 
 typedef enum ATTRIBUTE_PACKED {
@@ -787,12 +754,8 @@ typedef enum ATTRIBUTE_PACKED {
     LPD1_LVL_2 = 2, // Light PD1 path, having more shortcuts than previous LPD1 level
     LPD1_LVL_3 = 3, // Light PD1 path, having more shortcuts than previous LPD1 level
     LPD1_LVL_4 = 4, // Light PD1 path, having more shortcuts than previous LPD1 level
-#if OPT_LPD1
     LPD1_LVL_5 = 5, // Light PD1 path, having more shortcuts than previous LPD1 level
     LPD1_LVL_6 = 6, // Light-PD1 path, with most aggressive feature levels
-#else
-    LPD1_LVL_5 = 5, // Light-PD1 path, with most aggressive feature levels
-#endif
     LPD1_LEVELS // Number of light-PD1 paths (regular PD1 isn't a light-PD1 path)
 } Pd1Level;
 
@@ -873,14 +836,9 @@ enum {
 } UENUM1BYTE(SUBPEL_SEARCH_TYPE);
 
 enum {
-    SUBPEL_TREE        = 0,
-    SUBPEL_TREE_PRUNED = 1, // Prunes 1/2-pel searches
-#if OPT_LPD1
+    SUBPEL_TREE               = 0,
+    SUBPEL_TREE_PRUNED        = 1, // Prunes 1/2-pel searches
     SUBPEL_FIXED_STAGE_SEARCH = 2,
-#else
-//SUBPEL_TREE_PRUNED_MORE = 2,      // Not supported - (from libaom: Prunes 1/2-pel searches more aggressively)
-//SUBPEL_TREE_PRUNED_EVENMORE = 3,  // Not supported - (from libaom: Prunes 1/2- and 1/4-pel searches)
-#endif
 } UENUM1BYTE(SUBPEL_SEARCH_METHODS);
 
 enum { EIGHTH_PEL, QUARTER_PEL, HALF_PEL, FULL_PEL } UENUM1BYTE(SUBPEL_FORCE_STOP);
@@ -1897,13 +1855,8 @@ typedef enum Tune {
     TUNE_PSNR = 1, // Average of (PSNR, SSIM, VMAF)
     TUNE_SSIM = 2, // SSIM-optimized
     TUNE_IQ   = 3, // Image Quality
-#if FTR_TUNE_VMAF
     TUNE_MS_SSIM = 4,  // MS_SSIM and SSIMULACRA2 optimized
     TUNE_VMAF    = 5   // VMAF preprocessing (unsharp filter on luma)
-#else
-    TUNE_MS_SSIM = 4 // MS_SSIM and SSIMULACRA2 optimized
-
-#endif
 } Tune;
 
 /*

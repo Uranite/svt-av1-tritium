@@ -263,7 +263,6 @@ void svt_aom_yv12_copy_v_c(const Yv12BufferConfig* src_bc, Yv12BufferConfig* dst
 /** svt_aom_generate_padding()
         is used to pad the target picture. The horizontal padding happens first and then the vertical padding.
  */
-#if OPT_PADDING
 void svt_aom_generate_padding(EbByte src_pic, uint32_t src_stride, uint32_t original_src_width,
                               uint32_t original_src_height, uint32_t padding_width, uint32_t padding_height) {
     if (!src_pic) {
@@ -300,53 +299,6 @@ void svt_aom_generate_padding(EbByte src_pic, uint32_t src_stride, uint32_t orig
         svt_memcpy(bottom_dst_row, bottom_src_row, row_bytes);
     }
 }
-#else
-void svt_aom_generate_padding(
-    EbByte   src_pic, //output paramter, pointer to the source picture to be padded.
-    uint32_t src_stride, //input paramter, the stride of the source picture to be padded.
-    uint32_t original_src_width, //input paramter, the width of the source picture which excludes the padding.
-    uint32_t original_src_height, //input paramter, the height of the source picture which excludes the padding.
-    uint32_t padding_width, //input paramter, the padding width.
-    uint32_t padding_height) //input paramter, the padding height.
-{
-    uint32_t vertical_idx = original_src_height;
-    EbByte   temp_src_pic0;
-    EbByte   temp_src_pic1;
-    EbByte   temp_src_pic2;
-    EbByte   temp_src_pic3;
-
-    if (!src_pic) {
-        SVT_ERROR("padding NULL pointers\n");
-        return;
-    }
-
-    temp_src_pic0 = src_pic;
-    while (vertical_idx) {
-        // horizontal padding
-        svt_memset(temp_src_pic0 - padding_width, *temp_src_pic0, padding_width);
-        svt_memset(temp_src_pic0 + original_src_width, *(temp_src_pic0 + original_src_width - 1), padding_width);
-
-        temp_src_pic0 += src_stride;
-        --vertical_idx;
-    }
-
-    // vertical padding
-    vertical_idx  = padding_height;
-    temp_src_pic0 = src_pic - padding_width;
-    temp_src_pic1 = src_pic - padding_width + (original_src_height - 1) * src_stride;
-    temp_src_pic2 = temp_src_pic0;
-    temp_src_pic3 = temp_src_pic1;
-    while (vertical_idx) {
-        // top part data copy
-        temp_src_pic2 -= src_stride;
-        svt_memcpy(temp_src_pic2, temp_src_pic0, sizeof(uint8_t) * src_stride); // uint8_t to be modified
-        // bottom part data copy
-        temp_src_pic3 += src_stride;
-        svt_memcpy(temp_src_pic3, temp_src_pic1, sizeof(uint8_t) * src_stride); // uint8_t to be modified
-        --vertical_idx;
-    }
-}
-#endif
 
 void svt_aom_generate_padding_compressed_10bit(
     EbByte   src_pic, //output paramter, pointer to the source picture to be padded.
