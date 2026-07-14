@@ -265,8 +265,7 @@ static int calc_pframe_target_size(PictureParentControlSet* ppcs) {
         frame_target *= 1.0 + pct / 400;
     }
 
-    double min_frame_target = AOMMAX(rc->avg_frame_bandwidth >> 4, FRAME_OVERHEAD_BITS);
-    return AOMMAX(min_frame_target, frame_target);
+    return frame_target;
 }
 
 // Select SBs for cyclic refresh by advancing the persisted cycling index (with wrapping).
@@ -407,7 +406,9 @@ static double calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) 
 
     int min_qindex = rc->best_quality;
     int max_qindex = rc->worst_quality;
-    int max_size   = rc->max_frame_bandwidth;
+    int vbv_budget = (int)(rc->maximum_buffer_size - rc->buffer_level + rc->avg_frame_bandwidth);
+    int max_size   = AOMMIN(rc->max_frame_bandwidth, vbv_budget);
+    int min_size   = AOMMAX(rc->avg_frame_bandwidth >> 4, FRAME_OVERHEAD_BITS);
 
     if (frame_is_intra_only(ppcs)) {
         rc->frames_to_key = scs->static_config.intra_period_length + 1;
@@ -439,7 +440,7 @@ static double calculate_qindex(PictureControlSet* pcs, SequenceControlSet* scs) 
             max_size = AOMMIN(max_size, maxp);
         }
     }
-    ppcs->base_frame_target = AOMMIN(ppcs->base_frame_target, max_size);
+    ppcs->base_frame_target = AOMMAX(AOMMIN(ppcs->base_frame_target, max_size), min_size);
     ppcs->this_frame_target = ppcs->base_frame_target;
 
     rtc_cyclic_refresh_init(ppcs);
@@ -627,13 +628,9 @@ static void rtc_update_buffer_level(PictureParentControlSet* ppcs, int encoded_f
 // Post-encode VBV recode decision for RTC CBR.
 // After EncDec finishes, evaluates whether the frame would overflow the VBV buffer.
 bool svt_av1_rc_recode_decision_rtc_cbr(PictureControlSet* pcs) {
-    PictureParentControlSet* ppcs = pcs->ppcs;
-    RATE_CONTROL*            rc   = &ppcs->scs->enc_ctx->rc;
-
-    // Do not recode keyframes yet
-    if (frame_is_intra_only(ppcs)) {
-        return false;
-    }
+    PictureParentControlSet* ppcs   = pcs->ppcs;
+    RATE_CONTROL*            rc     = &ppcs->scs->enc_ctx->rc;
+    RateControlCfg*          rc_cfg = &ppcs->scs->enc_ctx->rc_cfg;
 
     // Prevent re-entry: only one recode pass
     if (ppcs->loop_count > 0) {
@@ -643,16 +640,22 @@ bool svt_av1_rc_recode_decision_rtc_cbr(PictureControlSet* pcs) {
     int projected_frame_size = (int)ROUND_POWER_OF_TWO(ppcs->pcs_total_rate, AV1_PROB_COST_SHIFT);
     projected_frame_size += (ppcs->frm_hdr.frame_type == KEY_FRAME) ? 13 : 0;
 
+    int64_t max_frame_size = INT64_MAX;
+    int     max_pct        = frame_is_intra_only(ppcs) ? rc_cfg->max_intra_bitrate_pct : rc_cfg->max_inter_bitrate_pct;
+    if (rc_cfg->mode == AOM_CBR && max_pct > 0) {
+        max_frame_size = (int64_t)rc->avg_frame_bandwidth * max_pct / 100;
+    }
+
     // Project VBV buffer after this frame
     int64_t projected_buffer = rc->buffer_level + projected_frame_size - rc->avg_frame_bandwidth;
-    if (projected_buffer <= rc->maximum_buffer_size) {
+    if (projected_buffer <= rc->maximum_buffer_size && projected_frame_size <= max_frame_size) {
         return false;
     }
 
     int new_q_idx = rc->worst_quality;
 
-    // Frame would overflow VBV. Compute target size that fits.
-    int target_size = (int)(rc->maximum_buffer_size - rc->buffer_level + rc->avg_frame_bandwidth);
+    // Frame would overflow the VBV and/or the frame cap. Compute target size that fits.
+    int target_size = (int)AOMMIN(max_frame_size, rc->maximum_buffer_size - rc->buffer_level + rc->avg_frame_bandwidth);
     if (target_size >= FRAME_OVERHEAD_BITS) {
         // Use R-Q model to find the qindex that produces target_size
         int    width  = ppcs->av1_cm->frm_size.frame_width;
