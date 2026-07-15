@@ -2599,6 +2599,7 @@ void svt_aom_enc_make_inter_predictor(SequenceControlSet* scs, uint8_t* src_ptr,
                                                    is16bit);
             return;
         }
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
         if (is16bit) {
             // for super-res, the reference frame block might be 2x than predictor in maximum
             // for reference scaling, it might be 4x since both width and height is scaled 2x
@@ -2647,7 +2648,9 @@ void svt_aom_enc_make_inter_predictor(SequenceControlSet* scs, uint8_t* src_ptr,
                                        interp_filters,
                                        use_intrabc,
                                        bit_depth);
-        } else {
+        } else
+#endif
+        {
             svt_inter_predictor(src_mod,
                                 src_stride,
                                 dst_ptr,

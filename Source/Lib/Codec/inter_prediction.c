@@ -1287,6 +1287,7 @@ void svt_inter_predictor_light_pd1(uint8_t* src, uint8_t* src_2b, int32_t src_st
     av1_get_convolve_filter_params(interp_filters, &filter_params_x, &filter_params_y, w, h);
     const int32_t is_scaled = has_scale(subpel_params->xs, subpel_params->ys);
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
     if (bd > EB_EIGHT_BIT) {
         // for super-res, the reference frame block might be 2x than predictor in maximum
         // for reference scaling, it might be 4x since both width and height is scaled 2x
@@ -1350,7 +1351,12 @@ void svt_inter_predictor_light_pd1(uint8_t* src, uint8_t* src_2b, int32_t src_st
                                                                                               conv_params,
                                                                                               bd);
         }
-    } else {
+    } else
+#else
+    UNUSED(bd);
+    UNUSED(src_2b);
+#endif
+    {
         if (is_scaled) {
             svt_av1_convolve_2d_scale(src,
                                       src_stride,

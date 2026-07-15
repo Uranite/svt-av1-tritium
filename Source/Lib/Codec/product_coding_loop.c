@@ -6058,6 +6058,7 @@ static COMPONENT_TYPE chroma_complexity_check(PictureControlSet* pcs, ModeDecisi
 
         uint32_t y_dist, cb_dist, cr_dist;
 
+#if CONFIG_ENABLE_HIGH_BIT_DEPTH
         if (ctx->hbd_md) {
             uint16_t* src_10b;
             DECLARE_ALIGNED(16, uint16_t, packed_buf[PACKED_BUFFER_SIZE]);
@@ -6124,7 +6125,9 @@ static COMPONENT_TYPE chroma_complexity_check(PictureControlSet* pcs, ModeDecisi
                                      stride,
                                      ctx->blk_geom->bheight_uv >> shift,
                                      ctx->blk_geom->bwidth_uv);
-        } else {
+        } else
+#endif
+        {
             // Y dist only computed over UV size so SADs are comparable
             y_dist = svt_nxm_sad_kernel(input_pic->y_buffer + loc->input_origin_index,
                                         input_pic->y_stride << shift,
