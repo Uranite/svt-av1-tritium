@@ -1101,6 +1101,9 @@ typedef struct ModeDecisionContext {
     uint16_t*      obmc_conv_buf;
     int32_t*       wsrc_buf;
     int32_t*       mask_buf;
+    // Hoisted inter-prediction scratch (were large on-stack arrays). Per-thread via ctx.
+    uint16_t*      tmp_conv_buf; // conv accumulation buffer (>= 128x128 uint16)
+    uint8_t*       seg_mask_buf; // masked-compound segmentation mask (2 * MAX_SB_SQUARE)
     uint8_t*       above_txfm_context;
     uint8_t*       left_txfm_context;
     IntraCtrls     intra_ctrls;

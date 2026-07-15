@@ -2715,19 +2715,20 @@ EbErrorType svt_aom_simple_luma_unipred(SequenceControlSet* scs, ScaleFactors sf
 static void av1_inter_prediction_pd0(SequenceControlSet* scs, ModeDecisionContext* ctx, BlockModeInfo* block_mi,
                                      EbPictureBufferDesc* ref_pic_0, EbPictureBufferDesc* ref_pic_1,
                                      EbPictureBufferDesc* pred, ScaleFactors* sf0, ScaleFactors* sf1) {
-    const BlockGeom* blk_geom     = ctx->blk_geom;
-    const uint16_t   ref_origin_x = ctx->blk_org_x;
-    const uint16_t   ref_origin_y = ctx->blk_org_y;
-    const uint16_t   dst_origin_x = 0;
-    const uint16_t   dst_origin_y = 0;
-    const uint8_t    bwidth       = blk_geom->bwidth;
-    const uint8_t    bheight      = blk_geom->bheight;
-    const uint8_t    is_compound  = has_second_ref(block_mi);
-    DECLARE_ALIGNED(32, uint16_t, tmp_dstY[128 * 128]);
-    const int32_t  conv_buf_stride = scs->super_block_size == 128 ? 128 : 64;
-    uint8_t*       dst_ptr         = pred->y_buffer + ((dst_origin_x + (dst_origin_y)*pred->y_stride));
-    int32_t        dst_stride      = pred->y_stride;
-    ConvolveParams conv_params     = get_conv_params_no_round(0, tmp_dstY, conv_buf_stride, is_compound, EB_EIGHT_BIT);
+    const BlockGeom* blk_geom        = ctx->blk_geom;
+    const uint16_t   ref_origin_x    = ctx->blk_org_x;
+    const uint16_t   ref_origin_y    = ctx->blk_org_y;
+    const uint16_t   dst_origin_x    = 0;
+    const uint16_t   dst_origin_y    = 0;
+    const uint8_t    bwidth          = blk_geom->bwidth;
+    const uint8_t    bheight         = blk_geom->bheight;
+    const uint8_t    is_compound     = has_second_ref(block_mi);
+    uint16_t*        tmp_dstY        = ctx->tmp_conv_buf;
+    const int32_t    conv_buf_stride = scs->super_block_size == 128 ? 128 : 64;
+    uint8_t*         dst_ptr         = pred->y_buffer + ((dst_origin_x + (dst_origin_y)*pred->y_stride));
+    int32_t          dst_stride      = pred->y_stride;
+
+    ConvolveParams conv_params = get_conv_params_no_round(0, tmp_dstY, conv_buf_stride, is_compound, EB_EIGHT_BIT);
     for (int ref_itr = 0; ref_itr < 1 + is_compound; ref_itr++) {
         SubpelParams subpel_params = {SCALE_SUBPEL_SHIFTS, SCALE_SUBPEL_SHIFTS, 0, 0};
         int32_t      pos_x         = ref_origin_x + (block_mi->mv[ref_itr].x >> 3);
@@ -2784,9 +2785,9 @@ static void av1_inter_prediction_light_pd1(SequenceControlSet* scs, ModeDecision
     const int32_t    bit_depth    = hbd_md ? EB_TEN_BIT : EB_EIGHT_BIT;
     const uint8_t    is_16bit     = hbd_md ? 1 : 0;
     const uint8_t    is_compound  = has_second_ref(block_mi);
-    DECLARE_ALIGNED(32, uint16_t, tmp_dst_y[64 * 64]);
-    uint8_t* src_mod;
-    uint8_t* src_mod_2b;
+    uint16_t*        tmp_dst_y    = ctx->tmp_conv_buf;
+    uint8_t*         src_mod;
+    uint8_t*         src_mod_2b;
 
     // Luma prediction
     if (component_mask & PICTURE_BUFFER_DESC_LUMA_MASK) {
@@ -3205,14 +3206,16 @@ EbErrorType svt_aom_inter_prediction(SequenceControlSet* scs, PictureControlSet*
     const uint8_t is16bit     = bit_depth > EB_EIGHT_BIT || is_16bit_pipeline;
     const uint8_t is_compound = has_second_ref(block_mi);
 
-    // Move these to context if stack does not hold.
-    // Process chroma after luma to re-use buffer.
-    DECLARE_ALIGNED(32, uint16_t, tmp_dst_y[128 * 128]);
+    // Scratch conv + seg-mask buffers are hoisted to the per-thread MD context to keep
+    // this large frame off the stack. ctx is NULL only on the temporal-filtering
+    // (ME-thread) path, which is single-ref (non-compound, non-masked) and therefore
+    // never dereferences these buffers.
+    uint16_t* tmp_dst_y  = ctx ? ctx->tmp_conv_buf : NULL;
     uint16_t* tmp_dst_cb = tmp_dst_y;
-    uint16_t* tmp_dst_cr = &tmp_dst_y[64 * 64];
+    uint16_t* tmp_dst_cr = ctx ? &ctx->tmp_conv_buf[64 * 64] : NULL;
 
     // seg_mask is computed for luma and used for chroma
-    DECLARE_ALIGNED(16, uint8_t, seg_mask[2 * MAX_SB_SQUARE]);
+    uint8_t* seg_mask = ctx ? ctx->seg_mask_buf : NULL;
 
     uint8_t* src_ptr;
     uint8_t* src_ptr_2b = NULL;

@@ -77,6 +77,8 @@ static void mode_decision_context_dctor(EbPtr p) {
     EB_FREE_ALIGNED_ARRAY(obj->cfl_temp_luma_recon16bit);
     EB_FREE_ALIGNED_ARRAY(obj->cfl_temp_luma_recon);
     EB_FREE_ALIGNED_ARRAY(obj->pred_buf_q3);
+    EB_FREE_ALIGNED_ARRAY(obj->tmp_conv_buf);
+    EB_FREE_ALIGNED_ARRAY(obj->seg_mask_buf);
     EB_FREE_ARRAY(obj->fast_cand_array);
     EB_FREE_2D(obj->injected_mvs);
     EB_FREE_ARRAY(obj->injected_ref_types);
@@ -311,6 +313,9 @@ EbErrorType svt_aom_mode_decision_context_ctor(ModeDecisionContext* ctx, Sequenc
         EB_MALLOC_ALIGNED(ctx->cfl_temp_luma_recon, sizeof(uint8_t) * sb_size * sb_size);
     }
     EB_MALLOC_ALIGNED(ctx->pred_buf_q3, CFL_BUF_SQUARE);
+    // Hoisted inter-prediction scratch (previously large on-stack arrays).
+    EB_MALLOC_ALIGNED_ARRAY(ctx->tmp_conv_buf, MAX_SB_SQUARE);
+    EB_MALLOC_ALIGNED_ARRAY(ctx->seg_mask_buf, 2 * MAX_SB_SQUARE);
     uint8_t use_update_cdf = 0;
     if (allintra) {
         use_update_cdf = svt_aom_get_update_cdf_level_allintra(enc_mode);
