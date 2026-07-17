@@ -2837,7 +2837,14 @@ void svt_aom_sig_deriv_pre_analysis_scs(SequenceControlSet* scs, int8_t enc_mode
                                                                 init_input_resolution,
                                                                 scs->static_config.fast_decode);
     } else {
-        scs->seq_header.enable_restoration = (uint8_t)scs->static_config.enable_restoration_filtering;
+        ResolutionRange fr_res;
+        svt_aom_derive_input_resolution(&fr_res,
+                                        scs->max_initial_input_luma_width * scs->max_initial_input_luma_height);
+        const uint8_t auto_en              = allintra ? svt_aom_get_enable_restoration_allintra(enc_mode, DEFAULT)
+                         : rtc_tune
+                         ? svt_aom_get_enable_restoration_rtc(DEFAULT, fr_res, scs->static_config.fast_decode)
+                         : svt_aom_get_enable_restoration_default(enc_mode, DEFAULT, fr_res, scs->static_config.fast_decode);
+        scs->seq_header.enable_restoration = (scs->static_config.enable_restoration_filtering && auto_en) ? 1 : 0;
     }
 
     if (scs->static_config.cdef_level == DEFAULT) {

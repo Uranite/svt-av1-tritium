@@ -502,8 +502,8 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
     }
 
     // CDEF
-    if (config->cdef_level > 4 || config->cdef_level < -1) {
-        SVT_ERROR("Invalid CDEF level [0 - 4, -1 for auto], your input: %d\n", config->cdef_level);
+    if (config->cdef_level > 10 || config->cdef_level < -1) {
+        SVT_ERROR("Invalid CDEF level [0 - 10, -1 for auto], your input: %d\n", config->cdef_level);
         return_error = EB_ErrorBadParameter;
     }
 

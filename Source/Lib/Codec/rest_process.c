@@ -231,8 +231,14 @@ static void copy_statistics_to_ref_obj_ect(PictureControlSet* pcs, SequenceContr
     // Copy the prev frame wn filter coeffs
     if (cm->wn_filter_ctrls.enabled && cm->wn_filter_ctrls.use_prev_frame_coeffs) {
         for (int32_t plane = 0; plane < MAX_PLANES; ++plane) {
-            int32_t ntiles = pcs->rst_info[plane].units_per_tile;
+            int32_t    ntiles          = pcs->rst_info[plane].units_per_tile;
+            const bool unit_info_valid = pcs->rst_info[plane].frame_restoration_type != RESTORE_NONE ||
+                (ppcs->slice_type != I_SLICE && ppcs->enable_restoration && frm_hdr->allow_intrabc == 0);
             for (int32_t u = 0; u < ntiles; ++u) {
+                if (!unit_info_valid) {
+                    obj->unit_info[plane][u].restoration_type = RESTORE_NONE;
+                    continue;
+                }
                 obj->unit_info[plane][u].restoration_type = pcs->rst_info[plane].unit_info[u].restoration_type;
                 if (pcs->rst_info[plane].unit_info[u].restoration_type == RESTORE_WIENER) {
                     obj->unit_info[plane][u].wiener_info = pcs->rst_info[plane].unit_info[u].wiener_info;
@@ -326,7 +332,7 @@ EbErrorType svt_aom_rest_kernel_iter(void* context) {
             rest_finish_search(pcs);
 
             // Only need recon if REF pic or recon is output
-            if (ppcs->is_ref || scs->static_config.recon_enabled) {
+            if (ppcs->is_ref || scs->static_config.recon_enabled || scs->static_config.stat_report) {
                 if (pcs->rst_info[0].frame_restoration_type != RESTORE_NONE ||
                     pcs->rst_info[1].frame_restoration_type != RESTORE_NONE ||
                     pcs->rst_info[2].frame_restoration_type != RESTORE_NONE) {

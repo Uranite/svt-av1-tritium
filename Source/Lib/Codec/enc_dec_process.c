@@ -3128,7 +3128,8 @@ EbErrorType svt_aom_mode_decision_kernel_iter(void* context) {
 
                         if ((pcs->ppcs->cdef_search_ctrls.enabled && !pcs->ppcs->cdef_search_ctrls.use_qp_strength &&
                              !pcs->ppcs->cdef_search_ctrls.use_reference_cdef_fs) ||
-                            pcs->ppcs->enable_restoration || pcs->ppcs->is_ref || scs->static_config.recon_enabled) {
+                            pcs->ppcs->enable_restoration || pcs->ppcs->is_ref || scs->static_config.recon_enabled ||
+                            scs->static_config.stat_report) {
                             if (pcs->ppcs->frm_hdr.loop_filter_params.filter_level[0] ||
                                 pcs->ppcs->frm_hdr.loop_filter_params.filter_level[1]) {
                                 EbPictureBufferDesc* recon_buffer;

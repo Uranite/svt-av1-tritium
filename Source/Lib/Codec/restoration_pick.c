@@ -1389,10 +1389,10 @@ static void search_wiener_finish(const RestorationTileLimits* limits, const Av1P
     const Av1Common* const     cm       = rsc->cm;
     const WnFilterCtrls* const wn_ctrls = &cm->wn_filter_ctrls;
     assert(wn_ctrls->filter_tap_lvl == 1 || wn_ctrls->filter_tap_lvl == 2);
-    const int32_t           wn_luma    = wn_ctrls->filter_tap_lvl == 1 ? WIENER_WIN : WIENER_WIN_CHROMA;
-    const int32_t           wiener_win = rsc->plane == PLANE_Y ? wn_luma : WIENER_WIN_CHROMA;
-    const Macroblock* const x          = rsc->x;
-    const int64_t           bits_none  = x->wiener_restore_cost[0];
+    const int32_t wiener_win = rsc->plane == PLANE_Y ? WIENER_WIN : WIENER_WIN_CHROMA;
+    (void)wn_ctrls;
+    const Macroblock* const x         = rsc->x;
+    const int64_t           bits_none = x->wiener_restore_cost[0];
 
     RestorationUnitInfo rui;
     memset(&rui, 0, sizeof(rui));

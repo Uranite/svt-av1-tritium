@@ -706,7 +706,8 @@ EbErrorType svt_aom_cdef_kernel_iter(void* context) {
         pcs->cdef_dist_dev = -1;
         if (scs->seq_header.cdef_level && pcs->ppcs->cdef_level) {
             finish_cdef_search(pcs);
-            if (ppcs->enable_restoration || pcs->ppcs->is_ref || scs->static_config.recon_enabled) {
+            if (ppcs->enable_restoration || pcs->ppcs->is_ref || scs->static_config.recon_enabled ||
+                scs->static_config.stat_report) {
                 // Do application iff there are non-zero filters
                 if (frm_hdr->cdef_params.cdef_y_strength[0] != 0 || frm_hdr->cdef_params.cdef_uv_strength[0] != 0 ||
                     pcs->ppcs->nb_cdef_strengths != 1) {
