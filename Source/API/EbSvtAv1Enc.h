@@ -1223,6 +1223,12 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool low_memory;
 
+    /* @brief do not print encoder parameters
+     *
+     * Default is false.
+     */
+    bool hide_banner;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1236,7 +1242,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - (sizeof(uint8_t) * 11) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength, noise_chroma_from_luma, alt_cdef, enable_daala
         - sizeof(int8_t)        // noise_size
         - (sizeof(int32_t) * 2) // noise_strength_chroma, min_intra_period_length
-        - (sizeof(bool) * 5)    // alt_lambda_factors, alt_ssim_tuning, color_range_provided, auto_tiling, low_memory
+        - (sizeof(bool) * 6)    // alt_lambda_factors, alt_ssim_tuning, color_range_provided, auto_tiling, low_memory, hide_banner
         - sizeof(double)        // qp_scale_compress_strength
         - sizeof(SvtAv1QualityZone*) // quality_zones
         - sizeof(uint16_t)      // num_zones
