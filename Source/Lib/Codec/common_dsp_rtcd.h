@@ -155,6 +155,15 @@ typedef uint64_t(*EbSpatialFullDistType)(
     uint32_t   recon_stride,
     uint32_t   area_width,
     uint32_t   area_height);
+void svt_aom_od_compute_diff_and_filter_h_c(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, int32_t *tmp, uint32_t tmp_stride, uint32_t width, uint32_t height);
+RTCD_EXTERN void (*svt_aom_od_compute_diff_and_filter_h)(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, int32_t *tmp, uint32_t tmp_stride, uint32_t width, uint32_t height);
+
+void svt_aom_od_filter_v_c(const int32_t *tmp, uint32_t tmp_stride, int32_t *e_lp, uint32_t e_lp_stride, uint32_t width, uint32_t height);
+RTCD_EXTERN void (*svt_aom_od_filter_v)(const int32_t *tmp, uint32_t tmp_stride, int32_t *e_lp, uint32_t e_lp_stride, uint32_t width, uint32_t height);
+
+void svt_aom_od_compute_var_and_dist_8x8_c(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, const int32_t *e_lp, uint32_t e_lp_stride, uint32_t *varx, uint32_t *vary, uint64_t *sum_e_lp_sq);
+RTCD_EXTERN void (*svt_aom_od_compute_var_and_dist_8x8)(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, const int32_t *e_lp, uint32_t e_lp_stride, uint32_t *varx, uint32_t *vary, uint64_t *sum_e_lp_sq);
+
 RTCD_EXTERN void(*svt_residual_kernel16bit)(uint16_t *input, uint32_t input_stride, uint16_t *pred, uint32_t pred_stride, int16_t *residual, uint32_t residual_stride, uint32_t area_width, uint32_t area_height);
 RTCD_EXTERN void(*avc_style_luma_interpolation_filter)(EbByte ref_pic, uint32_t src_stride, EbByte dst, uint32_t dst_stride, uint32_t pu_width, uint32_t pu_height, EbByte temp_buf, uint32_t frac_pos, uint8_t choice);
 void svt_av1_wiener_convolve_add_src_c(const uint8_t *const src, const ptrdiff_t src_stride, uint8_t *const dst, const ptrdiff_t dst_stride, const int16_t *const filter_x, const int16_t *const filter_y, const int32_t w, const int32_t h, const ConvolveParams *const conv_params);
@@ -1082,6 +1091,10 @@ void svt_aom_hadamard_4x4_c(const int16_t* src_diff, ptrdiff_t src_stride, int32
 RTCD_EXTERN void (*svt_aom_hadamard_4x4)(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
 
 #ifdef ARCH_AARCH64
+void svt_aom_od_compute_diff_and_filter_h_neon(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, int32_t *tmp, uint32_t tmp_stride, uint32_t width, uint32_t height);
+void svt_aom_od_filter_v_neon(const int32_t *tmp, uint32_t tmp_stride, int32_t *e_lp, uint32_t e_lp_stride, uint32_t width, uint32_t height);
+void svt_aom_od_compute_var_and_dist_8x8_neon(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, const int32_t *e_lp, uint32_t e_lp_stride, uint32_t *varx, uint32_t *vary, uint64_t *sum_e_lp_sq);
+
 void svt_av1_copy_wxh_8bit_neon(uint8_t *src, uint32_t src_stride, uint8_t *dst, uint32_t dst_stride, uint32_t height, uint32_t width);
 void svt_av1_copy_wxh_16bit_neon(uint16_t *src, uint32_t src_stride, uint16_t *dst, uint32_t dst_stride, uint32_t height, uint32_t width);
 void svt_memcpy_neon(void *dst_ptr, void const *src_ptr, size_t size);
@@ -1722,6 +1735,15 @@ void svt_av1_inv_txfm2d_add_64x32_neon(const int32_t *input, uint16_t *output_r,
 #endif
 
 #ifdef ARCH_X86_64
+
+void svt_aom_od_compute_diff_and_filter_h_sse4_1(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, int32_t *tmp, uint32_t tmp_stride, uint32_t width, uint32_t height);
+void svt_aom_od_compute_diff_and_filter_h_avx2(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, int32_t *tmp, uint32_t tmp_stride, uint32_t width, uint32_t height);
+
+void svt_aom_od_filter_v_sse4_1(const int32_t *tmp, uint32_t tmp_stride, int32_t *e_lp, uint32_t e_lp_stride, uint32_t width, uint32_t height);
+void svt_aom_od_filter_v_avx2(const int32_t *tmp, uint32_t tmp_stride, int32_t *e_lp, uint32_t e_lp_stride, uint32_t width, uint32_t height);
+
+void svt_aom_od_compute_var_and_dist_8x8_sse4_1(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, const int32_t *e_lp, uint32_t e_lp_stride, uint32_t *varx, uint32_t *vary, uint64_t *sum_e_lp_sq);
+void svt_aom_od_compute_var_and_dist_8x8_avx2(const uint16_t *x, uint32_t x_stride, const uint16_t *y, uint32_t y_stride, const int32_t *e_lp, uint32_t e_lp_stride, uint32_t *varx, uint32_t *vary, uint64_t *sum_e_lp_sq);
 
 void svt_aom_blend_a64_vmask_sse4_1(uint8_t *dst, uint32_t dst_stride, const uint8_t *src0, uint32_t src0_stride, const uint8_t *src1, uint32_t src1_stride, const uint8_t *mask, int w, int h);
 

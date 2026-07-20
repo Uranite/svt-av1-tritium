@@ -54,6 +54,7 @@ set(all_files
     selfguided_sse4.c
     temporal_filtering_sse4_1.c
     warp_plane_sse4.c
+    daala_dist_sse4.c
     )
 
 add_library(ASM_SSE4_1 OBJECT ${all_files})

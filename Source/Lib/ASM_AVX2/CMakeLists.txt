@@ -96,6 +96,7 @@ set(all_files
     warp_plane_avx2.c
     wiener_convolve_avx2.c
     wiener_convolve_avx2.h
+    daala_dist_avx2.c
     )
 
 set(asm_files

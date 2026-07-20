@@ -77,7 +77,8 @@ target_sources(
   PUBLIC variance_neon.c
   PUBLIC warp_plane_neon.c
   PUBLIC wedge_utils_neon.c
-  PUBLIC wiener_convolve_neon.c)
+  PUBLIC wiener_convolve_neon.c
+  PUBLIC daala_dist_neon.c)
 
 target_include_directories(
   ASM_NEON
