@@ -239,6 +239,7 @@
 #define CDEF_SCALING_TOKEN "--cdef-scaling"
 #define AUTO_TILING_TOKEN "--auto-tiling"
 #define ZONES_TOKEN "--zones"
+#define ALT_CDEF_TOKEN "--enable-alt-cdef"
 
 static EbErrorType validate_error(EbErrorType err, const char* token, const char* value) {
     switch (err) {
@@ -1191,6 +1192,10 @@ ConfigDescription config_entry_psychovisual[] = {
     // Zones
     {ZONES_TOKEN,
 	 "CRF/CQP zones, format: start,end,quality;start,end,quality;..., default is no zones"},
+    // Alt CDEF
+    {ALT_CDEF_TOKEN,
+     "Enable alternative CDEF biases."
+     "Default is 0 [0-3]."},
     // Termination
     {NULL, NULL}};
 
@@ -1452,6 +1457,9 @@ ConfigEntry config_entry[] = {
 
     // Zones
     {ZONES_TOKEN, "Zones", set_cfg_quality_zones},
+
+    // Alt CDEF
+    {ALT_CDEF_TOKEN, "AltCDEF", set_cfg_generic_token},
 
     // Termination
     {NULL, NULL, NULL}};
