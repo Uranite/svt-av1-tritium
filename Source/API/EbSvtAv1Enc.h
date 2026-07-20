@@ -1165,6 +1165,14 @@ typedef struct EbSvtAv1EncConfiguration {
      * @brief Check if color range is provided by the user
      */
     bool color_range_provided;
+
+    /**
+     * @brief Signal to the library to automatically adjust tiles
+     *
+     * Default is true.
+     */
+    bool auto_tiling;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1178,7 +1186,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - (sizeof(uint8_t) * 9) // noise_norm_strength, kf_tf_strength, sharp_tx, tx_bias, complex_hvs, noise_adaptive_filtering, cdef_scaling, noise_strength, noise_chroma_from_luma
         - sizeof(int8_t)        // noise_size
         - sizeof(int32_t)       // noise_strength_chroma
-        - (sizeof(bool) * 3)    // alt_lambda_factors, alt_ssim_tuning, color_range_provided
+        - (sizeof(bool) * 4)    // alt_lambda_factors, alt_ssim_tuning, color_range_provided, auto_tiling
         - sizeof(double)        // qp_scale_compress_strength
     ];
     // clang-format on
