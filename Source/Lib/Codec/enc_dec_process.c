@@ -2947,8 +2947,6 @@ EbErrorType svt_aom_mode_decision_kernel_iter(void* context) {
                         md_ctx->pred_depth_only = 1;
                     }
 
-                    const uint8_t saved_hbd_md = md_ctx->hbd_md;
-                    md_ctx->hbd_md             = 0;
                     // Multi-Pass PD
                     if (!skip_pd_pass_0 && pcs->ppcs->multi_pass_pd_level == MULTI_PASS_PD_ON) {
                         // [PD_PASS_0]
@@ -2958,35 +2956,77 @@ EbErrorType svt_aom_mode_decision_kernel_iter(void* context) {
                         // PD0 doesn't have a fixed partition structure, as the main purpose of PD0
                         // is to determine a prediction for the final prediction structure
                         md_ctx->fixed_partition = false;
-                        // [PD_PASS_0] Signal(s) derivation
-                        svt_aom_sig_deriv_enc_dec_pd0(scs, pcs, ed_ctx->md_ctx);
-                        // Save a clean copy of the neighbor arrays
-                        if (!ed_ctx->md_ctx->skip_intra) {
-                            copy_neighbour_arrays_pd0(pcs,
-                                                      ed_ctx->md_ctx,
-                                                      MD_NEIGHBOR_ARRAY_INDEX,
-                                                      MULTI_STAGE_PD_NEIGHBOR_ARRAY_INDEX,
-                                                      sb_origin_x,
-                                                      sb_origin_y);
-                        }
-                        set_blocks_to_be_tested(scs, pcs, md_ctx, md_ctx->mds, 0);
-                        svt_aom_init_sb_data(scs, pcs, md_ctx);
-                        svt_aom_pick_partition_pd0(scs,
+                        if (md_ctx->pd0_ctrls.pd0_level > REGULAR_PD0) {
+                            // [PD_PASS_0] Signal(s) derivation
+                            svt_aom_sig_deriv_enc_dec_pd0(scs, pcs, ed_ctx->md_ctx);
+                            // Save a clean copy of the neighbor arrays
+                            if (!ed_ctx->md_ctx->skip_intra) {
+                                copy_neighbour_arrays_pd0(pcs,
+                                                          ed_ctx->md_ctx,
+                                                          MD_NEIGHBOR_ARRAY_INDEX,
+                                                          MULTI_STAGE_PD_NEIGHBOR_ARRAY_INDEX,
+                                                          sb_origin_x,
+                                                          sb_origin_y);
+                            }
+
+                            set_blocks_to_be_tested(scs, pcs, md_ctx, md_ctx->mds, 0);
+                            svt_aom_init_sb_data(scs, pcs, md_ctx);
+                            svt_aom_pick_partition_pd0(scs,
+                                                       pcs,
+                                                       ed_ctx->md_ctx,
+                                                       md_ctx->mds,
+                                                       md_ctx->pc_tree,
+                                                       md_ctx->sb_origin_y >> 2,
+                                                       md_ctx->sb_origin_x >> 2);
+                            // Re-build mdc_blk_ptr for the 2nd PD Pass [PD_PASS_1]
+                            // Reset neighbor information to current SB @ position (0,0)
+                            if (!ed_ctx->md_ctx->skip_intra) {
+                                copy_neighbour_arrays_pd0(pcs,
+                                                          ed_ctx->md_ctx,
+                                                          MULTI_STAGE_PD_NEIGHBOR_ARRAY_INDEX,
+                                                          MD_NEIGHBOR_ARRAY_INDEX,
+                                                          sb_origin_x,
+                                                          sb_origin_y);
+                            }
+                        } else {
+                            // [PD_PASS_0] Signal(s) derivation
+                            if (scs->allintra) {
+                                svt_aom_sig_deriv_enc_dec_allintra(pcs, ed_ctx->md_ctx);
+                            } else if (scs->static_config.rtc) {
+                                svt_aom_sig_deriv_enc_dec_rtc(pcs, ed_ctx->md_ctx);
+                            } else {
+                                svt_aom_sig_deriv_enc_dec_default(pcs, ed_ctx->md_ctx);
+                            }
+
+                            // Save a clean copy of the neighbor arrays
+                            svt_aom_copy_neighbour_arrays(pcs,
+                                                          ed_ctx->md_ctx,
+                                                          MD_NEIGHBOR_ARRAY_INDEX,
+                                                          MULTI_STAGE_PD_NEIGHBOR_ARRAY_INDEX,
+                                                          scs->seq_header.sb_size,
+                                                          sb_origin_y >> MI_SIZE_LOG2,
+                                                          sb_origin_x >> MI_SIZE_LOG2);
+
+                            set_blocks_to_be_tested(scs, pcs, md_ctx, md_ctx->mds, 0);
+                            // PD0 MD Tool(s) : ME_MV(s) as INTER candidate(s), DC as INTRA candidate, luma only, Frequency domain SSE,
+                            // no fast rate (no MVP table generation), MDS0 then MDS3, reduced NIC(s), 1 ref per list,..
+                            svt_aom_init_sb_data(scs, pcs, md_ctx);
+                            svt_aom_pick_partition(scs,
                                                    pcs,
                                                    ed_ctx->md_ctx,
                                                    md_ctx->mds,
                                                    md_ctx->pc_tree,
                                                    md_ctx->sb_origin_y >> 2,
                                                    md_ctx->sb_origin_x >> 2);
-                        // Re-build mdc_blk_ptr for the 2nd PD Pass [PD_PASS_1]
-                        // Reset neighbor information to current SB @ position (0,0)
-                        if (!ed_ctx->md_ctx->skip_intra) {
-                            copy_neighbour_arrays_pd0(pcs,
-                                                      ed_ctx->md_ctx,
-                                                      MULTI_STAGE_PD_NEIGHBOR_ARRAY_INDEX,
-                                                      MD_NEIGHBOR_ARRAY_INDEX,
-                                                      sb_origin_x,
-                                                      sb_origin_y);
+                            // Re-build mdc_blk_ptr for the 2nd PD Pass [PD_PASS_1]
+                            // Reset neighbor information to current SB @ position (0,0)
+                            svt_aom_copy_neighbour_arrays(pcs,
+                                                          ed_ctx->md_ctx,
+                                                          MULTI_STAGE_PD_NEIGHBOR_ARRAY_INDEX,
+                                                          MD_NEIGHBOR_ARRAY_INDEX,
+                                                          scs->seq_header.sb_size,
+                                                          sb_origin_y >> MI_SIZE_LOG2,
+                                                          sb_origin_x >> MI_SIZE_LOG2);
                         }
                         // This classifier is used for only pd0_level 0 and pd0_level 1
                         // where the cnt_nz_coeff is derived @ PD0
@@ -3006,7 +3046,6 @@ EbErrorType svt_aom_mode_decision_kernel_iter(void* context) {
                                                       md_ctx->sb_origin_y >> 2,
                                                       md_ctx->sb_origin_x >> 2);
                     }
-                    md_ctx->hbd_md = saved_hbd_md;
                     // [PD_PASS_1] Signal(s) derivation
                     ed_ctx->md_ctx->pd_pass = PD_PASS_1;
                     // This classifier is used for the case PD0 is bypassed and for pd0_level 2

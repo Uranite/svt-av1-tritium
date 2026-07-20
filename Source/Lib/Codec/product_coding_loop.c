@@ -10944,7 +10944,7 @@ static void update_part_neighs(ModeDecisionContext* ctx, PC_TREE* pc_tree, const
 
 void svt_aom_init_sb_data(SequenceControlSet* scs, PictureControlSet* pcs, ModeDecisionContext* ctx) {
     // Update neighbour arrays for the SB
-    if (ctx->pd_pass == PD_PASS_0) {
+    if (ctx->pd_pass == PD_PASS_0 && ctx->pd0_ctrls.pd0_level > REGULAR_PD0) {
         if (!ctx->skip_intra) {
             update_neighbour_arrays_pd0(pcs, ctx);
         }
@@ -10973,7 +10973,7 @@ void svt_aom_init_sb_data(SequenceControlSet* scs, PictureControlSet* pcs, ModeD
         ctx->cr_txb_skip_context   = 0;
         ctx->cr_dc_sign_context    = 0;
         ctx->ind_uv_avail          = 0;
-    } else if (ctx->pd_pass == PD_PASS_0) {
+    } else if (ctx->pd_pass == PD_PASS_0 && ctx->pd0_ctrls.pd0_level > REGULAR_PD0) {
         // Set SB-level variables here
         ctx->tx_depth                 = 0;
         ctx->txb_1d_offset            = 0;
@@ -11031,7 +11031,8 @@ static bool test_split_partition(SequenceControlSet* scs, PictureControlSet* pcs
 
         // Check current depth cost; if larger than parent, exit early
         if (pc_tree->rdc.valid) {
-            assert(!ctx->pred_depth_only && "In pred depth only mode, parent depth cost should be unavailable");
+            assert(!(ctx->pd_pass == PD_PASS_1 && ctx->pred_depth_only) &&
+                   "If PD1 and pred depth only, parent depth cost should be unavailable");
             const uint32_t th = (i == 0)
                 ? (ctx->depth_early_exit_ctrls.split_cost_th == 0 ? 1000 : ctx->depth_early_exit_ctrls.split_cost_th)
                 : (ctx->depth_early_exit_ctrls.early_exit_th == 0 ? 1000 : ctx->depth_early_exit_ctrls.early_exit_th);

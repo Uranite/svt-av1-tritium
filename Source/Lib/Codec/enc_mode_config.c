@@ -5469,7 +5469,7 @@ static void set_inter_intra_ctrls(ModeDecisionContext* ctx, uint8_t inter_intra_
 static void set_pd0_ctrls(ModeDecisionContext* ctx, uint8_t lpd0_lvl) {
     Pd0Ctrls* ctrls = &ctx->pd0_ctrls;
     if (ctx->hbd_md) {
-        ctx->pd0_ctrls.pd0_level = PD0_LVL_0;
+        ctx->pd0_ctrls.pd0_level = REGULAR_PD0;
         return;
     }
     switch (lpd0_lvl) {
