@@ -7887,10 +7887,10 @@ void svt_aom_sig_deriv_enc_dec_default(PictureControlSet* pcs, ModeDecisionConte
     uint8_t                  ref_skip_perc = pcs->ref_skip_percentage;
 
     set_nsq_search_ctrls(pcs, ctx, pcs->nsq_search_level);
-    svt_aom_set_nic_controls(ctx, pcs->nic_level);
+    svt_aom_set_nic_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 11 : pcs->nic_level);
     set_cand_reduction_ctrls(pcs,
                              ctx,
-                             pcs->cand_reduction_level,
+                             ctx->pd_pass == PD_PASS_0 ? 0 : pcs->cand_reduction_level,
                              picture_qp,
                              me_8x8_cost_variance,
                              me_64x64_distortion,
@@ -7899,28 +7899,40 @@ void svt_aom_sig_deriv_enc_dec_default(PictureControlSet* pcs, ModeDecisionConte
                              ref_skip_perc);
 
     uint8_t txt_level = pcs->txt_level;
-    svt_aom_set_txt_controls(ctx, txt_level);
-    set_tx_shortcut_ctrls(pcs, ctx, pcs->tx_shortcut_level);
+    svt_aom_set_txt_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : txt_level);
+    set_tx_shortcut_ctrls(pcs, ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->tx_shortcut_level);
 
-    set_interpolation_search_level_ctrls(ctx, pcs->interpolation_search_level);
+    set_interpolation_search_level_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->interpolation_search_level);
 
-    svt_aom_set_chroma_controls(ctx, pcs->chroma_level);
+    svt_aom_set_chroma_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->chroma_level);
 
-    set_cfl_ctrls(ctx, pcs->cfl_level);
+    set_cfl_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->cfl_level);
     // Update nsq settings based on the sb_class
-    ctx->md_disallow_nsq_search          = !ctx->nsq_geom_ctrls.enabled || !ctx->nsq_search_ctrls.enabled;
-    ctx->global_mv_injection             = ppcs->gm_ctrls.enabled;
-    ctx->new_nearest_injection           = 1;
-    ctx->new_nearest_near_comb_injection = pcs->new_nearest_near_comb_injection;
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->md_disallow_nsq_search = 1;
+    } else {
+        ctx->md_disallow_nsq_search = !ctx->nsq_geom_ctrls.enabled || !ctx->nsq_search_ctrls.enabled;
+    }
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->global_mv_injection = 0;
+    } else {
+        ctx->global_mv_injection = ppcs->gm_ctrls.enabled;
+    }
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->new_nearest_injection = 0;
+    } else {
+        ctx->new_nearest_injection = 1;
+    }
+    ctx->new_nearest_near_comb_injection = ctx->pd_pass == PD_PASS_0 ? 0 : pcs->new_nearest_near_comb_injection;
 
     //set Warped-Motion controls from Picture level.
-    svt_aom_set_wm_controls(ctx, pcs->wm_level);
+    svt_aom_set_wm_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->wm_level);
 
-    ctx->unipred3x3_injection = pcs->unipred3x3_injection;
-    svt_aom_set_bipred3x3_controls(ctx, pcs->bipred3x3_injection);
-    set_inter_comp_controls(ctx, pcs->inter_compound_mode);
-    svt_aom_set_dist_based_ref_pruning_controls(ctx, pcs->dist_based_ref_pruning);
-    set_spatial_sse_full_loop_level(ctx, pcs->spatial_sse_full_loop_level);
+    ctx->unipred3x3_injection = ctx->pd_pass == PD_PASS_0 ? 0 : pcs->unipred3x3_injection;
+    svt_aom_set_bipred3x3_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->bipred3x3_injection);
+    set_inter_comp_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->inter_compound_mode);
+    svt_aom_set_dist_based_ref_pruning_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->dist_based_ref_pruning);
+    set_spatial_sse_full_loop_level(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->spatial_sse_full_loop_level);
     if (ctx->uv_ctrls.uv_mode <= CHROMA_MODE_1) {
         ctx->blk_skip_decision = true;
     } else {
@@ -7945,10 +7957,13 @@ void svt_aom_sig_deriv_enc_dec_default(PictureControlSet* pcs, ModeDecisionConte
         depth_early_exit_lvl = 2;
     }
     set_depth_early_exit_ctrls(ctx, depth_early_exit_lvl);
-    set_obmc_controls(ctx, ppcs->pic_obmc_level);
-    set_inter_intra_ctrls(ctx, pcs->inter_intra_level);
-    set_txs_controls(pcs, ctx, pcs->txs_level);
-    set_filter_intra_ctrls(ctx, pcs->pic_filter_intra_level);
+    set_obmc_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : ppcs->pic_obmc_level);
+    set_inter_intra_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->inter_intra_level);
+    set_txs_controls(pcs, ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->txs_level);
+    set_filter_intra_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->pic_filter_intra_level);
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->md_palette_level = 0;
+    }
     // Set md_allow_intrabc @ MD
     ctx->md_allow_intrabc = pcs->ppcs->frm_hdr.allow_intrabc;
 
@@ -8005,10 +8020,10 @@ void svt_aom_sig_deriv_enc_dec_rtc(PictureControlSet* pcs, ModeDecisionContext* 
     uint8_t                  l0_was_skip = 0, l1_was_skip = 0;
     uint8_t                  ref_skip_perc = pcs->ref_skip_percentage;
     set_nsq_search_ctrls(pcs, ctx, pcs->nsq_search_level);
-    svt_aom_set_nic_controls(ctx, pcs->nic_level);
+    svt_aom_set_nic_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 11 : pcs->nic_level);
     set_cand_reduction_ctrls(pcs,
                              ctx,
-                             pcs->cand_reduction_level,
+                             ctx->pd_pass == PD_PASS_0 ? 0 : pcs->cand_reduction_level,
                              picture_qp,
                              me_8x8_cost_variance,
                              me_64x64_distortion,
@@ -8017,28 +8032,40 @@ void svt_aom_sig_deriv_enc_dec_rtc(PictureControlSet* pcs, ModeDecisionContext* 
                              ref_skip_perc);
 
     uint8_t txt_level = pcs->txt_level;
-    svt_aom_set_txt_controls(ctx, txt_level);
-    set_tx_shortcut_ctrls(pcs, ctx, pcs->tx_shortcut_level);
+    svt_aom_set_txt_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : txt_level);
+    set_tx_shortcut_ctrls(pcs, ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->tx_shortcut_level);
 
-    set_interpolation_search_level_ctrls(ctx, pcs->interpolation_search_level);
+    set_interpolation_search_level_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->interpolation_search_level);
 
-    svt_aom_set_chroma_controls(ctx, pcs->chroma_level);
+    svt_aom_set_chroma_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->chroma_level);
 
-    set_cfl_ctrls(ctx, pcs->cfl_level);
+    set_cfl_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->cfl_level);
     // Update nsq settings based on the sb_class
-    ctx->md_disallow_nsq_search          = !ctx->nsq_geom_ctrls.enabled || !ctx->nsq_search_ctrls.enabled;
-    ctx->global_mv_injection             = ppcs->gm_ctrls.enabled;
-    ctx->new_nearest_injection           = 1;
-    ctx->new_nearest_near_comb_injection = pcs->new_nearest_near_comb_injection;
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->md_disallow_nsq_search = 1;
+    } else {
+        ctx->md_disallow_nsq_search = !ctx->nsq_geom_ctrls.enabled || !ctx->nsq_search_ctrls.enabled;
+    }
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->global_mv_injection = 0;
+    } else {
+        ctx->global_mv_injection = ppcs->gm_ctrls.enabled;
+    }
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->new_nearest_injection = 0;
+    } else {
+        ctx->new_nearest_injection = 1;
+    }
+    ctx->new_nearest_near_comb_injection = ctx->pd_pass == PD_PASS_0 ? 0 : pcs->new_nearest_near_comb_injection;
 
     //set Warped-Motion controls from Picture level.
-    svt_aom_set_wm_controls(ctx, pcs->wm_level);
+    svt_aom_set_wm_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->wm_level);
 
-    ctx->unipred3x3_injection = pcs->unipred3x3_injection;
-    svt_aom_set_bipred3x3_controls(ctx, pcs->bipred3x3_injection);
-    set_inter_comp_controls(ctx, pcs->inter_compound_mode);
-    svt_aom_set_dist_based_ref_pruning_controls(ctx, pcs->dist_based_ref_pruning);
-    set_spatial_sse_full_loop_level(ctx, pcs->spatial_sse_full_loop_level);
+    ctx->unipred3x3_injection = ctx->pd_pass == PD_PASS_0 ? 0 : pcs->unipred3x3_injection;
+    svt_aom_set_bipred3x3_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->bipred3x3_injection);
+    set_inter_comp_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->inter_compound_mode);
+    svt_aom_set_dist_based_ref_pruning_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->dist_based_ref_pruning);
+    set_spatial_sse_full_loop_level(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->spatial_sse_full_loop_level);
     if (ctx->uv_ctrls.uv_mode <= CHROMA_MODE_1) {
         ctx->blk_skip_decision = true;
     } else {
@@ -8063,10 +8090,13 @@ void svt_aom_sig_deriv_enc_dec_rtc(PictureControlSet* pcs, ModeDecisionContext* 
         depth_early_exit_lvl = 2;
     }
     set_depth_early_exit_ctrls(ctx, depth_early_exit_lvl);
-    set_obmc_controls(ctx, ppcs->pic_obmc_level);
-    set_inter_intra_ctrls(ctx, pcs->inter_intra_level);
-    set_txs_controls(pcs, ctx, pcs->txs_level);
-    set_filter_intra_ctrls(ctx, pcs->pic_filter_intra_level);
+    set_obmc_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : ppcs->pic_obmc_level);
+    set_inter_intra_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->inter_intra_level);
+    set_txs_controls(pcs, ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->txs_level);
+    set_filter_intra_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->pic_filter_intra_level);
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->md_palette_level = 0;
+    }
     // Set md_allow_intrabc @ MD
     ctx->md_allow_intrabc = pcs->ppcs->frm_hdr.allow_intrabc;
 
@@ -8117,10 +8147,10 @@ void svt_aom_sig_deriv_enc_dec_allintra(PictureControlSet* pcs, ModeDecisionCont
     uint8_t        ref_skip_perc = pcs->ref_skip_percentage;
 
     set_nsq_search_ctrls(pcs, ctx, pcs->nsq_search_level);
-    svt_aom_set_nic_controls(ctx, pcs->nic_level);
+    svt_aom_set_nic_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 11 : pcs->nic_level);
     set_cand_reduction_ctrls(pcs,
                              ctx,
-                             pcs->cand_reduction_level,
+                             ctx->pd_pass == PD_PASS_0 ? 0 : pcs->cand_reduction_level,
                              picture_qp,
                              me_8x8_cost_variance,
                              me_64x64_distortion,
@@ -8129,14 +8159,14 @@ void svt_aom_sig_deriv_enc_dec_allintra(PictureControlSet* pcs, ModeDecisionCont
                              ref_skip_perc);
 
     uint8_t txt_level = pcs->txt_level;
-    svt_aom_set_txt_controls(ctx, txt_level);
-    set_tx_shortcut_ctrls(pcs, ctx, pcs->tx_shortcut_level);
+    svt_aom_set_txt_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : txt_level);
+    set_tx_shortcut_ctrls(pcs, ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->tx_shortcut_level);
 
     set_interpolation_search_level_ctrls(ctx, 0);
 
-    svt_aom_set_chroma_controls(ctx, pcs->chroma_level);
+    svt_aom_set_chroma_controls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->chroma_level);
 
-    set_cfl_ctrls(ctx, pcs->cfl_level);
+    set_cfl_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->cfl_level);
     // Update nsq settings based on the sb_class
     ctx->md_disallow_nsq_search = !ctx->nsq_geom_ctrls.enabled || !ctx->nsq_search_ctrls.enabled;
 
@@ -8149,7 +8179,7 @@ void svt_aom_sig_deriv_enc_dec_allintra(PictureControlSet* pcs, ModeDecisionCont
     set_inter_comp_controls(ctx, 0);
     svt_aom_set_dist_based_ref_pruning_controls(ctx, 0);
 
-    set_spatial_sse_full_loop_level(ctx, pcs->spatial_sse_full_loop_level);
+    set_spatial_sse_full_loop_level(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->spatial_sse_full_loop_level);
     if (ctx->uv_ctrls.uv_mode <= CHROMA_MODE_1) {
         ctx->blk_skip_decision = true;
     } else {
@@ -8182,7 +8212,10 @@ void svt_aom_sig_deriv_enc_dec_allintra(PictureControlSet* pcs, ModeDecisionCont
         (pcs->txs_level == 0 && ctx->pd0_ctrls.pd0_level == PD0_LVL_6) ? MAX_TXS_LEVEL - 1 : pcs->txs_level;
 
     set_txs_controls(pcs, ctx, txs_level);
-    set_filter_intra_ctrls(ctx, pcs->pic_filter_intra_level);
+    set_filter_intra_ctrls(ctx, ctx->pd_pass == PD_PASS_0 ? 0 : pcs->pic_filter_intra_level);
+    if (ctx->pd_pass == PD_PASS_0) {
+        ctx->md_palette_level = 0;
+    }
     // Set md_allow_intrabc @ MD
     ctx->md_allow_intrabc = pcs->ppcs->frm_hdr.allow_intrabc;
 
