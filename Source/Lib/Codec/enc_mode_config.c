@@ -1517,10 +1517,10 @@ static uint8_t get_dlf_level_default(PictureControlSet* pcs, EncMode enc_mode, u
             dlf_level       = 6;
             modulation_mode = 3;
         } else if (enc_mode <= ENC_M10) {
-            dlf_level       = is_not_last_layer ? 6 : 0;
+            dlf_level       = is_not_last_layer ? 6 : 7;
             modulation_mode = 3;
         } else {
-            dlf_level       = is_not_last_layer ? 7 : 0;
+            dlf_level       = 7;
             modulation_mode = 3;
         }
     }
@@ -1563,6 +1563,7 @@ static uint8_t get_dlf_level_allintra(EncMode enc_mode, uint8_t fast_decode, Res
             dlf_level = 5;
         }
     } else {
+        // Test later
         if (enc_mode <= ENC_M7) {
             dlf_level = 0;
         } else {
