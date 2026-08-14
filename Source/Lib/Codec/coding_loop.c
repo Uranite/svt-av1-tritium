@@ -1174,7 +1174,7 @@ static void perform_inter_coding_loop(PictureControlSet* pcs, EncDecContext* ctx
                              ctx->md_ctx->shape,
                              false, //use_precomputed_obmc,
                              false, //use_precomputed_ii
-                             NULL, // md_ctx - only needed for precompute obmc/ii
+                             md_ctx,
                              ep_luma_recon_na,
                              ep_cb_recon_na,
                              ep_cr_recon_na,

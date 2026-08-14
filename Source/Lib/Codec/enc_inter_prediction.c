@@ -699,6 +699,7 @@ struct build_prediction_ctxt {
     uint16_t             dst_origin_x;
     uint16_t             dst_origin_y;
     uint16_t             component_mask;
+    uint16_t*            obmc_conv_buf;
 };
 
 #if CONFIG_ENABLE_OBMC
@@ -796,10 +797,10 @@ static EbErrorType get_single_prediction_for_obmc_luma_hbd(SequenceControlSet* s
                                                            uint16_t pu_origin_y, uint8_t bwidth, uint8_t bheight,
                                                            EbPictureBufferDesc* ref_pic_list0,
                                                            EbPictureBufferDesc* prediction_ptr, uint16_t dst_origin_x,
-                                                           uint16_t dst_origin_y, uint8_t bit_depth) {
+                                                           uint16_t dst_origin_y, uint8_t bit_depth,
+                                                           uint16_t* obmc_conv_buf) {
     EbErrorType return_error = EB_ErrorNone;
     uint8_t     is_compound  = 0;
-    DECLARE_ALIGNED(32, uint16_t, tmp_dstY[128 * 128]); //move this to context if stack does not hold.
 
     uint8_t*       src_ptr_8b;
     uint8_t*       src_ptr_2b;
@@ -812,7 +813,7 @@ static EbErrorType get_single_prediction_for_obmc_luma_hbd(SequenceControlSet* s
     assert(ref_pic_list0 != NULL);
     src_stride  = ref_pic_list0->y_stride;
     dst_stride  = prediction_ptr->y_stride;
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstY, 128, is_compound, bit_depth);
+    conv_params = get_conv_params_no_round(0, 0, 0, obmc_conv_buf, scs->sb_size, is_compound, bit_depth);
 
     ScaleFactors sf;
     svt_av1_setup_scale_factors_for_frame(
@@ -859,12 +860,9 @@ static EbErrorType get_single_prediction_for_obmc_chroma_hbd(SequenceControlSet*
                                                              EbPictureBufferDesc* ref_pic_list0,
                                                              EbPictureBufferDesc* prediction_ptr, uint16_t dst_origin_x,
                                                              uint16_t dst_origin_y, int32_t ss_x, int32_t ss_y,
-                                                             uint8_t bit_depth) {
+                                                             uint8_t bit_depth, uint16_t* obmc_conv_buf) {
     EbErrorType return_error = EB_ErrorNone;
     uint8_t     is_compound  = 0;
-
-    DECLARE_ALIGNED(32, uint16_t, tmp_dstCb[64 * 64]);
-    DECLARE_ALIGNED(32, uint16_t, tmp_dstCr[64 * 64]);
 
     uint8_t*       src_ptr_8b;
     uint8_t*       src_ptr_2b;
@@ -877,7 +875,7 @@ static EbErrorType get_single_prediction_for_obmc_chroma_hbd(SequenceControlSet*
     //List0-Cb
     src_stride  = ref_pic_list0->u_stride;
     dst_stride  = prediction_ptr->u_stride;
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstCb, 64, is_compound, bit_depth);
+    conv_params = get_conv_params_no_round(0, 0, 0, obmc_conv_buf, scs->sb_size >> ss_x, is_compound, bit_depth);
 
     ScaleFactors sf;
     svt_av1_setup_scale_factors_for_frame(
@@ -923,7 +921,7 @@ static EbErrorType get_single_prediction_for_obmc_chroma_hbd(SequenceControlSet*
     //List0-Cr
     src_stride  = ref_pic_list0->v_stride;
     dst_stride  = prediction_ptr->v_stride;
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstCr, 64, is_compound, bit_depth);
+    conv_params = get_conv_params_no_round(0, 0, 0, obmc_conv_buf, scs->sb_size >> ss_x, is_compound, bit_depth);
 
     src_ptr_8b = ref_pic_list0->v_buffer;
     src_ptr_2b = ref_pic_list0->v_buffer_bit_inc;
@@ -966,10 +964,9 @@ static EbErrorType get_single_prediction_for_obmc_luma(SequenceControlSet* scs, 
                                                        uint16_t pu_origin_y, uint8_t bwidth, uint8_t bheight,
                                                        EbPictureBufferDesc* ref_pic_list0,
                                                        EbPictureBufferDesc* prediction_ptr, uint16_t dst_origin_x,
-                                                       uint16_t dst_origin_y) {
+                                                       uint16_t dst_origin_y, uint16_t* obmc_conv_buf) {
     EbErrorType return_error = EB_ErrorNone;
     const int   is_compound  = 0;
-    DECLARE_ALIGNED(32, uint16_t, tmp_dstY[128 * 128]); //move this to context if stack does not hold.
 
     uint8_t*       src_ptr;
     uint8_t*       dst_ptr;
@@ -982,7 +979,7 @@ static EbErrorType get_single_prediction_for_obmc_luma(SequenceControlSet* scs, 
     src_stride = ref_pic_list0->y_stride;
     dst_stride = prediction_ptr->y_stride;
 
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstY, 128, is_compound, EB_EIGHT_BIT);
+    conv_params = get_conv_params_no_round(0, 0, 0, obmc_conv_buf, scs->sb_size, is_compound, EB_EIGHT_BIT);
 
     ScaleFactors sf;
     svt_av1_setup_scale_factors_for_frame(
@@ -1027,12 +1024,10 @@ static EbErrorType get_single_prediction_for_obmc_chroma(SequenceControlSet* scs
                                                          uint16_t pu_origin_y, uint8_t bwidth, uint8_t bheight,
                                                          EbPictureBufferDesc* ref_pic_list0,
                                                          EbPictureBufferDesc* prediction_ptr, uint16_t dst_origin_x,
-                                                         uint16_t dst_origin_y, int32_t ss_x, int32_t ss_y) {
+                                                         uint16_t dst_origin_y, int32_t ss_x, int32_t ss_y,
+                                                         uint16_t* obmc_conv_buf) {
     EbErrorType return_error = EB_ErrorNone;
     uint8_t     is_compound  = 0;
-
-    DECLARE_ALIGNED(32, uint16_t, tmp_dstCb[64 * 64]);
-    DECLARE_ALIGNED(32, uint16_t, tmp_dstCr[64 * 64]);
 
     uint8_t*       src_ptr;
     uint8_t*       dst_ptr;
@@ -1044,7 +1039,7 @@ static EbErrorType get_single_prediction_for_obmc_chroma(SequenceControlSet* scs
     src_stride = ref_pic_list0->u_stride;
     dst_stride = prediction_ptr->u_stride;
 
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstCb, 64, is_compound, EB_EIGHT_BIT);
+    conv_params = get_conv_params_no_round(0, 0, 0, obmc_conv_buf, scs->sb_size >> ss_x, is_compound, EB_EIGHT_BIT);
 
     ScaleFactors sf;
     svt_av1_setup_scale_factors_for_frame(
@@ -1090,7 +1085,7 @@ static EbErrorType get_single_prediction_for_obmc_chroma(SequenceControlSet* scs
     src_stride = ref_pic_list0->v_stride;
     dst_stride = prediction_ptr->v_stride;
 
-    conv_params = get_conv_params_no_round(0, 0, 0, tmp_dstCr, 64, is_compound, EB_EIGHT_BIT);
+    conv_params = get_conv_params_no_round(0, 0, 0, obmc_conv_buf, scs->sb_size >> ss_x, is_compound, EB_EIGHT_BIT);
 
     src_ptr = ref_pic_list0->v_buffer;
     dst_ptr = prediction_ptr->v_buffer + (ROUND_UV(dst_origin_x) >> ss_x) +
@@ -1181,7 +1176,8 @@ static INLINE void build_prediction_by_above_pred(uint8_t is16bit, MacroBlockD* 
                                                         &ctxt->prediction_ptr,
                                                         ctxt->dst_origin_x,
                                                         ctxt->dst_origin_y,
-                                                        ctxt->ref_pic_list0->bit_depth);
+                                                        ctxt->ref_pic_list0->bit_depth,
+                                                        ctxt->obmc_conv_buf);
             } else {
                 get_single_prediction_for_obmc_luma(scs,
                                                     above_mbmi->block_mi.interp_filters,
@@ -1194,7 +1190,8 @@ static INLINE void build_prediction_by_above_pred(uint8_t is16bit, MacroBlockD* 
                                                     ctxt->ref_pic_list0,
                                                     &ctxt->prediction_ptr,
                                                     ctxt->dst_origin_x,
-                                                    ctxt->dst_origin_y);
+                                                    ctxt->dst_origin_y,
+                                                    ctxt->obmc_conv_buf);
             }
         } else if (is16bit) {
             get_single_prediction_for_obmc_chroma_hbd(scs,
@@ -1211,7 +1208,8 @@ static INLINE void build_prediction_by_above_pred(uint8_t is16bit, MacroBlockD* 
                                                       ctxt->dst_origin_y,
                                                       ctxt->ss_x,
                                                       ctxt->ss_y,
-                                                      ctxt->ref_pic_list0->bit_depth);
+                                                      ctxt->ref_pic_list0->bit_depth,
+                                                      ctxt->obmc_conv_buf);
         } else {
             get_single_prediction_for_obmc_chroma(scs,
                                                   above_mbmi->block_mi.interp_filters,
@@ -1226,7 +1224,8 @@ static INLINE void build_prediction_by_above_pred(uint8_t is16bit, MacroBlockD* 
                                                   ctxt->dst_origin_x,
                                                   ctxt->dst_origin_y,
                                                   ctxt->ss_x,
-                                                  ctxt->ss_y);
+                                                  ctxt->ss_y,
+                                                  ctxt->obmc_conv_buf);
         }
     }
 }
@@ -1284,7 +1283,8 @@ static INLINE void build_prediction_by_left_pred(uint8_t is16bit, MacroBlockD* x
                                                         &ctxt->prediction_ptr,
                                                         ctxt->dst_origin_x,
                                                         ctxt->dst_origin_y,
-                                                        ctxt->ref_pic_list0->bit_depth);
+                                                        ctxt->ref_pic_list0->bit_depth,
+                                                        ctxt->obmc_conv_buf);
             } else {
                 get_single_prediction_for_obmc_luma(scs,
                                                     left_mbmi->block_mi.interp_filters,
@@ -1297,7 +1297,8 @@ static INLINE void build_prediction_by_left_pred(uint8_t is16bit, MacroBlockD* x
                                                     ctxt->ref_pic_list0,
                                                     &ctxt->prediction_ptr,
                                                     ctxt->dst_origin_x,
-                                                    ctxt->dst_origin_y);
+                                                    ctxt->dst_origin_y,
+                                                    ctxt->obmc_conv_buf);
             }
         } else if (is16bit) {
             get_single_prediction_for_obmc_chroma_hbd(scs,
@@ -1314,7 +1315,8 @@ static INLINE void build_prediction_by_left_pred(uint8_t is16bit, MacroBlockD* x
                                                       ctxt->dst_origin_y,
                                                       ctxt->ss_x,
                                                       ctxt->ss_y,
-                                                      ctxt->ref_pic_list0->bit_depth);
+                                                      ctxt->ref_pic_list0->bit_depth,
+                                                      ctxt->obmc_conv_buf);
         } else {
             get_single_prediction_for_obmc_chroma(scs,
                                                   left_mbmi->block_mi.interp_filters,
@@ -1329,14 +1331,15 @@ static INLINE void build_prediction_by_left_pred(uint8_t is16bit, MacroBlockD* x
                                                   ctxt->dst_origin_x,
                                                   ctxt->dst_origin_y,
                                                   ctxt->ss_x,
-                                                  ctxt->ss_y);
+                                                  ctxt->ss_y,
+                                                  ctxt->obmc_conv_buf);
         }
     }
 }
 
 static void build_prediction_by_above_preds(uint32_t component_mask, BlockSize bsize, PictureControlSet* pcs,
                                             MacroBlockD* xd, int mi_row, int mi_col, uint8_t* tmp_buf[MAX_PLANES],
-                                            int tmp_stride[MAX_PLANES], uint8_t is16bit) {
+                                            int tmp_stride[MAX_PLANES], uint8_t is16bit, uint16_t* obmc_conv_buf) {
     if (!xd->up_available) {
         return;
     }
@@ -1363,6 +1366,7 @@ static void build_prediction_by_above_preds(uint32_t component_mask, BlockSize b
 
     ctxt.pcs            = pcs;
     ctxt.component_mask = component_mask;
+    ctxt.obmc_conv_buf  = obmc_conv_buf;
     xd->bsize           = bsize;
 
     foreach_overlappable_nb_above(is16bit,
@@ -1380,7 +1384,7 @@ static void build_prediction_by_above_preds(uint32_t component_mask, BlockSize b
 
 static void build_prediction_by_left_preds(uint32_t component_mask, BlockSize bsize, PictureControlSet* pcs,
                                            MacroBlockD* xd, int mi_row, int mi_col, uint8_t* tmp_buf[MAX_PLANES],
-                                           int tmp_stride[MAX_PLANES], uint8_t is16bit) {
+                                           int tmp_stride[MAX_PLANES], uint8_t is16bit, uint16_t* obmc_conv_buf) {
     if (!xd->left_available) {
         return;
     }
@@ -1407,6 +1411,7 @@ static void build_prediction_by_left_preds(uint32_t component_mask, BlockSize bs
 
     ctxt.pcs            = pcs;
     ctxt.component_mask = component_mask;
+    ctxt.obmc_conv_buf  = obmc_conv_buf;
 
     xd->bsize = bsize;
 
@@ -1851,7 +1856,8 @@ void svt_aom_precompute_obmc_data(PictureControlSet* pcs, ModeDecisionContext* c
                                     mi_col,
                                     dst_buf1,
                                     dst_stride1,
-                                    ctx->hbd_md);
+                                    ctx->hbd_md,
+                                    ctx->obmc_conv_buf);
     build_prediction_by_left_preds(component_mask,
                                    ctx->blk_geom->bsize,
                                    pcs,
@@ -1860,7 +1866,8 @@ void svt_aom_precompute_obmc_data(PictureControlSet* pcs, ModeDecisionContext* c
                                    mi_col,
                                    dst_buf2,
                                    dst_stride2,
-                                   ctx->hbd_md);
+                                   ctx->hbd_md,
+                                   ctx->obmc_conv_buf);
     ctx->obmc_neighbor_luma_pred_ready   = component_mask == PICTURE_BUFFER_DESC_FULL_MASK ||
             component_mask == PICTURE_BUFFER_DESC_LUMA_MASK
           ? true
@@ -2943,10 +2950,6 @@ static void av1_inter_prediction_obmc(PictureControlSet* pcs, BlkStruct* blk_ptr
     const int bwidth  = block_size_wide[bsize];
     const int bheight = block_size_high[bsize];
 
-    // cppcheck-suppress unassignedVariable
-    DECLARE_ALIGNED(16, uint8_t, obmc_buff_0[2 * MAX_PLANES * MAX_SB_SQUARE]);
-    // cppcheck-suppress unassignedVariable
-    DECLARE_ALIGNED(16, uint8_t, obmc_buff_1[2 * MAX_PLANES * MAX_SB_SQUARE]);
     uint8_t *dst_buf1[MAX_PLANES], *dst_buf2[MAX_PLANES];
     int      dst_stride1[MAX_PLANES] = {bwidth, bwidth, bwidth};
     int      dst_stride2[MAX_PLANES] = {bwidth, bwidth, bwidth};
@@ -2972,13 +2975,13 @@ static void av1_inter_prediction_obmc(PictureControlSet* pcs, BlkStruct* blk_ptr
         dst_buf2[1] = ctx->obmc_buff_1 + ((bwidth * bheight) << is16bit);
         dst_buf2[2] = ctx->obmc_buff_1 + ((bwidth * bheight * 2) << is16bit);
     } else {
-        dst_buf1[0] = obmc_buff_0;
-        dst_buf1[1] = obmc_buff_0 + ((bwidth * bheight) << is16bit);
-        dst_buf1[2] = obmc_buff_0 + ((bwidth * bheight * 2) << is16bit);
-        dst_buf2[0] = obmc_buff_1;
-        dst_buf2[1] = obmc_buff_1 + ((bwidth * bheight) << is16bit);
-        dst_buf2[2] = obmc_buff_1 + ((bwidth * bheight * 2) << is16bit);
-        build_prediction_by_above_preds((component_mask & PICTURE_BUFFER_DESC_FULL_MASK),
+        dst_buf1[0] = ctx->obmc_buff_0;
+        dst_buf1[1] = ctx->obmc_buff_0 + ((bwidth * bheight) << is16bit);
+        dst_buf1[2] = ctx->obmc_buff_0 + ((bwidth * bheight * 2) << is16bit);
+        dst_buf2[0] = ctx->obmc_buff_1;
+        dst_buf2[1] = ctx->obmc_buff_1 + ((bwidth * bheight) << is16bit);
+        dst_buf2[2] = ctx->obmc_buff_1 + ((bwidth * bheight * 2) << is16bit);
+        build_prediction_by_above_preds(component_mask,
                                         bsize,
                                         pcs,
                                         blk_ptr->av1xd,
@@ -2986,8 +2989,9 @@ static void av1_inter_prediction_obmc(PictureControlSet* pcs, BlkStruct* blk_ptr
                                         mi_col,
                                         dst_buf1,
                                         dst_stride1,
-                                        is16bit);
-        build_prediction_by_left_preds((component_mask & PICTURE_BUFFER_DESC_FULL_MASK),
+                                        is16bit,
+                                        ctx->obmc_conv_buf);
+        build_prediction_by_left_preds(component_mask,
                                        bsize,
                                        pcs,
                                        blk_ptr->av1xd,
@@ -2995,7 +2999,8 @@ static void av1_inter_prediction_obmc(PictureControlSet* pcs, BlkStruct* blk_ptr
                                        mi_col,
                                        dst_buf2,
                                        dst_stride2,
-                                       is16bit);
+                                       is16bit,
+                                       ctx->obmc_conv_buf);
     }
 
     uint8_t* final_dst_ptr_y    = pred_pic->y_buffer + ((dst_origin_x + (dst_origin_y)*pred_pic->y_stride) << is16bit);
