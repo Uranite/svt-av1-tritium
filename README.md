@@ -262,7 +262,7 @@ Adaptively varies temporal filtering strength based on 64x64 block error. This c
 
 - `--alt-ssim-tuning` *0 and 1*
 
-Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate-distortion calculations by utilizing an alternative per-pixel variance function across 4X4, 8X8, and 16X16 blocks in addition to superblock-level SSIM rate-distortion tuning. Currently only operates on tune 2. The default is 0.
+Enables VQ psychovisual optimizations from tune 0, as well as changing SSIM rate-distortion calculations by utilizing an alternative per-pixel variance function across 4X4, 8X8, and 16X16 blocks. The per-block lambda scaling factors are anchored to a fixed reference instead of a per-superblock geometric mean, so absolute block activity - not just activity relative to a superblock mean - drives lambda and bits can move freely across superblock boundaries and frames. Currently only operates on tune 2. The default is 0.
 
 - `Enhanced Content Detection` (**[Merged to Mainline](https://gitlab.com/AOMediaCodec/SVT-AV1/-/merge_requests/2494)**)
 
