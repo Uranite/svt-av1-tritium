@@ -2333,7 +2333,7 @@ static void aom_av1_set_mb_ssim_rdmult_scaling(PictureParentControlSet* pcs) {
     } else { // Unbounded alternative SSIM tuning: fixed-reference, log-domain scaling
         const double gain     = 2.0; // log2 octaves across the full activity range
         const double min_log2 = -2.0;
-        const double max_log2 = 2.0;
+        const double max_log2 = 0.5;
         for (int row = 0; row < num_rows; ++row) {
             for (int col = 0; col < num_cols; ++col) {
                 const int    index  = row * num_cols + col;
