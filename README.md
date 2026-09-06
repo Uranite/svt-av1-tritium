@@ -52,7 +52,7 @@ Enables the Daala perceptual distortion metric, which uses frequency-domain mask
 - **1**: CDEF
 - **2**: 1 + TX Search + MDS3 Selection
 - **3**: 2 + DCT TX
-- **4**: 3 + MDS0 + IFS RD + OBMC
+- **4**: 3 + MDS0 + IFS RD
 
 - `--enable-daala-rd` *0 to 1*
 
