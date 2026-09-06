@@ -47,7 +47,8 @@ uint64_t svt_aom_intra_fast_cost(PictureControlSet* pcs, ModeDecisionContext* ct
 uint64_t svt_aom_inter_fast_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
                                  uint64_t lambda, uint64_t luma_distortion);
 EbErrorType svt_aom_full_cost_pd0(ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
-                                  uint64_t* y_distortion, uint64_t lambda, uint64_t* y_coeff_bits, DistType dist_type);
+                                  uint64_t* y_distortion, uint64_t lambda, uint64_t* y_coeff_bits, DistType dist_type,
+                                  uint64_t y_daala_dist);
 void        svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDecisionCandidateBuffer* cand_bf,
                               uint64_t lambda, uint64_t y_distortion[DIST_TOTAL][DIST_CALC_TOTAL],
                               uint64_t cb_distortion[DIST_TOTAL][DIST_CALC_TOTAL],
