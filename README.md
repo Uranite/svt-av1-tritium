@@ -10,7 +10,7 @@ Expect diverged history when running `git pull` due to rebasing against SVT-AV1-
 
 Currently, there is [HandBrake](https://github.com/Uranite/HandBrake-SVT-AV1-Tritium?tab=readme-ov-file#downloads-and-build-status) build with SVT-AV1-Tritium available.
 
-Additionally, standalone EncApp builds optimized with LTO + PGO can be found [here](https://github.com/juliobbv-p/svt-av1-hdr/releases), provided by @Akatmks's [GitHub Action](https://github.com/Akatmks/build-svt-av1).
+Additionally, standalone EncApp builds optimized with LTO + PGO can be found [here](https://github.com/Uranite/svt-av1-tritium/releases), provided by @Akatmks's [GitHub Action](https://github.com/Akatmks/build-svt-av1).
 
 ## Quick Overview
 
