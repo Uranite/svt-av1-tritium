@@ -352,6 +352,9 @@ typedef struct RestUnitSearchInfo {
     // The sum of squared errors for this rtype.
     int64_t sse[RESTORE_SWITCHABLE_TYPES];
 
+    // The Daala perceptual distortion for this rtype.
+    int64_t daala[RESTORE_SWITCHABLE_TYPES];
+
     // The rtype to use for this unit given a frame rtype as
     // index. Indices: WIENER, SGRPROJ, SWITCHABLE.
     RestorationType best_rtype[RESTORE_TYPES - 1];
