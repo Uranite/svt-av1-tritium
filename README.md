@@ -54,6 +54,14 @@ Enables the Daala perceptual distortion metric, which uses frequency-domain mask
 - **3**: 2 + DCT TX
 - **4**: 3 + MDS0 + IFS RD + OBMC
 
+- `--enable-daala-rd` *0 to 1*
+
+Enables the Daala distortion metric in model RD curvfit decisions (inter-intra mode search and rate-distortion costs), independent of `--enable-daala`.
+
+- `--enable-daala-filtering` *0 to 3*
+
+Uses the Daala distortion metric for in-loop filtering decisions: **1** loop restoration, **2** + temporal filtering, **3** + deblocking.
+
 ### From [SVT-AV1-Essential](https://github.com/nekotrix/SVT-AV1-Essential)
 
 - `--enable-dlf 3`

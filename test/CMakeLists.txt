@@ -110,6 +110,7 @@ set(multi_arch_files
     SatdTest.cc
     SelfGuidedUtilTest.cc
     SpatialFullDistortionTest.cc
+    DaalaDistTest.cc
     SubpelVariancePerfTest.cc
     TemporalFilterTestPlanewise.cc
     VariancePerfTest.cc
