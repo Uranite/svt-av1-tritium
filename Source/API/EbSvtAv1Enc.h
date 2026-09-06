@@ -1251,6 +1251,22 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t enable_daala;
 
+    /**
+     * @brief Enable Daala distortion in model RD curvfit for inter-intra mode selection.
+     * 0 = off, 1 = on
+     * Default is 0.
+     */
+    uint8_t enable_daala_rd;
+
+    /**
+     * @brief Enable Daala distortion in in-loop filtering decisions.
+     * 0 = disabled (default)
+     * 1 = loop restoration
+     * 2 = loop restoration + temporal filtering
+     * 3 = loop restoration + temporal filtering + deblocking
+     */
+    uint8_t enable_daala_filtering;
+
     /* @brief use settings which reduce memory usage
      *
      * Default is false.
