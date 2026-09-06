@@ -1188,11 +1188,17 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool hide_banner;
 
+    /**
+     * @brief Signal to the library to treat min_intra_period_length as seconds and
+     * multiply by fps_num/fps_den.
+     */
+    bool multiply_min_keyint;
+
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
     uint8_t padding[128 - sizeof(PredStructure) +
                     sizeof(uint8_t) // pred_strucutre type was changed from uint8_t to PredStructure
                     /* SVT-AV1-HDR additions */
-                    - (sizeof(uint8_t) * 15) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 2) - (sizeof(bool) * 6) -
+                    - (sizeof(uint8_t) * 15) - (sizeof(int8_t) * 1) - (sizeof(int32_t) * 2) - (sizeof(bool) * 7) -
                     (sizeof(double)) - sizeof(SvtAv1QualityZone*) - sizeof(uint16_t)];
     // clang-format on
 } EbSvtAv1EncConfiguration;
