@@ -1279,6 +1279,12 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool hide_banner;
 
+    /**
+     * @brief Signal to the library to treat min_intra_period_length as seconds and
+     * multiply by fps_num/fps_den.
+     */
+    bool multiply_min_keyint;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1314,6 +1320,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(bool) // low_memory
         - sizeof(bool) // hide_banner
         - sizeof(uint8_t) // alt_dlf
+        - sizeof(bool) // multiply_min_keyint
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
