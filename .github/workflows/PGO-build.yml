@@ -47,7 +47,6 @@ jobs:
           Linux | x86-64 | LLVM Project Clang LLD | `znver2` | LTO PGO  
           Linux | x86-64 | LLVM Project Clang LLD | `x86-64-v3` + `znver2` | LTO PGO  
           macOS | arm64 | LLVM Project Clang LLD | `armv8.5-a+simd+crypto` + `apple-m3` | LTO PGO  
-          macOS | x86-64 | LLVM Project Clang LLD | `skylake` | LTO PGO  
 
           On Windows, FFMS2 is built into the binary and is always available.  
           On Linux and macOS, if you want to use FFMS2, in addition to downloading the FFMS2 version, you need to install `ffms2` from your system package manager. For people that only uses pipe input, you can grab the non-FFMS2 version.  
@@ -73,7 +72,7 @@ jobs:
         fetch-depth: 0
         fetch-tags: true
 
-    - uses: Akatmks/build-svt-av1@v1
+    - uses: Akatmks/build-svt-av1@v2
       with:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
@@ -121,7 +120,7 @@ jobs:
         fetch-depth: 0
         fetch-tags: true
 
-    - uses: Akatmks/build-svt-av1@v1
+    - uses: Akatmks/build-svt-av1@v2
       with:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
@@ -144,7 +143,7 @@ jobs:
         fetch-depth: 0
         fetch-tags: true
 
-    - uses: Akatmks/build-svt-av1@v1
+    - uses: Akatmks/build-svt-av1@v2
       with:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
@@ -216,7 +215,7 @@ jobs:
         fetch-depth: 0
         fetch-tags: true
 
-    - uses: Akatmks/build-svt-av1@v1
+    - uses: Akatmks/build-svt-av1@v2
       with:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
@@ -235,33 +234,3 @@ jobs:
       with:
         tag_name: ${{ needs.tag.outputs.tag }}
         files: BuildAction/armv8.5-a+simd+crypto+apple-m3/static/ffms2/macOS_arm64_ffms2_armv8.5-a+simd+crypto+apple-m3.tar.xz
-
-
-  build-macos-x86-64:
-    needs: [tag, release]
-    runs-on: "macos-26-intel"
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        fetch-depth: 0
-        fetch-tags: true
-
-    - uses: Akatmks/build-svt-av1@v1
-      with:
-        pgo-video: "FoodMarket2"
-        pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
-        ffms2: "true"
-
-    - run: ls BuildAction/skylake/static/base/SvtAv1EncApp
-    - run: cd BuildAction/skylake/static/base && tar cJf macOS_x86-64_skylake.tar.xz SvtAv1EncApp
-    - uses: softprops/action-gh-release@v3
-      with:
-        tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/skylake/static/base/macOS_x86-64_skylake.tar.xz
-
-    - run: ls BuildAction/skylake/static/ffms2/SvtAv1EncApp
-    - run: cd BuildAction/skylake/static/ffms2 && tar cJf macOS_x86-64_ffms2_skylake.tar.xz SvtAv1EncApp
-    - uses: softprops/action-gh-release@v3
-      with:
-        tag_name: ${{ needs.tag.outputs.tag }}
-        files: BuildAction/skylake/static/ffms2/macOS_x86-64_ffms2_skylake.tar.xz
