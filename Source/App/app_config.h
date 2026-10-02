@@ -221,6 +221,7 @@ typedef struct EbConfig {
     void* ffms_video_source;
     void* ffms_index;
     int   ffms_track_num;
+    int   crop_x, crop_y, crop_w, crop_h;
 } EbConfig;
 
 typedef struct EncChannel {

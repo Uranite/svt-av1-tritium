@@ -78,6 +78,12 @@ Automatically sets tiles appropriate for the source input resolution, which in t
 
 You can now feed the standalone encoder regular video files like MP4s, MKVs, M2TSs and many others without having to rely on piping with FFmpeg or VSPipe. Though you need to compile the encoder with FFMS2 support enabled.
 
+- `--crop` *W:H[:X[:Y]]*
+
+Crops the input video before encoding, which is handy for trimming letterboxed or pillarboxed black bars without an extra pass. The format is `W:H[:X[:Y]]`, where `W` and `H` are the cropped dimensions and `X` and `Y` are the top-left offset; any omitted offset is auto-centered.
+Dimensions and offsets must be even.
+Like FFMS2 itself, this requires an FFMS2-enabled build and therefore only works with container inputs (MP4s, MKVs, M2TSs, etc.) rather than raw yuv/y4m or piped input.
+
 - `--zones`
 
 In CRF/CQP mode, allows setting different quality levels for the specified frame ranges.  

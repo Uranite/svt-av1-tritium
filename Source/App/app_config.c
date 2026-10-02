@@ -182,6 +182,8 @@
 #define FORCED_MAX_FRAME_WIDTH_TOKEN "--forced-max-frame-width"
 #define FORCED_MAX_FRAME_HEIGHT_TOKEN "--forced-max-frame-height"
 
+#define CROP_TOKEN "--crop"
+
 #define COLOR_PRIMARIES_NEW_TOKEN "--color-primaries"
 #define TRANSFER_CHARACTERISTICS_NEW_TOKEN "--transfer-characteristics"
 #define MATRIX_COEFFICIENTS_NEW_TOKEN "--matrix-coefficients"
@@ -770,6 +772,33 @@ static EbErrorType set_injector_frame_rate(EbConfig* cfg, const char* token, con
     return str_to_uint(token, value, &cfg->injector_frame_rate);
 }
 
+static EbErrorType set_crop(EbConfig* cfg, const char* token, const char* value) {
+    (void)token;
+    if (!value || !*value) {
+        fprintf(stderr, "Error: --crop requires a value (W:H[:X[:Y]])\n");
+        return EB_ErrorBadParameter;
+    }
+    int cw = -1, ch = -1, cx = -1, cy = -1;
+    int n = sscanf(value, "%d:%d:%d:%d", &cw, &ch, &cx, &cy);
+    if (n < 2 || cw <= 0 || ch <= 0) {
+        fprintf(stderr, "Error: Invalid crop value '%s'. Expected W:H[:X[:Y]]\n", value);
+        return EB_ErrorBadParameter;
+    }
+    if ((cx < 0 && n >= 3) || (cy < 0 && n >= 4)) {
+        fprintf(stderr, "Error: Crop offsets cannot be negative\n");
+        return EB_ErrorBadParameter;
+    }
+    if ((cw & 1) || (ch & 1) || ((cx & 1) && n >= 3) || ((cy & 1) && n >= 4)) {
+        fprintf(stderr, "Error: Crop dimensions and offsets must be even\n");
+        return EB_ErrorBadParameter;
+    }
+    cfg->crop_w = cw;
+    cfg->crop_h = ch;
+    cfg->crop_x = (n >= 3) ? cx : -1;
+    cfg->crop_y = (n >= 4) ? cy : -1;
+    return EB_ErrorNone;
+}
+
 static EbErrorType set_cfg_generic_token(EbConfig* cfg, const char* token, const char* value) {
     if (!strncmp(token, "--", 2)) {
         token += 2;
@@ -850,6 +879,8 @@ ConfigDescription config_entry_global_options[] = {
     {FORCED_MAX_FRAME_WIDTH_TOKEN, "Maximum frame width value to force, default is 0 [4-16384]"},
 
     {FORCED_MAX_FRAME_HEIGHT_TOKEN, "Maximum frame height value to force, default is 0 [4-8704]"},
+
+    {CROP_TOKEN, "Crop the input video before encoding. Format: W:H[:X[:Y]] (default X=0, Y=0). Requires FFMS2 input"},
 
     {NUMBER_OF_PICTURES_TOKEN,
      "Number of frames to encode. If `n` is larger than the input, the encoder will loop back and "
@@ -1242,6 +1273,7 @@ ConfigEntry config_entry[] = {
     {HEIGHT_LONG_TOKEN, "SourceHeight", set_cfg_generic_token},
     {FORCED_MAX_FRAME_WIDTH_TOKEN, "ForcedMaximumFrameWidth", set_cfg_generic_token},
     {FORCED_MAX_FRAME_HEIGHT_TOKEN, "ForcedMaximumFrameHeight", set_cfg_generic_token},
+    {CROP_TOKEN, "Crop", set_crop},
     // Prediction Structure
     {NUMBER_OF_PICTURES_TOKEN, "FrameToBeEncoded", set_cfg_frames_to_be_encoded},
     {NUMBER_OF_PICTURES_LONG_TOKEN, "FrameToBeEncoded", set_cfg_frames_to_be_encoded},
@@ -1505,6 +1537,8 @@ EbConfig* svt_config_ctor(bool color) {
     app_cfg->roi_map_file        = NULL;
     app_cfg->fgs_table_path      = NULL;
     app_cfg->mmap.allow          = true;
+    app_cfg->crop_x              = -1;
+    app_cfg->crop_y              = -1;
 #ifdef LIBDOVI_FOUND
     app_cfg->dovi_rpus = NULL;
 #endif
@@ -1686,12 +1720,16 @@ static ConfigEntry* find_entry(const char* name) {
 }
 
 /**
- * @brief Reads a word from a file, but skips commented lines, also splits on ':'
+ * @brief Reads a word from a file, but skips commented lines
+ *
+ * split_colon enables the `key: value` syntax and must be off for values, so that
+ * formats like Crop's W:H[:X[:Y]] aren't truncated at the first colon.
  *
  * @param fp file to read from
+ * @param split_colon treat ':' as a word terminator instead of part of the word
  * @return char* malloc'd word, or NULL if EOF or error
  */
-static char* read_word(FILE* fp) {
+static char* read_word(FILE* fp, bool split_colon) {
     char*  word     = NULL;
     size_t word_len = 0;
     int    c;
@@ -1712,7 +1750,7 @@ static char* read_word(FILE* fp) {
         }
         // read word
         do {
-            if (c == ':') {
+            if (c == ':' && split_colon) {
                 break;
             }
             char* temp = (char*)realloc(word, ++word_len + 1);
@@ -1761,11 +1799,11 @@ static EbErrorType read_config_file(EbConfig* app_cfg, const char* config_path) 
     EbErrorType return_error = EB_ErrorNone;
     char*       word         = NULL;
     char*       value        = NULL;
-    while (return_error == EB_ErrorNone && (word = read_word(config_file))) {
-        value = read_word(config_file);
+    while (return_error == EB_ErrorNone && (word = read_word(config_file, true))) {
+        value = read_word(config_file, false);
         if (value && !strcmp(value, ":")) {
             free(value);
-            value = read_word(config_file);
+            value = read_word(config_file, false);
         }
         if (!value) {
             fprintf(stderr, "Error: Config File: %s is missing a value for %s\n", config_path, word);
@@ -1870,6 +1908,18 @@ static EbErrorType app_verify_config(EbConfig* app_cfg) {
     // Check Input File
     if (app_cfg->input_file == NULL && !app_cfg->use_ffms2) {
         fprintf(app_cfg->error_log_file, "Error: Invalid Input File\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if ((app_cfg->crop_w > 0 || app_cfg->crop_h > 0) && !app_cfg->use_ffms2) {
+        if (app_cfg->input_file_is_fifo) {
+            fprintf(app_cfg->error_log_file,
+                    "Error: crop only works with container inputs (mp4, mkv, etc). "
+                    "Please crop the video stream prior to piping.\n");
+        } else {
+            fprintf(app_cfg->error_log_file,
+                    "Error: crop only works with container inputs (mp4, mkv, etc), not yuv/y4m.\n");
+        }
         return_error = EB_ErrorBadParameter;
     }
 
