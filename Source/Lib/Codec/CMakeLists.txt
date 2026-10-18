@@ -170,6 +170,13 @@ set(all_files
         k_means_template.h
         lambda_rate_tables.h
         mathutils.h
+        mc_denoise.c
+        mc_denoise.h
+        mc_denoise_glue.h
+        mc_denoise_pel.c
+        mc_denoise_dfttest.c
+        mc_denoise_me.c
+        mc_denoise_degrain.c
         mcomp.c
         mcomp.h
         md_rate_estimation.c

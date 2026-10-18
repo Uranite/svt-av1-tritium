@@ -602,6 +602,61 @@ typedef struct EbSvtAv1EncConfiguration {
     * Default is 0. */
     uint8_t film_grain_denoise_apply;
 
+    /* Motion-compensated temporal denoising of the input picture
+    * (dfttest-style spatial prefilter + hierarchical motion estimation +
+    * SAD-weighted motion-compensated temporal aggregation).
+    *
+    * Default is 0 (off). */
+    uint32_t mc_denoise;
+
+    /* Temporal radius of the motion-compensated denoiser: number of
+    * reference frames searched backward and forward around the current
+    * picture.
+    *
+    * Default is 1. */
+    uint32_t mc_denoise_tr;
+
+    /* Motion-compensated denoiser SAD soft threshold in normalized 8-bit
+    * equivalent units. Blocks whose normalized SAD exceeds this value get
+    * no contribution from that reference.
+    *
+    * Default is 400. */
+    uint32_t mc_denoise_thsad;
+
+    /* Motion-compensated denoiser analysis block size.
+    *
+    * Default is 16. */
+    uint32_t mc_denoise_blksize;
+
+    /* Spatial prefilter used to guide the motion search.
+    * 0 = search on the original pixels, 1 = dfttest prefilter.
+    *
+    * Default is 1. */
+    uint32_t mc_denoise_prefilter;
+
+    /* Scale (percent) of the dfttest prefilter noise sigma.
+    *
+    * Default is 100. */
+    uint32_t mc_denoise_sigma;
+
+    /* Per-block scene change SAD threshold of the motion-compensated
+    * denoiser (normalized 8-bit equivalent units).
+    *
+    * Default is 400. */
+    uint32_t mc_denoise_thscd1;
+
+    /* Percentage of changed blocks above thscd1 that is judged a scene
+    * change by the motion-compensated denoiser.
+    *
+    * Default is 51. */
+    uint32_t mc_denoise_thscd2;
+
+    /* Maximum absolute output change vs. the source allowed by the
+    * motion-compensated denoiser (normalized 8-bit scale), 0 = unlimited.
+    *
+    * Default is 0. */
+    uint32_t mc_denoise_limit;
+
     /* CDEF Level
     *
     * Default is -1. */
