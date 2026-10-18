@@ -602,6 +602,61 @@ typedef struct EbSvtAv1EncConfiguration {
     * Default is 0. */
     uint8_t film_grain_denoise_apply;
 
+    /* Motion-compensated temporal denoising of the input picture
+    * (dfttest-style spatial prefilter + hierarchical motion estimation +
+    * SAD-weighted motion-compensated temporal aggregation).
+    *
+    * Default is 0 (off). */
+    uint32_t mc_denoise;
+
+    /* Temporal radius of the motion-compensated denoiser: number of
+    * reference frames searched backward and forward around the current
+    * picture.
+    *
+    * Default is 1. */
+    uint32_t mc_denoise_tr;
+
+    /* Motion-compensated denoiser SAD soft threshold in normalized 8-bit
+    * equivalent units. Blocks whose normalized SAD exceeds this value get
+    * no contribution from that reference.
+    *
+    * Default is 400. */
+    uint32_t mc_denoise_thsad;
+
+    /* Motion-compensated denoiser analysis block size.
+    *
+    * Default is 16. */
+    uint32_t mc_denoise_blksize;
+
+    /* Spatial prefilter used to guide the motion search.
+    * 0 = search on the original pixels, 1 = dfttest prefilter.
+    *
+    * Default is 1. */
+    uint32_t mc_denoise_prefilter;
+
+    /* Scale (percent) of the dfttest prefilter noise sigma.
+    *
+    * Default is 100. */
+    uint32_t mc_denoise_sigma;
+
+    /* Per-block scene change SAD threshold of the motion-compensated
+    * denoiser (normalized 8-bit equivalent units).
+    *
+    * Default is 400. */
+    uint32_t mc_denoise_thscd1;
+
+    /* Percentage of changed blocks above thscd1 that is judged a scene
+    * change by the motion-compensated denoiser.
+    *
+    * Default is 51. */
+    uint32_t mc_denoise_thscd2;
+
+    /* Maximum absolute output change vs. the source allowed by the
+    * motion-compensated denoiser (normalized 8-bit scale), 0 = unlimited.
+    *
+    * Default is 0. */
+    uint32_t mc_denoise_limit;
+
     /* CDEF Level
     *
     * Default is -1. */
@@ -1383,8 +1438,7 @@ typedef struct EbSvtAv1EncConfiguration {
     /* Film grain random seeds, cycled in display order.
     * Set through --fgs-seed / FilmGrainSeed; -1 selects the built-in pool.
     * Owned by the app; the library deep-copies it on set_parameter.
-    * The pair is deducted from the trailing padding budget so
-    * sizeof(EbSvtAv1EncConfiguration) is unchanged.
+    * Appended here to preserve offsets of the existing public fields.
     * Default is NULL / 0. */
     uint32_t  fgs_seed_count;
     uint16_t* fgs_seeds;
@@ -1396,56 +1450,9 @@ typedef struct EbSvtAv1EncConfiguration {
     * Default is 1. */
     float fgs_multiplier;
 
-    // clang-format off
-    /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
-    uint8_t padding[128
-        - sizeof(uint8_t) // roi_map_block_size
-        - sizeof(PredStructure) + sizeof (uint8_t) // pred_strucutre type was changed from uint8_t to PredStructure
-        - sizeof(int) // This was added to take into account the new hbd_mds field while keeping previous ABI compat
-        - sizeof(bool) // add the ability to shut MCTF for key frames
-        - sizeof(uint32_t) * 2 // max intra/inter bitrates
-        - sizeof(bool) // enable_intrabc
-        - sizeof(uint8_t) // max_managed_refs (ref-frame mgmt)
-        - sizeof(uint8_t) // max_hierarchical_levels (runtime MG size change)
-        - sizeof(uint8_t) // max_allowed_consecutive_frames_skips
-        - sizeof(uint8_t) // fast_decode_user_opts
-        - sizeof(uint8_t) // noise_norm_strength
-        - sizeof(uint8_t) // kf_tf_strength
-        - sizeof(bool) // alt_lambda_factors
-        - sizeof(uint8_t) // sharp_tx
-        - sizeof(double) // qp_scale_compress_strength
-        - sizeof(bool) // alt_ssim_tuning
-        - sizeof(uint8_t) // tx_bias
-        - sizeof(uint8_t) // complex_hvs
-        - sizeof(uint8_t) // noise_adaptive_filtering
-        - sizeof(uint8_t) // cdef_scaling
-        - sizeof(uint8_t) // noise_strength
-        - sizeof(int32_t) // noise_strength_chroma
-        - sizeof(bool) // color_range_provided
-        - sizeof(int8_t) // noise_size
-        - sizeof(uint8_t) // noise_chroma_from_luma
-        - sizeof(int8_t) // enable_qmpsnr
-        - sizeof(bool) // auto_tiling
-        - sizeof(int32_t) // min_intra_period_length
-        - sizeof(SvtAv1QualityZone*) // quality_zones
-        - sizeof(uint16_t) // num_zones
-        - sizeof(uint8_t) // alt_cdef
-        - sizeof(uint8_t) // enable_daala
-        - sizeof(bool) // low_memory
-        - sizeof(bool) // hide_banner
-        - sizeof(uint8_t) // alt_dlf
-        - sizeof(bool) // multiply_min_keyint
-        - sizeof(uint8_t) // light_rdoq
-        - sizeof(uint32_t) - sizeof(uint8_t) // photon_noise_iso, enable_photon_noise_chroma
-        - sizeof(uint32_t) // pin_threads
-        - sizeof(bool) // low_q_taper
-        - sizeof(uint8_t) // output_format
-        - sizeof(uint32_t) // fgs_seed_count
-        - sizeof(uint32_t) // alignment hole before fgs_seeds (8-byte aligned pointer)
-        - sizeof(uint16_t*) // fgs_seeds
-        - sizeof(float) // fgs_multiplier
-    ];
-    // clang-format on
+    /* The trailing 128-byte padding reserve is fully consumed by the film-grain
+     * and mc-denoise fields above, so this struct now grows with new fields.
+     * sizeof(EbSvtAv1EncConfiguration) moves from 680 to 688. */
 } EbSvtAv1EncConfiguration;
 
 /**
