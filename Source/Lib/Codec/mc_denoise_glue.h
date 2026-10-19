@@ -27,6 +27,13 @@ struct PictureParentControlSet;
  * denoiser: the whole holding queue plus the just-arrived picture. */
 #define SVT_MCD_MAX_RELEASED (2 * MCD_MAX_TR + 2)
 
+/* Size of the caller-side output arrays passed to svt_mcd_pa_arrival. One
+ * arrival call can emit its own pass-through plus every head it drains; the
+ * holding queue never holds more than SVT_MCD_MAX_RELEASED heads (the
+ * capacity guard keeps it there), and draining may be interleaved with other
+ * threads' pushes, so the emit bound is one larger than the queue bound. */
+#define SVT_MCD_MAX_EMITTED (2 * MCD_MAX_TR + 3)
+
 /* Create the per-instance denoiser state from the encoder configuration.
  * Only the mc_denoise* fields of cfg are read. *state_ptr must be NULL. */
 EbErrorType svt_mcd_state_create(void** state_ptr, const EbSvtAv1EncConfiguration* cfg);

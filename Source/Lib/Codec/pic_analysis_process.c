@@ -2036,8 +2036,8 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
     // sometimes an earlier held one (temporal radius delay), or several at
     // end of stream. When mc-denoise is off the state is NULL and the loop
     // below runs exactly the original single-picture path.
-    EbObjectWrapper*         work_wrapper[SVT_MCD_MAX_RELEASED];
-    PictureParentControlSet* work_pcs[SVT_MCD_MAX_RELEASED];
+    EbObjectWrapper*         work_wrapper[SVT_MCD_MAX_EMITTED];
+    PictureParentControlSet* work_pcs[SVT_MCD_MAX_EMITTED];
     uint32_t                 n_work = 1;
     work_wrapper[0]                  = in_results_ptr->pcs_wrapper;
     work_pcs[0]                      = pcs;

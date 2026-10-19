@@ -47,7 +47,7 @@
 /* ---------------------------------------------------------------------- */
 /* per-call context: all expensive tables precomputed exactly once         */
 
-typedef struct McdDftCtx {
+struct McdDftCtx {
     float   twr[8], twi[8];        /* fwd twiddles e^{-2*pi*i*k/16}        */
     uint8_t brev[MCD_DFT_N];       /* bit-reversal permutation             */
     float   win[MCD_DFT_N2];       /* analysis = synthesis window          */
@@ -55,7 +55,8 @@ typedef struct McdDftCtx {
     float   wfre[MCD_DFT_N2];      /* DFT(win): zmean profile, real part   */
     float   wfim[MCD_DFT_N2];      /* DFT(win): imaginary part             */
     float   sigma2[MCD_DFT_N2];    /* per-coefficient noise variance       */
-} McdDftCtx;
+    uint32_t sigma_pct;            /* the sigma this context was built for */
+};
 
 /* Symmetric mirror reflection of i into [0, w). */
 static inline int32_t mcd_mirror(int32_t i, uint32_t w)
@@ -195,9 +196,32 @@ static void mcd_dft_tables(McdDftCtx *c, uint32_t sigma_pct)
 /* ---------------------------------------------------------------------- */
 /* dfttest spatial denoise of one plane                                    */
 
-int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct)
+int mcd_dfttest_ctx_create(uint32_t sigma_pct, McdDftCtx **out)
 {
-    if (!src || !dst || !src->data)
+    if (!out || sigma_pct > 100000u)
+        return MCD_ERR_PARAM;
+    *out = NULL;
+    McdDftCtx *ctx = calloc(1, sizeof(*ctx));
+    if (!ctx)
+        return MCD_ERR_NOMEM;
+    mcd_dft_tables(ctx, sigma_pct);
+    ctx->sigma_pct = sigma_pct;
+    *out = ctx;
+    return MCD_SUCCESS;
+}
+
+void mcd_dfttest_ctx_destroy(McdDftCtx **ctx)
+{
+    if (!ctx || !*ctx)
+        return;
+    free(*ctx);
+    *ctx = NULL;
+}
+
+int mcd_dfttest_plane_with_ctx(const McdDftCtx *ctx, const McdPlane *src,
+                               McdPlane *dst)
+{
+    if (!ctx || !src || !dst || !src->data)
         return MCD_ERR_PARAM;
     const uint32_t w = src->w;
     const uint32_t h = src->h;
@@ -226,8 +250,7 @@ int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct)
         return MCD_ERR_PARAM;
     }
 
-    McdDftCtx ctx;
-    mcd_dft_tables(&ctx, sigma_pct);
+    const uint32_t sigma_pct = ctx->sigma_pct;
 
     const uint32_t pw = w + 2 * MCD_DFT_PAD;
     const uint32_t ph = h + 2 * MCD_DFT_PAD;
@@ -274,24 +297,24 @@ int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct)
             for (int32_t bx = -(MCD_DFT_N - MCD_DFT_STEP); bx <= xmax; bx += MCD_DFT_STEP) {
                 const float *pp = pad + (size_t)(by + MCD_DFT_PAD) * pw +
                                   (bx + MCD_DFT_PAD);
-                const float *wp = ctx.win;
+                const float *wp = ctx->win;
                 for (uint32_t i = 0; i < MCD_DFT_N; i++, pp += pw)
                     for (uint32_t j = 0; j < MCD_DFT_N; j++)
                         re[i * MCD_DFT_N + j] = pp[j] * wp[i * MCD_DFT_N + j];
                 memset(im, 0, sizeof(im));
 
-                mcd_fft2d(&ctx, re, im, 0);
+                mcd_fft2d(ctx, re, im, 0);
 
                 if (sigma_pct) {
                     /* zmean: remove the windowed local mean before the
                      * spectral shrinkage, restore it afterwards */
-                    const float gf = re[0] / ctx.wfre[0];
+                    const float gf = re[0] / ctx->wfre[0];
                     for (uint32_t k = 0; k < MCD_DFT_N2; k++) {
-                        re[k] -= gf * ctx.wfre[k];
-                        im[k] -= gf * ctx.wfim[k];
+                        re[k] -= gf * ctx->wfre[k];
+                        im[k] -= gf * ctx->wfim[k];
                     }
                     /* type-0 Wiener shrinkage */
-                    const float *s2 = ctx.sigma2;
+                    const float *s2 = ctx->sigma2;
                     for (uint32_t k = 0; k < MCD_DFT_N2; k++) {
                         const float psd = re[k] * re[k] + im[k] * im[k];
                         const float num = psd - s2[k];
@@ -301,14 +324,14 @@ int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct)
                         im[k] *= mult;
                     }
                     for (uint32_t k = 0; k < MCD_DFT_N2; k++) {
-                        re[k] += gf * ctx.wfre[k];
-                        im[k] += gf * ctx.wfim[k];
+                        re[k] += gf * ctx->wfre[k];
+                        im[k] += gf * ctx->wfim[k];
                     }
                 }
 
                 /* inverse transform: with the 1/16^2 carried by win there
                  * is no extra normalization anywhere */
-                mcd_fft2d(&ctx, re, im, 1);
+                mcd_fft2d(ctx, re, im, 1);
 
                 /* overlap-add synthesis */
                 for (uint32_t i = 0; i < MCD_DFT_N; i++) {
@@ -316,7 +339,7 @@ int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct)
                     if (oy < 0 || oy > ymax)
                         continue;
                     float       *ar = acc + (size_t)oy * w;
-                    const float *wr = ctx.win + i * MCD_DFT_N;
+                    const float *wr = ctx->win + i * MCD_DFT_N;
                     const float *rr = re + i * MCD_DFT_N;
                     for (uint32_t j = 0; j < MCD_DFT_N; j++) {
                         const int32_t ox = bx + (int32_t)j;
@@ -365,6 +388,18 @@ cleanup:
     free(pad);
     free(acc);
     return ret;
+}
+
+int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct)
+{
+    McdDftCtx *ctx = NULL;
+    int rc = mcd_dfttest_ctx_create(sigma_pct, &ctx);
+    if (rc != MCD_SUCCESS) {
+        return rc;
+    }
+    rc = mcd_dfttest_plane_with_ctx(ctx, src, dst);
+    mcd_dfttest_ctx_destroy(&ctx);
+    return rc;
 }
 
 /* ---------------------------------------------------------------------- */
