@@ -53,20 +53,26 @@ static inline int mcd_use_avx512(void) {
 }
 
 /* ---- SAD kernels (bit-exact vs scalar) -------------------------------- */
+/* bound != 0 enables the partial-row early abort: once the accumulated sum
+ * reaches `bound` the kernel returns early with a value that is both >=
+ * bound and a lower bound of the full sum. Partial sums are monotone, so
+ * this only short-circuits candidates that cannot beat `bound` — the
+ * comparison outcomes at the call sites are unchanged (mc_denoise_me.c).
+ * bound == 0 computes the full sum. */
 uint64_t mcd_simd_sad_u8u8(const uint8_t *a, int32_t sa, const uint8_t *b, int32_t sb,
-                           uint32_t w, uint32_t h);
+                           uint32_t w, uint32_t h, uint64_t bound);
 uint64_t mcd_simd_sad_u16u16(const uint16_t *a, int32_t sa, const uint16_t *b, int32_t sb,
-                             uint32_t w, uint32_t h);
+                             uint32_t w, uint32_t h, uint64_t bound);
 uint64_t mcd_simd_sad_u8u16(const uint8_t *a, int32_t sa, const uint16_t *b, int32_t sb,
-                            uint32_t w, uint32_t h);
+                            uint32_t w, uint32_t h, uint64_t bound);
 uint64_t mcd_simd_sad_u16u8(const uint16_t *a, int32_t sa, const uint8_t *b, int32_t sb,
-                            uint32_t w, uint32_t h);
+                            uint32_t w, uint32_t h, uint64_t bound);
 
-/* ---- SATD kernel (bit-exact vs scalar) -------------------------------- */
+/* ---- SATD kernel (bit-exact vs scalar; bound as for the SADs) ---------- */
 uint64_t mcd_simd_satd_u8u8(const uint8_t *a, int32_t sa, const uint8_t *b, int32_t sb,
-                            uint32_t w, uint32_t h);
+                            uint32_t w, uint32_t h, uint64_t bound);
 uint64_t mcd_simd_satd_u16u16(const uint16_t *a, int32_t sa, const uint16_t *b, int32_t sb,
-                              uint32_t w, uint32_t h);
+                              uint32_t w, uint32_t h, uint64_t bound);
 
 /* ---- pelset: half-pel phase plane filters (bit-exact vs scalar) -------- */
 void mcd_simd_halfpel_h_u8(const uint8_t *src, uint32_t sstride, uint32_t w, uint32_t h,
@@ -96,6 +102,15 @@ void mcd_simd_degrain_acc_row(uint32_t *accrow, const uint32_t *brow,
  * returns 1 when the SIMD path handled the row, 0 = caller does scalar   */
 int mcd_simd_degrain_finalize_row(McdPlane *dp, uint32_t y, const uint32_t *acc,
                                   const McdPlane *sp, int32_t lim, uint32_t pmax);
+
+/* ---- luma-masked merge (bit-exact vs scalar: lane-wise float ops, no FMA)
+ * Computes mcd_prefilter_mask_merge over the validated plane triplet.
+ * Returns MCD_SUCCESS when it handled the whole call; any unsupported
+ * geometry returns MCD_ERR_PARAM and the caller must use the scalar path
+ * (no partial output is written in that case). */
+int mcd_simd_mask_merge(const McdPlane *src_planes, const McdPlane *filt_planes,
+                        McdPlane *out_planes, uint32_t n_planes,
+                        uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
 
 /* ---- dfttest (bit-exact vs scalar: no FMA, no reassociation) ----------- */
 /* Returns MCD_SUCCESS or MCD_ERR_* like the scalar entry; falls back to the

@@ -457,11 +457,22 @@ int mcd_prefilter_mask_merge(const McdPlane *src_planes,
             f->w != s->w || f->h != s->h || f->stride < f->w ||
             o->w != s->w || o->h != s->h || o->stride < o->w)
             return MCD_ERR_PARAM;
-        if (f->data == o->data)        /* out may alias src, never filt */
-            return MCD_ERR_PARAM;
+        /* out may alias src AND filt: every read of a plane happens at the
+         * output pixel's own coordinate before that pixel is written (strict
+         * pixel-by-pixel, no cross-pixel reads), so in-place merging over
+         * either input is safe. */
     }
 
     const McdPlane *yl = &src_planes[0];
+
+    /* SIMD paths (bit-identical lane-wise float ops, see mc_denoise_simd.c);
+     * on any unsupported geometry they decline before writing anything and
+     * the scalar loop below runs instead. */
+    if (mcd_use_avx512() || mcd_use_avx2()) {
+        if (mcd_simd_mask_merge(src_planes, filt_planes, out_planes, n_planes,
+                                x_ss, y_ss, bitdepth) == MCD_SUCCESS)
+            return MCD_SUCCESS;
+    }
 
     for (uint32_t p = 0; p < n_planes; p++) {
         const McdPlane *s = &src_planes[p];
@@ -469,7 +480,8 @@ int mcd_prefilter_mask_merge(const McdPlane *src_planes,
         McdPlane       *o = &out_planes[p];
 
         /* strictly pixel-by-pixel: every read of a plane happens before the
-         * write to the same coordinate, so out == src aliasing is safe */
+         * write to the same coordinate, so out aliasing src and/or filt is
+         * safe (in-place merge) */
         for (uint32_t y = 0; y < s->h; y++) {
             for (uint32_t x = 0; x < s->w; x++) {
                 const float m = (p == 0)

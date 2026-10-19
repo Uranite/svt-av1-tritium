@@ -485,11 +485,110 @@ struct McdPelSet {
     uint32_t n_planes;
     uint32_t pad;
     McdPlane ph[MCD_MAX_PLANES][4]; /* [plane][0=int 1=xhalf 2=yhalf 3=xy] */
-    void    *bufs[MCD_MAX_PLANES];  /* one malloc holding the 4 phases     */
+    void    *bufs[MCD_MAX_PLANES];  /* one malloc holding the 4 phases;
+                                     * NULL for an adopted (borrowed) plane */
 };
+
+/* Build one plane's four phases. When `borrow` is non-NULL it must be a
+ * padded plane identical to what phase 0 would be (same w/h/stride/highbd,
+ * edge-replicated margin of exactly `pad`, data pointer at the visible
+ * origin): its storage is adopted for phase 0 and only phases 1..3 are
+ * allocated (offsets 0..2pb). Otherwise all four phases live in one malloc
+ * (offsets 0..3pb). Returns MCD_SUCCESS or MCD_ERR_NOMEM/PARAM; on failure
+ * the pelset is left consistent for mcd_pelset_destroy. */
+static int mcd_pelset_build_plane(McdPelSet *s, uint32_t i,
+                                  const McdPlane *src, uint32_t pad,
+                                  const McdPlane *borrow)
+{
+    const uint32_t w = src->w, h = src->h;
+    const uint32_t stride = mcd_align_stride(w + 2 * pad);
+    const uint32_t rows = h + 2 * pad;
+    const uint32_t maxval = src->highbd ? 0xFFFFu : 0xFFu;
+    const size_t pb = mcd_plane_bytes(stride, rows, src->highbd);
+    const size_t esz = src->highbd ? 2u : 1u;
+    uint8_t *buf;         /* phases 1..3 when borrowing, 0..3 otherwise */
+    uint32_t k;
+
+    if (borrow) {
+        if (borrow->w != w || borrow->h != h || borrow->stride != stride ||
+            borrow->highbd != src->highbd)
+            return MCD_ERR_PARAM;
+        buf = malloc(pb * 3); /* xhalf + yhalf + xyhalf */
+        if (!buf)
+            return MCD_ERR_NOMEM;
+        s->bufs[i] = buf;
+        s->ph[i][0].data = (uint8_t *)borrow->data -
+                           ((size_t)pad * stride + pad) * esz;
+    } else {
+        buf = malloc(pb * 4); /* integer + xhalf + yhalf + xyhalf */
+        if (!buf)
+            return MCD_ERR_NOMEM;
+        s->bufs[i] = buf;
+        s->ph[i][0].data = buf;
+    }
+    /* phases 1..3 in buf; when borrowing, buf holds phases 1..3 at offsets
+     * 0..2pb, else all four phases sit in buf at offsets 0..3pb */
+    const size_t wbase = borrow ? 0 : pb; /* buf offset of phase 1 */
+    for (k = 0; k < 4; k++) {
+        McdPlane *ph = &s->ph[i][k];
+        ph->w = w;
+        ph->h = h;
+        ph->stride = stride;
+        ph->highbd = src->highbd;
+        /* k == 0 with borrow is the adopted phase 0, data set above */
+        if (k)
+            ph->data = buf + (k - 1) * pb + wbase;
+    }
+
+    /* phase 0 storage: the adopted plane when borrowing (its buffer origin;
+     * NOT inside buf), else buf itself */
+    uint8_t *src0;
+
+    if (!borrow) {
+        if (!src->highbd) {
+            mcd_plane_copy_in_u8((const uint8_t *)src->data, src->stride,
+                                 w, h, buf, stride, pad);
+            mcd_pad_fill_u8(buf, stride, w, h, pad);
+        } else {
+            mcd_plane_copy_in_u16((const uint16_t *)src->data, src->stride,
+                                  w, h, (uint16_t *)buf, stride, pad);
+            mcd_pad_fill_u16((uint16_t *)buf, stride, w, h, pad);
+        }
+        src0 = buf;
+    } else {
+        src0 = (uint8_t *)borrow->data - ((size_t)pad * stride + pad) * esz;
+    }
+    if (!src->highbd) {
+        mcd_halfpel_h_u8(src0, stride, w, h, pad,
+                         buf + wbase, stride, maxval);
+        mcd_halfpel_v_u8(src0, stride, w, h, pad,
+                         buf + wbase + pb, stride, maxval);
+        /* xy: horizontal 6-tap over the vertically interpolated phase */
+        mcd_halfpel_h_u8(buf + wbase + pb, stride, w, h, pad,
+                         buf + wbase + 2 * pb, stride, maxval);
+    } else {
+        uint16_t *s0 = (uint16_t *)src0;
+        uint16_t *b = (uint16_t *)buf;
+        const size_t wb16 = wbase / 2; /* wbase is even: stride*rows*esq */
+        mcd_halfpel_h_u16(s0, stride, w, h, pad,
+                          b + wb16, stride, maxval);
+        mcd_halfpel_v_u16(s0, stride, w, h, pad,
+                          b + wb16 + (size_t)pb / 2, stride, maxval);
+        mcd_halfpel_h_u16(b + wb16 + (size_t)pb / 2, stride, w, h, pad,
+                          b + wb16 + (size_t)pb, stride, maxval);
+    }
+    return MCD_SUCCESS;
+}
 
 int mcd_pelset_create(const McdPlane *src_planes, uint32_t n_planes,
                       uint32_t pad, McdPelSet **out)
+{
+    return mcd_pelset_create_borrow0(src_planes, n_planes, pad, NULL, out);
+}
+
+int mcd_pelset_create_borrow0(const McdPlane *src_planes, uint32_t n_planes,
+                              uint32_t pad, const McdPlane *borrow0,
+                              McdPelSet **out)
 {
     McdPelSet *s;
     uint32_t i;
@@ -503,6 +602,8 @@ int mcd_pelset_create(const McdPlane *src_planes, uint32_t n_planes,
         if (!src_planes[i].data || src_planes[i].w < 1 || src_planes[i].h < 1 ||
             src_planes[i].stride < src_planes[i].w)
             return MCD_ERR_PARAM;
+    if (borrow0 && n_planes >= 1 && !borrow0->data)
+        return MCD_ERR_PARAM;
 
     s = calloc(1, sizeof(*s));
     if (!s)
@@ -511,55 +612,11 @@ int mcd_pelset_create(const McdPlane *src_planes, uint32_t n_planes,
     s->pad = pad;
 
     for (i = 0; i < n_planes; i++) {
-        const McdPlane *src = &src_planes[i];
-        const uint32_t w = src->w, h = src->h;
-        const uint32_t stride = mcd_align_stride(w + 2 * pad);
-        const uint32_t rows = h + 2 * pad;
-        const uint32_t maxval = src->highbd ? 0xFFFFu : 0xFFu;
-        const size_t pb = mcd_plane_bytes(stride, rows, src->highbd);
-        uint8_t *buf;
-
-        buf = malloc(pb * 4); /* integer + xhalf + yhalf + xyhalf */
-        if (!buf) {
+        const int rc = mcd_pelset_build_plane(s, i, &src_planes[i], pad,
+                                              (i == 0) ? borrow0 : NULL);
+        if (rc != MCD_SUCCESS) {
             mcd_pelset_destroy(&s);
-            return MCD_ERR_NOMEM;
-        }
-        s->bufs[i] = buf;
-
-        {
-            uint32_t k;
-            for (k = 0; k < 4; k++) {
-                McdPlane *ph = &s->ph[i][k];
-                ph->w = w;
-                ph->h = h;
-                ph->stride = stride;
-                ph->highbd = src->highbd;
-                ph->data = buf + (size_t)k * pb;
-            }
-        }
-
-        if (!src->highbd) {
-            mcd_plane_copy_in_u8((const uint8_t *)src->data, src->stride,
-                                 w, h, buf, stride, pad);
-            mcd_pad_fill_u8(buf, stride, w, h, pad);
-            mcd_halfpel_h_u8(buf, stride, w, h, pad,
-                             buf + pb, stride, maxval);
-            mcd_halfpel_v_u8(buf, stride, w, h, pad,
-                             buf + 2 * pb, stride, maxval);
-            /* xy: horizontal 6-tap over the vertically interpolated phase */
-            mcd_halfpel_h_u8(buf + 2 * pb, stride, w, h, pad,
-                             buf + 3 * pb, stride, maxval);
-        } else {
-            uint16_t *b = (uint16_t *)buf;
-            mcd_plane_copy_in_u16((const uint16_t *)src->data, src->stride,
-                                  w, h, b, stride, pad);
-            mcd_pad_fill_u16(b, stride, w, h, pad);
-            mcd_halfpel_h_u16(b, stride, w, h, pad,
-                              b + (size_t)pb / 2, stride, maxval);
-            mcd_halfpel_v_u16(b, stride, w, h, pad,
-                              b + (size_t)pb, stride, maxval);
-            mcd_halfpel_h_u16(b + (size_t)pb, stride, w, h, pad,
-                              b + (size_t)3 * pb / 2, stride, maxval);
+            return rc;
         }
     }
     *out = s;
@@ -576,6 +633,49 @@ void mcd_pelset_destroy(McdPelSet **p)
         free((*p)->bufs[i]);
     free(*p);
     *p = NULL;
+}
+
+void mcd_pelset_locate(const McdPelSet *s, uint32_t plane,
+                       int32_t x_halfpel, int32_t y_halfpel,
+                       uint32_t w, uint32_t h, uint32_t eff_pad,
+                       const void **row0, int32_t *stride)
+{
+    const McdPlane *p;
+    int32_t lo_x, hi_x, lo_y, hi_y, ix, iy;
+    uint32_t fx, fy, phase;
+
+    if (!s || !row0 || !stride || w == 0 || h == 0 || plane >= s->n_planes) {
+        *row0  = NULL;
+        *stride = 0;
+        return;
+    }
+    if (eff_pad > s->pad)
+        eff_pad = s->pad; /* never reach outside the built margin */
+
+    /* identical clamp + phase selection to mcd_pelset_fetch_pad */
+    lo_x = -(int32_t)eff_pad;
+    hi_x = (int32_t)s->ph[plane][0].w + (int32_t)eff_pad - (int32_t)w;
+    lo_y = -(int32_t)eff_pad;
+    hi_y = (int32_t)s->ph[plane][0].h + (int32_t)eff_pad - (int32_t)h;
+    if (hi_x < lo_x) /* degenerate: padded region narrower than the block */
+        hi_x = lo_x;
+    if (hi_y < lo_y)
+        hi_y = lo_y;
+    x_halfpel = mcd_clampi(x_halfpel, 2 * lo_x, 2 * hi_x + 1);
+    y_halfpel = mcd_clampi(y_halfpel, 2 * lo_y, 2 * hi_y + 1);
+
+    /* half-pel split: x = 2*ix + fx (arithmetic shift, GCC/Clang/MSVC) */
+    ix = x_halfpel >> 1;
+    iy = y_halfpel >> 1;
+    fx = (uint32_t)(x_halfpel & 1);
+    fy = (uint32_t)(y_halfpel & 1);
+    phase = fx + 2 * fy;
+
+    p = &s->ph[plane][phase];
+    *stride = (int32_t)p->stride;
+    *row0 = (const uint8_t *)p->data +
+            ((size_t)(iy + (int32_t)s->pad) * p->stride + (uint32_t)(ix + (int32_t)s->pad)) *
+                (p->highbd ? 2u : 1u);
 }
 
 void mcd_pelset_fetch(const McdPelSet *s, uint32_t plane,

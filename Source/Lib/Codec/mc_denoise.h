@@ -151,6 +151,18 @@ typedef struct McdPelSet McdPelSet;     /* opaque */
  * in-range motion vector is safe to fetch.                                   */
 int  mcd_pelset_create(const McdPlane *src_planes, uint32_t n_planes,
                        uint32_t pad, McdPelSet **out);
+
+/* Create variant for callers that already hold an identical padded copy of
+ * src_planes[0] (same w/h/stride/highbd, edge-replicated margin of exactly
+ * `pad`, data at the visible origin): the pelset ADOPTS that storage for
+ * plane 0's integer phase instead of rebuilding it (the creator keeps
+ * owning/freeing the borrowed buffer, which must outlive the pelset). All
+ * other phases and planes are built exactly as mcd_pelset_create would;
+ * fetches are bit-identical. borrow0 == NULL behaves like
+ * mcd_pelset_create. */
+int  mcd_pelset_create_borrow0(const McdPlane *src_planes, uint32_t n_planes,
+                               uint32_t pad, const McdPlane *borrow0,
+                               McdPelSet **out);
 void mcd_pelset_destroy(McdPelSet **p);
 
 /* Copy a w x h block whose top-left corner is at (x_halfpel, y_halfpel) in
@@ -174,6 +186,18 @@ void mcd_pelset_fetch_pad(const McdPelSet *s, uint32_t plane,
                           int32_t x_halfpel, int32_t y_halfpel,
                           uint32_t w, uint32_t h, uint32_t eff_pad,
                           uint16_t *dst);
+
+/* Direct-access twin of mcd_pelset_fetch_pad: applies the exact same
+ * coordinate clamp and phase selection, but instead of copying a w x h
+ * block it returns a pointer to the FIRST ROW of the selected phase plane
+ * (row r of the block sits at (const uint8_t*)row0 + (ptrdiff_t)r*stride
+ * *element_size, element_size 2 for highbd pelsets / 1 otherwise, samples
+ * in their native depth). Callers can therefore run block kernels (e.g.
+ * SAD) straight over the phase plane with no staging copy. */
+void mcd_pelset_locate(const McdPelSet *s, uint32_t plane,
+                       int32_t x_halfpel, int32_t y_halfpel,
+                       uint32_t w, uint32_t h, uint32_t eff_pad,
+                       const void **row0, int32_t *stride);
 
 /* ---------------------------------------------------------------------- */
 /* mc_denoise_dfttest.c — spatial prefilter                                */
@@ -203,7 +227,8 @@ int  mcd_dfttest_plane_with_ctx(const McdDftCtx *ctx, const McdPlane *src,
  *   out = src + m * (filt - src)            on every plane
  * (keeps dark, noise-dominant regions closer to source). For subsampled
  * chroma the luma mask is box-filtered down. src/filt/out are the caller's
- * plane triplets; out may alias src but not filt.                            */
+ * plane triplets; out may alias src and/or filt (every output pixel is
+ * computed from reads at its own coordinate before it is written). */
 int mcd_prefilter_mask_merge(const McdPlane *src_planes, const McdPlane *filt_planes,
                              McdPlane *out_planes, uint32_t n_planes,
                              uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
@@ -236,13 +261,29 @@ typedef struct McdMeResult {
 int  mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
                     const McdConfig *cfg, McdMeResult **out);
 
+/* Reusable per-caller scratch for the motion analysis passes (predictor
+ * fields; a few hundred KB at 1080p). Create one per calling thread context
+ * and share it across calls that are serialized on the caller's side (the
+ * scratch is owned by one analyze call at a time). The plain entry points
+ * above behave exactly like the _s variants with a NULL scratch (they
+ * allocate internally and free before returning). */
+typedef struct McdMeScratch McdMeScratch;
+int  mcd_me_scratch_create(McdMeScratch **out);
+void mcd_me_scratch_destroy(McdMeScratch **s);
+int  mcd_me_analyze_s(const McdFrame *cur, const McdFrame *ref, int32_t delta,
+                      const McdConfig *cfg, McdMeScratch *scratch, McdMeResult **out);
+
 /* Refinement pass on the same pair (prefiltered frames): re-grids the
  * vectors to blksize/2 with overlap blksize/4, recomputes every normalized
  * SAD from the prefiltered pixels at half-pel precision, and re-searches
  * (small hexagon, radius 2 half-pel) only blocks whose SAD exceeds
- * thsad/2. inout is mutated (vecs reallocated).                              */
+ * thsad/2. inout is mutated (vecs reallocated). */
 int  mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
                         const McdConfig *cfg, McdMeResult *inout);
+/* Scratch-sharing variant of mcd_me_recalculate (same semantics). */
+int  mcd_me_recalculate_s(const McdFrame *cur, const McdFrame *ref,
+                          const McdConfig *cfg, McdMeScratch *scratch,
+                          McdMeResult *inout);
 void mcd_me_result_free(McdMeResult **r);
 
 /* ---------------------------------------------------------------------- */

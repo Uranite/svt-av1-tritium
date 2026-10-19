@@ -57,16 +57,44 @@ static uint32_t mcd_me_grid(uint32_t dim, uint32_t ov, uint32_t step) {
 /* -------------------------------------------------------------------------- */
 /* SAD kernels (strides in samples, native depth, uint64 accumulation)         */
 
+/* Process-lifetime cached dispatch flags. CPU features never change at
+ * runtime, so a benign idempotent race (same pattern as mcd_simd_disabled)
+ * is safe; this keeps the per-SAD-candidate dispatch cost down to two
+ * branch-on-global tests instead of __builtin_cpu_supports calls inside the
+ * candidate search loops. */
+static int g_me_avx2 = -1;
+static int g_me_avx512 = -1;
+
+static int mcd_me_use_avx2(void) {
+    int v = g_me_avx2;
+    if (v < 0) {
+        v = mcd_use_avx2();
+        g_me_avx2 = v;
+    }
+    return v;
+}
+
+static int mcd_me_use_avx512(void) {
+    int v = g_me_avx512;
+    if (v < 0) {
+        v = mcd_use_avx512();
+        g_me_avx512 = v;
+    }
+    return v;
+}
+
 static uint64_t mcd_sad_u8u8(
-    const uint8_t *a, int32_t sa, const uint8_t *b, int32_t sb, uint32_t w, uint32_t h) {
-    if (mcd_use_avx2())
-        return mcd_simd_sad_u8u8(a, sa, b, sb, w, h);
+    const uint8_t *a, int32_t sa, const uint8_t *b, int32_t sb, uint32_t w, uint32_t h, uint64_t bound) {
+    if (mcd_me_use_avx2())
+        return mcd_simd_sad_u8u8(a, sa, b, sb, w, h, bound);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
             const int d = (int)a[x] - (int)b[x];
             sum += (uint64_t)(d < 0 ? -d : d);
         }
+        if (bound && sum >= bound)
+            return sum; /* partial-row abort: bound semantics above */
         a += sa;
         b += sb;
     }
@@ -74,15 +102,17 @@ static uint64_t mcd_sad_u8u8(
 }
 
 static uint64_t mcd_sad_u16u16(
-    const uint16_t *a, int32_t sa, const uint16_t *b, int32_t sb, uint32_t w, uint32_t h) {
-    if (mcd_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull)
-        return mcd_simd_sad_u16u16(a, sa, b, sb, w, h);
+    const uint16_t *a, int32_t sa, const uint16_t *b, int32_t sb, uint32_t w, uint32_t h, uint64_t bound) {
+    if (mcd_me_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull)
+        return mcd_simd_sad_u16u16(a, sa, b, sb, w, h, bound);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
             const int d = (int)a[x] - (int)b[x];
             sum += (uint64_t)(d < 0 ? -d : d);
         }
+        if (bound && sum >= bound)
+            return sum; /* partial-row abort: bound semantics above */
         a += sa;
         b += sb;
     }
@@ -90,15 +120,17 @@ static uint64_t mcd_sad_u16u16(
 }
 
 static uint64_t mcd_sad_u8u16(
-    const uint8_t *a, int32_t sa, const uint16_t *b, int32_t sb, uint32_t w, uint32_t h) {
-    if (mcd_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull)
-        return mcd_simd_sad_u8u16(a, sa, b, sb, w, h);
+    const uint8_t *a, int32_t sa, const uint16_t *b, int32_t sb, uint32_t w, uint32_t h, uint64_t bound) {
+    if (mcd_me_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull)
+        return mcd_simd_sad_u8u16(a, sa, b, sb, w, h, bound);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
             const int d = (int)a[x] - (int)b[x];
             sum += (uint64_t)(d < 0 ? -d : d);
         }
+        if (bound && sum >= bound)
+            return sum; /* partial-row abort: bound semantics above */
         a += sa;
         b += sb;
     }
@@ -106,15 +138,17 @@ static uint64_t mcd_sad_u8u16(
 }
 
 static uint64_t mcd_sad_u16u8(
-    const uint16_t *a, int32_t sa, const uint8_t *b, int32_t sb, uint32_t w, uint32_t h) {
-    if (mcd_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull)
-        return mcd_simd_sad_u16u8(a, sa, b, sb, w, h);
+    const uint16_t *a, int32_t sa, const uint8_t *b, int32_t sb, uint32_t w, uint32_t h, uint64_t bound) {
+    if (mcd_me_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull)
+        return mcd_simd_sad_u16u8(a, sa, b, sb, w, h, bound);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
             const int d = (int)a[x] - (int)b[x];
             sum += (uint64_t)(d < 0 ? -d : d);
         }
+        if (bound && sum >= bound)
+            return sum; /* partial-row abort: bound semantics above */
         a += sa;
         b += sb;
     }
@@ -125,29 +159,29 @@ static uint64_t mcd_sad_u16u8(
  * into the padded plane buffers (negative = inside the replicated margin). */
 static uint64_t mcd_plane_sad(const McdPlane *pa, int32_t ax, int32_t ay,
                               const McdPlane *pb, int32_t bx, int32_t by,
-                              int32_t w, int32_t h) {
+                              int32_t w, int32_t h, uint64_t bound) {
     const int32_t sa = (int32_t)pa->stride;
     const int32_t sb = (int32_t)pb->stride;
 
     if (pa->highbd && pb->highbd) {
         const uint16_t *a = (const uint16_t *)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint16_t *b = (const uint16_t *)pb->data + (ptrdiff_t)by * sb + bx;
-        return mcd_sad_u16u16(a, sa, b, sb, (uint32_t)w, (uint32_t)h);
+        return mcd_sad_u16u16(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
     if (!pa->highbd && !pb->highbd) {
         const uint8_t *a = (const uint8_t *)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint8_t *b = (const uint8_t *)pb->data + (ptrdiff_t)by * sb + bx;
-        return mcd_sad_u8u8(a, sa, b, sb, (uint32_t)w, (uint32_t)h);
+        return mcd_sad_u8u8(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
     if (!pa->highbd) {
         const uint8_t *a = (const uint8_t *)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint16_t *b = (const uint16_t *)pb->data + (ptrdiff_t)by * sb + bx;
-        return mcd_sad_u8u16(a, sa, b, sb, (uint32_t)w, (uint32_t)h);
+        return mcd_sad_u8u16(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
     {
         const uint16_t *a = (const uint16_t *)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint8_t *b = (const uint8_t *)pb->data + (ptrdiff_t)by * sb + bx;
-        return mcd_sad_u16u8(a, sa, b, sb, (uint32_t)w, (uint32_t)h);
+        return mcd_sad_u16u8(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
 }
 
@@ -187,9 +221,10 @@ static inline int32_t mcd_satd_4x4(const int32_t d[16]) {
 }
 
 static uint64_t mcd_satd_u8u8(
-    const uint8_t *a, int32_t sa, const uint8_t *b, int32_t sb, uint32_t w, uint32_t h) {
-    if (mcd_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0)
-        return mcd_simd_satd_u8u8(a, sa, b, sb, w, h);
+    const uint8_t *a, int32_t sa, const uint8_t *b, int32_t sb, uint32_t w, uint32_t h,
+    uint64_t bound) {
+    if (mcd_me_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0)
+        return mcd_simd_satd_u8u8(a, sa, b, sb, w, h, bound);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y += 4) {
         for (uint32_t x = 0; x < w; x += 4) {
@@ -199,15 +234,18 @@ static uint64_t mcd_satd_u8u8(
                     d[4 * r + c] = (int)a[(y + r) * (uint32_t)sa + x + c] -
                                    (int)b[(y + r) * (uint32_t)sb + x + c];
             sum += (uint64_t)mcd_satd_4x4(d);
+            if (bound && sum >= bound)
+                return sum; /* partial-sub-block abort: bound semantics above */
         }
     }
     return sum;
 }
 
 static uint64_t mcd_satd_u16u16(
-    const uint16_t *a, int32_t sa, const uint16_t *b, int32_t sb, uint32_t w, uint32_t h) {
-    if (mcd_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0)
-        return mcd_simd_satd_u16u16(a, sa, b, sb, w, h);
+    const uint16_t *a, int32_t sa, const uint16_t *b, int32_t sb, uint32_t w, uint32_t h,
+    uint64_t bound) {
+    if (mcd_me_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0)
+        return mcd_simd_satd_u16u16(a, sa, b, sb, w, h, bound);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y += 4) {
         for (uint32_t x = 0; x < w; x += 4) {
@@ -217,6 +255,8 @@ static uint64_t mcd_satd_u16u16(
                     d[4 * r + c] = (int)a[(y + r) * (uint32_t)sa + x + c] -
                                    (int)b[(y + r) * (uint32_t)sb + x + c];
             sum += (uint64_t)mcd_satd_4x4(d);
+            if (bound && sum >= bound)
+                return sum; /* partial-sub-block abort: bound semantics above */
         }
     }
     return sum;
@@ -226,46 +266,50 @@ static uint64_t mcd_satd_u16u16(
  * practice) mixed-depth pairs. */
 static uint64_t mcd_plane_satd(const McdPlane *pa, int32_t ax, int32_t ay,
                                const McdPlane *pb, int32_t bx, int32_t by,
-                               int32_t w, int32_t h) {
+                               int32_t w, int32_t h, uint64_t bound) {
     const int32_t sa = (int32_t)pa->stride;
     const int32_t sb = (int32_t)pb->stride;
 
     if (pa->highbd != pb->highbd)
-        return mcd_plane_sad(pa, ax, ay, pb, bx, by, w, h);
+        return mcd_plane_sad(pa, ax, ay, pb, bx, by, w, h, bound);
     if (pa->highbd) {
         const uint16_t *a = (const uint16_t *)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint16_t *b = (const uint16_t *)pb->data + (ptrdiff_t)by * sb + bx;
-        return mcd_satd_u16u16(a, sa, b, sb, (uint32_t)w, (uint32_t)h);
+        return mcd_satd_u16u16(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
     {
         const uint8_t *a = (const uint8_t *)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint8_t *b = (const uint8_t *)pb->data + (ptrdiff_t)by * sb + bx;
-        return mcd_satd_u8u8(a, sa, b, sb, (uint32_t)w, (uint32_t)h);
+        return mcd_satd_u8u8(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
 }
 
 /* -------------------------------------------------------------------------- */
 /* cost pieces shared by analyze / recalculate                                 */
 
-/* Luma SAD of the current block at (X,Y) against the reference fetched at
- * half-pel position (2*X + hx, 2*Y + hy); the pelset fetch clamps its own
- * coordinates into the padded region (as if the margin were `pel_pad`), so
- * any vector is safe. scratch is a uint16_t[b*b] buffer supplied by the
- * caller. */
+/* Luma SAD of the current block at (X,Y) against the reference phase plane
+ * at half-pel position (2*X + hx, 2*Y + hy), computed DIRECTLY on the pelset
+ * phase plane: mcd_pelset_locate applies the same coordinate clamp and phase
+ * selection the fetch would, so the summed samples are exactly the ones
+ * mcd_pelset_fetch_pad would have staged into a scratch block (u8 values are
+ * summed as u8 vs the identical u16-widened values) — no staging copy. */
 static uint64_t mcd_hp_luma_sad(const McdPlane *cur0, const McdPelSet *pel,
                                 int32_t X, int32_t Y, int32_t b,
-                                int32_t hx, int32_t hy, uint16_t *scratch,
-                                uint32_t pel_pad) {
-    mcd_pelset_fetch_pad(pel, 0, 2 * X + hx, 2 * Y + hy, (uint32_t)b, (uint32_t)b, pel_pad, scratch);
+                                int32_t hx, int32_t hy, uint32_t pel_pad,
+                                uint64_t bound) {
+    const void *row0;
+    int32_t     st;
+    mcd_pelset_locate(pel, 0, 2 * X + hx, 2 * Y + hy, (uint32_t)b, (uint32_t)b,
+                      pel_pad, &row0, &st);
     {
-        const int32_t st = (int32_t)cur0->stride;
+        const int32_t ct = (int32_t)cur0->stride;
         if (cur0->highbd) {
-            const uint16_t *a = (const uint16_t *)cur0->data + (ptrdiff_t)Y * st + X;
-            return mcd_sad_u16u16(a, st, scratch, b, (uint32_t)b, (uint32_t)b);
+            const uint16_t *a = (const uint16_t *)cur0->data + (ptrdiff_t)Y * ct + X;
+            return mcd_sad_u16u16(a, ct, (const uint16_t *)row0, st, (uint32_t)b, (uint32_t)b, bound);
         }
         {
-            const uint8_t *a = (const uint8_t *)cur0->data + (ptrdiff_t)Y * st + X;
-            return mcd_sad_u8u16(a, st, scratch, b, (uint32_t)b, (uint32_t)b);
+            const uint8_t *a = (const uint8_t *)cur0->data + (ptrdiff_t)Y * ct + X;
+            return mcd_sad_u8u8(a, ct, (const uint8_t *)row0, st, (uint32_t)b, (uint32_t)b, bound);
         }
     }
 }
@@ -274,10 +318,14 @@ static uint64_t mcd_hp_luma_sad(const McdPlane *cur0, const McdPelSet *pel,
  * in integer LUMA samples (an integer candidate, or floor(halfpel/2)); chroma
  * positions derive from it with the subsampling shifts. Reference blocks are
  * clamped into the padded region independently of luma. */
+/* bound: early-abort bound on the chroma SUM (0 = compute fully); once the
+ * accumulated sum reaches bound, return early with a value >= bound (the
+ * callers only compare the TOTAL against the same bound, so the outcome is
+ * unchanged). */
 static uint64_t mcd_chroma_sad(const McdPlane *const *curp, const McdPlane *const *refp,
                                uint32_t n_planes, uint32_t x_ss, uint32_t y_ss,
                                int32_t X, int32_t Y, int32_t bblk,
-                               int32_t offx, int32_t offy) {
+                               int32_t offx, int32_t offy, uint64_t bound) {
     uint64_t sum = 0;
     for (uint32_t p = 1; p < n_planes; p++) {
         const McdPlane *a = curp[p];
@@ -288,7 +336,10 @@ static uint64_t mcd_chroma_sad(const McdPlane *const *curp, const McdPlane *cons
         int32_t ry = (Y + offy) >> y_ss;
         rx = mcd_me_clamp(rx, -MCD_ME_EDGE_PAD, (int32_t)b->w + MCD_ME_EDGE_PAD - bw);
         ry = mcd_me_clamp(ry, -MCD_ME_EDGE_PAD, (int32_t)b->h + MCD_ME_EDGE_PAD - bh);
-        sum += mcd_plane_sad(a, X >> x_ss, Y >> y_ss, b, rx, ry, bw, bh);
+        sum += mcd_plane_sad(a, X >> x_ss, Y >> y_ss, b, rx, ry, bw, bh,
+                             bound > sum ? bound - sum : 0);
+        if (bound && sum >= bound)
+            return sum;
     }
     return sum;
 }
@@ -308,8 +359,20 @@ typedef struct McdMeLevel {
 
 /* Raw block cost (no motion penalty). luma_satd selects the SATD luma variant
  * when the level requests it; pass 0 to force plain SAD (used to obtain the
- * true sad_raw of a vector found under SATD). */
-static uint64_t mcd_me_sad_raw(const McdMeLevel *lv, int32_t cx, int32_t cy, int luma_satd) {
+ * true sad_raw of a vector found under SATD).
+ *
+ * bound: EARLY-ABORT bound on the raw cost (0 = compute fully). The kernels
+ * return as soon as the accumulated cost reaches bound, with a value that is
+ * both >= bound and a lower bound of the full raw cost. Exactness: a candidate
+ * whose raw cost >= bound has full cost raw + lambda_term >= bound +
+ * lambda_term, i.e. it cannot beat an incumbent of `bound + lambda_term`;
+ * callers pass bound = incumbent - lambda_term (0 when that underflows), so
+ * aborted and full evaluation produce the SAME comparison outcome (both
+ * lose; ties lose under the strict `<`). Only the winning candidate's exact
+ * value is ever consumed (it is never aborted, since its partial sums stay
+ * below the bound). */
+static uint64_t mcd_me_sad_raw(const McdMeLevel *lv, int32_t cx, int32_t cy, int luma_satd,
+                               uint64_t bound) {
     const McdPlane *a = lv->curp[0];
     const McdPlane *b = lv->refp[0];
     int32_t rx = mcd_me_clamp(lv->X + cx, -MCD_ME_EDGE_PAD,
@@ -319,27 +382,45 @@ static uint64_t mcd_me_sad_raw(const McdMeLevel *lv, int32_t cx, int32_t cy, int
     uint64_t cost;
 
     if (lv->use_satd && luma_satd)
-        cost = mcd_plane_satd(a, lv->X, lv->Y, b, rx, ry, lv->bblk, lv->bblk);
+        cost = mcd_plane_satd(a, lv->X, lv->Y, b, rx, ry, lv->bblk, lv->bblk, bound);
     else
-        cost = mcd_plane_sad(a, lv->X, lv->Y, b, rx, ry, lv->bblk, lv->bblk);
+        cost = mcd_plane_sad(a, lv->X, lv->Y, b, rx, ry, lv->bblk, lv->bblk, bound);
 
+    if (bound && cost >= bound)
+        return cost; /* luma alone already past the bound: candidate loses */
     cost += mcd_chroma_sad(lv->curp, lv->refp, lv->n_planes, lv->x_ss, lv->y_ss,
-                           lv->X, lv->Y, lv->bblk, cx, cy);
+                           lv->X, lv->Y, lv->bblk, cx, cy,
+                           bound > cost ? bound - cost : 0);
     return cost;
 }
 
-/* Full candidate cost: raw cost + (lambda * dist^2 to primary predictor)>>8. */
-static uint64_t mcd_me_cost(const McdMeLevel *lv, int32_t cx, int32_t cy) {
+static inline uint64_t mcd_me_lambda_term(const McdMeLevel *lv, int32_t cx, int32_t cy) {
     const int64_t dx = (int64_t)cx - lv->px;
     const int64_t dy = (int64_t)cy - lv->py;
-    uint64_t cost = mcd_me_sad_raw(lv, cx, cy, 1);
-    cost += (lv->lambda * (uint64_t)(dx * dx + dy * dy)) >> 8;
+    return (lv->lambda * (uint64_t)(dx * dx + dy * dy)) >> 8;
+}
+
+/* Full candidate cost: raw cost + (lambda * dist^2 to primary predictor)>>8.
+ * incumbent (0 = none): the raw-cost kernels may abort early as soon as the
+ * candidate provably cannot beat it (see mcd_me_sad_raw). */
+static uint64_t mcd_me_cost_bounded(const McdMeLevel *lv, int32_t cx, int32_t cy,
+                                    uint64_t incumbent) {
+    const uint64_t lterm = mcd_me_lambda_term(lv, cx, cy);
+    const uint64_t bound = incumbent > lterm ? incumbent - lterm : 0;
+    uint64_t cost = mcd_me_sad_raw(lv, cx, cy, 1, bound);
+    cost += lterm;
     return cost;
+}
+
+static uint64_t mcd_me_cost(const McdMeLevel *lv, int32_t cx, int32_t cy) {
+    return mcd_me_cost_bounded(lv, cx, cy, 0);
 }
 
 static inline void mcd_me_try(const McdMeLevel *lv, int32_t cx, int32_t cy,
                               int32_t *bx, int32_t *by, uint64_t *bc) {
-    const uint64_t c = mcd_me_cost(lv, cx, cy);
+    /* *bc is a complete incumbent cost (never 0 here): candidates that
+     * cannot beat it may abort early — the loser set is unchanged. */
+    const uint64_t c = mcd_me_cost_bounded(lv, cx, cy, *bc);
     if (c < *bc) {
         *bc = c;
         *bx = cx;
@@ -359,7 +440,7 @@ static void mcd_me_hexagon(const McdMeLevel *lv, int32_t *bx, int32_t *by, uint6
         for (int k = 0; k < 8; k++) {
             const int32_t cx = *bx + hexo[k][0];
             const int32_t cy = *by + hexo[k][1];
-            const uint64_t c = mcd_me_cost(lv, cx, cy);
+            const uint64_t c = mcd_me_cost_bounded(lv, cx, cy, *bc);
             if (c < *bc) {
                 *bc = c;
                 nx = cx;
@@ -427,16 +508,66 @@ static McdPelSet *mcd_me_ref_pel(const McdFrame *ref, uint32_t want_pad, int *ow
 }
 
 /* -------------------------------------------------------------------------- */
+/* reusable scratch (predictor fields)                                         */
+
+struct McdMeScratch {
+    int32_t *fld[2];      /* grow-to-fit predictor fields                     */
+    uint32_t cap;         /* capacity in int32 elements per field             */
+};
+
+int mcd_me_scratch_create(McdMeScratch **out) {
+    if (!out)
+        return MCD_ERR_PARAM;
+    *out = NULL;
+    McdMeScratch *sc = (McdMeScratch *)calloc(1, sizeof(*sc));
+    if (!sc)
+        return MCD_ERR_NOMEM;
+    *out = sc;
+    return MCD_SUCCESS;
+}
+
+void mcd_me_scratch_destroy(McdMeScratch **s) {
+    if (!s || !*s)
+        return;
+    free((*s)->fld[0]);
+    free((*s)->fld[1]);
+    free(*s);
+    *s = NULL;
+}
+
+/* Ensure the scratch holds two int32 fields of n entries. Returns
+ * MCD_SUCCESS or MCD_ERR_NOMEM. */
+static int mcd_me_scratch_fit(McdMeScratch *sc, uint32_t n) {
+    if (!sc)
+        return MCD_SUCCESS;
+    if (sc->cap >= n)
+        return MCD_SUCCESS;
+    for (int i = 0; i < 2; i++) {
+        int32_t *p = (int32_t *)realloc(sc->fld[i], (size_t)n * sizeof(int32_t));
+        if (!p)
+            return MCD_ERR_NOMEM;
+        sc->fld[i] = p;
+    }
+    sc->cap = n;
+    return MCD_SUCCESS;
+}
+
+/* -------------------------------------------------------------------------- */
 /* mcd_me_analyze                                                              */
 
 int mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
                    const McdConfig *cfg, McdMeResult **out) {
+    return mcd_me_analyze_s(cur, ref, delta, cfg, NULL, out);
+}
+
+int mcd_me_analyze_s(const McdFrame *cur, const McdFrame *ref, int32_t delta,
+                     const McdConfig *cfg, McdMeScratch *scratch, McdMeResult **out) {
     McdMeResult *res  = NULL;
     McdVector   *vecs = NULL;
     int32_t     *fld_a = NULL, *fld_b = NULL;
-    uint16_t    *fetch = NULL;
     McdPelSet   *pel   = NULL;
     int          ret   = MCD_SUCCESS;
+    int32_t     *own_fld[2] = { NULL, NULL };
 
     if (out)
         *out = NULL;
@@ -473,10 +604,22 @@ int mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
 
     res = (McdMeResult *)calloc(1, sizeof(*res));
     vecs = (McdVector *)calloc(n_blks, sizeof(*vecs));
-    fld_a = (int32_t *)calloc((size_t)n_blks * 2, sizeof(int32_t));
-    fld_b = (int32_t *)calloc((size_t)n_blks * 2, sizeof(int32_t));
-    fetch = (uint16_t *)malloc((size_t)blk * blk * sizeof(uint16_t));
-    if (!res || !vecs || !fld_a || !fld_b || !fetch) {
+    if (scratch) {
+        /* grow-to-fit pooled predictor fields; the fields are written
+         * before any read at every level, so no per-call zeroing is needed */
+        if (mcd_me_scratch_fit(scratch, (uint32_t)n_blks * 2) != MCD_SUCCESS) {
+            ret = MCD_ERR_NOMEM;
+            goto fail;
+        }
+        fld_a = scratch->fld[0];
+        fld_b = scratch->fld[1];
+    } else {
+        fld_a = (int32_t *)calloc((size_t)n_blks * 2, sizeof(int32_t));
+        fld_b = (int32_t *)calloc((size_t)n_blks * 2, sizeof(int32_t));
+        own_fld[0] = fld_a;
+        own_fld[1] = fld_b;
+    }
+    if (!res || !vecs || !fld_a || !fld_b) {
         ret = MCD_ERR_NOMEM;
         goto fail;
     }
@@ -595,8 +738,7 @@ int mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
                         int32_t  hx = vxc * 2;
                         int32_t  hy = vyc * 2;
                         uint64_t bl = mcd_hp_luma_sad(lv.curp[0], pel, X, Y,
-                                                      (int32_t)blk, hx, hy, fetch,
-                                                      want_pad);
+                                                      (int32_t)blk, hx, hy, want_pad, 0);
                         static const int32_t off8[8][2] = {
                             { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 },
                             { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 }
@@ -605,8 +747,7 @@ int mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
                             const int32_t cx = vxc * 2 + off8[k][0];
                             const int32_t cy = vyc * 2 + off8[k][1];
                             const uint64_t l = mcd_hp_luma_sad(lv.curp[0], pel, X, Y,
-                                                               (int32_t)blk, cx, cy, fetch,
-                                                               want_pad);
+                                                               (int32_t)blk, cx, cy, want_pad, bl);
                             if (l < bl) {
                                 bl = l;
                                 hx = cx;
@@ -617,7 +758,7 @@ int mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
                         const uint64_t sad_raw =
                             bl + mcd_chroma_sad(lv.curp, lv.refp, npl, ssx, ssy,
                                                 X, Y, (int32_t)blk,
-                                                mcd_me_half(hx), mcd_me_half(hy));
+                                                mcd_me_half(hx), mcd_me_half(hy), 0);
                         vecs[idx].x        = hx;
                         vecs[idx].y        = hy;
                         vecs[idx].sad_norm = mcd_norm_sad(sad_raw, blk * blk,
@@ -645,9 +786,8 @@ fail:
     if (pel_own) {
         mcd_pelset_destroy(&pel);
     }
-    free(fetch);
-    free(fld_a);
-    free(fld_b);
+    free(own_fld[0]);
+    free(own_fld[1]);
     free(vecs);
     if (ret != MCD_SUCCESS) {
         free(res);
@@ -662,8 +802,16 @@ fail:
 
 int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
                        const McdConfig *cfg, McdMeResult *inout) {
+    return mcd_me_recalculate_s(cur, ref, cfg, NULL, inout);
+}
+
+int mcd_me_recalculate_s(const McdFrame *cur, const McdFrame *ref,
+                         const McdConfig *cfg, McdMeScratch *scratch,
+                         McdMeResult *inout) {
+    /* scratch is unused here today: the only surviving allocation of this
+     * pass is the vector array itself, which escapes into inout->vecs */
+    (void)scratch;
     McdVector *nv    = NULL;
-    uint16_t  *fetch = NULL;
     McdPelSet *pel   = NULL;
     const McdPlane *cp[3] = { 0 };
     const McdPlane *rp[3] = { 0 };
@@ -706,8 +854,7 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
     }
 
     nv    = (McdVector *)calloc(n2, sizeof(*nv));
-    fetch = (uint16_t *)malloc((size_t)blk2 * blk2 * sizeof(uint16_t));
-    if (!nv || !fetch) {
+    if (!nv) {
         ret = MCD_ERR_NOMEM;
         goto fail;
     }
@@ -740,11 +887,10 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
 
             /* SAD at the inherited vector: luma at half-pel precision via the
              * pelset, chroma at the integer-rounded position. */
-            uint64_t bl = mcd_hp_luma_sad(cp[0], pel, X, Y, (int32_t)blk2, hx, hy, fetch,
-                                          want_pad);
+            uint64_t bl = mcd_hp_luma_sad(cp[0], pel, X, Y, (int32_t)blk2, hx, hy, want_pad, 0);
             uint64_t raw = bl + mcd_chroma_sad(cp, rp, npl, ssx, ssy, X, Y,
                                                (int32_t)blk2,
-                                               mcd_me_half(hx), mcd_me_half(hy));
+                                               mcd_me_half(hx), mcd_me_half(hy), 0);
             int32_t sn = mcd_norm_sad(raw, blk2 * blk2, ssx, ssy, cur->bitdepth);
 
             if ((uint32_t)sn * 2u > cfg->thsad) {
@@ -765,8 +911,7 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
                         const int32_t cx = mcd_me_clamp(hx + hexo[k][0], xlo, xhi);
                         const int32_t cy = mcd_me_clamp(hy + hexo[k][1], ylo, yhi);
                         const uint64_t l = mcd_hp_luma_sad(cp[0], pel, X, Y,
-                                                           (int32_t)blk2, cx, cy, fetch,
-                                                           want_pad);
+                                                           (int32_t)blk2, cx, cy, want_pad, bl);
                         if (l < bl) {
                             bl = l;
                             nx = cx;
@@ -785,8 +930,7 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
                         const int32_t cx = mcd_me_clamp(hx + dx, xlo, xhi);
                         const int32_t cy = mcd_me_clamp(hy + dy, ylo, yhi);
                         const uint64_t l = mcd_hp_luma_sad(cp[0], pel, X, Y,
-                                                           (int32_t)blk2, cx, cy, fetch,
-                                                           want_pad);
+                                                           (int32_t)blk2, cx, cy, want_pad, bl);
                         if (l < bl) {
                             bl = l;
                             hx = cx;
@@ -796,7 +940,7 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
                 }
 
                 raw = bl + mcd_chroma_sad(cp, rp, npl, ssx, ssy, X, Y, (int32_t)blk2,
-                                          mcd_me_half(hx), mcd_me_half(hy));
+                                          mcd_me_half(hx), mcd_me_half(hy), 0);
                 sn = mcd_norm_sad(raw, blk2 * blk2, ssx, ssy, cur->bitdepth);
             }
 
@@ -820,7 +964,6 @@ fail:
     if (pel_own) {
         mcd_pelset_destroy(&pel);
     }
-    free(fetch);
     free(nv);
     return ret;
 }
