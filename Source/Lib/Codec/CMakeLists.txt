@@ -177,6 +177,8 @@ set(all_files
         mc_denoise_dfttest.c
         mc_denoise_me.c
         mc_denoise_degrain.c
+        mc_denoise_simd.c
+        mc_denoise_simd.h
         mcomp.c
         mcomp.h
         md_rate_estimation.c
@@ -318,6 +320,18 @@ set(all_files
         )
 
 add_library(CODEC OBJECT ${all_files})
+
+# mc_denoise_simd.c must not contract mul+add into FMA: its float kernels
+# (dfttest) are bit-identical to the scalar reference only without
+# contraction (the scalar library is compiled for baseline x86-64, which
+# has no FMA). MSVC does not contract under its default /fp:precise.
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND HAVE_X86_PLATFORM)
+    set_source_files_properties(mc_denoise_simd.c PROPERTIES
+        # keep -ffp-contract=off AFTER any -march/-mno-avx additions in the
+        # global C flags (see the add_compile_options ordering above): scalar
+        # parity of the float kernels depends on FMA staying disabled here
+        COMPILE_OPTIONS "-ffp-contract=off")
+endif()
 
 if(SVT_AV1_NVTX)
     # HPC SDK installs CUDA under a versioned subdir (e.g. 25.3/cuda/include);
