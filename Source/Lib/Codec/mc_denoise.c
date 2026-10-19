@@ -227,9 +227,10 @@ static void mcd_replicate_margins(const McdPlane* pl, uint32_t pad) {
     const size_t rowb     = (size_t)(pl->w + 2 * pad) * esz;
     const uint8_t* firstrow = vis - (size_t)pad * esz;
     const uint8_t* lastrow  = vis + (size_t)(pl->h - 1) * stride * esz - (size_t)pad * esz;
+    uint8_t*       lastrow_w = (uint8_t*)lastrow; /* mutable alias for the dest */
     for (uint32_t y = 0; y < pad; ++y) {
         memcpy(base + (size_t)y * stride * esz, firstrow, rowb);
-        memcpy(lastrow + (size_t)(y + 1) * stride * esz, lastrow, rowb);
+        memcpy(lastrow_w + (size_t)(y + 1) * stride * esz, lastrow, rowb);
     }
 }
 
@@ -698,9 +699,11 @@ void svt_mcd_state_destroy(void** state_ptr) {
     svt_block_on_mutex(s->mutex);
     while (s->in_flight > 0) {
         svt_release_mutex(s->mutex);
+        /* each finished denoise posts once and has already decremented
+         * in_flight before posting; the token alone is the wakeup --
+         * decrementing again here would let destroy race live denoises */
         svt_block_on_semaphore(s->done_semaphore);
         svt_block_on_mutex(s->mutex);
-        --s->in_flight;
     }
     svt_release_mutex(s->mutex);
 
@@ -926,6 +929,9 @@ uint32_t svt_mcd_pa_arrival(void* state,
         } else {
             if (b) {
                 mcd_bufs_unref(s, b);
+                sl->buf = NULL; /* owning ref dropped: do not leave the slot
+                                   pointing at a buffer the last reader may
+                                   free while the alloc below can fail */
             }
             b = (McdBufs*)mcd_alloc_zeroed(sizeof(*b));
             if (!b) {

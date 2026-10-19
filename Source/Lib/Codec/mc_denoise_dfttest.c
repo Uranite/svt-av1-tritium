@@ -32,31 +32,12 @@
  */
 
 #include "mc_denoise.h"
+#include "mc_denoise_simd.h"
+#include "mc_denoise_dfttest_ctx.h"
 
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define MCD_DFT_N    16                     /* transform block size        */
-#define MCD_DFT_STEP  4                     /* block stepping (75% overlap)*/
-#define MCD_DFT_PAD  16                     /* mirror padding per side     */
-#define MCD_DFT_N2   (MCD_DFT_N * MCD_DFT_N)
-
-#define MCD_PI 3.14159265358979323846
-
-/* ---------------------------------------------------------------------- */
-/* per-call context: all expensive tables precomputed exactly once         */
-
-struct McdDftCtx {
-    float   twr[8], twi[8];        /* fwd twiddles e^{-2*pi*i*k/16}        */
-    uint8_t brev[MCD_DFT_N];       /* bit-reversal permutation             */
-    float   win[MCD_DFT_N2];       /* analysis = synthesis window          */
-    float   wscale;                /* sum of win^2 over the block          */
-    float   wfre[MCD_DFT_N2];      /* DFT(win): zmean profile, real part   */
-    float   wfim[MCD_DFT_N2];      /* DFT(win): imaginary part             */
-    float   sigma2[MCD_DFT_N2];    /* per-coefficient noise variance       */
-    uint32_t sigma_pct;            /* the sigma this context was built for */
-};
 
 /* Symmetric mirror reflection of i into [0, w). */
 static inline int32_t mcd_mirror(int32_t i, uint32_t w)
@@ -221,6 +202,10 @@ void mcd_dfttest_ctx_destroy(McdDftCtx **ctx)
 int mcd_dfttest_plane_with_ctx(const McdDftCtx *ctx, const McdPlane *src,
                                McdPlane *dst)
 {
+    if (mcd_use_avx512()) {
+        /* bit-identical 16-block vector path (see mc_denoise_simd.c) */
+        return mcd_simd_dfttest_plane_with_ctx(ctx, src, dst);
+    }
     if (!ctx || !src || !dst || !src->data)
         return MCD_ERR_PARAM;
     const uint32_t w = src->w;

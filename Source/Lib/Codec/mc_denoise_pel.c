@@ -32,6 +32,7 @@
 #include <string.h>
 
 #include "mc_denoise.h"
+#include "mc_denoise_simd.h"
 
 #define MCD_MAX_PLANES      3
 #define MCD_PYR_MAX_LEVELS  12  /* hard cap on pyramid depth                */
@@ -355,6 +356,10 @@ static void mcd_halfpel_h_u8(const uint8_t *src, uint32_t sstride,
                              uint32_t w, uint32_t h, uint32_t pad,
                              uint8_t *dst, uint32_t dstride, uint32_t maxval)
 {
+    if (mcd_use_avx512()) {
+        mcd_simd_halfpel_h_u8(src, sstride, w, h, pad, dst, dstride, maxval);
+        return;
+    }
     const uint32_t tw = w + 2 * pad;
     const uint32_t th = h + 2 * pad;
     const int32_t wm1 = (int32_t)w - 1;
@@ -380,6 +385,10 @@ static void mcd_halfpel_v_u8(const uint8_t *src, uint32_t sstride,
                              uint32_t w, uint32_t h, uint32_t pad,
                              uint8_t *dst, uint32_t dstride, uint32_t maxval)
 {
+    if (mcd_use_avx512()) {
+        mcd_simd_halfpel_v_u8(src, sstride, w, h, pad, dst, dstride, maxval);
+        return;
+    }
     const uint32_t tw = w + 2 * pad;
     const uint32_t th = h + 2 * pad;
     const int32_t hm1 = (int32_t)h - 1;
@@ -410,6 +419,10 @@ static void mcd_halfpel_h_u16(const uint16_t *src, uint32_t sstride,
                               uint32_t w, uint32_t h, uint32_t pad,
                               uint16_t *dst, uint32_t dstride, uint32_t maxval)
 {
+    if (mcd_use_avx512()) {
+        mcd_simd_halfpel_h_u16(src, sstride, w, h, pad, dst, dstride, maxval);
+        return;
+    }
     const uint32_t tw = w + 2 * pad;
     const uint32_t th = h + 2 * pad;
     const int32_t wm1 = (int32_t)w - 1;
@@ -435,6 +448,10 @@ static void mcd_halfpel_v_u16(const uint16_t *src, uint32_t sstride,
                               uint32_t w, uint32_t h, uint32_t pad,
                               uint16_t *dst, uint32_t dstride, uint32_t maxval)
 {
+    if (mcd_use_avx512()) {
+        mcd_simd_halfpel_v_u16(src, sstride, w, h, pad, dst, dstride, maxval);
+        return;
+    }
     const uint32_t tw = w + 2 * pad;
     const uint32_t th = h + 2 * pad;
     const int32_t hm1 = (int32_t)h - 1;
@@ -609,11 +626,15 @@ void mcd_pelset_fetch_pad(const McdPelSet *s, uint32_t plane,
         const uint32_t sy = (uint32_t)(iy + (int32_t)s->pad);
         if (!p->highbd) {
             const uint8_t *data = (const uint8_t *)p->data;
+            const int simd = mcd_use_avx2();
             for (r = 0; r < h; r++) {
                 const uint8_t *row = data + (size_t)(sy + r) * p->stride + sx;
                 uint16_t *out = dst + (size_t)r * w;
-                for (c = 0; c < w; c++)
-                    out[c] = (uint16_t)row[c];
+                if (simd)
+                    mcd_simd_fetch_u8_row(row, out, w);
+                else
+                    for (c = 0; c < w; c++)
+                        out[c] = (uint16_t)row[c];
             }
         } else {
             const uint16_t *data = (const uint16_t *)p->data;

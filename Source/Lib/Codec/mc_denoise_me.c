@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "mc_denoise.h"
+#include "mc_denoise_simd.h"
 
 /* Side padding, in samples, that every pyramid plane and pelset is guaranteed
  * to carry (the glue builds pyramids with pad >= 32 + blksize). Candidate
@@ -58,6 +59,8 @@ static uint32_t mcd_me_grid(uint32_t dim, uint32_t ov, uint32_t step) {
 
 static uint64_t mcd_sad_u8u8(
     const uint8_t *a, int32_t sa, const uint8_t *b, int32_t sb, uint32_t w, uint32_t h) {
+    if (mcd_use_avx2())
+        return mcd_simd_sad_u8u8(a, sa, b, sb, w, h);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
@@ -72,6 +75,8 @@ static uint64_t mcd_sad_u8u8(
 
 static uint64_t mcd_sad_u16u16(
     const uint16_t *a, int32_t sa, const uint16_t *b, int32_t sb, uint32_t w, uint32_t h) {
+    if (mcd_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull)
+        return mcd_simd_sad_u16u16(a, sa, b, sb, w, h);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
@@ -86,6 +91,8 @@ static uint64_t mcd_sad_u16u16(
 
 static uint64_t mcd_sad_u8u16(
     const uint8_t *a, int32_t sa, const uint16_t *b, int32_t sb, uint32_t w, uint32_t h) {
+    if (mcd_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull)
+        return mcd_simd_sad_u8u16(a, sa, b, sb, w, h);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
@@ -100,6 +107,8 @@ static uint64_t mcd_sad_u8u16(
 
 static uint64_t mcd_sad_u16u8(
     const uint16_t *a, int32_t sa, const uint8_t *b, int32_t sb, uint32_t w, uint32_t h) {
+    if (mcd_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull)
+        return mcd_simd_sad_u16u8(a, sa, b, sb, w, h);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
@@ -179,6 +188,8 @@ static inline int32_t mcd_satd_4x4(const int32_t d[16]) {
 
 static uint64_t mcd_satd_u8u8(
     const uint8_t *a, int32_t sa, const uint8_t *b, int32_t sb, uint32_t w, uint32_t h) {
+    if (mcd_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0)
+        return mcd_simd_satd_u8u8(a, sa, b, sb, w, h);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y += 4) {
         for (uint32_t x = 0; x < w; x += 4) {
@@ -195,6 +206,8 @@ static uint64_t mcd_satd_u8u8(
 
 static uint64_t mcd_satd_u16u16(
     const uint16_t *a, int32_t sa, const uint16_t *b, int32_t sb, uint32_t w, uint32_t h) {
+    if (mcd_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0)
+        return mcd_simd_satd_u16u16(a, sa, b, sb, w, h);
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y += 4) {
         for (uint32_t x = 0; x < w; x += 4) {
