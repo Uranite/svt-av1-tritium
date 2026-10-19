@@ -58,6 +58,13 @@ uint64_t mcd_simd_sad_u16u8(const uint16_t *a, int32_t sa, const uint8_t *b, int
                             uint32_t w, uint32_t h, uint64_t bound) { (void)a;(void)sa;(void)b;(void)sb;(void)w;(void)h;(void)bound; return 0; }
 uint64_t mcd_simd_satd_u8u8(const uint8_t *a, int32_t sa, const uint8_t *b, int32_t sb,
                             uint32_t w, uint32_t h, uint64_t bound) { (void)a;(void)sa;(void)b;(void)sb;(void)w;(void)h;(void)bound; return 0; }
+int mcd_simd_mask_merge(const McdPlane *src_planes, const McdPlane *filt_planes,
+                        McdPlane *out_planes, uint32_t n_planes,
+                        uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
+    (void)src_planes;(void)filt_planes;(void)out_planes;(void)n_planes;
+    (void)x_ss;(void)y_ss;(void)bitdepth;
+    return MCD_ERR_PARAM; /* caller falls back to the scalar path */
+}
 uint64_t mcd_simd_satd_u16u16(const uint16_t *a, int32_t sa, const uint16_t *b, int32_t sb,
                               uint32_t w, uint32_t h, uint64_t bound) { (void)a;(void)sa;(void)b;(void)sb;(void)w;(void)h;(void)bound; return 0; }
 void mcd_simd_halfpel_h_u8(const uint8_t *s, uint32_t ss, uint32_t w, uint32_t h, uint32_t p,

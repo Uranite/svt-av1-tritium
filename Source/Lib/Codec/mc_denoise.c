@@ -115,7 +115,6 @@
  * end-of-stream waits. The caps only matter when a picture never arrives
  * (encoder teardown); the bounds keep such a degenerate case from hanging. */
 #define MCD_WAIT_US 200
-#define MCD_WAIT_MAX_POLLS 5000
 
 /* Number of eager cache-build helper threads. Measured at 1080p (Ryzen
  * 8840HS, 8 physical cores) against the HEAD lazy baseline (~3.95 fps at
@@ -756,6 +755,10 @@ static int mcd_bufs_build_me_pel(SvtMcdState* s, McdBufs* b) {
 /* Queue a buffer for a full cache build (state mutex held). Takes one
  * reference on the buffer; the completing helper drops it. */
 static void mcd_build_post(SvtMcdState* s, McdBufs* b) {
+    if (s->build_threads_n == 0) {
+        return; /* helpers failed to spawn: no queue, no semaphore (see
+                 * svt_mcd_state_create); builds fall back to the lazy path */
+    }
     if (b->build_queued) {
         return; /* one job per buffer between completions */
     }
@@ -880,18 +883,17 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
         if (rc) {
             goto fail;
         }
-        if (neigh->denoised) {
-            /* this neighbour already had its denoise turn and its caches
-             * are now complete: its original pixels are dead (see
-             * mcd_bufs_maybe_recycle_pix). Taking s->mutex here is safe:
-             * this thread holds no build_mutex (the builders release it
-             * internally), and no path ever holds s->mutex while acquiring
-             * a build_mutex except the ordered s->mutex -> build_mutex
-             * nesting inside the recycle helper itself. */
-            svt_block_on_mutex(s->mutex);
-            mcd_bufs_maybe_recycle_pix(s, neigh);
-            svt_release_mutex(s->mutex);
-        }
+        /* Recycle the neighbour's original pixels if they are provably
+         * dead: mcd_bufs_maybe_recycle_pix re-validates every condition
+         * (denoise turn + all caches built) under the buffer's build_mutex,
+         * which is the authoritative check -- a bare peek at ->denoised
+         * here would be a formal C11 data race on a flag written under the
+         * state mutex. Taking s->mutex is safe: this thread holds no
+         * build_mutex, and no path ever holds s->mutex while acquiring a
+         * build_mutex except this same ordered nesting. */
+        svt_block_on_mutex(s->mutex);
+        mcd_bufs_maybe_recycle_pix(s, neigh);
+        svt_release_mutex(s->mutex);
         McdMeResult* res = NULL;
         rc               = mcd_me_analyze_s(fr, &neigh->frame, pop->neigh_delta[i], &s->cfg,
                                             pop->me_scratch, &res);
@@ -1211,21 +1213,15 @@ static void mcd_release_head(SvtMcdState* s, EbObjectWrapper** out_wrappers,
     mcd_release_popped(s, &pop, out_wrappers, out_pcs, n_out);
 }
 
-/* Budgeted end-of-stream flush: release held heads, waiting for in-flight
- * gaps to settle first (those pictures are ordered ahead of the end-of-
- * stream marker in the PA fifo, so the wait is bounded and keeps the
- * neighbour sets identical to a serial arrival). The poll cap only bounds
- * the degenerate case of pictures that never arrive (teardown). Heads this
- * call cannot emit stay queued; every pusher flushes at the very least its
- * own head, so nothing is stranded. */
+/* End-of-stream flush: pure drain of the holding queue (no waiting). The
+ * only trigger is the arrival of the pcs carrying end_of_sequence_flag,
+ * which is FIFO-ordered after every real picture, so by the time this runs
+ * every temporal neighbour that will ever exist has settled -- any missing
+ * ones are legitimately absent tail neighbours and the neighbour sets match
+ * a serial arrival exactly. */
 static void mcd_eos_flush(SvtMcdState* s, EbObjectWrapper** out_wrappers,
                           struct PictureParentControlSet** out_pcs, uint32_t* n_out) {
-    /* Pure drain. The primary (flagged-arrival) trigger runs after every
-     * real picture has settled, so any missing neighbours are legitimately
-     * absent tail neighbours -- deterministic by construction. The
-     * terminating-flag belt only calls this after the watermark has
-     * genuinely stalled (see the arrival hook), so waiting here would be
-     * pointless. */
+    /* Pure drain; see the header comment above. */
     uint32_t quota = SVT_MCD_MAX_EMITTED - *n_out;
     while (s->hold_count > 0 && quota > 0) {
         mcd_release_head(s, out_wrappers, out_pcs, n_out);
@@ -1278,14 +1274,15 @@ uint32_t svt_mcd_pa_arrival(void* state,
 
     svt_block_on_mutex(s->mutex);
 
-    /* End of stream: the last picture (real, or the flagged overlay pcs in
-     * overlay streams) arrives with end_of_sequence_flag and is FIFO-ordered
-     * after every real picture, so flushing on ITS arrival is deterministic.
-     * The EncodeContext terminating flag is only a belt for streams where no
-     * flagged pcs ever reaches this stage: it may be set while real pictures
-     * are still in flight, so a belt flush first waits (below) for the
-     * watermark to stop advancing, with a hard cap so a lost picture cannot
-     * hang the encoder. */
+    /* End of stream: the pcs carrying end_of_sequence_flag (the last real
+     * picture with overlays off, the flagged overlay pcs with overlays on)
+     * is FIFO-ordered after every real picture, so flushing on ITS arrival
+     * is deterministic. There is deliberately no terminating-flag fallback
+     * trigger: that flag is set while real pictures may still be in flight,
+     * and a fallback flush from it races their arrivals (this exact race
+     * shipped nondeterministic output and encoder deadlocks before it was
+     * removed). A stream in which no flagged pcs ever reaches this stage
+     * would hang rather than silently corrupt. */
     const bool eos = pcs->end_of_sequence_flag;
     /* Low-delay / all-intra: never hold pictures (see file header comment). */
     const bool no_hold = (scs->static_config.pred_structure == LOW_DELAY) || scs->allintra;
@@ -1368,11 +1365,24 @@ uint32_t svt_mcd_pa_arrival(void* state,
                 b->pix_bytes[p] = b->pix_buf[p] ? (size_t)g.w[p] * g.h[p] * esz : 0;
             }
         }
-        ++s->in_copy;
-        svt_release_mutex(s->mutex);
-        const int copy_rc = mcd_bufs_copy_pixels(s, b, pcs->enhanced_pic);
-        svt_block_on_mutex(s->mutex);
-        --s->in_copy;
+        /* The out-of-mutex copy is safe only in hold mode, where the
+         * unbreakable ordered-arrival wait serializes any picture that
+         * could touch this slot (number +/- ring_len). no_hold skips that
+         * wait entirely, so two PA threads can hold number N and
+         * N + ring_len concurrently: an out-of-mutex copy there races the
+         * later arrival's slot reset (heap UAF). Keep the copy under the
+         * mutex in no_hold mode -- its cost is bounded by one memcpy and
+         * no_hold denoises inline on this thread anyway. */
+        int copy_rc;
+        if (no_hold) {
+            copy_rc = mcd_bufs_copy_pixels(s, b, pcs->enhanced_pic);
+        } else {
+            ++s->in_copy;
+            svt_release_mutex(s->mutex);
+            copy_rc = mcd_bufs_copy_pixels(s, b, pcs->enhanced_pic);
+            svt_block_on_mutex(s->mutex);
+            --s->in_copy;
+        }
 
         if (copy_rc == MCD_SUCCESS) {
             b->picture_number = pcs->picture_number;
@@ -1441,7 +1451,25 @@ uint32_t svt_mcd_pa_arrival(void* state,
          * a ring slot, but they DO settle their picture number: later
          * arrivals must not wait for an overlay in their ordered-arrival
          * check, and the overlay's number is never a valid neighbour (its
-         * slot stays empty), exactly like the original design. */
+         * slot stays empty), exactly like the original design.
+         *
+         * The overlay SHARES its base real picture's number, and the real
+         * twin is FIFO-ordered ahead of us. Wait for the twin to settle the
+         * shared number before settling/flushing here: without this gate an
+         * overlay arrival (in particular the EOS-flagged overlay that RC
+         * stamps at end of stream when overlays are on) could settle and
+         * flush while the real twin's pixel copy is still running outside
+         * the state mutex -- popping heads with a mid-copy neighbour
+         * (divergent output) or draining the flush before the twin is held
+         * (stranding it in the hold queue forever: encoder deadlock). */
+        if (!no_hold) {
+            while (s->watermark_valid ? s->watermark < pcs->picture_number
+                                      : pcs->picture_number != 0) {
+                svt_release_mutex(s->mutex);
+                usleep(MCD_WAIT_US);
+                svt_block_on_mutex(s->mutex);
+            }
+        }
         out_wrappers[n_out] = pcs_wrapper;
         out_pcs[n_out]      = pcs;
         ++n_out;
