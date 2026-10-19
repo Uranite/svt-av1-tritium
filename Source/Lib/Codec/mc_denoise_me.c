@@ -236,12 +236,14 @@ static uint64_t mcd_plane_satd(const McdPlane *pa, int32_t ax, int32_t ay,
 
 /* Luma SAD of the current block at (X,Y) against the reference fetched at
  * half-pel position (2*X + hx, 2*Y + hy); the pelset fetch clamps its own
- * coordinates into the padded region, so any vector is safe. scratch is a
- * uint16_t[b*b] buffer supplied by the caller. */
+ * coordinates into the padded region (as if the margin were `pel_pad`), so
+ * any vector is safe. scratch is a uint16_t[b*b] buffer supplied by the
+ * caller. */
 static uint64_t mcd_hp_luma_sad(const McdPlane *cur0, const McdPelSet *pel,
                                 int32_t X, int32_t Y, int32_t b,
-                                int32_t hx, int32_t hy, uint16_t *scratch) {
-    mcd_pelset_fetch(pel, 0, 2 * X + hx, 2 * Y + hy, (uint32_t)b, (uint32_t)b, scratch);
+                                int32_t hx, int32_t hy, uint16_t *scratch,
+                                uint32_t pel_pad) {
+    mcd_pelset_fetch_pad(pel, 0, 2 * X + hx, 2 * Y + hy, (uint32_t)b, (uint32_t)b, pel_pad, scratch);
     {
         const int32_t st = (int32_t)cur0->stride;
         if (cur0->highbd) {
@@ -392,6 +394,25 @@ static const McdPlane *mcd_me_pel_src(const McdFrame *f) {
     return f->prefiltered ? &f->fplanes[0] : &f->planes[0];
 }
 
+/* Half-pel pelset for the reference frame at margin `want_pad`. Uses the
+ * glue-built shared cache (ref->me_pel) when present — its phase-plane
+ * content is identical to a locally built pelset (content does not depend on
+ * the margin) and fetches are clamped to `want_pad`, matching a local build
+ * bit-for-bit. Otherwise builds a temporary pelset the caller must destroy.
+ * *own tells the caller whether it owns the returned pelset. */
+static McdPelSet *mcd_me_ref_pel(const McdFrame *ref, uint32_t want_pad, int *own) {
+    *own = 0;
+    if (ref->me_pel_valid && ref->me_pel) {
+        return (McdPelSet *)ref->me_pel;
+    }
+    McdPelSet *pel = NULL;
+    if (mcd_pelset_create(mcd_me_pel_src(ref), 1, want_pad, &pel) != MCD_SUCCESS) {
+        return NULL;
+    }
+    *own = 1;
+    return pel;
+}
+
 /* -------------------------------------------------------------------------- */
 /* mcd_me_analyze                                                              */
 
@@ -448,11 +469,15 @@ int mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
     }
 
     /* Half-pel phase planes over the REFERENCE prefiltered luma: the sub-pel
-     * stage interpolates reference blocks. */
-    ret = mcd_pelset_create(mcd_me_pel_src(ref), 1,
-                            (uint32_t)MCD_ME_EDGE_PAD + (blk >> 1), &pel);
-    if (ret != MCD_SUCCESS)
+     * stage interpolates reference blocks. With the glue's shared cache the
+     * pelset is built once per reference frame instead of once per call. */
+    const uint32_t want_pad = (uint32_t)MCD_ME_EDGE_PAD + (blk >> 1);
+    int            pel_own  = 0;
+    pel = mcd_me_ref_pel(ref, want_pad, &pel_own);
+    if (pel == NULL) {
+        ret = MCD_ERR_NOMEM;
         goto fail;
+    }
 
     {
         const uint64_t pmax   = (1ull << cur->bitdepth) - 1;
@@ -557,7 +582,8 @@ int mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
                         int32_t  hx = vxc * 2;
                         int32_t  hy = vyc * 2;
                         uint64_t bl = mcd_hp_luma_sad(lv.curp[0], pel, X, Y,
-                                                      (int32_t)blk, hx, hy, fetch);
+                                                      (int32_t)blk, hx, hy, fetch,
+                                                      want_pad);
                         static const int32_t off8[8][2] = {
                             { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 },
                             { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 }
@@ -566,7 +592,8 @@ int mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
                             const int32_t cx = vxc * 2 + off8[k][0];
                             const int32_t cy = vyc * 2 + off8[k][1];
                             const uint64_t l = mcd_hp_luma_sad(lv.curp[0], pel, X, Y,
-                                                               (int32_t)blk, cx, cy, fetch);
+                                                               (int32_t)blk, cx, cy, fetch,
+                                                               want_pad);
                             if (l < bl) {
                                 bl = l;
                                 hx = cx;
@@ -602,7 +629,9 @@ int mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
     vecs              = NULL;
 
 fail:
-    mcd_pelset_destroy(&pel);
+    if (pel_own) {
+        mcd_pelset_destroy(&pel);
+    }
     free(fetch);
     free(fld_a);
     free(fld_b);
@@ -670,11 +699,17 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
         goto fail;
     }
 
-    /* half-pel phases over the reference prefiltered luma (level 0) */
-    ret = mcd_pelset_create(mcd_me_pel_src(ref), 1,
-                            (uint32_t)MCD_ME_EDGE_PAD + (blk2 >> 1), &pel);
-    if (ret != MCD_SUCCESS)
+    /* half-pel phases over the reference prefiltered luma (level 0). With
+     * the glue's shared cache (built at the analyze-grid margin, which is
+     * WIDER than what this pass clamps to) the fetches clamp to this pass's
+     * own expected margin, matching a local pelset build bit-for-bit. */
+    const uint32_t want_pad = (uint32_t)MCD_ME_EDGE_PAD + (blk2 >> 1);
+    int            pel_own  = 0;
+    pel = mcd_me_ref_pel(ref, want_pad, &pel_own);
+    if (pel == NULL) {
+        ret = MCD_ERR_NOMEM;
         goto fail;
+    }
 
     for (uint32_t by2 = 0; by2 < nby2; by2++) {
         for (uint32_t bx2 = 0; bx2 < nbx2; bx2++) {
@@ -692,7 +727,8 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
 
             /* SAD at the inherited vector: luma at half-pel precision via the
              * pelset, chroma at the integer-rounded position. */
-            uint64_t bl = mcd_hp_luma_sad(cp[0], pel, X, Y, (int32_t)blk2, hx, hy, fetch);
+            uint64_t bl = mcd_hp_luma_sad(cp[0], pel, X, Y, (int32_t)blk2, hx, hy, fetch,
+                                          want_pad);
             uint64_t raw = bl + mcd_chroma_sad(cp, rp, npl, ssx, ssy, X, Y,
                                                (int32_t)blk2,
                                                mcd_me_half(hx), mcd_me_half(hy));
@@ -716,7 +752,8 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
                         const int32_t cx = mcd_me_clamp(hx + hexo[k][0], xlo, xhi);
                         const int32_t cy = mcd_me_clamp(hy + hexo[k][1], ylo, yhi);
                         const uint64_t l = mcd_hp_luma_sad(cp[0], pel, X, Y,
-                                                           (int32_t)blk2, cx, cy, fetch);
+                                                           (int32_t)blk2, cx, cy, fetch,
+                                                           want_pad);
                         if (l < bl) {
                             bl = l;
                             nx = cx;
@@ -735,7 +772,8 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
                         const int32_t cx = mcd_me_clamp(hx + dx, xlo, xhi);
                         const int32_t cy = mcd_me_clamp(hy + dy, ylo, yhi);
                         const uint64_t l = mcd_hp_luma_sad(cp[0], pel, X, Y,
-                                                           (int32_t)blk2, cx, cy, fetch);
+                                                           (int32_t)blk2, cx, cy, fetch,
+                                                           want_pad);
                         if (l < bl) {
                             bl = l;
                             hx = cx;
@@ -766,7 +804,9 @@ int mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
     inout->scene_change = mcd_me_scene(inout->vecs, n2, cfg);
 
 fail:
-    mcd_pelset_destroy(&pel);
+    if (pel_own) {
+        mcd_pelset_destroy(&pel);
+    }
     free(fetch);
     free(nv);
     return ret;

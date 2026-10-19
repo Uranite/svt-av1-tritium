@@ -90,6 +90,11 @@ typedef struct McdFrame {
     void    *pel;          /* McdPelSet* over planes (ORIGINAL pixels), for
                               degrain compensation                               */
     bool     pel_valid;
+    void    *me_pel;       /* McdPelSet* over the PREFILTERED luma, shared by
+                              every analyze/recalculate call against this
+                              frame as reference; built by the glue, read-only
+                              for the modules (may be NULL)                      */
+    bool     me_pel_valid;
 } McdFrame;
 
 /* ---------------------------------------------------------------------- */
@@ -158,6 +163,18 @@ void mcd_pelset_fetch(const McdPelSet *s, uint32_t plane,
                       int32_t x_halfpel, int32_t y_halfpel,
                       uint32_t w, uint32_t h, uint16_t *dst);
 
+/* Same fetch, with the coordinate clamp applied as if the pelset carried the
+ * margin `eff_pad` instead of its own (clamped to the pelset's own pad, so
+ * reads stay in bounds). The phase-plane CONTENT of a pelset does not depend
+ * on its pad — only the clamp range does — so fetching from a wider pelset
+ * with a smaller eff_pad is bit-identical to fetching from a pelset built
+ * with that smaller pad. Callers use this to share one cached pelset across
+ * users that were built expecting different margins. */
+void mcd_pelset_fetch_pad(const McdPelSet *s, uint32_t plane,
+                          int32_t x_halfpel, int32_t y_halfpel,
+                          uint32_t w, uint32_t h, uint32_t eff_pad,
+                          uint16_t *dst);
+
 /* ---------------------------------------------------------------------- */
 /* mc_denoise_dfttest.c — spatial prefilter                                */
 
@@ -169,6 +186,17 @@ void mcd_pelset_fetch(const McdPelSet *s, uint32_t plane,
  * Internal pixel scale is the 8-bit range (native/2^(bd-8)) so the sigma
  * profile keeps its 8-bit meaning at any depth. dst may not alias src.      */
 int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct);
+
+/* Reusable constant-table context (window, frequency response, twiddles):
+ * depends only on sigma_pct. Build once and share across calls and threads
+ * (read-only after creation); saves rebuilding the tables per call. */
+typedef struct McdDftCtx McdDftCtx;
+int  mcd_dfttest_ctx_create(uint32_t sigma_pct, McdDftCtx **out);
+void mcd_dfttest_ctx_destroy(McdDftCtx **ctx);
+/* Same filter as mcd_dfttest_plane, using the caller's context (which must
+ * have been created with the same sigma_pct the plain call would pass). */
+int  mcd_dfttest_plane_with_ctx(const McdDftCtx *ctx, const McdPlane *src,
+                                McdPlane *dst);
 
 /* vsdenoise luma-masked merge, applied after the dfttest pass:
  *   m = clamp((Y8 - 16) / (75 - 16), 0, 1)  from the SOURCE luma

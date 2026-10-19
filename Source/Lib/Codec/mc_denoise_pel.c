@@ -565,18 +565,30 @@ void mcd_pelset_fetch(const McdPelSet *s, uint32_t plane,
                       int32_t x_halfpel, int32_t y_halfpel,
                       uint32_t w, uint32_t h, uint16_t *dst)
 {
+    if (!s)
+        return;
+    mcd_pelset_fetch_pad(s, plane, x_halfpel, y_halfpel, w, h, s->pad, dst);
+}
+
+void mcd_pelset_fetch_pad(const McdPelSet *s, uint32_t plane,
+                          int32_t x_halfpel, int32_t y_halfpel,
+                          uint32_t w, uint32_t h, uint32_t eff_pad,
+                          uint16_t *dst)
+{
     const McdPlane *p;
     int32_t lo_x, hi_x, lo_y, hi_y, ix, iy;
     uint32_t fx, fy, phase, r, c;
 
     if (!s || !dst || w == 0 || h == 0 || plane >= s->n_planes)
         return;
+    if (eff_pad > s->pad)
+        eff_pad = s->pad; /* never reach outside the built margin */
 
     /* clamp into the valid padded region so any vector is safe */
-    lo_x = -(int32_t)s->pad;
-    hi_x = (int32_t)s->ph[plane][0].w + (int32_t)s->pad - (int32_t)w;
-    lo_y = -(int32_t)s->pad;
-    hi_y = (int32_t)s->ph[plane][0].h + (int32_t)s->pad - (int32_t)h;
+    lo_x = -(int32_t)eff_pad;
+    hi_x = (int32_t)s->ph[plane][0].w + (int32_t)eff_pad - (int32_t)w;
+    lo_y = -(int32_t)eff_pad;
+    hi_y = (int32_t)s->ph[plane][0].h + (int32_t)eff_pad - (int32_t)h;
     if (hi_x < lo_x) /* degenerate: padded region narrower than the block */
         hi_x = lo_x;
     if (hi_y < lo_y)
