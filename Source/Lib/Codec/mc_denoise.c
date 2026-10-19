@@ -50,8 +50,8 @@
  *   - Prefiltered search planes live in padded buffers (>= 64 samples on
  *     every side, edge-replicated margins, data pointer at the visible
  *     origin); ME reads up to 32 samples outside the visible area.
- *   - mcd_prefilter_mask_merge output is a third buffer set and never
- *     aliases the dfttest output; original pixels are never overwritten
+ *   - The luma-mask merge runs in place over the dfttest output (the padded
+ *     set becomes the search planes); original pixels are never overwritten
  *     before degrain (pel caches compensate reference blocks from
  *     originals).
  *   - 10-bit pictures are stored split by SVT (8-bit MSB planes + packed
@@ -106,8 +106,14 @@
 typedef struct McdBufs {
     uint64_t picture_number;
     bool     valid;               /* pixels copied for picture_number      */
+    bool     denoised;            /* had its (one) denoise turn; it can only
+                                     serve as a neighbour afterwards       */
     McdFrame frame;               /* planes[] point into pix_buf           */
-    void*    pix_buf[3];          /* module copies of the original planes  */
+    void*    pix_buf[3];          /* module copies of the original planes;
+                                     returned to the state's pix pool once
+                                     the picture itself has been denoised
+                                     (it is never read again afterwards)  */
+    size_t   pix_bytes[3];        /* 0 when pix_buf[p] is not owned        */
     void*    fplane_buf[3];       /* padded prefiltered search planes      */
     void*    dft_buf[3];          /* dfttest scratch (freed after merge)   */
     void*    out_buf[3];          /* degrain destination planes            */
@@ -127,7 +133,8 @@ typedef struct McdHold {
 
 /* One popped (owned) denoise job: the hold-queue head plus references on the
  * buffers it will read (center + temporal neighbours), all taken under the
- * state mutex before the heavy work starts. */
+ * state mutex before the heavy work starts. scratch: ME predictor-field
+ * scratch taken from the state's pool for the duration of the denoise. */
 typedef struct McdPopped {
     EbObjectWrapper*                wrapper;
     struct PictureParentControlSet* pcs;
@@ -136,7 +143,14 @@ typedef struct McdPopped {
     McdBufs*                        neigh[2 * MCD_MAX_TR];
     int32_t                         neigh_delta[2 * MCD_MAX_TR];
     uint32_t                        n_neigh;
+    McdMeScratch*                   me_scratch;
 } McdPopped;
+
+/* Pooled ME scratch: analyzed frames need grow-to-fit predictor fields
+ * (~0.5 MB at 1080p blk16); a small freelist removes the per-frame churn.
+ * Take/put under the state mutex; entries are owned by exactly one denoise
+ * at a time. */
+#define MCD_ME_POOL_MAX 16
 
 typedef struct SvtMcdState {
     EbHandle  mutex;
@@ -154,8 +168,15 @@ typedef struct SvtMcdState {
     uint64_t  watermark;
     bool      watermark_valid;
     uint32_t  in_flight;                /* denoises running outside the mutex  */
+    uint32_t  in_copy;                  /* pixel copies running outside the
+                                           mutex (defensive teardown wait)    */
     EbHandle  done_semaphore;           /* posted once per finished denoise    */
     McdDftCtx* dft_ctx;                 /* shared dfttest constant tables      */
+    /* scratch pools (all guarded by mutex) */
+    McdMeScratch* me_pool[MCD_ME_POOL_MAX];
+    uint32_t      me_pool_n;
+    void*         pix_pool[3];          /* one recycled copy buffer per plane  */
+    size_t        pix_pool_bytes[3];    /* 0 when the slot is empty            */
 } SvtMcdState;
 
 /* ------------------------------------------------------------------ */
@@ -178,7 +199,12 @@ static uint32_t mcd_align_stride(uint32_t samples) {
 static int mcd_alloc_padded_plane(uint32_t w, uint32_t h, bool highbd, McdPlane* pl, void** base, uint32_t pad) {
     const uint32_t stride = mcd_align_stride(w + 2 * pad);
     const size_t   esz    = highbd ? sizeof(uint16_t) : sizeof(uint8_t);
-    uint8_t*       buf    = mcd_alloc_zeroed((size_t)stride * (h + 2 * pad) * esz);
+    /* uninitialized malloc is safe: every byte that is ever read is written
+     * first — the visible core is filled by the copy/dfttest pass, the
+     * replicated margin by mcd_replicate_margins; the stride-alignment slack
+     * columns past w + 2*pad are never read by any module (all reads are
+     * clamped to the core +/- the replicated margin) */
+    uint8_t*       buf    = malloc((size_t)stride * (h + 2 * pad) * esz);
     if (!buf) {
         return MCD_ERR_NOMEM;
     }
@@ -268,7 +294,8 @@ static void mcd_bufs_reset(McdBufs* b) {
     mcd_bufs_free_caches(b);
     for (uint32_t p = 0; p < 3; ++p) {
         free(b->pix_buf[p]);
-        b->pix_buf[p] = NULL;
+        b->pix_buf[p]   = NULL;
+        b->pix_bytes[p] = 0;
     }
     b->valid = false;
 }
@@ -288,6 +315,90 @@ static void mcd_bufs_unref(SvtMcdState* s, McdBufs* b) {
     if (b && --b->refs == 0) {
         mcd_bufs_destroy(b);
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* scratch pools (state mutex held by every caller)                    */
+
+/* Take an ME scratch from the pool (or create one). */
+static McdMeScratch* mcd_me_pool_take(SvtMcdState* s) {
+    if (s->me_pool_n > 0) {
+        return s->me_pool[--s->me_pool_n];
+    }
+    McdMeScratch* sc = NULL;
+    if (mcd_me_scratch_create(&sc) != MCD_SUCCESS) {
+        return NULL;
+    }
+    return sc;
+}
+
+/* Return an ME scratch to the pool (surplus is destroyed). */
+static void mcd_me_pool_put(SvtMcdState* s, McdMeScratch* sc) {
+    if (!sc) {
+        return;
+    }
+    if (s->me_pool_n < MCD_ME_POOL_MAX) {
+        s->me_pool[s->me_pool_n++] = sc;
+    } else {
+        mcd_me_scratch_destroy(&sc);
+    }
+}
+
+/* Take a recycled copy buffer of exactly `bytes` for plane p (NULL = caller
+ * must malloc; the caller records the ownership in b->pix_bytes). */
+static void* mcd_pix_pool_take(SvtMcdState* s, uint32_t p, size_t bytes) {
+    if (s->pix_pool[p] && s->pix_pool_bytes[p] == bytes) {
+        void* buf     = s->pix_pool[p];
+        s->pix_pool[p]      = NULL;
+        s->pix_pool_bytes[p] = 0;
+        return buf;
+    }
+    return NULL;
+}
+
+/* Return a copy buffer to the pool; keep the largest buffer seen for the
+ * plane role, free everything else (geometry is constant per stream, so the
+ * steady state is one exact-size hit per plane per frame). */
+static void mcd_pix_pool_put(SvtMcdState* s, uint32_t p, void* buf, size_t bytes) {
+    if (!buf) {
+        return;
+    }
+    if (bytes > s->pix_pool_bytes[p]) {
+        free(s->pix_pool[p]);
+        s->pix_pool[p]       = buf;
+        s->pix_pool_bytes[p]  = bytes;
+    } else {
+        free(buf);
+    }
+}
+
+/* Return a buffer's original pixel copies to the state pool once they are
+ * provably dead: the picture had its denoise turn (it can only be a
+ * neighbour afterwards, and neighbours are read only through their caches)
+ * AND every cache a future neighbour pass needs (search planes + pyramid +
+ * both pelsets) is already built — early-stream frames have their caches
+ * completed later, by the next centre's neighbour loop, so the buffers stay
+ * alive until then.
+ * Locking: state mutex held; the buffer's build_mutex is taken for the
+ * cache-validity flags (they are written under it). The only other nesting
+ * of these mutexes is this same s->mutex -> build_mutex order, so no
+ * inversion can arise. */
+static void mcd_bufs_maybe_recycle_pix(SvtMcdState* s, McdBufs* b) {
+    const McdFrame* fr = &b->frame;
+    svt_block_on_mutex(b->build_mutex);
+    const int dead = b->denoised && fr->prefiltered && fr->pyr_valid &&
+                     fr->pel_valid && fr->me_pel_valid;
+    if (dead) {
+        for (uint32_t p = 0; p < 3; ++p) {
+            mcd_pix_pool_put(s, p, b->pix_buf[p], b->pix_bytes[p]);
+            b->pix_buf[p]   = NULL;
+            b->pix_bytes[p] = 0;
+        }
+        /* frame.planes[].data now dangle by design; nothing dereferences
+         * them (the valid flags short-circuit every builder, degrain reads
+         * only CENTRE planes, ME reads pyramids/pelsets) */
+    }
+    svt_release_mutex(b->build_mutex);
 }
 
 /* ------------------------------------------------------------------ */
@@ -316,10 +427,13 @@ static void mcd_geom_from_pic(McdGeom* g, const EbPictureBufferDesc* pic) {
 }
 
 /* Copy the visible planes of the SVT picture buffer into the buffer object's
- * compact module planes. Any caches from a previous picture are dropped. */
-static int mcd_bufs_copy_pixels(McdBufs* b, const EbPictureBufferDesc* pic) {
+ * compact module planes. Any caches from a previous picture are dropped.
+ * Runs OUTSIDE the state mutex (item: the 10-bit pack is expensive); pool
+ * buffers are pre-taken under the mutex before the call. */
+static int mcd_bufs_copy_pixels(SvtMcdState* s, McdBufs* b, const EbPictureBufferDesc* pic) {
     /* invalidate first: on a mid-copy failure (OOM) the buffer must not keep
      * a stale picture_number over dangling plane pointers */
+    (void)s;
     b->valid = false;
     McdGeom g;
     mcd_geom_from_pic(&g, pic);
@@ -338,9 +452,18 @@ static int mcd_bufs_copy_pixels(McdBufs* b, const EbPictureBufferDesc* pic) {
         const uint32_t w   = g.w[p];
         const uint32_t h   = g.h[p];
         const size_t   esz = g.highbd ? sizeof(uint16_t) : sizeof(uint8_t);
+        const size_t   bytes = (size_t)w * h * esz;
 
-        free(b->pix_buf[p]);
-        b->pix_buf[p] = mcd_alloc_zeroed((size_t)w * h * esz);
+        /* keep an already-owned buffer of the right size (steady state);
+         * otherwise the pool was pre-taken under the mutex, else malloc */
+        if (!b->pix_buf[p] || b->pix_bytes[p] != bytes) {
+            free(b->pix_buf[p]);
+            b->pix_buf[p]   = malloc(bytes);
+            b->pix_bytes[p] = b->pix_buf[p] ? bytes : 0;
+        }
+        /* uninitialized memory is fine: the compact planes are fully
+         * overwritten below (row memcpy for 8-bit, full-plane
+         * svt_aom_compressed_pack_sb for 10-bit) before any read */
         if (!b->pix_buf[p]) {
             return MCD_ERR_NOMEM;
         }
@@ -435,34 +558,26 @@ static int mcd_bufs_build_search(SvtMcdState* s, McdBufs* b) {
                 if (rc) {
                     goto unlock;
                 }
-                mcd_replicate_margins(&fr->fplanes[p], MCD_PAD_SEARCH);
+                /* NOTE: no margin replication here. The luma-mask merge below
+                 * reads only the visible core of the dfttest output, and the
+                 * dft_buf set is scratch: margins are replicated once, after
+                 * the merge. */
             }
-            /* luma-masked merge into a SECOND padded buffer set; the merge
-             * output must not alias the dfttest output, and the original
-             * planes are never touched. */
-            McdPlane merged[3];
-            void*    merged_base[3] = {NULL, NULL, NULL};
-            for (uint32_t p = 0; p < fr->num_planes; ++p) {
-                rc = mcd_alloc_padded_plane(
-                    fr->planes[p].w, fr->planes[p].h, fr->planes[p].highbd, &merged[p], &merged_base[p],
-                    MCD_PAD_SEARCH);
-                if (rc) {
-                    for (uint32_t q = 0; q < p; ++q) {
-                        mcd_free_padded(&merged_base[q]);
-                    }
-                    goto unlock;
-                }
-            }
+            /* luma-masked merge IN PLACE over the dfttest output: the merge
+             * reads filt(x,y)/src(x,y) strictly before writing out(x,y) at
+             * the same coordinate, so out == filt is per-pixel read-before-
+             * write safe; the original planes are never touched. */
             rc = mcd_prefilter_mask_merge(
-                fr->planes, fr->fplanes, merged, fr->num_planes, fr->x_ss, fr->y_ss, fr->bitdepth);
-            for (uint32_t p = 0; p < fr->num_planes; ++p) {
-                mcd_free_padded(&b->dft_buf[p]); /* the dfttest scratch */
-                fr->fplanes[p]   = merged[p];
-                b->fplane_buf[p] = merged_base[p];
-                mcd_replicate_margins(&fr->fplanes[p], MCD_PAD_SEARCH);
-            }
+                fr->planes, fr->fplanes, fr->fplanes, fr->num_planes, fr->x_ss, fr->y_ss, fr->bitdepth);
             if (rc) {
                 goto unlock;
+            }
+            for (uint32_t p = 0; p < fr->num_planes; ++p) {
+                /* the padded set becomes the search planes (ownership moves
+                 * from dft_buf to fplane_buf) */
+                b->fplane_buf[p] = b->dft_buf[p];
+                b->dft_buf[p]    = NULL;
+                mcd_replicate_margins(&fr->fplanes[p], MCD_PAD_SEARCH);
             }
         } else {
             /* search over edge-replicated copies of the original pixels */
@@ -535,7 +650,14 @@ static int mcd_bufs_build_me_pel(SvtMcdState* s, McdBufs* b) {
     if (!b->frame.me_pel_valid) {
         const uint32_t pad = 32u + (s->cfg.blksize >> 1); /* MCD_ME_EDGE_PAD + blk/2 */
         const McdPlane* src = b->frame.prefiltered ? &b->frame.fplanes[0] : &b->frame.planes[0];
-        rc = mcd_pelset_create(src, 1, pad, (McdPelSet**)&b->frame.me_pel);
+        /* The padded search plane's margin is MCD_PAD_SEARCH; when it equals
+         * the ME margin, fplanes[0] IS byte-identical to what phase 0 of the
+         * pelset would be (same pad, stride and edge replication), so adopt
+         * its storage instead of rebuilding one padded luma plane per slot.
+         * mcd_bufs_free_caches destroys me_pel before freeing fplane_buf. */
+        const McdPlane* borrow =
+            (b->fplane_buf[0] && pad == MCD_PAD_SEARCH) ? &b->frame.fplanes[0] : NULL;
+        rc = mcd_pelset_create_borrow0(src, 1, pad, borrow, (McdPelSet**)&b->frame.me_pel);
         if (rc == MCD_SUCCESS) {
             b->frame.me_pel_valid = true;
         }
@@ -579,10 +701,23 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
         if (rc) {
             goto fail;
         }
+        if (neigh->denoised) {
+            /* this neighbour already had its denoise turn and its caches
+             * are now complete: its original pixels are dead (see
+             * mcd_bufs_maybe_recycle_pix). Taking s->mutex here is safe:
+             * this thread holds no build_mutex (the builders release it
+             * internally), and no path ever holds s->mutex while acquiring
+             * a build_mutex except the ordered s->mutex -> build_mutex
+             * nesting inside the recycle helper itself. */
+            svt_block_on_mutex(s->mutex);
+            mcd_bufs_maybe_recycle_pix(s, neigh);
+            svt_release_mutex(s->mutex);
+        }
         McdMeResult* res = NULL;
-        rc               = mcd_me_analyze(fr, &neigh->frame, pop->neigh_delta[i], &s->cfg, &res);
+        rc               = mcd_me_analyze_s(fr, &neigh->frame, pop->neigh_delta[i], &s->cfg,
+                                            pop->me_scratch, &res);
         if (rc == MCD_SUCCESS) {
-            rc = mcd_me_recalculate(fr, &neigh->frame, &s->cfg, res);
+            rc = mcd_me_recalculate_s(fr, &neigh->frame, &s->cfg, pop->me_scratch, res);
         }
         if (rc == MCD_ERR_PARAM) {
             /* geometry mismatch (e.g. dynamic resolution change): skip
@@ -611,7 +746,10 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
         for (uint32_t p = 0; p < fr->num_planes; ++p) {
             const size_t esz = fr->planes[p].highbd ? sizeof(uint16_t) : sizeof(uint8_t);
             if (!center->out_buf[p]) {
-                center->out_buf[p] = mcd_alloc_zeroed((size_t)fr->planes[p].w * fr->planes[p].h * esz);
+                /* uninitialized malloc: on success mcd_degrain_frame writes
+                 * every sample of the plane before mcd_write_back reads it;
+                 * on failure the buffer is never read (no write-back) */
+                center->out_buf[p] = malloc((size_t)fr->planes[p].w * fr->planes[p].h * esz);
             }
             if (!center->out_buf[p]) {
                 rc = MCD_ERR_NOMEM;
@@ -705,11 +843,27 @@ void svt_mcd_state_destroy(void** state_ptr) {
         svt_block_on_semaphore(s->done_semaphore);
         svt_block_on_mutex(s->mutex);
     }
+    while (s->in_copy > 0) {
+        /* purely defensive (PA threads are joined before destroy); a copy
+         * never posts the semaphore, so poll briefly instead */
+        svt_release_mutex(s->mutex);
+        usleep(MCD_WAIT_US);
+        svt_block_on_mutex(s->mutex);
+    }
     svt_release_mutex(s->mutex);
 
     for (uint32_t i = 0; i < s->ring_len; ++i) {
         mcd_bufs_unref(s, s->ring[i].buf);
         s->ring[i].buf = NULL;
+    }
+    for (uint32_t i = 0; i < s->me_pool_n; ++i) {
+        mcd_me_scratch_destroy(&s->me_pool[i]);
+    }
+    s->me_pool_n = 0;
+    for (uint32_t p = 0; p < 3; ++p) {
+        free(s->pix_pool[p]);
+        s->pix_pool[p]       = NULL;
+        s->pix_pool_bytes[p] = 0;
     }
     EB_DESTROY_SEMAPHORE(s->done_semaphore);
     EB_FREE(s->ring);
@@ -753,6 +907,7 @@ static void mcd_pop_resolve(SvtMcdState* s, McdPopped* pop) {
             }
         }
     }
+    pop->me_scratch = mcd_me_pool_take(s);
     ++s->in_flight;
 }
 
@@ -803,8 +958,13 @@ static void mcd_release_popped(SvtMcdState* s, McdPopped* pop, EbObjectWrapper**
                                struct PictureParentControlSet** out_pcs, uint32_t* n_out) {
     svt_release_mutex(s->mutex);
 
+    int denoised = 0;
     if (pop->center && pop->pcs && pop->pcs->enhanced_pic) {
         const int rc = mcd_denoise_center(s, pop);
+        /* ERR_PARAM = nothing to denoise (start of stream) / geometry
+         * mismatch: the picture passes through undenoised and is never
+         * retried, so its pixel copies are recyclable on the same terms */
+        denoised     = (rc == MCD_SUCCESS || rc == MCD_ERR_PARAM);
         if (rc != MCD_SUCCESS && rc != MCD_ERR_PARAM) {
             SVT_ERROR("MC denoiser: failed to denoise picture %llu (rc=%d), passing it through undenoised\n",
                       (unsigned long long)pop->picture_number,
@@ -813,6 +973,16 @@ static void mcd_release_popped(SvtMcdState* s, McdPopped* pop, EbObjectWrapper**
     }
 
     svt_block_on_mutex(s->mutex);
+
+    mcd_me_pool_put(s, pop->me_scratch);
+    if (pop->center) {
+        /* ERR_PARAM = "nothing to denoise / geometry mismatch": the picture
+         * passes through undenoised and is never retried, so its pixel
+         * copies become recyclable on the same terms (once its caches are
+         * complete). Real failures keep everything owned by the buffer. */
+        pop->center->denoised = denoised;
+        mcd_bufs_maybe_recycle_pix(s, pop->center);
+    }
 
     out_wrappers[*n_out] = pop->wrapper;
     out_pcs[*n_out]      = pop->pcs;
@@ -952,7 +1122,34 @@ uint32_t svt_mcd_pa_arrival(void* state,
             EB_CREATE_MUTEX(b->build_mutex);
             sl->buf        = b;
         }
-        if (mcd_bufs_copy_pixels(b, pcs->enhanced_pic) == MCD_SUCCESS) {
+        /* Pre-take the recycled copy buffers for this geometry (cheap,
+         * under the mutex), then run the copy OUTSIDE the mutex: slot
+         * exclusivity is guaranteed by the ordered arrival (no other
+         * picture can touch this slot while ours is unsettled) and
+         * pop_resolve skips invalid buffers, so nothing can observe the
+         * half-copied state or mutate it concurrently. */
+        {
+            McdGeom      g;
+            const size_t esz = pcs->enhanced_pic->bit_depth > 8 ? sizeof(uint16_t)
+                                                                : sizeof(uint8_t);
+            mcd_geom_from_pic(&g, pcs->enhanced_pic);
+            const uint32_t np = g.has_chroma ? 3 : 1;
+            for (uint32_t p = 0; p < np; ++p) {
+                if (b->pix_buf[p] && b->pix_bytes[p] == (size_t)g.w[p] * g.h[p] * esz) {
+                    continue; /* already owned from the reset path */
+                }
+                free(b->pix_buf[p]);
+                b->pix_buf[p]   = mcd_pix_pool_take(s, p, (size_t)g.w[p] * g.h[p] * esz);
+                b->pix_bytes[p] = b->pix_buf[p] ? (size_t)g.w[p] * g.h[p] * esz : 0;
+            }
+        }
+        ++s->in_copy;
+        svt_release_mutex(s->mutex);
+        const int copy_rc = mcd_bufs_copy_pixels(s, b, pcs->enhanced_pic);
+        svt_block_on_mutex(s->mutex);
+        --s->in_copy;
+
+        if (copy_rc == MCD_SUCCESS) {
             b->picture_number = pcs->picture_number;
             b->valid          = true;
             if (!s->newest_valid || pcs->picture_number > s->newest) {
