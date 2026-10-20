@@ -147,10 +147,12 @@ typedef struct McdPelSet McdPelSet;     /* opaque */
 /* Half-pel (pel=2) phase planes over the ORIGINAL pixels, with Wiener 6-tap
  * (1,-5,20,20,-5,1)/32 interpolation for non-integer phases (mvtools
  * sharp=2), edge-replicated beyond borders by `pad` (pad >= 32).
+ * bitdepth is the owning frame's native depth (8, 10 or 12); interpolation
+ * clamps to that depth's sample range, including for uint16-backed planes.
  * Fetch clamps requested coordinates into the valid padded region, so any
  * in-range motion vector is safe to fetch.                                   */
 int  mcd_pelset_create(const McdPlane *src_planes, uint32_t n_planes,
-                       uint32_t pad, McdPelSet **out);
+                       uint32_t bitdepth, uint32_t pad, McdPelSet **out);
 
 /* Create variant for callers that already hold an identical padded copy of
  * src_planes[0] (same w/h/stride/highbd, edge-replicated margin of exactly
@@ -161,8 +163,8 @@ int  mcd_pelset_create(const McdPlane *src_planes, uint32_t n_planes,
  * fetches are bit-identical. borrow0 == NULL behaves like
  * mcd_pelset_create. */
 int  mcd_pelset_create_borrow0(const McdPlane *src_planes, uint32_t n_planes,
-                               uint32_t pad, const McdPlane *borrow0,
-                               McdPelSet **out);
+                               uint32_t bitdepth, uint32_t pad,
+                               const McdPlane *borrow0, McdPelSet **out);
 void mcd_pelset_destroy(McdPelSet **p);
 
 /* Copy a w x h block whose top-left corner is at (x_halfpel, y_halfpel) in
