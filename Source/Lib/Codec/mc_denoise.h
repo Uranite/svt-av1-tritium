@@ -54,10 +54,10 @@ extern "C" {
 
 typedef struct McdConfig {
     uint8_t  tr;           /* temporal radius, 1..MCD_MAX_TR                    */
-    uint32_t thsad;        /* SAD soft threshold, normalized units, default 350 */
+    uint32_t thsad;        /* SAD soft threshold, normalized units, default 50  */
     uint32_t blksize;      /* analysis block size (square), 8/16/32, default 16 */
     uint8_t  prefilter;    /* 0 = none, 1 = dfttest                             */
-    uint32_t sigma_pct;    /* prefilter sigma scale, percent, default 100        */
+    uint32_t sigma_pct;    /* prefilter sigma scale, percent, default 50         */
     uint32_t thscd1;       /* per-block scene-change SAD, default 400            */
     uint32_t thscd2_pct;   /* % changed blocks => scene change, default 51       */
     uint32_t limit;        /* max output delta vs source (normalized 8-bit

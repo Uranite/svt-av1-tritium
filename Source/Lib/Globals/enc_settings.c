@@ -1338,10 +1338,10 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     // Motion-compensated temporal denoising
     config_ptr->mc_denoise          = 0;
     config_ptr->mc_denoise_tr       = 1;
-    config_ptr->mc_denoise_thsad    = 350;
+    config_ptr->mc_denoise_thsad    = 50;
     config_ptr->mc_denoise_blksize  = 16;
     config_ptr->mc_denoise_prefilter = 1;
-    config_ptr->mc_denoise_sigma    = 100;
+    config_ptr->mc_denoise_sigma    = 50;
     config_ptr->mc_denoise_thscd1   = 400;
     config_ptr->mc_denoise_thscd2   = 51;
     config_ptr->mc_denoise_limit    = 0;
