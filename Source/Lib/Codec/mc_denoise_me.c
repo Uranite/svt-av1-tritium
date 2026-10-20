@@ -881,7 +881,8 @@ static McdPelSet *mcd_me_ref_pel(const McdFrame *ref, uint32_t want_pad, int *ow
         return (McdPelSet *)ref->me_pel;
     }
     McdPelSet *pel = NULL;
-    if (mcd_pelset_create(mcd_me_pel_src(ref), 1, want_pad, &pel) != MCD_SUCCESS) {
+    if (mcd_pelset_create(mcd_me_pel_src(ref), 1, ref->bitdepth,
+                          want_pad, &pel) != MCD_SUCCESS) {
         return NULL;
     }
     *own = 1;

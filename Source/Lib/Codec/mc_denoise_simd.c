@@ -1480,7 +1480,7 @@ int mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx *ctx, const McdPlane 
         if (src->highbd) {
             const uint16_t *s = src->data;
             uint32_t x = MCD_DFT_PAD;
-            for (; x + 16 <= MCD_DFT_PAD + w; x += 8) {
+            for (; x + 16 <= MCD_DFT_PAD + w; x += 16) {
                 const __m512 f = _mm512_cvtepu32_ps(_mm512_cvtepu16_epi32(
                     _mm256_loadu_si256((const __m256i *)(const void *)(s + srow + x - MCD_DFT_PAD))));
                 _mm512_storeu_ps(pr + x, _mm512_mul_ps(f, _mm512_set1_ps(iscale)));

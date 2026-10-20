@@ -85,7 +85,9 @@
  */
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#ifndef _WIN32
+#include <time.h>
+#endif
 
 #include "mc_denoise.h"
 #include "mc_denoise_glue.h"
@@ -115,6 +117,18 @@
  * end-of-stream waits. The caps only matter when a picture never arrives
  * (encoder teardown); the bounds keep such a degenerate case from hanging. */
 #define MCD_WAIT_US 200
+
+/* Keep the ordered-arrival polls short without depending on POSIX usleep,
+ * which is not available in the Windows build. Windows sleep granularity is
+ * typically 1 ms; that is acceptable because these waits are rare. */
+static void mcd_wait_short(void) {
+#ifdef _WIN32
+    Sleep(1);
+#else
+    const struct timespec delay = {0, MCD_WAIT_US * 1000};
+    nanosleep(&delay, NULL);
+#endif
+}
 
 /* Number of eager cache-build helper threads. Measured at 1080p (Ryzen
  * 8840HS, 8 physical cores) against the HEAD lazy baseline (~3.95 fps at
@@ -684,7 +698,11 @@ static int mcd_bufs_build_pel(SvtMcdState* s, McdBufs* b) {
          * does not depend on the margin width, so normal-motion fetches are
          * bit-identical to the previous 64-sample margin). */
         const uint32_t pad = 32u + (s->cfg.blksize >> 1);
-        rc = mcd_pelset_create(b->frame.planes, b->frame.num_planes, pad, (McdPelSet**)&b->frame.pel);
+        rc = mcd_pelset_create(b->frame.planes,
+                               b->frame.num_planes,
+                               b->frame.bitdepth,
+                               pad,
+                               (McdPelSet**)&b->frame.pel);
         if (rc == MCD_SUCCESS) {
             b->frame.pel_valid = true;
         }
@@ -712,7 +730,12 @@ static int mcd_bufs_build_me_pel(SvtMcdState* s, McdBufs* b) {
          * mcd_bufs_free_caches destroys me_pel before freeing fplane_buf. */
         const McdPlane* borrow =
             (b->fplane_buf[0] && pad == MCD_PAD_SEARCH) ? &b->frame.fplanes[0] : NULL;
-        rc = mcd_pelset_create_borrow0(src, 1, pad, borrow, (McdPelSet**)&b->frame.me_pel);
+        rc = mcd_pelset_create_borrow0(src,
+                                       1,
+                                       b->frame.bitdepth,
+                                       pad,
+                                       borrow,
+                                       (McdPelSet**)&b->frame.me_pel);
         if (rc == MCD_SUCCESS) {
             b->frame.me_pel_valid = true;
         }
@@ -962,6 +985,7 @@ fail:
 EbErrorType svt_mcd_state_create(void** state_ptr, const EbSvtAv1EncConfiguration* cfg) {
     SvtMcdState* s = NULL;
 
+    *state_ptr = NULL;
     EB_MALLOC(s, sizeof(*s));
     memset(s, 0, sizeof(*s));
 
@@ -978,15 +1002,32 @@ EbErrorType svt_mcd_state_create(void** state_ptr, const EbSvtAv1EncConfiguratio
     s->cfg.satd       = 1;
 
     s->ring_len = 2u * s->cfg.tr + 1u;
-    EB_MALLOC(s->ring, sizeof(McdSlot) * s->ring_len);
+    EB_MALLOC_NO_CHECK(s->ring, sizeof(McdSlot) * s->ring_len);
+    if (!s->ring) {
+        EB_FREE(s);
+        return EB_ErrorInsufficientResources;
+    }
     memset(s->ring, 0, sizeof(McdSlot) * s->ring_len);
 
     s->hold_count   = 0;
     s->newest_valid = false;
     s->in_flight    = 0;
 
-    EB_CREATE_MUTEX(s->mutex);
-    EB_CREATE_SEMAPHORE(s->done_semaphore, 0, 0x7FFFFFFF);
+    s->mutex = svt_create_mutex();
+    EB_NO_THROW_ADD_MEM(s->mutex, 1, EB_MUTEX);
+    if (!s->mutex) {
+        EB_FREE(s->ring);
+        EB_FREE(s);
+        return EB_ErrorInsufficientResources;
+    }
+    s->done_semaphore = svt_create_semaphore(0, 0x7FFFFFFF);
+    EB_NO_THROW_ADD_MEM(s->done_semaphore, 1, EB_SEMAPHORE);
+    if (!s->done_semaphore) {
+        EB_DESTROY_MUTEX(s->mutex);
+        EB_FREE(s->ring);
+        EB_FREE(s);
+        return EB_ErrorInsufficientResources;
+    }
 
     /* One dfttest constant-table context per encoder instance: identical for
      * every frame and plane of the same sigma, shared read-only by all PA
@@ -1005,15 +1046,19 @@ EbErrorType svt_mcd_state_create(void** state_ptr, const EbSvtAv1EncConfiguratio
      * rest of the state). A helper that fails to spawn degrades gracefully:
      * mcd_build_stop winds the pool down and the lazy path keeps the encoder
      * correct, just without the overlap. */
-    EB_CREATE_SEMAPHORE(s->build_semaphore, 0, 0x7FFFFFFF);
-    for (uint32_t i = 0; i < MCD_BUILD_THREADS; ++i) {
-        char name[16];
-        svt_format_thread_name(name, sizeof(name), "mcd_build", i);
-        EB_CREATE_THREAD_NAMED(s->build_threads[i], mcd_build_thread, s, name);
-        if (!s->build_threads[i]) {
-            break;
+    s->build_semaphore = svt_create_semaphore(0, 0x7FFFFFFF);
+    EB_NO_THROW_ADD_MEM(s->build_semaphore, 1, EB_SEMAPHORE);
+    if (s->build_semaphore) {
+        for (uint32_t i = 0; i < MCD_BUILD_THREADS; ++i) {
+            char name[16];
+            svt_format_thread_name(name, sizeof(name), "mcd_build", i);
+            s->build_threads[i] = svt_create_thread(mcd_build_thread, s, name);
+            EB_NO_THROW_ADD_MEM(s->build_threads[i], 1, EB_THREAD);
+            if (!s->build_threads[i]) {
+                break;
+            }
+            ++s->build_threads_n;
         }
-        ++s->build_threads_n;
     }
     if (s->build_threads_n < MCD_BUILD_THREADS) {
         mcd_build_stop(s);
@@ -1046,7 +1091,7 @@ void svt_mcd_state_destroy(void** state_ptr) {
         /* purely defensive (PA threads are joined before destroy); a copy
          * never posts the semaphore, so poll briefly instead */
         svt_release_mutex(s->mutex);
-        usleep(MCD_WAIT_US);
+        mcd_wait_short();
         svt_block_on_mutex(s->mutex);
     }
     svt_release_mutex(s->mutex);
@@ -1305,7 +1350,7 @@ uint32_t svt_mcd_pa_arrival(void* state,
                        ? s->watermark + 1 < pcs->picture_number
                        : pcs->picture_number != 0) {
                 svt_release_mutex(s->mutex);
-                usleep(MCD_WAIT_US);
+                mcd_wait_short();
                 svt_block_on_mutex(s->mutex);
             }
         }
@@ -1329,9 +1374,17 @@ uint32_t svt_mcd_pa_arrival(void* state,
             if (!b) {
                 /* out of memory: settle and pass the picture through
                  * undenoised rather than dropping it */
-                out_wrappers[n_out] = pcs_wrapper;
-                out_pcs[n_out]      = pcs;
-                ++n_out;
+                while (!no_hold && s->hold_count >= SVT_MCD_MAX_RELEASED &&
+                       n_out < SVT_MCD_MAX_EMITTED) {
+                    mcd_release_head(s, out_wrappers, out_pcs, &n_out);
+                }
+                if (!no_hold && s->hold_count < SVT_MCD_MAX_RELEASED) {
+                    mcd_hold_push(s, pcs_wrapper, pcs, pcs->picture_number);
+                } else {
+                    out_wrappers[n_out] = pcs_wrapper;
+                    out_pcs[n_out]      = pcs;
+                    ++n_out;
+                }
                 mcd_settle_ordered(s, pcs->picture_number);
                 mcd_release_ready_heads(s, out_wrappers, out_pcs, &n_out);
                 if (eos && s->hold_count > 0) {
@@ -1341,7 +1394,31 @@ uint32_t svt_mcd_pa_arrival(void* state,
                 return n_out;
             }
             b->refs        = 1;
-            EB_CREATE_MUTEX(b->build_mutex);
+            b->build_mutex = svt_create_mutex();
+            EB_NO_THROW_ADD_MEM(b->build_mutex, 1, EB_MUTEX);
+            if (!b->build_mutex) {
+                /* The state mutex is still held. Do not publish a buffer
+                 * whose lazy cache-build lock could not be created. */
+                free(b); /* fresh zeroed allocation owns no subordinate data */
+                while (!no_hold && s->hold_count >= SVT_MCD_MAX_RELEASED &&
+                       n_out < SVT_MCD_MAX_EMITTED) {
+                    mcd_release_head(s, out_wrappers, out_pcs, &n_out);
+                }
+                if (!no_hold && s->hold_count < SVT_MCD_MAX_RELEASED) {
+                    mcd_hold_push(s, pcs_wrapper, pcs, pcs->picture_number);
+                } else {
+                    out_wrappers[n_out] = pcs_wrapper;
+                    out_pcs[n_out]      = pcs;
+                    ++n_out;
+                }
+                mcd_settle_ordered(s, pcs->picture_number);
+                mcd_release_ready_heads(s, out_wrappers, out_pcs, &n_out);
+                if (eos && s->hold_count > 0) {
+                    mcd_eos_flush(s, out_wrappers, out_pcs, &n_out);
+                }
+                svt_release_mutex(s->mutex);
+                return n_out;
+            }
             sl->buf        = b;
         }
         /* Pre-take the recycled copy buffers for this geometry (cheap,
@@ -1466,7 +1543,7 @@ uint32_t svt_mcd_pa_arrival(void* state,
             while (s->watermark_valid ? s->watermark < pcs->picture_number
                                       : pcs->picture_number != 0) {
                 svt_release_mutex(s->mutex);
-                usleep(MCD_WAIT_US);
+                mcd_wait_short();
                 svt_block_on_mutex(s->mutex);
             }
         }

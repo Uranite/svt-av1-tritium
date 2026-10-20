@@ -498,12 +498,11 @@ struct McdPelSet {
  * the pelset is left consistent for mcd_pelset_destroy. */
 static int mcd_pelset_build_plane(McdPelSet *s, uint32_t i,
                                   const McdPlane *src, uint32_t pad,
-                                  const McdPlane *borrow)
+                                  uint32_t maxval, const McdPlane *borrow)
 {
     const uint32_t w = src->w, h = src->h;
     const uint32_t stride = mcd_align_stride(w + 2 * pad);
     const uint32_t rows = h + 2 * pad;
-    const uint32_t maxval = src->highbd ? 0xFFFFu : 0xFFu;
     const size_t pb = mcd_plane_bytes(stride, rows, src->highbd);
     const size_t esz = src->highbd ? 2u : 1u;
     uint8_t *buf;         /* phases 1..3 when borrowing, 0..3 otherwise */
@@ -581,29 +580,36 @@ static int mcd_pelset_build_plane(McdPelSet *s, uint32_t i,
 }
 
 int mcd_pelset_create(const McdPlane *src_planes, uint32_t n_planes,
-                      uint32_t pad, McdPelSet **out)
+                      uint32_t bitdepth, uint32_t pad, McdPelSet **out)
 {
-    return mcd_pelset_create_borrow0(src_planes, n_planes, pad, NULL, out);
+    return mcd_pelset_create_borrow0(src_planes, n_planes, bitdepth, pad, NULL, out);
 }
 
 int mcd_pelset_create_borrow0(const McdPlane *src_planes, uint32_t n_planes,
-                              uint32_t pad, const McdPlane *borrow0,
-                              McdPelSet **out)
+                              uint32_t bitdepth, uint32_t pad,
+                              const McdPlane *borrow0, McdPelSet **out)
 {
     McdPelSet *s;
     uint32_t i;
+    uint32_t maxval;
 
     if (!out)
         return MCD_ERR_PARAM;
     *out = NULL;
-    if (!src_planes || n_planes < 1 || n_planes > MCD_MAX_PLANES || pad < 1)
+    if (!src_planes || n_planes < 1 || n_planes > MCD_MAX_PLANES || pad < 1 ||
+        (bitdepth != 8 && bitdepth != 10 && bitdepth != 12))
         return MCD_ERR_PARAM;
     for (i = 0; i < n_planes; i++)
         if (!src_planes[i].data || src_planes[i].w < 1 || src_planes[i].h < 1 ||
             src_planes[i].stride < src_planes[i].w)
             return MCD_ERR_PARAM;
+    for (i = 0; i < n_planes; i++)
+        if (src_planes[i].highbd != (bitdepth > 8))
+            return MCD_ERR_PARAM;
     if (borrow0 && n_planes >= 1 && !borrow0->data)
         return MCD_ERR_PARAM;
+
+    maxval = (1u << bitdepth) - 1u;
 
     s = calloc(1, sizeof(*s));
     if (!s)
@@ -612,7 +618,7 @@ int mcd_pelset_create_borrow0(const McdPlane *src_planes, uint32_t n_planes,
     s->pad = pad;
 
     for (i = 0; i < n_planes; i++) {
-        const int rc = mcd_pelset_build_plane(s, i, &src_planes[i], pad,
+        const int rc = mcd_pelset_build_plane(s, i, &src_planes[i], pad, maxval,
                                               (i == 0) ? borrow0 : NULL);
         if (rc != MCD_SUCCESS) {
             mcd_pelset_destroy(&s);
@@ -644,7 +650,14 @@ void mcd_pelset_locate(const McdPelSet *s, uint32_t plane,
     int32_t lo_x, hi_x, lo_y, hi_y, ix, iy;
     uint32_t fx, fy, phase;
 
-    if (!s || !row0 || !stride || w == 0 || h == 0 || plane >= s->n_planes) {
+    if (!row0 || !stride) {
+        if (row0)
+            *row0 = NULL;
+        if (stride)
+            *stride = 0;
+        return;
+    }
+    if (!s || w == 0 || h == 0 || plane >= s->n_planes) {
         *row0  = NULL;
         *stride = 0;
         return;
