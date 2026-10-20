@@ -980,6 +980,10 @@ int mcd_me_analyze_s(const McdFrame *cur, const McdFrame *ref, int32_t delta,
 
     res = (McdMeResult *)calloc(1, sizeof(*res));
     vecs = (McdVector *)calloc(n_blks, sizeof(*vecs));
+    /* initialized BEFORE any goto fail: the fail: path reads it (jumping
+     * over an initializer would leave it indeterminate -- clang
+     * -Wsometimes-uninitialized, a real OOM-path hazard) */
+    int pel_own = 0;
     if (scratch) {
         /* grow-to-fit pooled predictor fields; the fields are written
          * before any read at every level, so no per-call zeroing is needed */
@@ -1004,7 +1008,6 @@ int mcd_me_analyze_s(const McdFrame *cur, const McdFrame *ref, int32_t delta,
      * stage interpolates reference blocks. With the glue's shared cache the
      * pelset is built once per reference frame instead of once per call. */
     const uint32_t want_pad = (uint32_t)MCD_ME_EDGE_PAD + (blk >> 1);
-    int            pel_own  = 0;
     pel = mcd_me_ref_pel(ref, want_pad, &pel_own);
     if (pel == NULL) {
         ret = MCD_ERR_NOMEM;
@@ -1203,6 +1206,10 @@ int mcd_me_recalculate_s(const McdFrame *cur, const McdFrame *ref,
         rp[p] = mcd_pyramid_get(ref->pyr, p, 0);
     }
 
+    /* initialized BEFORE any goto fail: the fail: path reads it (jumping
+     * over an initializer would leave it indeterminate -- clang
+     * -Wsometimes-uninitialized, a real OOM-path hazard) */
+    int pel_own = 0;
     nv    = (McdVector *)calloc(n2, sizeof(*nv));
     if (!nv) {
         ret = MCD_ERR_NOMEM;
@@ -1214,7 +1221,6 @@ int mcd_me_recalculate_s(const McdFrame *cur, const McdFrame *ref,
      * WIDER than what this pass clamps to) the fetches clamp to this pass's
      * own expected margin, matching a local pelset build bit-for-bit. */
     const uint32_t want_pad = (uint32_t)MCD_ME_EDGE_PAD + (blk2 >> 1);
-    int            pel_own  = 0;
     pel = mcd_me_ref_pel(ref, want_pad, &pel_own);
     if (pel == NULL) {
         ret = MCD_ERR_NOMEM;
