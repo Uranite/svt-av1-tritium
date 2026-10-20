@@ -148,6 +148,7 @@ int mcd_degrain_frame(const McdFrame *center, const McdFrame *const *refs,
     uint32_t n_planes, bd, pmax, w_l, h_l;
     size_t blk_area;
     uint32_t *qx = NULL, *qy = NULL, *bacc = NULL, *wts = NULL, *win = NULL;
+    uint16_t *win_luma = NULL;
     uint32_t *acc[3] = { NULL, NULL, NULL };
     uint16_t *comp = NULL;
     int32_t *coloff = NULL;
@@ -226,11 +227,17 @@ int mcd_degrain_frame(const McdFrame *center, const McdFrame *const *refs,
     coloff = (int32_t *)malloc((size_t)blk_w * sizeof(*coloff));
     wts    = (uint32_t *)malloc((size_t)n_refs * sizeof(*wts));
     win    = (uint32_t *)malloc(blk_w * sizeof(*win));
+    /* Cache each block's exact luma-grid window while processing luma. Chroma
+     * maps to a subset of these same luma offsets, so it can reuse the values
+     * instead of repeating the designated-block residual calculation. */
+    if (n_planes > 1)
+        win_luma = (uint16_t *)malloc(blk_area * sizeof(*win_luma));
     for (p = 0; p < n_planes; p++)
         acc[p] = (uint32_t *)calloc((size_t)center->planes[p].w * center->planes[p].h,
                                     sizeof(*acc[p]));
     if (!qx || !qy || !comp || !bacc || !coloff || !wts || !win ||
-        !acc[0] || (n_planes == 3 && (!acc[1] || !acc[2]))) {
+        !acc[0] || (n_planes == 3 && (!acc[1] || !acc[2])) ||
+        (n_planes > 1 && !win_luma)) {
         ret = MCD_ERR_NOMEM;
         goto cleanup;
     }
@@ -345,9 +352,26 @@ int mcd_degrain_frame(const McdFrame *center, const McdFrame *const *refs,
                     const int32_t oy = (int32_t)((y0_p + ly) << ssy) - (int32_t)y0_l;
                     uint32_t *accrow = acc[p] + (size_t)(y0_p + ly) * sp->w + x0_p;
                     const uint32_t *brow = bacc + (size_t)ly * bw;
-                    for (lx = 0; lx < bw; lx++)
-                        win[lx] = mcd_block_window(qx, qy, blk_w, blk_h, step_w, step_h,
-                                                   nbx, nby, coloff[lx], oy, bx, by);
+                    for (lx = 0; lx < bw; lx++) {
+                        uint32_t w;
+                        if (p == 0) {
+                            w = mcd_block_window(qx, qy, blk_w, blk_h, step_w, step_h,
+                                                 nbx, nby, coloff[lx], oy, bx, by);
+                            if (win_luma) {
+                                /* Luma offsets are nonnegative and within the
+                                 * block for this plane's visible rectangle. */
+                                win_luma[(size_t)ly * blk_w + lx] = (uint16_t)w;
+                            }
+                        } else if (coloff[lx] < 0 || oy < 0 ||
+                                   (uint32_t)coloff[lx] >= blk_w ||
+                                   (uint32_t)oy >= blk_h) {
+                            w = 0;
+                        } else {
+                            w = win_luma[(size_t)(uint32_t)oy * blk_w +
+                                         (uint32_t)coloff[lx]];
+                        }
+                        win[lx] = w;
+                    }
                     if (simd)
                         mcd_simd_degrain_acc_row(accrow, brow, win, bw);
                     else
@@ -403,5 +427,6 @@ cleanup:
     free(coloff);
     free(wts);
     free(win);
+    free(win_luma);
     return ret;
 }
