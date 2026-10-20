@@ -1207,7 +1207,7 @@ ConfigDescription config_entry_specific[] = {
      "Temporal radius of the motion-compensated denoiser, default is 1 [1-3]"},
 
     {MC_DENOISE_THSAD_TOKEN,
-     "SAD soft threshold of the motion-compensated denoiser (normalized 8-bit units), default is 350 [0-10000]"},
+     "SAD soft threshold of the motion-compensated denoiser (normalized 8-bit units), default is 50 [0-10000]"},
 
     {MC_DENOISE_BLKSIZE_TOKEN, "Motion-compensated denoiser analysis block size, default is 16 [8, 16, 32]"},
 
@@ -1215,7 +1215,7 @@ ConfigDescription config_entry_specific[] = {
      "Spatial prefilter guiding the motion-compensated denoiser motion search, default is 1 [0: off, 1: dfttest]"},
 
     {MC_DENOISE_SIGMA_TOKEN,
-     "Scale percent of the dfttest prefilter noise sigma, default is 100 [1-1000]"},
+     "Scale percent of the dfttest prefilter noise sigma, default is 50 [1-1000]"},
 
     {MC_DENOISE_THSCD1_TOKEN,
      "Per-block scene change SAD threshold of the motion-compensated denoiser, default is 400 [0-10000]"},
