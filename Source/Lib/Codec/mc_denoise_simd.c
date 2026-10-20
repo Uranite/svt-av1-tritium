@@ -81,6 +81,20 @@ void mcd_simd_halfpel_v_u16(const uint16_t *s, uint32_t ss, uint32_t w, uint32_t
     { (void)s;(void)ss;(void)w;(void)h;(void)p;(void)d;(void)ds;(void)m; }
 void mcd_simd_fetch_u8_row(const uint8_t *row, uint16_t *dst, uint32_t w)
     { (void)row;(void)dst;(void)w; }
+void mcd_simd_degrain_init_row(uint32_t *bacc, const McdPlane *sp, uint32_t Y,
+                               uint32_t x0_p, uint32_t wsrc, uint32_t n)
+    { (void)bacc;(void)sp;(void)Y;(void)x0_p;(void)wsrc;(void)n; }
+void mcd_simd_degrain_add_ref(uint32_t *bacc, const uint16_t *comp, uint32_t w,
+                              uint32_t n)
+    { (void)bacc;(void)comp;(void)w;(void)n; }
+void mcd_simd_degrain_shift(uint32_t *bacc, uint32_t n)
+    { (void)bacc;(void)n; }
+void mcd_simd_degrain_acc_row(uint32_t *accrow, const uint32_t *brow,
+                              const uint32_t *win, uint32_t n)
+    { (void)accrow;(void)brow;(void)win;(void)n; }
+int mcd_simd_degrain_finalize_row(McdPlane *dp, uint32_t y, const uint32_t *acc,
+                                  const McdPlane *sp, int32_t lim, uint32_t pmax)
+    { (void)dp;(void)y;(void)acc;(void)sp;(void)lim;(void)pmax; return 0; }
 int mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx *ctx, const McdPlane *src,
                                     McdPlane *dst)
     { (void)ctx;(void)src;(void)dst; return 1; }
