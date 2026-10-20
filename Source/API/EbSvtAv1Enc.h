@@ -620,7 +620,7 @@ typedef struct EbSvtAv1EncConfiguration {
     * equivalent units. Blocks whose normalized SAD exceeds this value get
     * no contribution from that reference.
     *
-    * Default is 400. */
+    * Default is 350. */
     uint32_t mc_denoise_thsad;
 
     /* Motion-compensated denoiser analysis block size.

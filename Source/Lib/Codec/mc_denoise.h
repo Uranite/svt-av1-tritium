@@ -24,11 +24,11 @@
  *     uint16_t native-endian (highbd flag selects).
  *   - All vectors are in HALF-PEL LUMA SAMPLE units at full resolution
  *     relative to the block grid origin; (0,0) = identical blocks.
- *   - All SADs exposed to weighting/thresholds are NORMALIZED: equivalent to
- *     the SAD of a 8x8 luma block, 8-bit range, including chroma contribution
- *     (see mcd_norm_sad). Thresholds (thsad, thscd1) are in these units, so
- *     the classic mvtools default 400 works unchanged at any bit depth,
- *     block size and subsampling.
+ *   - All SADs exposed to weighting/thresholds are NORMALIZED mean absolute
+ *     residuals across the represented plane samples, scaled to 64 samples
+ *     at 8-bit range (see mcd_norm_sad). Thresholds (thsad, thscd1) use this
+ *     implementation-specific unit; they are not directly interchangeable
+ *     with thresholds from other denoisers.
  *   - Internal scratch memory uses plain malloc/free; every create/destroy
  *     pair is balanced. Functions return MCD_* codes.
  */
@@ -54,7 +54,7 @@ extern "C" {
 
 typedef struct McdConfig {
     uint8_t  tr;           /* temporal radius, 1..MCD_MAX_TR                    */
-    uint32_t thsad;        /* SAD soft threshold, normalized units, default 400 */
+    uint32_t thsad;        /* SAD soft threshold, normalized units, default 350 */
     uint32_t blksize;      /* analysis block size (square), 8/16/32, default 16 */
     uint8_t  prefilter;    /* 0 = none, 1 = dfttest                             */
     uint32_t sigma_pct;    /* prefilter sigma scale, percent, default 100        */
