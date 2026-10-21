@@ -324,15 +324,14 @@ set(all_files
 
 add_library(CODEC OBJECT ${all_files})
 
-# mc_denoise_simd.c must not contract mul+add into FMA: its float kernels
-# (dfttest) are bit-identical to the scalar reference only without
-# contraction (the scalar library is compiled for baseline x86-64, which
-# has no FMA). MSVC does not contract under its default /fp:precise.
+# The denoiser's scalar and SIMD float kernels must not contract mul+add into
+# FMA: their dfttest and mask-merge results are bit-identical only without
+# contraction. MSVC does not contract under its default /fp:precise.
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND HAVE_X86_PLATFORM)
-    set_source_files_properties(mc_denoise_simd.c PROPERTIES
+    set_source_files_properties(mc_denoise_simd.c mc_denoise_dfttest.c PROPERTIES
         # keep -ffp-contract=off AFTER any -march/-mno-avx additions in the
-        # global C flags (see the add_compile_options ordering above): scalar
-        # parity of the float kernels depends on FMA staying disabled here
+        # global C flags (see the add_compile_options ordering above): parity
+        # of the scalar and SIMD float kernels depends on FMA staying disabled
         COMPILE_OPTIONS "-ffp-contract=off")
 endif()
 

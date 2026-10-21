@@ -839,14 +839,17 @@ static void mcd_me_level_search(McdMeLevel *lv, const McdMeL0Win *wn,
     *out_y = vyc;
 }
 
-/* Scene-change decision: fraction of blocks with sad_norm > thscd1 exceeding
- * thscd2_pct percent (integer arithmetic). */
+/* Scene-change decision: at least thscd2_pct percent of blocks exceed
+ * thscd1 (integer arithmetic). A zero threshold still requires one changed
+ * block, while 100 requires every block to be changed. */
 static int mcd_me_scene(const McdVector *v, uint32_t n, const McdConfig *cfg) {
     uint32_t changed = 0;
     for (uint32_t i = 0; i < n; i++)
-        if (v[i].sad_norm > (int32_t)cfg->thscd1)
+        if ((uint32_t)v[i].sad_norm > cfg->thscd1)
             changed++;
-    return ((uint64_t)changed * 100 > (uint64_t)cfg->thscd2_pct * n);
+    if (!changed)
+        return 0;
+    return ((uint64_t)changed * 100 >= (uint64_t)cfg->thscd2_pct * n);
 }
 
 /* Validation shared by analyze and recalculate. */

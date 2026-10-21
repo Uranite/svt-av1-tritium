@@ -44,6 +44,7 @@ extern "C" {
 #endif
 
 #define MCD_MAX_TR 3
+#define MCD_MAX_PLANES 3
 
 #define MCD_SUCCESS 0
 #define MCD_ERR_NOMEM 1
@@ -134,7 +135,10 @@ typedef struct McdPyramid McdPyramid;   /* opaque */
 /* Build a gaussian-free bilinear-reduction pyramid over src_planes.
  * Reduction filter is the separable (1,3,3,1)/8 (mvtools rfilter=1).
  * Level 0 references the SOURCE planes (no copy); levels >= 1 are allocated.
- * pad: extra margin replicated at each level's borders (>= blk + 8).
+ * pad: replicated margin for allocated levels, at least 32 samples for the
+ *      motion estimator's search range. Level 0 aliases src_planes and is
+ *      not padded; callers that use negative level-0 coordinates must supply
+ *      source planes whose backing storage includes that margin.
  * max_levels: cap on reduction levels (typ. 4).                              */
 int  mcd_pyramid_create(const McdPlane *src_planes, uint32_t n_planes,
                         uint32_t pad, uint32_t max_levels, McdPyramid **out);
@@ -211,7 +215,8 @@ void mcd_pelset_locate(const McdPelSet *s, uint32_t plane,
  *   8-bit^2 units] scaled by sigma_pct/100, zmean on.
  * Internal pixel scale is the 8-bit range (native/2^(bd-8)) so the sigma
  * profile keeps its 8-bit meaning at any depth. dst may not alias src.      */
-int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct);
+int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct,
+                      uint32_t bitdepth);
 
 /* Reusable constant-table context (window, frequency response, twiddles):
  * depends only on sigma_pct. Build once and share across calls and threads
@@ -222,7 +227,7 @@ void mcd_dfttest_ctx_destroy(McdDftCtx **ctx);
 /* Same filter as mcd_dfttest_plane, using the caller's context (which must
  * have been created with the same sigma_pct the plain call would pass). */
 int  mcd_dfttest_plane_with_ctx(const McdDftCtx *ctx, const McdPlane *src,
-                                McdPlane *dst);
+                                McdPlane *dst, uint32_t bitdepth);
 
 /* vsdenoise luma-masked merge, applied after the dfttest pass:
  *   m = clamp((Y8 - 16) / (75 - 16), 0, 1)  from the SOURCE luma

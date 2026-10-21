@@ -623,7 +623,8 @@ static int mcd_bufs_build_search(SvtMcdState* s, McdBufs* b) {
                 if (rc) {
                     goto unlock;
                 }
-                rc = mcd_dfttest_plane_with_ctx(s->dft_ctx, &fr->planes[p], &fr->fplanes[p]);
+                rc = mcd_dfttest_plane_with_ctx(s->dft_ctx, &fr->planes[p],
+                                                &fr->fplanes[p], fr->bitdepth);
                 if (rc) {
                     goto unlock;
                 }

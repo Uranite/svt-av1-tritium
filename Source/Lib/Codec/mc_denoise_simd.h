@@ -116,7 +116,7 @@ int mcd_simd_mask_merge(const McdPlane *src_planes, const McdPlane *filt_planes,
 /* Returns MCD_SUCCESS or MCD_ERR_* like the scalar entry; falls back to the
  * scalar implementation internally when the geometry is unsupported. */
 int mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx *ctx, const McdPlane *src,
-                                    McdPlane *dst);
+                                    McdPlane *dst, uint32_t bitdepth);
 
 /* The dfttest context struct is shared with the scalar implementation; the
  * definition lives in mc_denoise_dfttest.c. */
