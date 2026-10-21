@@ -22,11 +22,8 @@
  *  - mcd_dfttest_plane allocates dst->data with malloc when it is NULL and
  *    fills the dst geometry from src; an already-allocated dst with matching
  *    geometry is reused.  The caller (glue) owns and frees the buffer.
- *  - McdPlane carries no bit depth, so mcd_dfttest_plane derives the 8-bit
- *    internal scale factor 2^(bd-8) from src->highbd, assuming bd = 10 for
- *    highbd planes (AV1 main-10).  A 12-bit source is therefore filtered
- *    with the sigma profile scaled as 10-bit (slightly weak, never
- *    oversmoothing); fixing that needs a bitdepth parameter in the contract.
+ *  - Bit depth is supplied by the caller (McdPlane only distinguishes 8-bit
+ *    from highbd storage), and must be 8, 10, or 12 with storage matching it.
  *  - Frame borders are padded by symmetric mirroring (edge pixel
  *    duplicated), which makes every 4-stepped block position computable.
  */
@@ -200,25 +197,24 @@ void mcd_dfttest_ctx_destroy(McdDftCtx **ctx)
 }
 
 int mcd_dfttest_plane_with_ctx(const McdDftCtx *ctx, const McdPlane *src,
-                               McdPlane *dst)
+                               McdPlane *dst, uint32_t bitdepth)
 {
     if (mcd_use_avx512()) {
         /* bit-identical 16-block vector path (see mc_denoise_simd.c) */
-        return mcd_simd_dfttest_plane_with_ctx(ctx, src, dst);
+        return mcd_simd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
     }
-    if (!ctx || !src || !dst || !src->data)
+    if (!ctx || !src || !dst || !src->data ||
+        (bitdepth != 8 && bitdepth != 10 && bitdepth != 12) ||
+        src->highbd != (bitdepth > 8))
         return MCD_ERR_PARAM;
     const uint32_t w = src->w;
     const uint32_t h = src->h;
     if (w == 0 || h == 0 || src->stride < w)
         return MCD_ERR_PARAM;
 
-    /* effective bit depth: McdPlane has no depth field, assume 10-bit for
-     * highbd planes (see file header note) */
-    const uint32_t bd     = src->highbd ? 10 : 8;
-    const uint32_t pmax   = (1u << bd) - 1;
-    const float    iscale = 1.0f / (float)(1u << (bd - 8));
-    const float    oscale = (float)(1u << (bd - 8));
+    const uint32_t pmax   = (1u << bitdepth) - 1;
+    const float    iscale = 1.0f / (float)(1u << (bitdepth - 8));
+    const float    oscale = (float)(1u << (bitdepth - 8));
 
     /* destination: allocate, or reuse a compatible caller buffer */
     if (!dst->data) {
@@ -375,14 +371,15 @@ cleanup:
     return ret;
 }
 
-int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct)
+int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct,
+                      uint32_t bitdepth)
 {
     McdDftCtx *ctx = NULL;
     int rc = mcd_dfttest_ctx_create(sigma_pct, &ctx);
     if (rc != MCD_SUCCESS) {
         return rc;
     }
-    rc = mcd_dfttest_plane_with_ctx(ctx, src, dst);
+    rc = mcd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
     mcd_dfttest_ctx_destroy(&ctx);
     return rc;
 }
@@ -457,31 +454,54 @@ int mcd_prefilter_mask_merge(const McdPlane *src_planes,
             f->w != s->w || f->h != s->h || f->stride < f->w ||
             o->w != s->w || o->h != s->h || o->stride < o->w)
             return MCD_ERR_PARAM;
-        /* out may alias src AND filt: every read of a plane happens at the
-         * output pixel's own coordinate before that pixel is written (strict
-         * pixel-by-pixel, no cross-pixel reads), so in-place merging over
-         * either input is safe. */
+        /* Plane samples may be read and written in place. Luma is snapshotted
+         * below when aliased because chroma masks read neighboring luma. */
     }
 
-    const McdPlane *yl = &src_planes[0];
+    /* Chroma masks read neighboring luma samples. If the luma output aliases
+     * its source, the luma pass below would otherwise change those samples
+     * before the chroma pass reads them. Snapshot luma for the whole merge. */
+    McdPlane src_snapshot[MCD_MAX_PLANES];
+    memcpy(src_snapshot, src_planes, n_planes * sizeof(*src_snapshot));
+    void *luma_snapshot = NULL;
+    if (out_planes[0].data == src_planes[0].data) {
+        const McdPlane *s = &src_planes[0];
+        const size_t elem_size = s->highbd ? sizeof(uint16_t) : sizeof(uint8_t);
+        const size_t stride = s->w;
+        if ((size_t)s->h > SIZE_MAX / stride / elem_size)
+            return MCD_ERR_NOMEM;
+        luma_snapshot = malloc(stride * s->h * elem_size);
+        if (!luma_snapshot)
+            return MCD_ERR_NOMEM;
+        for (uint32_t y = 0; y < s->h; y++)
+            memcpy((uint8_t *)luma_snapshot + (size_t)y * stride * elem_size,
+                   (const uint8_t *)s->data + (size_t)y * s->stride * elem_size,
+                   stride * elem_size);
+        src_snapshot[0].data = luma_snapshot;
+        src_snapshot[0].stride = (uint32_t)stride;
+    }
+    const McdPlane *merge_src = luma_snapshot ? src_snapshot : src_planes;
+    const McdPlane *yl = &merge_src[0];
 
     /* SIMD paths (bit-identical lane-wise float ops, see mc_denoise_simd.c);
      * on any unsupported geometry they decline before writing anything and
      * the scalar loop below runs instead. */
     if (mcd_use_avx512() || mcd_use_avx2()) {
-        if (mcd_simd_mask_merge(src_planes, filt_planes, out_planes, n_planes,
-                                x_ss, y_ss, bitdepth) == MCD_SUCCESS)
+        if (mcd_simd_mask_merge(merge_src, filt_planes, out_planes, n_planes,
+                                x_ss, y_ss, bitdepth) == MCD_SUCCESS) {
+            free(luma_snapshot);
             return MCD_SUCCESS;
+        }
     }
 
     for (uint32_t p = 0; p < n_planes; p++) {
-        const McdPlane *s = &src_planes[p];
+        const McdPlane *s = &merge_src[p];
         const McdPlane *f = &filt_planes[p];
         McdPlane       *o = &out_planes[p];
 
-        /* strictly pixel-by-pixel: every read of a plane happens before the
-         * write to the same coordinate, so out aliasing src and/or filt is
-         * safe (in-place merge) */
+        /* The luma snapshot keeps the chroma mask independent of in-place
+         * luma writes; each plane's source and filtered samples are read
+         * before its output sample is written. */
         for (uint32_t y = 0; y < s->h; y++) {
             for (uint32_t x = 0; x < s->w; x++) {
                 const float m = (p == 0)
@@ -501,5 +521,6 @@ int mcd_prefilter_mask_merge(const McdPlane *src_planes,
             }
         }
     }
+    free(luma_snapshot);
     return MCD_SUCCESS;
 }

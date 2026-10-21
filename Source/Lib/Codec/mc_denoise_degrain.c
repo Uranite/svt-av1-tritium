@@ -363,8 +363,8 @@ int mcd_degrain_frame(const McdFrame *center, const McdFrame *const *refs,
                                 win_luma[(size_t)ly * blk_w + lx] = (uint16_t)w;
                             }
                         } else if (coloff[lx] < 0 || oy < 0 ||
-                                   (uint32_t)coloff[lx] >= blk_w ||
-                                   (uint32_t)oy >= blk_h) {
+                                   (uint32_t)coloff[lx] >= x1_l - x0_l ||
+                                   (uint32_t)oy >= y1_l - y0_l) {
                             w = 0;
                         } else {
                             w = win_luma[(size_t)(uint32_t)oy * blk_w +

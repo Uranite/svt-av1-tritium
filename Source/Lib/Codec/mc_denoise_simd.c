@@ -26,21 +26,22 @@
 
 #include "mc_denoise.h"
 #include "mc_denoise_simd.h"
+#include "svt_threads.h"
 
 /* ------------------------------------------------------------------ */
 /* forced-scalar test hook                                             */
 
-static int g_mcd_no_simd = -1;
+static int g_mcd_no_simd;
+DEFINE_ONCE(g_mcd_no_simd_once);
+
+ONCE_ROUTINE(init_mcd_no_simd) {
+    g_mcd_no_simd = getenv("MCD_NO_SIMD") != NULL;
+    ONCE_ROUTINE_EPILOG;
+}
 
 int mcd_simd_disabled(void) {
-    /* plain read/write: idempotent env-derived value, benign race
-     * (any racing thread computes the same result) */
-    int v = g_mcd_no_simd;
-    if (v < 0) {
-        v = getenv("MCD_NO_SIMD") != NULL;
-        g_mcd_no_simd = v;
-    }
-    return v;
+    svt_run_once(&g_mcd_no_simd_once, init_mcd_no_simd);
+    return g_mcd_no_simd;
 }
 
 /* ------------------------------------------------------------------ */
@@ -96,8 +97,8 @@ int mcd_simd_degrain_finalize_row(McdPlane *dp, uint32_t y, const uint32_t *acc,
                                   const McdPlane *sp, int32_t lim, uint32_t pmax)
     { (void)dp;(void)y;(void)acc;(void)sp;(void)lim;(void)pmax; return 0; }
 int mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx *ctx, const McdPlane *src,
-                                    McdPlane *dst)
-    { (void)ctx;(void)src;(void)dst; return 1; }
+                                    McdPlane *dst, uint32_t bitdepth)
+    { (void)ctx;(void)src;(void)dst;(void)bitdepth; return 1; }
 
 #else /* x86-64 */
 
@@ -1405,18 +1406,19 @@ static void mcd_dfttest_group(const struct McdDftCtx *ctx, const float *pad,
  * same block grid, same arithmetic order) with 16-block vector groups. */
 __attribute__((target("avx512f,avx512bw,avx512dq")))
 int mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx *ctx, const McdPlane *src,
-                                    McdPlane *dst) {
-    if (!ctx || !src || !dst || !src->data)
+                                    McdPlane *dst, uint32_t bitdepth) {
+    if (!ctx || !src || !dst || !src->data ||
+        (bitdepth != 8 && bitdepth != 10 && bitdepth != 12) ||
+        src->highbd != (bitdepth > 8))
         return MCD_ERR_PARAM;
     const uint32_t w = src->w;
     const uint32_t h = src->h;
     if (w == 0 || h == 0 || src->stride < w)
         return MCD_ERR_PARAM;
 
-    const uint32_t bd     = src->highbd ? 10 : 8;
-    const uint32_t pmax   = (1u << bd) - 1;
-    const float    iscale = 1.0f / (float)(1u << (bd - 8));
-    const float    oscale = (float)(1u << (bd - 8));
+    const uint32_t pmax   = (1u << bitdepth) - 1;
+    const float    iscale = 1.0f / (float)(1u << (bitdepth - 8));
+    const float    oscale = (float)(1u << (bitdepth - 8));
 
     if (!dst->data) {
         dst->data = malloc((size_t)w * h * (src->highbd ? sizeof(uint16_t)

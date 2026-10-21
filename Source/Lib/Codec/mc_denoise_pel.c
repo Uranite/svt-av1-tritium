@@ -34,7 +34,6 @@
 #include "mc_denoise.h"
 #include "mc_denoise_simd.h"
 
-#define MCD_MAX_PLANES      3
 #define MCD_PYR_MAX_LEVELS  12  /* hard cap on pyramid depth                */
 #define MCD_STRIDE_ALIGN    16  /* samples per row alignment                */
 #define MCD_PYR_MIN_DIM      8  /* stop reducing below this dimension       */
@@ -356,7 +355,7 @@ static void mcd_halfpel_h_u8(const uint8_t *src, uint32_t sstride,
                              uint32_t w, uint32_t h, uint32_t pad,
                              uint8_t *dst, uint32_t dstride, uint32_t maxval)
 {
-    if (mcd_use_avx512()) {
+    if (mcd_use_avx2()) {
         mcd_simd_halfpel_h_u8(src, sstride, w, h, pad, dst, dstride, maxval);
         return;
     }
@@ -385,7 +384,7 @@ static void mcd_halfpel_v_u8(const uint8_t *src, uint32_t sstride,
                              uint32_t w, uint32_t h, uint32_t pad,
                              uint8_t *dst, uint32_t dstride, uint32_t maxval)
 {
-    if (mcd_use_avx512()) {
+    if (mcd_use_avx2()) {
         mcd_simd_halfpel_v_u8(src, sstride, w, h, pad, dst, dstride, maxval);
         return;
     }
