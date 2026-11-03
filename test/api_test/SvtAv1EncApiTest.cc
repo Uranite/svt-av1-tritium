@@ -124,6 +124,8 @@ TEST(EncApiTest, null_buffers_do_not_disrupt_encoding) {
     context.enc_params.encoder_bit_depth = 8;
     context.enc_params.source_width = 64;
     context.enc_params.source_height = 64;
+    // The frame below is 8-bit sized; this fork defaults to 10-bit input.
+    context.enc_params.encoder_bit_depth = 8;
     context.enc_params.enc_mode = 13;
     context.enc_params.level_of_parallelism = 1;
     context.enc_params.recon_enabled = true;
