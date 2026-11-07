@@ -5134,6 +5134,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // Sharp TX
     scs->static_config.sharp_tx = config_struct->sharp_tx;
 
+    // Light RDOQ
+    scs->static_config.light_rdoq = config_struct->light_rdoq;
+
     // Alternative SSIM tuning
     scs->static_config.alt_ssim_tuning = config_struct->alt_ssim_tuning;
 
