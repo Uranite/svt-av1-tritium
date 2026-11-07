@@ -6383,7 +6383,26 @@ static void full_loop_core_pd0(PictureControlSet* pcs, ModeDecisionContext* ctx,
 
     perform_tx_pd0(pcs, ctx, cand_bf, ctx->blk_ptr->qindex, &y_coeff_bits, &y_full_distortion[0]);
     cand_bf->cnt_nz_coeff = cand_bf->eob.y[0];
-    svt_aom_full_cost_pd0(ctx, cand_bf, y_full_distortion, full_lambda, &y_coeff_bits, DIST_SSD);
+    uint64_t y_daala_dist = 0;
+    if (pcs->scs->static_config.enable_daala_rd && ctx->blk_geom->bsize >= BLOCK_8X8) {
+        const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+        y_daala_dist          = svt_spatial_full_distortion_daala_kernel(input_pic->y_buffer,
+                                                                input_origin_index,
+                                                                input_pic->y_stride << ctx->mds_subres_step,
+                                                                cand_bf->pred->y_buffer,
+                                                                blk_origin_index,
+                                                                cand_bf->pred->y_stride << ctx->mds_subres_step,
+                                                                ctx->blk_geom->bwidth,
+                                                                ctx->blk_geom->bheight >> ctx->mds_subres_step,
+                                                                pcs->scs->static_config.encoder_bit_depth,
+                                                                qindex,
+                                                                1);
+        y_daala_dist <<= 4;
+        if (pcs->scs->static_config.encoder_bit_depth > EB_EIGHT_BIT) {
+            y_daala_dist <<= 4;
+        }
+    }
+    svt_aom_full_cost_pd0(ctx, cand_bf, y_full_distortion, full_lambda, &y_coeff_bits, DIST_SSD, y_daala_dist);
 }
 
 extern const uint8_t  svt_aom_eb_av1_var_offs[MAX_SB_SIZE];
