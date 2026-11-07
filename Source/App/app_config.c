@@ -235,6 +235,7 @@
 #define KF_TF_STRENGTH_FILTER_TOKEN "--kf-tf-strength"
 #define ALT_LAMBDA_FACTORS_TOKEN "--alt-lambda-factors"
 #define SHARP_TX_TOKEN "--sharp-tx"
+#define LIGHT_RDOQ_TOKEN "--light-rdoq"
 #define ALT_SSIM_TUNING_TOKEN "--alt-ssim-tuning"
 #define TX_BIAS_TOKEN "--tx-bias"
 #define COMPLEX_HVS_TOKEN "--complex-hvs"
@@ -1220,6 +1221,8 @@ ConfigDescription config_entry_psychovisual[] = {
     {ALT_LAMBDA_FACTORS_TOKEN, "Use alternative RDO lambda factors (from SVT-AV1 3.0.2), default is 0 [0-1]"},
     //Sharp-tx
     {SHARP_TX_TOKEN, "Sharp transform optimization, default is 1 [0-1]"},
+    // Light RDOQ
+    {LIGHT_RDOQ_TOKEN, "Light RDOQ for low dc saturation chroma blocks to prevent color blotching, default is 1 [0-1]"},
     // Alternative SSIM tuning
     {ALT_SSIM_TUNING_TOKEN, "Alternative SSIM tuning methods for tune 2, default is 0 [0-1]"},
     // TX bias
@@ -1493,6 +1496,9 @@ ConfigEntry config_entry[] = {
 
     // Sharp TX
     {SHARP_TX_TOKEN, "SharpTX", set_cfg_generic_token},
+
+    // Light RDOQ
+    {LIGHT_RDOQ_TOKEN, "LightRdoq", set_cfg_generic_token},
 
     // Alternative SSIM tuning
     {ALT_SSIM_TUNING_TOKEN, "AltSSIMTuning", set_cfg_generic_token},

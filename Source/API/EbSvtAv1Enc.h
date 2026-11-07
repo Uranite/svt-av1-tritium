@@ -1285,6 +1285,15 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool multiply_min_keyint;
 
+    /**
+     * @brief Perform rdoq lightly for chroma blocks with very low dc saturation under certain conditions
+     * to prevent cases of color blotching due to aggressive coefficient decimation/reduction
+     * 0: disabled
+     * 1: enabled
+     * Default is 1
+     */
+    uint8_t light_rdoq;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1321,6 +1330,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(bool) // hide_banner
         - sizeof(uint8_t) // alt_dlf
         - sizeof(bool) // multiply_min_keyint
+        - sizeof(uint8_t) // light_rdoq
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;

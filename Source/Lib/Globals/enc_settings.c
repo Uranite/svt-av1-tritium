@@ -1034,6 +1034,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->light_rdoq > 1) {
+        SVT_ERROR("Light-rdoq must be either 0 and 1\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
     if (config->tx_bias > 3) {
         SVT_ERROR("TX bias must be between 0 and 3\n");
         return_error = EB_ErrorBadParameter;
@@ -1263,6 +1268,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->kf_tf_strength           = 1;
     config_ptr->alt_lambda_factors       = 0;
     config_ptr->sharp_tx                 = 1;
+    config_ptr->light_rdoq               = 1;
     config_ptr->alt_ssim_tuning          = false;
     config_ptr->tx_bias                  = 0;
     config_ptr->complex_hvs              = 0;
@@ -2832,6 +2838,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"noise-norm-strength", &config_struct->noise_norm_strength},
         {"kf-tf-strength", &config_struct->kf_tf_strength},
         {"sharp-tx", &config_struct->sharp_tx},
+        {"light-rdoq", &config_struct->light_rdoq},
         {"tx-bias", &config_struct->tx_bias},
         {"complex-hvs", &config_struct->complex_hvs},
         {"noise-adaptive-filtering", &config_struct->noise_adaptive_filtering},
