@@ -27,23 +27,9 @@ extern "C" {
 /* ---- forced-scalar test hook (1 = use scalar paths) ------------------- */
 int mcd_simd_disabled(void);
 
-/* ---- CPU feature checks (cheap, uncached reads of compiler-provided
- * cpu model; safe from any thread).
- * GCC/Clang only: __builtin_cpu_supports does not exist on MSVC, so MSVC
- * (and any other compiler) gets the scalar paths. ---------------------------------- */
-#if (defined(__x86_64__) || defined(__i386__)) && \
-    (defined(__GNUC__) || defined(__clang__))
-static inline int mcd_have_avx2(void) {
-    return __builtin_cpu_supports("avx2");
-}
-static inline int mcd_have_avx512(void) {
-    return __builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512bw") &&
-           __builtin_cpu_supports("avx512vl") && __builtin_cpu_supports("avx512dq");
-}
-#else
-static inline int mcd_have_avx2(void) { return 0; }
-static inline int mcd_have_avx512(void) { return 0; }
-#endif
+/* ---- CPU feature checks (cached once per process; safe from any thread). */
+int mcd_have_avx2(void);
+int mcd_have_avx512(void);
 
 static inline int mcd_use_avx2(void) {
     return !mcd_simd_disabled() && mcd_have_avx2();
