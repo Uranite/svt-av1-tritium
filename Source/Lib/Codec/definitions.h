@@ -25,14 +25,6 @@
 #define SVT_STRINGIFY_(x) #x
 #define SVT_STRINGIFY(x) SVT_STRINGIFY_(x)
 
-#ifdef _WIN32
-#define inline __inline
-#elif __GNUC__
-#define inline __inline__
-#else
-#define inline
-#endif
-
 #define INLINE inline
 
 #ifdef _WIN32
