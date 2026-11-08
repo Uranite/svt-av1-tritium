@@ -38,6 +38,9 @@ ExternalProject_Add(
         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    PATCH_COMMAND
+        "${CMAKE_COMMAND}" -DFILE=<SOURCE_DIR>/build/cmake/compiler_tests.cmake
+        -P "${CMAKE_CURRENT_LIST_DIR}/fix_aom_pop_var.cmake"
     BUILD_BYPRODUCTS ${AOM_LIB}
     INSTALL_COMMAND "")
 
