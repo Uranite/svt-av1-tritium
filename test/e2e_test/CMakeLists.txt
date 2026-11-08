@@ -96,8 +96,12 @@ if(MSVC) # Use custom function for adding msvc's flags like bigobj
 else()
     # App Source Files
     add_executable(SvtAv1E2ETests ${all_files})
-    # Link the Encoder App
-    target_link_libraries(SvtAv1E2ETests ${lib_list} pthread m)
+    # Link the Encoder App. pthread/m are POSIX-only.
+    if(UNIX)
+        target_link_libraries(SvtAv1E2ETests ${lib_list} pthread m)
+    else()
+        target_link_libraries(SvtAv1E2ETests ${lib_list})
+    endif()
 endif()
 
 target_include_directories(
