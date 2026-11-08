@@ -324,11 +324,18 @@ add_library(CODEC OBJECT ${all_files})
 # denoiser's output does not depend on the host ISA; AArch64 additionally
 # gets the flag globally for cross-arch bitstream parity.
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    set_source_files_properties(mc_denoise_simd.c mc_denoise_dfttest.c PROPERTIES
-        # keep -ffp-contract=off AFTER any -march/-mno-avx additions in the
-        # global C flags (see the add_compile_options ordering above): parity
-        # of the scalar and SIMD float kernels depends on FMA staying disabled
-        COMPILE_OPTIONS "-ffp-contract=off")
+    if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        # clang-cl ignores the bare GNU flag (and warns); it has to be
+        # forwarded through /clang: to reach the clang driver.
+        set_source_files_properties(mc_denoise_simd.c mc_denoise_dfttest.c PROPERTIES
+            COMPILE_OPTIONS "/clang:-ffp-contract=off")
+    else()
+        set_source_files_properties(mc_denoise_simd.c mc_denoise_dfttest.c PROPERTIES
+            # keep -ffp-contract=off AFTER any -march/-mno-avx additions in the
+            # global C flags (see the add_compile_options ordering above): parity
+            # of the scalar and SIMD float kernels depends on FMA staying disabled
+            COMPILE_OPTIONS "-ffp-contract=off")
+    endif()
 endif()
 
 if(SVT_AV1_NVTX)
