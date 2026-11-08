@@ -102,6 +102,36 @@
 #include "svt_log.h"
 #include "svt_malloc.h"
 #include "svt_threads.h"
+#include "common_dsp_rtcd.h"
+
+/* CPU feature detection for the runtime dispatch, cached once per process. */
+static EbCpuFlags mcd_cpu_flags;
+
+DEFINE_ONCE(mcd_cpu_flags_once);
+static ONCE_ROUTINE(mcd_cpu_flags_init) {
+    mcd_cpu_flags = svt_aom_get_cpu_flags_to_use();
+    ONCE_ROUTINE_EPILOG;
+}
+
+int mcd_have_avx2(void) {
+#if defined(ARCH_X86_64)
+    svt_run_once(&mcd_cpu_flags_once, mcd_cpu_flags_init);
+    return (mcd_cpu_flags & EB_CPU_FLAGS_AVX2) != 0;
+#else
+    return 0;
+#endif
+}
+
+int mcd_have_avx512(void) {
+#if defined(ARCH_X86_64)
+    svt_run_once(&mcd_cpu_flags_once, mcd_cpu_flags_init);
+    return (mcd_cpu_flags &
+            (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512CD | EB_CPU_FLAGS_AVX512DQ |
+             EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512VL)) != 0;
+#else
+    return 0;
+#endif
+}
 
 /* Margin of the module-owned SEARCH planes (prefiltered fplanes and their
  * pyramid). ME clamps every candidate read to +-32 samples outside the
