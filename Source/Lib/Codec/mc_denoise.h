@@ -127,6 +127,27 @@ static inline uint32_t mcd_degrain_weight(int32_t sad_norm, uint32_t thsad) {
     return (uint32_t)((256ull * n + d / 2) / d);                      /* 0..256 */
 }
 
+/* Scene-change decision: at least thscd2_pct percent of the n blocks must
+ * have exceeded thscd1. `changed` counts blocks whose normalized SAD is
+ * strictly greater than thscd1.
+ *
+ * The comparison is INCLUSIVE: "at least P percent" is changed/n >= P/100,
+ * i.e. changed*100 >= P*n for integers (a strict > is the off-by-one form
+ * and needs one extra block). Endpoints:
+ *   - thscd2_pct == 0 still requires one changed block, so a static frame
+ *     is never a scene change;
+ *   - thscd2_pct == 100 requires every block to change (with > it could
+ *     never fire, since changed > n is impossible);
+ *   - when P*n is a multiple of 100 the decision fires at exactly P percent.
+ * Lives here, next to the other shared inline math, so the boundary is
+ * unit-testable without a full motion-analysis frame setup. */
+static inline int mcd_scene_change_decision(uint32_t changed, uint32_t n,
+                                            uint32_t thscd2_pct) {
+    if (!changed)
+        return 0;
+    return ((uint64_t)changed * 100 >= (uint64_t)thscd2_pct * n);
+}
+
 /* ---------------------------------------------------------------------- */
 /* mc_denoise_pel.c — pyramids, half-pel planes, block fetch               */
 
