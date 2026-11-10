@@ -23,6 +23,9 @@
  */
 #include <stdlib.h>
 #include <string.h>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 
 #include "mc_denoise.h"
 #include "mc_denoise_simd.h"
@@ -31,17 +34,45 @@
 /* ------------------------------------------------------------------ */
 /* forced-scalar test hook                                             */
 
-static int g_mcd_no_simd;
+/* The value is immutable once published by the once-init, so dispatch
+ * pays one acquire load on the fast path instead of a pthread_once /
+ * InitOnceExecuteOnce call in every kernel-dispatch helper. */
+static int g_mcd_no_simd = -1;
+
+static inline int mcd_atomic_load_int(int *p) {
+#if defined(_MSC_VER)
+    return (int)_InterlockedCompareExchange((volatile long *)p, 0, 0);
+#else
+    return __atomic_load_n(p, __ATOMIC_ACQUIRE);
+#endif
+}
+
+static inline void mcd_atomic_store_int(int *p, int v) {
+#if defined(_MSC_VER)
+    _InterlockedExchange((volatile long *)p, (long)v);
+#else
+    __atomic_store_n(p, v, __ATOMIC_RELEASE);
+#endif
+}
+
 DEFINE_ONCE(g_mcd_no_simd_once);
 
 ONCE_ROUTINE(init_mcd_no_simd) {
-    g_mcd_no_simd = getenv("MCD_NO_SIMD") != NULL;
+#ifdef _WIN32
+    (void)InitOnce;
+    (void)Parameter;
+    (void)lpContext;
+#endif
+    mcd_atomic_store_int(&g_mcd_no_simd, getenv("MCD_NO_SIMD") != NULL);
     ONCE_ROUTINE_EPILOG;
 }
 
 int mcd_simd_disabled(void) {
+    int v = mcd_atomic_load_int(&g_mcd_no_simd);
+    if (v >= 0)
+        return v;
     svt_run_once(&g_mcd_no_simd_once, init_mcd_no_simd);
-    return g_mcd_no_simd;
+    return mcd_atomic_load_int(&g_mcd_no_simd);
 }
 
 /* ------------------------------------------------------------------ */
@@ -853,9 +884,10 @@ int mcd_simd_degrain_finalize_row(McdPlane *dp, uint32_t y, const uint32_t *acc,
 /* clamp [0,1], lerp mul+add, +0.5f, truncating conversion, clamps —   */
 /* no FMA (TU compiled with -ffp-contract=off), no reassociation.      */
 /* Planes are processed in order 0,1,2 and the chroma box taps are     */
-/* summed (((m00+m01)+m10)+m11) exactly like the scalar loop, which    */
-/* also reproduces its use of the live (possibly already merged when   */
-/* out aliases src) source luma plane for the chroma mask. Scalar      */
+/* summed (((m00+m01)+m10)+m11) exactly like the scalar loop. The      */
+/* chroma mask reads the source luma plane handed in by the caller;    */
+/* mcd_prefilter_mask_merge snapshots that plane when the output       */
+/* aliases the source, so the mask never observes merged luma. Scalar  */
 /* tails replicate the scalar formulas verbatim.                       */
 /* ================================================================== */
 
@@ -974,8 +1006,8 @@ static void mcd_merge_plane512(const McdPlane *s, const McdPlane *f, McdPlane *o
         uint8_t       *orow = (uint8_t *)o->data + (size_t)y * o->stride * (s->highbd ? 2 : 1);
         const float *mrow0 = NULL, *mrow1 = NULL;
         if (!is_luma) {
-            /* rows are rebuilt per chroma row so an out==src merge sees the
-             * same live luma the scalar loop would read */
+            /* each chroma row reads its own pair of luma rows (clamped at
+             * the bottom edge), matching the scalar box mask */
             const uint32_t r0 = (2 * y < lhm1) ? 2 * y : lhm1;
             const uint32_t r1 = (2 * y + 1 < lhm1) ? 2 * y + 1 : lhm1;
             mcd_merge_mask_row512(yl, r0, mrows, kK);
