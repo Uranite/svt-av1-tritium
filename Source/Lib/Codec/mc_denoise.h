@@ -234,8 +234,9 @@ int  mcd_dfttest_plane_with_ctx(const McdDftCtx *ctx, const McdPlane *src,
  *   out = src + m * (filt - src)            on every plane
  * (keeps dark, noise-dominant regions closer to source). For subsampled
  * chroma the luma mask is box-filtered down. src/filt/out are the caller's
- * plane triplets; out may alias src and/or filt (every output pixel is
- * computed from reads at its own coordinate before it is written). */
+ * plane triplets; out may alias src and/or filt. When the luma output
+ * aliases the source, the implementation snapshots the source luma so the
+ * chroma box masks still read unmodified luma. */
 int mcd_prefilter_mask_merge(const McdPlane *src_planes, const McdPlane *filt_planes,
                              McdPlane *out_planes, uint32_t n_planes,
                              uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);

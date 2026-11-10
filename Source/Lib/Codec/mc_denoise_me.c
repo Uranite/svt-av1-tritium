@@ -58,8 +58,8 @@ static uint32_t mcd_me_grid(uint32_t dim, uint32_t ov, uint32_t step) {
 /* SAD kernels (strides in samples, native depth, uint64 accumulation)         */
 
 /* Process-lifetime cached dispatch flags. CPU features never change at
- * runtime, so a benign idempotent race (same pattern as mcd_simd_disabled)
- * is safe; this keeps the per-SAD-candidate dispatch cost down to two
+ * runtime, so the idempotent first-write race only ever stores the same
+ * value; this keeps the per-SAD-candidate dispatch cost down to two
  * branch-on-global tests instead of __builtin_cpu_supports calls inside the
  * candidate search loops. */
 static int g_me_avx2 = -1;
