@@ -69,6 +69,7 @@ set(arch_neutral_files
     GlobalMotionUtilTest.cc
     IntraBcUtilTest.cc
     McDenoisePelRangeTest.cc
+    McDenoiseSceneChangeTest.cc
     ResizeTest.cc
     TestEnv.c
     TxfmCommon.h
