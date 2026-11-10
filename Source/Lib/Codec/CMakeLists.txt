@@ -319,8 +319,11 @@ add_library(CODEC OBJECT ${all_files})
 
 # The denoiser's scalar and SIMD float kernels must not contract mul+add into
 # FMA: their dfttest and mask-merge results are bit-identical only without
-# contraction. MSVC does not contract under its default /fp:precise.
-if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND HAVE_X86_PLATFORM)
+# contraction. MSVC does not contract under its default /fp:precise. Apply
+# this to every GNU-style compiler and architecture (not only x86) so the
+# denoiser's output does not depend on the host ISA; AArch64 additionally
+# gets the flag globally for cross-arch bitstream parity.
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     set_source_files_properties(mc_denoise_simd.c mc_denoise_dfttest.c PROPERTIES
         # keep -ffp-contract=off AFTER any -march/-mno-avx additions in the
         # global C flags (see the add_compile_options ordering above): parity

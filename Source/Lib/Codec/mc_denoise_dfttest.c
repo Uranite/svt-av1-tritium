@@ -435,8 +435,8 @@ int mcd_prefilter_mask_merge(const McdPlane *src_planes,
         return MCD_ERR_PARAM;
     if (x_ss > 1 || y_ss > 1)
         return MCD_ERR_PARAM;
-    if (bitdepth < 8 || bitdepth > 16)
-        return MCD_ERR_PARAM;
+    if (bitdepth != 8 && bitdepth != 10 && bitdepth != 12)
+        return MCD_ERR_PARAM; /* same native depths as the pelset/dfttest */
 
     const uint32_t pmax     = (1u << bitdepth) - 1;
     const float    inv_pmax = 1.0f / (float)pmax;
