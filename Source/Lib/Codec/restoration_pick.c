@@ -18,6 +18,7 @@
 #include "restoration.h"
 #include "restoration_pick.h"
 
+#include "mode_decision.h"
 #include "rest_process.h"
 #include "svt_log.h"
 
@@ -49,6 +50,45 @@ static int64_t sse_restoration_unit(const RestorationTileLimits* limits, const Y
                                     const Yv12BufferConfig* dst, int32_t plane, int32_t highbd) {
     return sse_part_extractors[3 * highbd + plane](
         src, dst, limits->h_start, limits->h_end - limits->h_start, limits->v_start, limits->v_end - limits->v_start);
+}
+
+static uint64_t daala_restoration_unit(const RestorationTileLimits* limits, const Yv12BufferConfig* src,
+                                       const Yv12BufferConfig* dst, int32_t plane, int32_t highbd,
+                                       int32_t qindex) {
+    const int    is_uv      = plane > 0;
+    uint8_t*     src_buf    = src->buffers[plane];
+    uint8_t*     dst_buf    = dst->buffers[plane];
+    uint32_t     src_stride = src->strides[is_uv];
+    uint32_t     dst_stride = dst->strides[is_uv];
+
+    // For HBD, Yv12BufferConfig buffers are byte-pointers (CONVERT_TO_BYTEPTR).
+    // The Daala kernel expects real 16-bit pointers for 10-bit input.
+    if (highbd) {
+        src_buf = (uint8_t*)CONVERT_TO_SHORTPTR(src_buf);
+        dst_buf = (uint8_t*)CONVERT_TO_SHORTPTR(dst_buf);
+    }
+
+    uint64_t total_daala = 0;
+    const int tile_size = 64;
+    for (int y = limits->v_start; y < limits->v_end; y += tile_size) {
+        for (int x = limits->h_start; x < limits->h_end; x += tile_size) {
+            int tile_w = MIN(tile_size, limits->h_end - x);
+            int tile_h = MIN(tile_size, limits->v_end - y);
+            uint32_t src_offset = y * src_stride + x;
+            uint32_t dst_offset = y * dst_stride + x;
+            total_daala += svt_spatial_full_distortion_daala_kernel(
+                src_buf, src_offset, src_stride,
+                dst_buf, dst_offset, dst_stride,
+                tile_w, tile_h,
+                highbd ? EB_TEN_BIT : EB_EIGHT_BIT,
+                qindex, 1);
+        }
+    }
+
+    if (highbd) {
+        total_daala <<= 4;
+    }
+    return total_daala;
 }
 
 typedef struct {
@@ -1180,6 +1220,8 @@ static void search_switchable(const RestorationTileLimits* limits, const Av1Pixe
             }
         }
         const int64_t sse         = rusi->sse[r];
+        const int64_t dist        = (rsc->cm->child_pcs->scs->static_config.enable_daala_filtering >= 1 && rsc->plane == 0)
+                                        ? rusi->daala[r] : sse;
         int64_t       coeff_pcost = 0;
         switch (r) {
         case RESTORE_NONE:
@@ -1197,7 +1239,7 @@ static void search_switchable(const RestorationTileLimits* limits, const Av1Pixe
         }
         const int64_t coeff_bits = coeff_pcost << AV1_PROB_COST_SHIFT;
         const int64_t bits       = x->switchable_restore_cost[r] + coeff_bits;
-        double        cost       = RDCOST_DBL(x->rdmult, bits >> 4, sse);
+        double        cost       = RDCOST_DBL(x->rdmult, bits >> 4, dist);
         if (r == 0 || cost < best_cost) {
             best_cost  = cost;
             best_bits  = bits;
@@ -1270,6 +1312,11 @@ static void search_sgrproj_seg(const RestorationTileLimits* limits, const Av1Pix
     rui.sgrproj_info     = rusi->sgrproj;
 
     rusi->sse[RESTORE_SGRPROJ] = try_restoration_unit_seg(rsc, limits, tile, &rui);
+    if (rsc->cm->child_pcs->scs->static_config.enable_daala_filtering >= 1 && rsc->plane == 0) {
+        const int32_t qindex = rsc->cm->child_pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+        rusi->daala[RESTORE_SGRPROJ] = (int64_t)daala_restoration_unit(
+            limits, rsc->src, rsc->dst, rsc->plane, highbd, qindex);
+    }
 }
 
 /* Get the cost/SSE/rate of using self-guided filtering for a given restoration unit. */
@@ -1289,8 +1336,12 @@ static void search_sgrproj_finish(const RestorationTileLimits* limits, const Av1
     const int64_t bits_sgr  = x->sgrproj_restore_cost[1] +
         (count_sgrproj_bits(&rusi->sgrproj, &rsc->sgrproj) << AV1_PROB_COST_SHIFT);
 
-    double cost_none = RDCOST_DBL(x->rdmult, bits_none >> 4, rusi->sse[RESTORE_NONE]);
-    double cost_sgr  = RDCOST_DBL(x->rdmult, bits_sgr >> 4, rusi->sse[RESTORE_SGRPROJ]);
+    const int64_t dist_none = (rsc->cm->child_pcs->scs->static_config.enable_daala_filtering >= 1 && rsc->plane == 0)
+                                  ? rusi->daala[RESTORE_NONE] : rusi->sse[RESTORE_NONE];
+    const int64_t dist_sgr  = (rsc->cm->child_pcs->scs->static_config.enable_daala_filtering >= 1 && rsc->plane == 0)
+                                  ? rusi->daala[RESTORE_SGRPROJ] : rusi->sse[RESTORE_SGRPROJ];
+    double cost_none = RDCOST_DBL(x->rdmult, bits_none >> 4, dist_none);
+    double cost_sgr  = RDCOST_DBL(x->rdmult, bits_sgr >> 4, dist_sgr);
 
     RestorationType rtype                 = (cost_sgr < cost_none) ? RESTORE_SGRPROJ : RESTORE_NONE;
     rusi->best_rtype[RESTORE_SGRPROJ - 1] = rtype;
@@ -1372,6 +1423,11 @@ static void search_wiener_seg(const RestorationTileLimits* limits, const Av1Pixe
     // Perform refinement search for filter coeffs and compute SSE
     rusi->sse[RESTORE_WIENER] = finer_tile_search_wiener_seg(rsc, limits, tile_rect, &rui, wiener_win);
     rusi->wiener              = rui.wiener_info;
+    if (rsc->cm->child_pcs->scs->static_config.enable_daala_filtering >= 1 && rsc->plane == 0) {
+        const int32_t qindex = rsc->cm->child_pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+        rusi->daala[RESTORE_WIENER] = (int64_t)daala_restoration_unit(
+            limits, rsc->src, rsc->dst, rsc->plane, cm->use_highbitdepth, qindex);
+    }
 
     if (wiener_win != WIENER_WIN) {
         assert(rui.wiener_info.vfilter[0] == 0 && rui.wiener_info.vfilter[WIENER_WIN - 1] == 0);
@@ -1416,8 +1472,12 @@ static void search_wiener_finish(const RestorationTileLimits* limits, const Av1P
     const int64_t bits_wiener = x->wiener_restore_cost[1] +
         (count_wiener_bits(wiener_win, &rusi->wiener, &rsc->wiener) << AV1_PROB_COST_SHIFT);
 
-    double cost_none   = RDCOST_DBL(x->rdmult, bits_none >> 4, rusi->sse[RESTORE_NONE]);
-    double cost_wiener = RDCOST_DBL(x->rdmult, bits_wiener >> 4, rusi->sse[RESTORE_WIENER]);
+    const int64_t dist_none   = (rsc->cm->child_pcs->scs->static_config.enable_daala_filtering >= 1 && rsc->plane == 0)
+                                    ? rusi->daala[RESTORE_NONE] : rusi->sse[RESTORE_NONE];
+    const int64_t dist_wiener = (rsc->cm->child_pcs->scs->static_config.enable_daala_filtering >= 1 && rsc->plane == 0)
+                                    ? rusi->daala[RESTORE_WIENER] : rusi->sse[RESTORE_WIENER];
+    double cost_none   = RDCOST_DBL(x->rdmult, bits_none >> 4, dist_none);
+    double cost_wiener = RDCOST_DBL(x->rdmult, bits_wiener >> 4, dist_wiener);
 
     RestorationType rtype          = (cost_wiener < cost_none) ? RESTORE_WIENER : RESTORE_NONE;
     rusi->best_rtype[RESTORE_NONE] = rtype;
@@ -1438,6 +1498,11 @@ static void search_norestore_seg(const RestorationTileLimits* limits, const Av1P
 
     const int32_t highbd    = rsc->cm->use_highbitdepth;
     rusi->sse[RESTORE_NONE] = sse_restoration_unit(limits, rsc->src, rsc->cm->frame_to_show, rsc->plane, highbd);
+    if (rsc->cm->child_pcs->scs->static_config.enable_daala_filtering >= 1 && rsc->plane == 0) {
+        const int32_t qindex = rsc->cm->child_pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+        rusi->daala[RESTORE_NONE] = (int64_t)daala_restoration_unit(
+            limits, rsc->src, rsc->cm->frame_to_show, rsc->plane, highbd, qindex);
+    }
 }
 
 // Get the SSE for a resotration unit with no filtering applied

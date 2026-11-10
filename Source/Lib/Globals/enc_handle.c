@@ -4531,9 +4531,10 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         scs->static_config.pred_structure      = ALL_INTRA;
         scs->static_config.intra_period_length = 0;
     }
-    scs->static_config.multiply_keyint    = config_struct->multiply_keyint;
-    scs->static_config.intra_refresh_type = config_struct->intra_refresh_type;
-    scs->static_config.enc_mode           = config_struct->enc_mode;
+    scs->static_config.multiply_keyint     = config_struct->multiply_keyint;
+    scs->static_config.multiply_min_keyint = config_struct->multiply_min_keyint;
+    scs->static_config.intra_refresh_type  = config_struct->intra_refresh_type;
+    scs->static_config.enc_mode            = config_struct->enc_mode;
     if (scs->allintra) {
         if (scs->static_config.enc_mode > ENC_M9) {
             SVT_WARN("Preset M%d is mapped to M9.\n", scs->static_config.enc_mode);
@@ -4895,6 +4896,10 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     if (scs->static_config.intra_period_length == -1 || scs->allintra) {
         scs->static_config.min_intra_period_length = 0;
     } else {
+        if (scs->static_config.multiply_min_keyint) {
+            const double fps = (double)scs->static_config.frame_rate_numerator / scs->static_config.frame_rate_denominator;
+            scs->static_config.min_intra_period_length = (int32_t)(fps * scs->static_config.min_intra_period_length);
+        }
         if (scs->static_config.min_intra_period_length == -1) {
             scs->static_config.min_intra_period_length = compute_default_min_intra_period(scs);
         }
@@ -5067,6 +5072,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // Sharp TX
     scs->static_config.sharp_tx = config_struct->sharp_tx;
 
+    // Light RDOQ
+    scs->static_config.light_rdoq = config_struct->light_rdoq;
+
     // Alternative SSIM tuning
     scs->static_config.alt_ssim_tuning = config_struct->alt_ssim_tuning;
 
@@ -5094,6 +5102,8 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
 
     // Daala
     scs->static_config.enable_daala = config_struct->enable_daala;
+    scs->static_config.enable_daala_rd = config_struct->enable_daala_rd;
+    scs->static_config.enable_daala_filtering = config_struct->enable_daala_filtering;
 
     // Zones
     if (config_struct->quality_zones && config_struct->num_zones > 0) {

@@ -377,6 +377,16 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->enable_daala_rd > 1) {
+        SVT_ERROR("Invalid enable-daala-rd flag [0-1], your input: %d\n", config->enable_daala_rd);
+        return_error = EB_ErrorBadParameter;
+    }
+
+    if (config->enable_daala_filtering > 3) {
+        SVT_ERROR("Invalid enable-daala-filtering [0-3], your input: %d\n", config->enable_daala_filtering);
+        return_error = EB_ErrorBadParameter;
+    }
+
     if (config->rate_control_mode > SVT_AV1_RC_MODE_CBR &&
         (config->pass == ENC_FIRST_PASS || config->rc_stats_buffer.buf)) {
         SVT_ERROR("Only rate control mode 0~2 are supported for 2-pass \n");
@@ -1067,6 +1077,11 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->light_rdoq > 1) {
+        SVT_ERROR("Light-rdoq must be either 0 and 1\n");
+        return_error = EB_ErrorBadParameter;
+    }
+
     if (config->tx_bias > 3) {
         SVT_ERROR("TX bias must be between 0 and 3\n");
         return_error = EB_ErrorBadParameter;
@@ -1163,6 +1178,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->intra_period_length          = -2;
     config_ptr->min_intra_period_length      = -1;
     config_ptr->multiply_keyint              = false;
+    config_ptr->multiply_min_keyint          = false;
     config_ptr->intra_refresh_type           = 2;
     config_ptr->hierarchical_levels          = HIERARCHICAL_LEVELS_AUTO;
     config_ptr->pred_structure               = RANDOM_ACCESS;
@@ -1306,6 +1322,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->kf_tf_strength           = 1;
     config_ptr->alt_lambda_factors       = 0;
     config_ptr->sharp_tx                 = 1;
+    config_ptr->light_rdoq               = 1;
     config_ptr->alt_ssim_tuning          = false;
     config_ptr->tx_bias                  = 0;
     config_ptr->complex_hvs              = 0;
@@ -1318,6 +1335,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->alt_cdef                 = 0;
     config_ptr->alt_dlf                  = 0;
     config_ptr->enable_daala             = 0;
+    config_ptr->enable_daala_rd          = 0;
+    config_ptr->enable_daala_filtering   = 0;
     config_ptr->low_memory               = false;
     config_ptr->hide_banner              = false;
     return return_error;
@@ -2645,7 +2664,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
     }
 
     if (!strcmp(name, "min-keyint")) {
-        return str_to_keyint(value, &config_struct->min_intra_period_length, &config_struct->multiply_keyint);
+        return str_to_keyint(value, &config_struct->min_intra_period_length, &config_struct->multiply_min_keyint);
     }
 
     if (!strcmp(name, "tbr")) {
@@ -2897,6 +2916,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"noise-norm-strength", &config_struct->noise_norm_strength},
         {"kf-tf-strength", &config_struct->kf_tf_strength},
         {"sharp-tx", &config_struct->sharp_tx},
+        {"light-rdoq", &config_struct->light_rdoq},
         {"tx-bias", &config_struct->tx_bias},
         {"complex-hvs", &config_struct->complex_hvs},
         {"noise-adaptive-filtering", &config_struct->noise_adaptive_filtering},
@@ -2904,6 +2924,8 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"enable-alt-cdef", &config_struct->alt_cdef},
         {"enable-alt-dlf", &config_struct->alt_dlf},
         {"enable-daala", &config_struct->enable_daala},
+        {"enable-daala-rd", &config_struct->enable_daala_rd},
+        {"enable-daala-filtering", &config_struct->enable_daala_filtering},
     };
 
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);

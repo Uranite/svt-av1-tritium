@@ -1246,10 +1246,26 @@ typedef struct EbSvtAv1EncConfiguration {
      * 1 = CDEF
      * 2 = 1 + TX Search + MDS3 Selection
      * 3 = 2 + DCT TX
-     * 4 = 3 + MDS0 + IFS RD + OBMC
+     * 4 = 3 + MDS0 + IFS RD
      * Default is 0.
      */
     uint8_t enable_daala;
+
+    /**
+     * @brief Enable Daala distortion in model RD curvfit for inter-intra mode selection.
+     * 0 = off, 1 = on
+     * Default is 0.
+     */
+    uint8_t enable_daala_rd;
+
+    /**
+     * @brief Enable Daala distortion in in-loop filtering decisions.
+     * 0 = disabled (default)
+     * 1 = loop restoration
+     * 2 = loop restoration + temporal filtering
+     * 3 = loop restoration + temporal filtering + deblocking
+     */
+    uint8_t enable_daala_filtering;
 
     /* @brief use settings which reduce memory usage
      *
@@ -1262,6 +1278,21 @@ typedef struct EbSvtAv1EncConfiguration {
      * Default is false.
      */
     bool hide_banner;
+
+    /**
+     * @brief Signal to the library to treat min_intra_period_length as seconds and
+     * multiply by fps_num/fps_den.
+     */
+    bool multiply_min_keyint;
+
+    /**
+     * @brief Perform rdoq lightly for chroma blocks with very low dc saturation under certain conditions
+     * to prevent cases of color blotching due to aggressive coefficient decimation/reduction
+     * 0: disabled
+     * 1: enabled
+     * Default is 1
+     */
+    uint8_t light_rdoq;
 
     /* Motion-compensated temporal denoising of the input picture
     * (dfttest-style spatial prefilter + hierarchical motion estimation +
@@ -1355,6 +1386,8 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(bool) // low_memory
         - sizeof(bool) // hide_banner
         - sizeof(uint8_t) // alt_dlf
+        - sizeof(bool) // multiply_min_keyint
+        - sizeof(uint8_t) // light_rdoq
         - sizeof(uint32_t) * 9 // mc_denoise configuration fields appended for ABI compatibility
         - sizeof(uint8_t) // alignment before the appended uint32_t fields
     ];

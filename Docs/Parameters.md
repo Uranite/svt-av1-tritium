@@ -104,6 +104,7 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **AdaptiveQuantization**         | --aq-mode                        | [0-2]      | 2           | Set adaptive QP level [0: off, 1: variance base using AV1 segments, 2: deltaq pred efficiency]                                                       |
 | **HBDMDS**                       | --hbd-mds                        | [-1-2]     | -1           | Activation of high bit depth mode decisions; 10-bit MD only works with 10-bit inputs (-1: default preset behavior, 0: full 8b MD 1: full 10b MD, 2: hybrid 8/10b MD)                                                |
 | **SharpTX**                      | --sharp-tx                       | [0-1]      | 1           | Activation of sharp transform optimizations for higher fidelity encoding (cleaner output with slightly higher chances of artifacting)                |
+| **LightRdoq**                    | --light-rdoq                     | [0-1]      | 1           | Perform RDOQ lightly for chroma blocks with very low dc saturation to prevent color blotching (0: disable, 1: enable)                                |
 | **COMPLEXHVS**                   | --complex-hvs                    | [0-1]      | 0           | Activation of highest complexity HVS model (0: default behavior, 1: enable highest complexity HVS model)                                             |
 | **EnableQMPSNR**                 | --enable-qmpsnr                  | [-1-1]     | -1          | QM-weighted transform distortion and coefficient optimization. -1: default (on for tune IQ only), 0: PSNR/SSE, 1: QM-PSNR                            |
 | **QpScaleCompressStrength**      | --qp-scale-compress-strength     | [0.0-8.0]  | 1.0         | Sets the strength the QP scale algorithm compresses values across all temporal layers, which results in more consistent video quality (less quality variation across frames in a mini-gop) [0.0: SVT-AV1 default, 1.0: SVT-AV1-HDR default, 0.0-3.0: recommended range] |
@@ -290,7 +291,9 @@ SvtAv1EncApp -i in.y4m -b out.ivf --roi-map-file roi_map.txt
 | **LoopFilterEnable**             | --enable-dlf               | [0-3]          | 1           | Deblocking loop filter control (1: enabled, 2: slower, more accurate filtering, 3: maximum accuracy)                                                                  |
 | **CDEFLevel**                    | --enable-cdef              | [0-1]          | 1           | Enable Constrained Directional Enhancement Filter                                                                                                                     |
 | **CDEFScaling**                  | --cdef-scaling         | [1-30]         | 15          | Controls scaling of the CDEF strength computation                                                                                                                     |
-| **EnableDaala**                  | --enable-daala             | [0-4]          | 0           | Enables the Daala perceptual distortion metric [0: OFF, 1: CDEF, 2: 1 + TX Search + MDS3 Selection, 3: 2 + DCT TX, 4: 3 + MDS0 + IFS RD + OBMC]                                 |
+| **EnableDaala**                  | --enable-daala             | [0-4]          | 0           | Enables the Daala perceptual distortion metric [0: OFF, 1: CDEF, 2: 1 + TX Search + MDS3 Selection, 3: 2 + DCT TX, 4: 3 + MDS0 + IFS RD]                              |
+| **EnableDaalaRd**                | --enable-daala-rd          | [0-1]          | 0           | Enable Daala distortion in model RD curvfit for inter-intra mode selection and rate-distortion decisions                                                              |
+| **EnableDaalaFiltering**         | --enable-daala-filtering   | [0-3]          | 0           | Enable Daala distortion in in-loop filtering decisions [1: loop restoration, 2: + temporal filtering, 3: + deblocking]                                                |
 | **EnableRestoration**            | --enable-restoration       | [0-1]          | 1           | Enable loop restoration filter                                                                                                                                        |
 | **Mfmv**                         | --enable-mfmv              | [-1-1]         | -1          | Motion Field Motion Vector control [-1: auto]                                                                                                                         |
 | **EnableTF**                     | --enable-tf                | [0-3]          | 1           | Enable ALT-REF (temporally filtered) frames [0: off, 1: on, 2: adaptive, 3: full]                                                                                     |
@@ -615,6 +618,23 @@ Adaptive film grain is enabled by default.
 - **3** additionally enables Daala for DCT TX.
 
 - **4** additionally enables Daala for MDS0 and IFS.
+
+### `--enable-daala-rd [0-1]`
+`--enable-daala-rd` enables the Daala perceptual distortion metric in model RD decisions that are
+independent of `--enable-daala`: the inter-intra mode search and the light-PD1/full-loop
+rate-distortion cost. Default is 0 (disabled).
+
+### `--enable-daala-filtering [0-3]`
+`--enable-daala-filtering` uses the Daala perceptual distortion metric for in-loop filtering
+decisions on the luma plane. Each level contains the previous levels' features.
+
+- **0** disables the feature, the default value.
+
+- **1** enables Daala for loop restoration decisions.
+
+- **2** additionally enables Daala for temporal filtering (ALT-REF) block errors.
+
+- **3** additionally enables Daala for deblocking filter level search.
 
 ### `--luminance-qp-bias [0-100]`
 When enabled, the `--luminance-qp-bias` parameter enables frame-level luma bias to improve quality in dark scenes by adjusting frame-level QP based on average luminance across each frame.
