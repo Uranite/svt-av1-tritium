@@ -316,8 +316,6 @@ set(all_files
         warped_motion.h
         )
 
-add_library(CODEC OBJECT ${all_files})
-
 # The denoiser's scalar and SIMD float kernels must not contract mul+add into
 # FMA: their dfttest and mask-merge results are bit-identical only without
 # contraction. MSVC does not contract under its default /fp:precise. Apply
@@ -338,6 +336,8 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
             COMPILE_OPTIONS "-ffp-contract=off")
     endif()
 endif()
+
+add_library(CODEC OBJECT ${all_files})
 
 if(SVT_AV1_NVTX)
     # HPC SDK installs CUDA under a versioned subdir (e.g. 25.3/cuda/include);

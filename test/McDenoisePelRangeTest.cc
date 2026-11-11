@@ -54,15 +54,16 @@ void check_depth(uint32_t bitdepth) {
         pixels8[2] = (uint8_t)maxval;
         pixels8[3] = (uint8_t)maxval;
     }
-    ASSERT_EQ(MCD_SUCCESS, mcd_pelset_create(&plane, 1, bitdepth, 32, &pel));
+    ASSERT_EQ(MCD_SUCCESS,
+              svt_mcd_pelset_create(&plane, 1, bitdepth, 32, &pel));
     for (int32_t xphase = 0; xphase <= 1; xphase++) {
-        mcd_pelset_fetch(pel, 0, xphase, 0, 8, 1, out);
+        svt_mcd_pelset_fetch(pel, 0, xphase, 0, 8, 1, out);
         for (uint32_t x = 0; x < 8; x++) {
             EXPECT_LE(out[x], maxval)
                 << bitdepth << "-bit phase " << xphase << " sample " << x;
         }
     }
-    mcd_pelset_destroy(&pel);
+    svt_mcd_pelset_destroy(&pel);
 }
 
 /* 6-tap Wiener (1,-5,20,20,-5,1)/32 used by the pelset phase planes,
@@ -127,9 +128,9 @@ TEST(McDenoisePelRange, LocateHandlesNullOutputs) {
     int32_t stride = 7;
     const void* row = reinterpret_cast<const void*>(uintptr_t(1));
 
-    mcd_pelset_locate(nullptr, 0, 0, 0, 1, 1, 0, nullptr, &stride);
+    svt_mcd_pelset_locate(nullptr, 0, 0, 0, 1, 1, 0, nullptr, &stride);
     EXPECT_EQ(0, stride);
-    mcd_pelset_locate(nullptr, 0, 0, 0, 1, 1, 0, &row, nullptr);
+    svt_mcd_pelset_locate(nullptr, 0, 0, 0, 1, 1, 0, &row, nullptr);
     EXPECT_EQ(nullptr, row);
 }
 
@@ -153,7 +154,7 @@ TEST(McDenoisePelRange, HalfPelMatchesScalarReference) {
     for (size_t i = 0; i < src.size(); i++) {
         src[i] = (uint8_t)rnd.random();
     }
-    ASSERT_EQ(MCD_SUCCESS, mcd_pelset_create(&plane, 1, 8, 8, &pel));
+    ASSERT_EQ(MCD_SUCCESS, svt_mcd_pelset_create(&plane, 1, 8, 8, &pel));
 
     /* Only the interior rows are checked, so only those need a vertical
      * phase reference (wiener_v reads y-2..y+3). */
@@ -166,25 +167,25 @@ TEST(McDenoisePelRange, HalfPelMatchesScalarReference) {
     for (uint32_t y = 2; y + 4 <= h; y++) {
         for (uint32_t x = 2; x + 4 <= w; x++) {
             uint16_t out = 0;
-            mcd_pelset_fetch(
+            svt_mcd_pelset_fetch(
                 pel, 0, 2 * (int32_t)x, 2 * (int32_t)y, 1, 1, &out);
             EXPECT_EQ(src[(size_t)y * w + x], out)
                 << "integer " << x << "," << y;
-            mcd_pelset_fetch(
+            svt_mcd_pelset_fetch(
                 pel, 0, 2 * (int32_t)x + 1, 2 * (int32_t)y, 1, 1, &out);
             EXPECT_EQ(wiener_h(src.data(), w, x, y), out)
                 << "xhalf " << x << "," << y;
-            mcd_pelset_fetch(
+            svt_mcd_pelset_fetch(
                 pel, 0, 2 * (int32_t)x, 2 * (int32_t)y + 1, 1, 1, &out);
             EXPECT_EQ(wiener_v(src.data(), w, x, y), out)
                 << "yhalf " << x << "," << y;
-            mcd_pelset_fetch(
+            svt_mcd_pelset_fetch(
                 pel, 0, 2 * (int32_t)x + 1, 2 * (int32_t)y + 1, 1, 1, &out);
             EXPECT_EQ(wiener_h(vphase.data(), w, x, y), out)
                 << "xyhalf " << x << "," << y;
         }
     }
-    mcd_pelset_destroy(&pel);
+    svt_mcd_pelset_destroy(&pel);
 }
 
 /* The 12-bit dfttest path used to assume 10-bit (pmax = 1023) and clamped
@@ -208,7 +209,7 @@ TEST(McDenoiseDfttest, TwelveBitOutputKeepsNativeRange) {
         }
     }
 
-    ASSERT_EQ(MCD_SUCCESS, mcd_dfttest_plane(&src, &dst, 50, bd));
+    ASSERT_EQ(MCD_SUCCESS, svt_mcd_dfttest_plane(&src, &dst, 50, bd));
     for (size_t i = 0; i < srcbuf.size(); i++) {
         mn = std::min(mn, (uint32_t)dstbuf[i]);
         mx = std::max(mx, (uint32_t)dstbuf[i]);
@@ -230,7 +231,7 @@ TEST(McDenoiseMaskMerge, InPlaceMatchesOutOfPlace) {
             fill_planes(filt_ref, bd, 0x2222u + bd);
             fill_planes(out_ref, bd, 0x3333u + bd);
             ASSERT_EQ(MCD_SUCCESS,
-                      mcd_prefilter_mask_merge(
+                      svt_mcd_prefilter_mask_merge(
                           src_ref.p, filt_ref.p, out_ref.p, 3, 1, 1, bd));
 
             fill_planes(src_alias, bd, 0x1111u + bd);
@@ -238,7 +239,7 @@ TEST(McDenoiseMaskMerge, InPlaceMatchesOutOfPlace) {
             fill_planes(out_alias, bd, 0x3333u + bd);
             McdPlane* dst = alias == 0 ? src_alias.p : filt_alias.p;
             ASSERT_EQ(MCD_SUCCESS,
-                      mcd_prefilter_mask_merge(
+                      svt_mcd_prefilter_mask_merge(
                           src_alias.p, filt_alias.p, dst, 3, 1, 1, bd));
 
             for (int p = 0; p < 3; p++) {
