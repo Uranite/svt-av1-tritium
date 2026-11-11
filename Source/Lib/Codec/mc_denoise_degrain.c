@@ -158,19 +158,19 @@ static void mcd_copy_planes(const McdFrame* center, McdPlane* dst_planes, uint32
     }
 }
 
-int mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const McdMeResult* const* results,
-                      uint32_t n_refs, const McdConfig* cfg, McdPlane* dst_planes) {
+int svt_mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const McdMeResult* const* results,
+                          uint32_t n_refs, const McdConfig* cfg, McdPlane* dst_planes) {
     uint32_t  p, i, bx, by, lx, ly;
     uint32_t  blk_w = 0, blk_h = 0, overlap = 0, step_w = 0, step_h = 0;
     uint32_t  nbx = 0, nby = 0;
     uint32_t  n_planes, bd, pmax, w_l, h_l;
     size_t    blk_area;
     uint32_t *qx = NULL, *qy = NULL, *bacc = NULL, *wts = NULL, *win = NULL;
-    uint16_t* win_luma = NULL;
-    uint32_t* acc[3]   = {NULL, NULL, NULL};
-    uint16_t* comp     = NULL;
-    int32_t*  coloff   = NULL;
-    int       ret      = MCD_SUCCESS;
+    uint16_t* win_luma            = NULL;
+    uint32_t* acc[MCD_MAX_PLANES] = {NULL, NULL, NULL};
+    uint16_t* comp                = NULL;
+    int32_t*  coloff              = NULL;
+    int       ret                 = MCD_SUCCESS;
 
     if (!center || !cfg || !dst_planes) {
         return MCD_ERR_PARAM;
@@ -184,7 +184,7 @@ int mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const
         return MCD_ERR_PARAM;
     }
     bd = center->bitdepth;
-    if (bd < 8 || bd > 16) {
+    if (bd != 8 && bd != 10 && bd != 12) {
         return MCD_ERR_PARAM;
     }
     if (center->x_ss > 1 || center->y_ss > 1) {
@@ -378,11 +378,11 @@ int mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const
                 }
 
                 /* B = (128 + WSrc*src + sum_i w_i*comp_i) >> 8 */
-                const int simd = mcd_use_avx2();
+                const bool simd = mcd_use_avx2();
                 for (ly = 0; ly < bh; ly++) {
                     const uint32_t Y = y0_p + ly;
                     if (simd) {
-                        mcd_simd_degrain_init_row(bacc + (size_t)ly * bw, sp, Y, x0_p, wsrc, bw);
+                        svt_mcd_simd_degrain_init_row(bacc + (size_t)ly * bw, sp, Y, x0_p, wsrc, bw);
                     } else {
                         for (lx = 0; lx < bw; lx++) {
                             bacc[(size_t)ly * bw + lx] = 128 + wsrc * mcd_plane_load(sp, Y, x0_p + lx);
@@ -402,9 +402,9 @@ int mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const
                      * origin and vector divided by 2^ss, flooring            */
                     fx = 2 * (int32_t)x0_p + mcd_floor_shr(v->x, ssx);
                     fy = 2 * (int32_t)y0_p + mcd_floor_shr(v->y, ssy);
-                    mcd_pelset_fetch((const McdPelSet*)refs[i]->pel, p, fx, fy, bw, bh, comp);
+                    svt_mcd_pelset_fetch((const McdPelSet*)refs[i]->pel, p, fx, fy, bw, bh, comp);
                     if (simd) {
-                        mcd_simd_degrain_add_ref(bacc, comp, w, (uint32_t)(bw * bh));
+                        svt_mcd_simd_degrain_add_ref(bacc, comp, w, (uint32_t)(bw * bh));
                     } else {
                         for (l = 0; l < (size_t)bw * bh; l++) {
                             bacc[l] += (uint32_t)w * comp[l];
@@ -413,7 +413,7 @@ int mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const
                 }
                 n = bw * bh;
                 if (simd) {
-                    mcd_simd_degrain_shift(bacc, n);
+                    svt_mcd_simd_degrain_shift(bacc, n);
                 } else {
                     for (lx = 0; lx < n; lx++) {
                         bacc[lx] >>= 8;
@@ -447,7 +447,7 @@ int mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const
                         win[lx] = w;
                     }
                     if (simd) {
-                        mcd_simd_degrain_acc_row(accrow, brow, win, bw);
+                        svt_mcd_simd_degrain_acc_row(accrow, brow, win, bw);
                     } else {
                         for (lx = 0; lx < bw; lx++) {
                             accrow[lx] += brow[lx] * win[lx];
@@ -465,9 +465,9 @@ int mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const
         const McdPlane* sp  = &center->planes[p];
         const int32_t   lim = cfg->limit ? (int32_t)((uint64_t)cfg->limit * pmax / 255) : 0;
         uint32_t        x, y;
-        const int       simd_fin = mcd_use_avx2();
+        const bool      simd_fin = mcd_use_avx2();
         for (y = 0; y < sp->h; y++) {
-            if (simd_fin && mcd_simd_degrain_finalize_row(&dst_planes[p], y, acc[p], sp, lim, pmax)) {
+            if (simd_fin && svt_mcd_simd_degrain_finalize_row(&dst_planes[p], y, acc[p], sp, lim, pmax)) {
                 continue;
             }
             for (x = 0; x < sp->w; x++) {
@@ -498,7 +498,7 @@ int mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const
     }
 
 cleanup:
-    for (p = 0; p < 3; p++) {
+    for (p = 0; p < MCD_MAX_PLANES; p++) {
         if (acc[p]) {
             free(acc[p]);
             acc[p] = NULL;

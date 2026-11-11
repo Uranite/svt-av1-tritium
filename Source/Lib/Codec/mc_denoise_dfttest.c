@@ -30,7 +30,7 @@
  *     overlap-add reproduces the input when sigma_pct == 0.
  *
  * Implementation notes / contract gaps:
- *  - mcd_dfttest_plane allocates dst->data with malloc when it is NULL and
+ *  - svt_mcd_dfttest_plane allocates dst->data with malloc when it is NULL and
  *    fills the dst geometry from src; an already-allocated dst with matching
  *    geometry is reused.  The caller (glue) owns and frees the buffer.
  *  - Bit depth is supplied by the caller (McdPlane only distinguishes 8-bit
@@ -191,7 +191,7 @@ static void mcd_dft_tables(McdDftCtx* c, uint32_t sigma_pct) {
 /* ---------------------------------------------------------------------- */
 /* dfttest spatial denoise of one plane                                    */
 
-int mcd_dfttest_ctx_create(uint32_t sigma_pct, McdDftCtx** out) {
+int svt_mcd_dfttest_ctx_create(uint32_t sigma_pct, McdDftCtx** out) {
     if (!out || sigma_pct > 100000u) {
         return MCD_ERR_PARAM;
     }
@@ -206,7 +206,7 @@ int mcd_dfttest_ctx_create(uint32_t sigma_pct, McdDftCtx** out) {
     return MCD_SUCCESS;
 }
 
-void mcd_dfttest_ctx_destroy(McdDftCtx** ctx) {
+void svt_mcd_dfttest_ctx_destroy(McdDftCtx** ctx) {
     if (!ctx || !*ctx) {
         return;
     }
@@ -214,10 +214,10 @@ void mcd_dfttest_ctx_destroy(McdDftCtx** ctx) {
     *ctx = NULL;
 }
 
-int mcd_dfttest_plane_with_ctx(const McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth) {
+int svt_mcd_dfttest_plane_with_ctx(const McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth) {
     if (mcd_use_avx512()) {
         /* bit-identical 16-block vector path (see mc_denoise_simd.c) */
-        return mcd_simd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
+        return svt_mcd_simd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
     }
     if (!ctx || !src || !dst || !src->data || (bitdepth != 8 && bitdepth != 10 && bitdepth != 12) ||
         src->highbd != (bitdepth > 8)) {
@@ -397,14 +397,14 @@ cleanup:
     return ret;
 }
 
-int mcd_dfttest_plane(const McdPlane* src, McdPlane* dst, uint32_t sigma_pct, uint32_t bitdepth) {
+int svt_mcd_dfttest_plane(const McdPlane* src, McdPlane* dst, uint32_t sigma_pct, uint32_t bitdepth) {
     McdDftCtx* ctx = NULL;
-    int        rc  = mcd_dfttest_ctx_create(sigma_pct, &ctx);
+    int        rc  = svt_mcd_dfttest_ctx_create(sigma_pct, &ctx);
     if (rc != MCD_SUCCESS) {
         return rc;
     }
-    rc = mcd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
-    mcd_dfttest_ctx_destroy(&ctx);
+    rc = svt_mcd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
+    svt_mcd_dfttest_ctx_destroy(&ctx);
     return rc;
 }
 
@@ -445,8 +445,8 @@ static inline float mcd_mask_box(const McdPlane* yp, uint32_t cx, uint32_t cy, u
     return sum / (float)(span_x * span_y);
 }
 
-int mcd_prefilter_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
-                             uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
+int svt_mcd_prefilter_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                                 uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
     if (!src_planes || !filt_planes || !out_planes) {
         return MCD_ERR_PARAM;
     }
@@ -514,7 +514,8 @@ int mcd_prefilter_mask_merge(const McdPlane* src_planes, const McdPlane* filt_pl
      * on any unsupported geometry they decline before writing anything and
      * the scalar loop below runs instead. */
     if (mcd_use_avx512() || mcd_use_avx2()) {
-        if (mcd_simd_mask_merge(merge_src, filt_planes, out_planes, n_planes, x_ss, y_ss, bitdepth) == MCD_SUCCESS) {
+        if (svt_mcd_simd_mask_merge(merge_src, filt_planes, out_planes, n_planes, x_ss, y_ss, bitdepth) ==
+            MCD_SUCCESS) {
             free(luma_snapshot);
             return MCD_SUCCESS;
         }

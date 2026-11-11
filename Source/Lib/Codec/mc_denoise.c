@@ -126,7 +126,7 @@ static ONCE_ROUTINE(mcd_cpu_flags_init) {
     ONCE_ROUTINE_EPILOG;
 }
 
-int mcd_have_avx2(void) {
+int svt_mcd_have_avx2(void) {
 #if defined(ARCH_X86_64)
     svt_run_once(&mcd_cpu_flags_once, mcd_cpu_flags_init);
     return (mcd_cpu_flags & EB_CPU_FLAGS_AVX2) != 0;
@@ -135,7 +135,7 @@ int mcd_have_avx2(void) {
 #endif
 }
 
-int mcd_have_avx512(void) {
+int svt_mcd_have_avx512(void) {
 #if defined(ARCH_X86_64)
     svt_run_once(&mcd_cpu_flags_once, mcd_cpu_flags_init);
     return (mcd_cpu_flags &
@@ -367,17 +367,17 @@ static void mcd_replicate_margins(const McdPlane* pl, uint32_t pad) {
 
 static void mcd_bufs_free_caches(McdBufs* b) {
     if (b->frame.pyr_valid) {
-        mcd_pyramid_destroy((McdPyramid**)&b->frame.pyr);
+        svt_mcd_pyramid_destroy((McdPyramid**)&b->frame.pyr);
         b->frame.pyr_valid = false;
         b->frame.pyr       = NULL;
     }
     if (b->frame.pel_valid) {
-        mcd_pelset_destroy((McdPelSet**)&b->frame.pel);
+        svt_mcd_pelset_destroy((McdPelSet**)&b->frame.pel);
         b->frame.pel_valid = false;
         b->frame.pel       = NULL;
     }
     if (b->frame.me_pel_valid) {
-        mcd_pelset_destroy((McdPelSet**)&b->frame.me_pel);
+        svt_mcd_pelset_destroy((McdPelSet**)&b->frame.me_pel);
         b->frame.me_pel_valid = false;
         b->frame.me_pel       = NULL;
     }
@@ -438,7 +438,7 @@ static McdMeScratch* mcd_me_pool_take(SvtMcdState* s) {
         return s->me_pool[--s->me_pool_n];
     }
     McdMeScratch* sc = NULL;
-    if (mcd_me_scratch_create(&sc) != MCD_SUCCESS) {
+    if (svt_mcd_me_scratch_create(&sc) != MCD_SUCCESS) {
         return NULL;
     }
     return sc;
@@ -452,7 +452,7 @@ static void mcd_me_pool_put(SvtMcdState* s, McdMeScratch* sc) {
     if (s->me_pool_n < MCD_ME_POOL_MAX) {
         s->me_pool[s->me_pool_n++] = sc;
     } else {
-        mcd_me_scratch_destroy(&sc);
+        svt_mcd_me_scratch_destroy(&sc);
     }
 }
 
@@ -668,7 +668,7 @@ static int mcd_bufs_build_search(SvtMcdState* s, McdBufs* b) {
                 if (rc) {
                     goto unlock;
                 }
-                rc = mcd_dfttest_plane_with_ctx(s->dft_ctx, &fr->planes[p], &fr->fplanes[p], fr->bitdepth);
+                rc = svt_mcd_dfttest_plane_with_ctx(s->dft_ctx, &fr->planes[p], &fr->fplanes[p], fr->bitdepth);
                 if (rc) {
                     goto unlock;
                 }
@@ -681,7 +681,7 @@ static int mcd_bufs_build_search(SvtMcdState* s, McdBufs* b) {
              * reads filt(x,y)/src(x,y) strictly before writing out(x,y) at
              * the same coordinate, so out == filt is per-pixel read-before-
              * write safe; the original planes are never touched. */
-            rc = mcd_prefilter_mask_merge(
+            rc = svt_mcd_prefilter_mask_merge(
                 fr->planes, fr->fplanes, fr->fplanes, fr->num_planes, fr->x_ss, fr->y_ss, fr->bitdepth);
             if (rc) {
                 goto unlock;
@@ -721,7 +721,7 @@ static int mcd_bufs_build_search(SvtMcdState* s, McdBufs* b) {
     }
 
     if (!fr->pyr_valid) {
-        rc = mcd_pyramid_create(fr->fplanes, fr->num_planes, MCD_PAD_SEARCH, 4, (McdPyramid**)&fr->pyr);
+        rc = svt_mcd_pyramid_create(fr->fplanes, fr->num_planes, MCD_PAD_SEARCH, 4, (McdPyramid**)&fr->pyr);
         if (rc) {
             goto unlock;
         }
@@ -746,7 +746,7 @@ static int mcd_bufs_build_pel(SvtMcdState* s, McdBufs* b) {
          * does not depend on the margin width, so normal-motion fetches are
          * bit-identical to the previous 64-sample margin). */
         const uint32_t pad = 32u + (s->cfg.blksize >> 1);
-        rc                 = mcd_pelset_create(
+        rc                 = svt_mcd_pelset_create(
             b->frame.planes, b->frame.num_planes, b->frame.bitdepth, pad, (McdPelSet**)&b->frame.pel);
         if (rc == MCD_SUCCESS) {
             b->frame.pel_valid = true;
@@ -774,7 +774,7 @@ static int mcd_bufs_build_me_pel(SvtMcdState* s, McdBufs* b) {
          * its storage instead of rebuilding one padded luma plane per slot.
          * mcd_bufs_free_caches destroys me_pel before freeing fplane_buf. */
         const McdPlane* borrow = (b->fplane_buf[0] && pad == MCD_PAD_SEARCH) ? &b->frame.fplanes[0] : NULL;
-        rc = mcd_pelset_create_borrow0(src, 1, b->frame.bitdepth, pad, borrow, (McdPelSet**)&b->frame.me_pel);
+        rc = svt_mcd_pelset_create_borrow0(src, 1, b->frame.bitdepth, pad, borrow, (McdPelSet**)&b->frame.me_pel);
         if (rc == MCD_SUCCESS) {
             b->frame.me_pel_valid = true;
         }
@@ -957,18 +957,18 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
         mcd_bufs_maybe_recycle_pix(s, neigh);
         svt_release_mutex(s->mutex);
         McdMeResult* res = NULL;
-        rc               = mcd_me_analyze_s(fr, &neigh->frame, pop->neigh_delta[i], &s->cfg, pop->me_scratch, &res);
+        rc               = svt_mcd_me_analyze_s(fr, &neigh->frame, pop->neigh_delta[i], &s->cfg, pop->me_scratch, &res);
         if (rc == MCD_SUCCESS) {
-            rc = mcd_me_recalculate_s(fr, &neigh->frame, &s->cfg, pop->me_scratch, res);
+            rc = svt_mcd_me_recalculate_s(fr, &neigh->frame, &s->cfg, pop->me_scratch, res);
         }
         if (rc == MCD_ERR_PARAM) {
             /* geometry mismatch (e.g. dynamic resolution change): skip
              * this neighbour and keep aggregating against the others */
-            mcd_me_result_free(&res);
+            svt_mcd_me_result_free(&res);
             continue;
         }
         if (rc) {
-            mcd_me_result_free(&res);
+            svt_mcd_me_result_free(&res);
             goto fail;
         }
         refs[n_refs]    = &neigh->frame;
@@ -988,7 +988,7 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
         for (uint32_t p = 0; p < fr->num_planes; ++p) {
             const size_t esz = fr->planes[p].highbd ? sizeof(uint16_t) : sizeof(uint8_t);
             if (!center->out_buf[p]) {
-                /* uninitialized malloc: on success mcd_degrain_frame writes
+                /* uninitialized malloc: on success svt_mcd_degrain_frame writes
                  * every sample of the plane before mcd_write_back reads it;
                  * on failure the buffer is never read (no write-back) */
                 center->out_buf[p] = malloc((size_t)fr->planes[p].w * fr->planes[p].h * esz);
@@ -1004,7 +1004,7 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
             dst[p].data   = center->out_buf[p];
         }
 
-        rc = mcd_degrain_frame(fr, refs, results, n_refs, &s->cfg, dst);
+        rc = svt_mcd_degrain_frame(fr, refs, results, n_refs, &s->cfg, dst);
         if (rc == MCD_SUCCESS) {
             mcd_write_back(center, pop->pcs->enhanced_pic);
         }
@@ -1012,7 +1012,7 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
 
 fail:
     for (uint32_t i = 0; i < n_refs; ++i) {
-        mcd_me_result_free(&own[i]);
+        svt_mcd_me_result_free(&own[i]);
     }
     return rc;
 }
@@ -1030,14 +1030,14 @@ EbErrorType svt_mcd_state_create(void** state_ptr, const EbSvtAv1EncConfiguratio
     s->cfg.tr         = (uint8_t)(cfg->mc_denoise_tr ? cfg->mc_denoise_tr : 1);
     s->cfg.thsad      = cfg->mc_denoise_thsad;
     s->cfg.blksize    = cfg->mc_denoise_blksize;
-    s->cfg.prefilter  = (uint8_t)(cfg->mc_denoise_prefilter ? 1 : 0);
+    s->cfg.prefilter  = cfg->mc_denoise_prefilter != 0;
     s->cfg.sigma_pct  = cfg->mc_denoise_sigma ? cfg->mc_denoise_sigma : 100;
     s->cfg.thscd1     = cfg->mc_denoise_thscd1;
     s->cfg.thscd2_pct = cfg->mc_denoise_thscd2;
     s->cfg.limit      = cfg->mc_denoise_limit;
     /* SATD (Hadamard) luma cost at the finest ME level, as in the
      * vsdenoise MVToolsPreset.HQ_SAD port target; not exposed as a knob */
-    s->cfg.satd = 1;
+    s->cfg.satd = true;
 
     s->ring_len = 2u * s->cfg.tr + 1u;
     EB_MALLOC_NO_CHECK(s->ring, sizeof(McdSlot) * s->ring_len);
@@ -1070,7 +1070,7 @@ EbErrorType svt_mcd_state_create(void** state_ptr, const EbSvtAv1EncConfiguratio
     /* One dfttest constant-table context per encoder instance: identical for
      * every frame and plane of the same sigma, shared read-only by all PA
      * threads. */
-    EbErrorType rc = mcd_dfttest_ctx_create(s->cfg.sigma_pct, &s->dft_ctx) == MCD_SUCCESS
+    EbErrorType rc = svt_mcd_dfttest_ctx_create(s->cfg.sigma_pct, &s->dft_ctx) == MCD_SUCCESS
         ? EB_ErrorNone
         : EB_ErrorInsufficientResources;
     if (rc != EB_ErrorNone) {
@@ -1150,7 +1150,7 @@ void svt_mcd_state_destroy(void** state_ptr) {
         s->ring[i].buf = NULL;
     }
     for (uint32_t i = 0; i < s->me_pool_n; ++i) {
-        mcd_me_scratch_destroy(&s->me_pool[i]);
+        svt_mcd_me_scratch_destroy(&s->me_pool[i]);
     }
     s->me_pool_n = 0;
     for (uint32_t p = 0; p < 3; ++p) {
@@ -1161,7 +1161,7 @@ void svt_mcd_state_destroy(void** state_ptr) {
     EB_DESTROY_SEMAPHORE(s->done_semaphore);
     EB_FREE(s->ring);
     EB_DESTROY_MUTEX(s->mutex);
-    mcd_dfttest_ctx_destroy(&s->dft_ctx);
+    svt_mcd_dfttest_ctx_destroy(&s->dft_ctx);
     EB_FREE(s);
     *state_ptr = NULL;
 }

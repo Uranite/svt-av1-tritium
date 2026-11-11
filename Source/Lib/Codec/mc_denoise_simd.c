@@ -30,7 +30,7 @@
  *     to match — verified by disassembly.)
  *
  * Testing hook: environment variable MCD_NO_SIMD (any value) forces every
- * dispatch to the scalar path (see mcd_simd_disabled).
+ * dispatch to the scalar path (see svt_mcd_simd_disabled).
  */
 //for getenv on windows
 #if defined(_WIN32) && !defined(_CRT_SECURE_NO_WARNINGS)
@@ -57,7 +57,7 @@ static ONCE_ROUTINE(init_mcd_no_simd) {
     ONCE_ROUTINE_EPILOG;
 }
 
-int mcd_simd_disabled(void) {
+int svt_mcd_simd_disabled(void) {
     svt_run_once(&g_mcd_no_simd_once, init_mcd_no_simd);
     return g_mcd_no_simd;
 }
@@ -67,8 +67,8 @@ int mcd_simd_disabled(void) {
 
 #if !defined(ARCH_X86_64) || !(defined(__GNUC__) || defined(__clang__))
 
-uint64_t mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
-                           uint64_t bound) {
+uint64_t svt_mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                               uint64_t bound) {
     (void)a;
     (void)sa;
     (void)b;
@@ -79,8 +79,8 @@ uint64_t mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32
     return 0;
 }
 
-uint64_t mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
-                             uint64_t bound) {
+uint64_t svt_mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                 uint64_t bound) {
     (void)a;
     (void)sa;
     (void)b;
@@ -91,8 +91,8 @@ uint64_t mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, i
     return 0;
 }
 
-uint64_t mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
-                            uint64_t bound) {
+uint64_t svt_mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound) {
     (void)a;
     (void)sa;
     (void)b;
@@ -103,8 +103,8 @@ uint64_t mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int
     return 0;
 }
 
-uint64_t mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
-                            uint64_t bound) {
+uint64_t svt_mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound) {
     (void)a;
     (void)sa;
     (void)b;
@@ -115,8 +115,8 @@ uint64_t mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int
     return 0;
 }
 
-uint64_t mcd_simd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
-                            uint64_t bound) {
+uint64_t svt_mcd_simd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound) {
     (void)a;
     (void)sa;
     (void)b;
@@ -127,8 +127,8 @@ uint64_t mcd_simd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int3
     return 0;
 }
 
-int mcd_simd_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
-                        uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
+int svt_mcd_simd_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                            uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
     (void)src_planes;
     (void)filt_planes;
     (void)out_planes;
@@ -139,8 +139,8 @@ int mcd_simd_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes,
     return MCD_ERR_PARAM; /* caller falls back to the scalar path */
 }
 
-uint64_t mcd_simd_satd_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
-                              uint64_t bound) {
+uint64_t svt_mcd_simd_satd_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                  uint64_t bound) {
     (void)a;
     (void)sa;
     (void)b;
@@ -151,8 +151,8 @@ uint64_t mcd_simd_satd_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, 
     return 0;
 }
 
-void mcd_simd_halfpel_h_u8(const uint8_t* s, uint32_t ss, uint32_t w, uint32_t h, uint32_t p, uint8_t* d, uint32_t ds,
-                           uint32_t m) {
+void svt_mcd_simd_halfpel_h_u8(const uint8_t* s, uint32_t ss, uint32_t w, uint32_t h, uint32_t p, uint8_t* d,
+                               uint32_t ds, uint32_t m) {
     (void)s;
     (void)ss;
     (void)w;
@@ -163,8 +163,8 @@ void mcd_simd_halfpel_h_u8(const uint8_t* s, uint32_t ss, uint32_t w, uint32_t h
     (void)m;
 }
 
-void mcd_simd_halfpel_v_u8(const uint8_t* s, uint32_t ss, uint32_t w, uint32_t h, uint32_t p, uint8_t* d, uint32_t ds,
-                           uint32_t m) {
+void svt_mcd_simd_halfpel_v_u8(const uint8_t* s, uint32_t ss, uint32_t w, uint32_t h, uint32_t p, uint8_t* d,
+                               uint32_t ds, uint32_t m) {
     (void)s;
     (void)ss;
     (void)w;
@@ -175,8 +175,8 @@ void mcd_simd_halfpel_v_u8(const uint8_t* s, uint32_t ss, uint32_t w, uint32_t h
     (void)m;
 }
 
-void mcd_simd_halfpel_h_u16(const uint16_t* s, uint32_t ss, uint32_t w, uint32_t h, uint32_t p, uint16_t* d,
-                            uint32_t ds, uint32_t m) {
+void svt_mcd_simd_halfpel_h_u16(const uint16_t* s, uint32_t ss, uint32_t w, uint32_t h, uint32_t p, uint16_t* d,
+                                uint32_t ds, uint32_t m) {
     (void)s;
     (void)ss;
     (void)w;
@@ -187,8 +187,8 @@ void mcd_simd_halfpel_h_u16(const uint16_t* s, uint32_t ss, uint32_t w, uint32_t
     (void)m;
 }
 
-void mcd_simd_halfpel_v_u16(const uint16_t* s, uint32_t ss, uint32_t w, uint32_t h, uint32_t p, uint16_t* d,
-                            uint32_t ds, uint32_t m) {
+void svt_mcd_simd_halfpel_v_u16(const uint16_t* s, uint32_t ss, uint32_t w, uint32_t h, uint32_t p, uint16_t* d,
+                                uint32_t ds, uint32_t m) {
     (void)s;
     (void)ss;
     (void)w;
@@ -199,14 +199,14 @@ void mcd_simd_halfpel_v_u16(const uint16_t* s, uint32_t ss, uint32_t w, uint32_t
     (void)m;
 }
 
-void mcd_simd_fetch_u8_row(const uint8_t* row, uint16_t* dst, uint32_t w) {
+void svt_mcd_simd_fetch_u8_row(const uint8_t* row, uint16_t* dst, uint32_t w) {
     (void)row;
     (void)dst;
     (void)w;
 }
 
-void mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p, uint32_t wsrc,
-                               uint32_t n) {
+void svt_mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p, uint32_t wsrc,
+                                   uint32_t n) {
     (void)bacc;
     (void)sp;
     (void)Y;
@@ -215,27 +215,27 @@ void mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y, u
     (void)n;
 }
 
-void mcd_simd_degrain_add_ref(uint32_t* bacc, const uint16_t* comp, uint32_t w, uint32_t n) {
+void svt_mcd_simd_degrain_add_ref(uint32_t* bacc, const uint16_t* comp, uint32_t w, uint32_t n) {
     (void)bacc;
     (void)comp;
     (void)w;
     (void)n;
 }
 
-void mcd_simd_degrain_shift(uint32_t* bacc, uint32_t n) {
+void svt_mcd_simd_degrain_shift(uint32_t* bacc, uint32_t n) {
     (void)bacc;
     (void)n;
 }
 
-void mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32_t* brow, const uint32_t* win, uint32_t n) {
+void svt_mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32_t* brow, const uint32_t* win, uint32_t n) {
     (void)accrow;
     (void)brow;
     (void)win;
     (void)n;
 }
 
-int mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp, int32_t lim,
-                                  uint32_t pmax) {
+int svt_mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp, int32_t lim,
+                                      uint32_t pmax) {
     (void)dp;
     (void)y;
     (void)acc;
@@ -245,8 +245,8 @@ int mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc,
     return 0;
 }
 
-int mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
-                                    uint32_t bitdepth) {
+int svt_mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
+                                        uint32_t bitdepth) {
     (void)ctx;
     (void)src;
     (void)dst;
@@ -265,8 +265,8 @@ int mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane*
 /* handle any w/h with 16/8-wide vectors plus a scalar tail.           */
 /* ================================================================== */
 
-__attribute__((target("avx2"))) uint64_t mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb,
-                                                           uint32_t w, uint32_t h, uint64_t bound) {
+__attribute__((target("avx2"))) uint64_t svt_mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b,
+                                                               int32_t sb, uint32_t w, uint32_t h, uint64_t bound) {
     __m128i  vacc = _mm_setzero_si128(); /* 2 x u64 partial sums */
     uint64_t tail = 0;
     uint32_t y;
@@ -317,8 +317,8 @@ __attribute__((target("avx2"))) static inline uint64_t mcd_sad_u16_reduce(const 
     return tail + (uint64_t)(uint32_t)_mm_cvtsi128_si32(v);
 }
 
-__attribute__((target("avx2"))) uint64_t mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b,
-                                                             int32_t sb, uint32_t w, uint32_t h, uint64_t bound) {
+__attribute__((target("avx2"))) uint64_t svt_mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b,
+                                                                 int32_t sb, uint32_t w, uint32_t h, uint64_t bound) {
     if ((uint64_t)w * h * 65535ull >= 0x7fffffffull) {
         return 0; /* unreachable for module block sizes */
     }
@@ -358,8 +358,8 @@ __attribute__((target("avx2"))) uint64_t mcd_simd_sad_u16u16(const uint16_t* a, 
     return mcd_sad_u16_reduce(vacc, tail);
 }
 
-__attribute__((target("avx2"))) uint64_t mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb,
-                                                            uint32_t w, uint32_t h, uint64_t bound) {
+__attribute__((target("avx2"))) uint64_t svt_mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b,
+                                                                int32_t sb, uint32_t w, uint32_t h, uint64_t bound) {
     if ((uint64_t)w * h * 65535ull >= 0x7fffffffull) {
         return 0;
     }
@@ -391,8 +391,8 @@ __attribute__((target("avx2"))) uint64_t mcd_simd_sad_u8u16(const uint8_t* a, in
     return mcd_sad_u16_reduce(vacc, tail);
 }
 
-__attribute__((target("avx2"))) uint64_t mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb,
-                                                            uint32_t w, uint32_t h, uint64_t bound) {
+__attribute__((target("avx2"))) uint64_t svt_mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b,
+                                                                int32_t sb, uint32_t w, uint32_t h, uint64_t bound) {
     if ((uint64_t)w * h * 65535ull >= 0x7fffffffull) {
         return 0;
     }
@@ -438,9 +438,9 @@ __attribute__((target("avx2"))) uint64_t mcd_simd_sad_u16u8(const uint16_t* a, i
 /* fallback in mc_denoise_me.c.                                        */
 /* ================================================================== */
 
-__attribute__((target("avx512bw,avx512vl"))) uint64_t mcd_simd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b,
-                                                                         int32_t sb, uint32_t w, uint32_t h,
-                                                                         uint64_t bound) {
+__attribute__((target("avx512bw,avx512vl"))) uint64_t svt_mcd_simd_satd_u8u8(const uint8_t* a, int32_t sa,
+                                                                             const uint8_t* b, int32_t sb, uint32_t w,
+                                                                             uint32_t h, uint64_t bound) {
     if (w < 16 || h < 16) {
         return 0; /* caller falls back to scalar (unreachable at level 0) */
     }
@@ -524,10 +524,10 @@ __attribute__((target("avx512bw,avx512vl"))) uint64_t mcd_simd_satd_u8u8(const u
     return total;
 }
 
-__attribute__((target("avx512f,avx512bw,avx512vl"))) uint64_t mcd_simd_satd_u16u16(const uint16_t* a, int32_t sa,
-                                                                                   const uint16_t* b, int32_t sb,
-                                                                                   uint32_t w, uint32_t h,
-                                                                                   uint64_t bound) {
+__attribute__((target("avx512f,avx512bw,avx512vl"))) uint64_t svt_mcd_simd_satd_u16u16(const uint16_t* a, int32_t sa,
+                                                                                       const uint16_t* b, int32_t sb,
+                                                                                       uint32_t w, uint32_t h,
+                                                                                       uint64_t bound) {
     if (w < 16 || h < 16) {
         return 0;
     }
@@ -640,7 +640,7 @@ static inline int32_t mcd_simd_clampi(int32_t v, int32_t lo, int32_t hi) {
     return v < lo ? lo : (v > hi ? hi : v);
 }
 
-__attribute__((target("avx2"))) void mcd_simd_fetch_u8_row(const uint8_t* row, uint16_t* dst, uint32_t w) {
+__attribute__((target("avx2"))) void svt_mcd_simd_fetch_u8_row(const uint8_t* row, uint16_t* dst, uint32_t w) {
     uint32_t x = 0;
     for (; x + 16 <= w; x += 16) {
         _mm256_storeu_si256((__m256i*)(void*)(dst + x),
@@ -667,9 +667,9 @@ __attribute__((target("avx2"))) static inline void mcd_halfpel_h_row_u8(const ui
                      _mm_packus_epi16(_mm256_castsi256_si128(v), _mm256_extracti128_si256(v, 1)));
 }
 
-__attribute__((target("avx2"))) void mcd_simd_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h,
-                                                           uint32_t pad, uint8_t* dst, uint32_t dstride,
-                                                           uint32_t maxval) {
+__attribute__((target("avx2"))) void svt_mcd_simd_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w,
+                                                               uint32_t h, uint32_t pad, uint8_t* dst, uint32_t dstride,
+                                                               uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const int32_t  wm1 = (int32_t)w - 1;
     for (uint32_t Y = 0; Y < h + 2 * pad; Y++) {
@@ -705,9 +705,9 @@ __attribute__((target("avx2"))) void mcd_simd_halfpel_h_u8(const uint8_t* src, u
     }
 }
 
-__attribute__((target("avx2"))) void mcd_simd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h,
-                                                           uint32_t pad, uint8_t* dst, uint32_t dstride,
-                                                           uint32_t maxval) {
+__attribute__((target("avx2"))) void svt_mcd_simd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w,
+                                                               uint32_t h, uint32_t pad, uint8_t* dst, uint32_t dstride,
+                                                               uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const int32_t  hm1 = (int32_t)h - 1;
     for (uint32_t Y = 0; Y < h + 2 * pad; Y++) {
@@ -751,10 +751,10 @@ __attribute__((target("avx512bw,avx512vl"))) static inline __m512i mcd_halfpel_l
     return _mm512_cvtepu16_epi32(_mm256_loadu_si256((const __m256i*)(const void*)(p + X)));
 }
 
-__attribute__((target("avx512bw,avx512vl"))) void mcd_simd_halfpel_h_u16(const uint16_t* src, uint32_t sstride,
-                                                                         uint32_t w, uint32_t h, uint32_t pad,
-                                                                         uint16_t* dst, uint32_t dstride,
-                                                                         uint32_t maxval) {
+__attribute__((target("avx512bw,avx512vl"))) void svt_mcd_simd_halfpel_h_u16(const uint16_t* src, uint32_t sstride,
+                                                                             uint32_t w, uint32_t h, uint32_t pad,
+                                                                             uint16_t* dst, uint32_t dstride,
+                                                                             uint32_t maxval) {
     const uint32_t tw   = w + 2 * pad;
     const int32_t  wm1  = (int32_t)w - 1;
     const __m512i  zero = _mm512_setzero_si512();
@@ -802,10 +802,10 @@ __attribute__((target("avx512bw,avx512vl"))) void mcd_simd_halfpel_h_u16(const u
     }
 }
 
-__attribute__((target("avx512bw,avx512vl"))) void mcd_simd_halfpel_v_u16(const uint16_t* src, uint32_t sstride,
-                                                                         uint32_t w, uint32_t h, uint32_t pad,
-                                                                         uint16_t* dst, uint32_t dstride,
-                                                                         uint32_t maxval) {
+__attribute__((target("avx512bw,avx512vl"))) void svt_mcd_simd_halfpel_v_u16(const uint16_t* src, uint32_t sstride,
+                                                                             uint32_t w, uint32_t h, uint32_t pad,
+                                                                             uint16_t* dst, uint32_t dstride,
+                                                                             uint32_t maxval) {
     const uint32_t tw   = w + 2 * pad;
     const int32_t  hm1  = (int32_t)h - 1;
     const __m512i  zero = _mm512_setzero_si512();
@@ -849,8 +849,8 @@ __attribute__((target("avx512bw,avx512vl"))) void mcd_simd_halfpel_v_u16(const u
 /* degrain: element-wise loops. Integer lane ops, bit-exact.           */
 /* ================================================================== */
 
-__attribute__((target("avx2"))) void mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y,
-                                                               uint32_t x0_p, uint32_t wsrc, uint32_t n) {
+__attribute__((target("avx2"))) void svt_mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y,
+                                                                   uint32_t x0_p, uint32_t wsrc, uint32_t n) {
     const uint32_t vs = wsrc;
     uint32_t       i  = 0;
     if (!sp->highbd) {
@@ -878,8 +878,8 @@ __attribute__((target("avx2"))) void mcd_simd_degrain_init_row(uint32_t* bacc, c
     }
 }
 
-__attribute__((target("avx2"))) void mcd_simd_degrain_add_ref(uint32_t* bacc, const uint16_t* comp, uint32_t w,
-                                                              uint32_t n) {
+__attribute__((target("avx2"))) void svt_mcd_simd_degrain_add_ref(uint32_t* bacc, const uint16_t* comp, uint32_t w,
+                                                                  uint32_t n) {
     const __m256i vw = _mm256_set1_epi32((int)w);
     uint32_t      i  = 0;
     for (; i + 8 <= n; i += 8) {
@@ -893,7 +893,7 @@ __attribute__((target("avx2"))) void mcd_simd_degrain_add_ref(uint32_t* bacc, co
     }
 }
 
-__attribute__((target("avx2"))) void mcd_simd_degrain_shift(uint32_t* bacc, uint32_t n) {
+__attribute__((target("avx2"))) void svt_mcd_simd_degrain_shift(uint32_t* bacc, uint32_t n) {
     uint32_t i = 0;
     for (; i + 8 <= n; i += 8) {
         _mm256_storeu_si256((__m256i*)(void*)(bacc + i),
@@ -904,8 +904,8 @@ __attribute__((target("avx2"))) void mcd_simd_degrain_shift(uint32_t* bacc, uint
     }
 }
 
-__attribute__((target("avx2"))) void mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32_t* brow,
-                                                              const uint32_t* win, uint32_t n) {
+__attribute__((target("avx2"))) void svt_mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32_t* brow,
+                                                                  const uint32_t* win, uint32_t n) {
     uint32_t i = 0;
     for (; i + 8 <= n; i += 8) {
         const __m256i b  = _mm256_loadu_si256((const __m256i*)(const void*)(brow + i));
@@ -919,8 +919,8 @@ __attribute__((target("avx2"))) void mcd_simd_degrain_acc_row(uint32_t* accrow, 
     }
 }
 
-__attribute__((target("avx2"))) int mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc,
-                                                                  const McdPlane* sp, int32_t lim, uint32_t pmax) {
+__attribute__((target("avx2"))) int svt_mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc,
+                                                                      const McdPlane* sp, int32_t lim, uint32_t pmax) {
     if (lim) {
         return 0; /* limit clamp kept scalar (rare knob) */
     }
@@ -974,7 +974,7 @@ __attribute__((target("avx2"))) int mcd_simd_degrain_finalize_row(McdPlane* dp, 
 
 /* ================================================================== */
 /* luma-masked merge: out = src + m * (filt - src), m from the SOURCE  */
-/* luma (see mcd_prefilter_mask_merge).                                */
+/* luma (see svt_mcd_prefilter_mask_merge).                                */
 /*                                                                     */
 /* Bit-exactness: lane-wise IEEE float ops in the exact scalar         */
 /* per-pixel order — y8 = y * (255 * inv_pmax), m = (y8 - 16) / 59,    */
@@ -983,7 +983,7 @@ __attribute__((target("avx2"))) int mcd_simd_degrain_finalize_row(McdPlane* dp, 
 /* Planes are processed in order 0,1,2 and the chroma box taps are     */
 /* summed (((m00+m01)+m10)+m11) exactly like the scalar loop. The      */
 /* chroma mask reads the source luma plane handed in by the caller;    */
-/* mcd_prefilter_mask_merge snapshots that plane when the output       */
+/* svt_mcd_prefilter_mask_merge snapshots that plane when the output       */
 /* aliases the source, so the mask never observes merged luma. Scalar  */
 /* tails replicate the scalar formulas verbatim.                       */
 /* ================================================================== */
@@ -1292,8 +1292,8 @@ __attribute__((target("avx2"))) static void mcd_merge_plane256(const McdPlane* s
     }
 }
 
-int mcd_simd_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
-                        uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
+int svt_mcd_simd_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                            uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
     if (n_planes != 1 && n_planes != 3) {
         return MCD_ERR_PARAM;
     }
@@ -1531,12 +1531,10 @@ __attribute__((target("avx512f,avx512dq"))) static void mcd_dfttest_group(const 
     }
 }
 
-/* SIMD dfttest plane: mirrors mcd_dfttest_plane_with_ctx (same padding,
+/* SIMD dfttest plane: mirrors svt_mcd_dfttest_plane_with_ctx (same padding,
  * same block grid, same arithmetic order) with 16-block vector groups. */
-__attribute__((target("avx512f,avx512bw,avx512dq"))) int mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx* ctx,
-                                                                                         const McdPlane*         src,
-                                                                                         McdPlane*               dst,
-                                                                                         uint32_t bitdepth) {
+__attribute__((target("avx512f,avx512bw,avx512dq"))) int svt_mcd_simd_dfttest_plane_with_ctx(
+    const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth) {
     if (!ctx || !src || !dst || !src->data || (bitdepth != 8 && bitdepth != 10 && bitdepth != 12) ||
         src->highbd != (bitdepth > 8)) {
         return MCD_ERR_PARAM;
