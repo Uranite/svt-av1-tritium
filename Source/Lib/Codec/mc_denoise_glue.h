@@ -1,4 +1,15 @@
 /*
+ * Copyright(c) 2026 Alliance for Open Media. All rights reserved
+ *
+ * This source code is subject to the terms of the BSD 2 Clause License and
+ * the Alliance for Open Media Patent License 1.0. If the BSD 2 Clause License
+ * was not distributed with this source code in the LICENSE file, you can
+ * obtain it at https://www.aomedia.org/license/software-license. If the
+ * Alliance for Open Media Patent License 1.0 was not distributed with this
+ * source code in the PATENTS file, you can obtain it at
+ * https://www.aomedia.org/license/patent-license.
+ */
+/*
  * mc_denoise_glue.h — encoder integration of the motion-compensated
  * temporal denoiser (see mc_denoise.h for the algorithm modules).
  *
@@ -54,11 +65,8 @@ void svt_mcd_state_destroy(void** state_ptr);
  *
  * Overlay pictures are never denoised (they do not carry the input pixels at
  * this stage); they are passed through untouched. */
-uint32_t svt_mcd_pa_arrival(void* state,
-                            struct PictureParentControlSet* pcs,
-                            struct EbObjectWrapper* pcs_wrapper,
-                            struct EbObjectWrapper** out_wrappers,
-                            struct PictureParentControlSet** out_pcs);
+uint32_t svt_mcd_pa_arrival(void* state, struct PictureParentControlSet* pcs, struct EbObjectWrapper* pcs_wrapper,
+                            struct EbObjectWrapper** out_wrappers, struct PictureParentControlSet** out_pcs);
 
 #ifdef __cplusplus
 }

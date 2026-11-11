@@ -89,4 +89,4 @@ TEST(McDenoiseSceneChange, EmptyGridIsNotASceneChange) {
     EXPECT_EQ(0, mcd_scene_change_decision(0, 0, 100));
 }
 
-} // namespace
+}  // namespace

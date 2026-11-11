@@ -1,4 +1,15 @@
 /*
+ * Copyright(c) 2026 Alliance for Open Media. All rights reserved
+ *
+ * This source code is subject to the terms of the BSD 2 Clause License and
+ * the Alliance for Open Media Patent License 1.0. If the BSD 2 Clause License
+ * was not distributed with this source code in the LICENSE file, you can
+ * obtain it at https://www.aomedia.org/license/software-license. If the
+ * Alliance for Open Media Patent License 1.0 was not distributed with this
+ * source code in the PATENTS file, you can obtain it at
+ * https://www.aomedia.org/license/patent-license.
+ */
+/*
  * mc_denoise.h — motion-compensated temporal denoiser (mc_degrain port)
  *
  * Clean-room reimplementation, from published algorithms and formulas only, of
@@ -46,6 +57,8 @@ extern "C" {
 #define MCD_MAX_TR 3
 #define MCD_MAX_PLANES 3
 
+#define MCD_PI 3.14159265358979323846
+
 #define MCD_SUCCESS 0
 #define MCD_ERR_NOMEM 1
 #define MCD_ERR_PARAM 2
@@ -54,44 +67,44 @@ extern "C" {
 /* configuration (mirrors the --mc-denoise* encoder parameters)            */
 
 typedef struct McdConfig {
-    uint8_t  tr;           /* temporal radius, 1..MCD_MAX_TR                    */
-    uint32_t thsad;        /* SAD soft threshold, normalized units, default 50  */
-    uint32_t blksize;      /* analysis block size (square), 8/16/32, default 16 */
-    uint8_t  prefilter;    /* 0 = none, 1 = dfttest                             */
-    uint32_t sigma_pct;    /* prefilter sigma scale, percent, default 50         */
-    uint32_t thscd1;       /* per-block scene-change SAD, default 400            */
-    uint32_t thscd2_pct;   /* % changed blocks => scene change, default 51       */
-    uint32_t limit;        /* max output delta vs source (normalized 8-bit
+    uint8_t  tr; /* temporal radius, 1..MCD_MAX_TR                    */
+    uint32_t thsad; /* SAD soft threshold, normalized units, default 50  */
+    uint32_t blksize; /* analysis block size (square), 8/16/32, default 16 */
+    uint8_t  prefilter; /* 0 = none, 1 = dfttest                             */
+    uint32_t sigma_pct; /* prefilter sigma scale, percent, default 50         */
+    uint32_t thscd1; /* per-block scene-change SAD, default 400            */
+    uint32_t thscd2_pct; /* % changed blocks => scene change, default 51       */
+    uint32_t limit; /* max output delta vs source (normalized 8-bit
                               scale), 0 = unlimited                              */
-    uint8_t  satd;         /* use SATD instead of SAD at finest ME level         */
+    uint8_t  satd; /* use SATD instead of SAD at finest ME level         */
 } McdConfig;
 
 /* ---------------------------------------------------------------------- */
 /* picture representation                                                  */
 
 typedef struct McdPlane {
-    uint32_t w, h;         /* visible samples                                   */
-    uint32_t stride;       /* samples per row (NOT bytes; uint16 units if highbd)*/
-    bool     highbd;       /* 0: uint8_t, 1: uint16_t                           */
-    void    *data;         /* module-visible buffer, owns no memory semantics:
+    uint32_t w, h; /* visible samples                                   */
+    uint32_t stride; /* samples per row (NOT bytes; uint16 units if highbd)*/
+    bool     highbd; /* 0: uint8_t, 1: uint16_t                           */
+    void*    data; /* module-visible buffer, owns no memory semantics:
                               for input planes it points at encoder memory
                               (read-only), for module planes at malloc'd data   */
 } McdPlane;
 
 typedef struct McdFrame {
-    McdPlane planes[3];    /* [0]=Y, [1]=Cb, [2]=Cr (2,3 unused if mono)        */
-    uint32_t num_planes;   /* 1 or 3                                             */
-    uint32_t x_ss, y_ss;   /* chroma subsampling shifts (0 or 1)                 */
-    uint32_t bitdepth;     /* 8, 10 or 12                                        */
+    McdPlane planes[3]; /* [0]=Y, [1]=Cb, [2]=Cr (2,3 unused if mono)        */
+    uint32_t num_planes; /* 1 or 3                                             */
+    uint32_t x_ss, y_ss; /* chroma subsampling shifts (0 or 1)                 */
+    uint32_t bitdepth; /* 8, 10 or 12                                        */
     /* module caches (owned by mc_denoise.c glue) */
-    McdPlane fplanes[3];   /* prefiltered planes (prefilter==1)                  */
+    McdPlane fplanes[3]; /* prefiltered planes (prefilter==1)                  */
     bool     prefiltered;
-    void    *pyr;          /* McdPyramid* over fplanes, for ME                   */
+    void*    pyr; /* McdPyramid* over fplanes, for ME                   */
     bool     pyr_valid;
-    void    *pel;          /* McdPelSet* over planes (ORIGINAL pixels), for
+    void*    pel; /* McdPelSet* over planes (ORIGINAL pixels), for
                               degrain compensation                               */
     bool     pel_valid;
-    void    *me_pel;       /* McdPelSet* over the PREFILTERED luma, shared by
+    void*    me_pel; /* McdPelSet* over the PREFILTERED luma, shared by
                               every analyze/recalculate call against this
                               frame as reference; built by the glue, read-only
                               for the modules (may be NULL)                      */
@@ -104,12 +117,12 @@ typedef struct McdFrame {
 /* Normalize a raw SAD (luma + chroma block SADs summed, native depth) to
  * 8-bit-range equivalent-per-64-luma-samples units.
  * ss_factor as a fraction: 1 + 2/((1<<x_ss)*(1<<y_ss)) = (2^s + 2) / 2^s.   */
-static inline int32_t mcd_norm_sad(uint64_t sad_raw, uint32_t blk_area_luma,
-                                   uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
-    const uint64_t s      = (uint64_t)1 << (x_ss + y_ss);
-    const uint64_t num    = s + 2;                   /* ss_factor numerator   */
-    const uint64_t den    = s;                       /* ss_factor denominator */
-    const uint64_t pmax   = (1ull << bitdepth) - 1;
+static inline int32_t mcd_norm_sad(uint64_t sad_raw, uint32_t blk_area_luma, uint32_t x_ss, uint32_t y_ss,
+                                   uint32_t bitdepth) {
+    const uint64_t s    = (uint64_t)1 << (x_ss + y_ss);
+    const uint64_t num  = s + 2; /* ss_factor numerator   */
+    const uint64_t den  = s; /* ss_factor denominator */
+    const uint64_t pmax = (1ull << bitdepth) - 1;
     /* sad_norm = sad_raw * 255 * 64 * den / (pmax * area * num), rounded     */
     return (int32_t)((sad_raw * 255ull * 64ull * den + (pmax * blk_area_luma * num) / 2) /
                      (pmax * (uint64_t)blk_area_luma * num));
@@ -118,13 +131,14 @@ static inline int32_t mcd_norm_sad(uint64_t sad_raw, uint32_t blk_area_luma,
 /* mvtools degrain weight: with r = sad/thsad in Q16 (0..65536),
  * w = 256 * (1 - r^2) / (1 + r^2), i.e. 256 at sad=0, 0 at sad>=thsad.      */
 static inline uint32_t mcd_degrain_weight(int32_t sad_norm, uint32_t thsad) {
-    if (thsad == 0 || sad_norm >= (int32_t)thsad || sad_norm < 0)
+    if (thsad == 0 || sad_norm >= (int32_t)thsad || sad_norm < 0) {
         return 0;
+    }
     const uint64_t r  = ((uint64_t)(uint32_t)sad_norm << 16) / thsad; /* 0..65536 */
-    const uint64_t r2 = (r * r) >> 16;                                /* 0..65536 */
+    const uint64_t r2 = (r * r) >> 16; /* 0..65536 */
     const uint64_t n  = 65536ull - r2;
     const uint64_t d  = 65536ull + r2;
-    return (uint32_t)((256ull * n + d / 2) / d);                      /* 0..256 */
+    return (uint32_t)((256ull * n + d / 2) / d); /* 0..256 */
 }
 
 /* Scene-change decision: at least thscd2_pct percent of the n blocks must
@@ -141,17 +155,17 @@ static inline uint32_t mcd_degrain_weight(int32_t sad_norm, uint32_t thsad) {
  *   - when P*n is a multiple of 100 the decision fires at exactly P percent.
  * Lives here, next to the other shared inline math, so the boundary is
  * unit-testable without a full motion-analysis frame setup. */
-static inline int mcd_scene_change_decision(uint32_t changed, uint32_t n,
-                                            uint32_t thscd2_pct) {
-    if (!changed)
+static inline int mcd_scene_change_decision(uint32_t changed, uint32_t n, uint32_t thscd2_pct) {
+    if (!changed) {
         return 0;
+    }
     return ((uint64_t)changed * 100 >= (uint64_t)thscd2_pct * n);
 }
 
 /* ---------------------------------------------------------------------- */
 /* mc_denoise_pel.c — pyramids, half-pel planes, block fetch               */
 
-typedef struct McdPyramid McdPyramid;   /* opaque */
+typedef struct McdPyramid McdPyramid; /* opaque */
 
 /* Build a gaussian-free bilinear-reduction pyramid over src_planes.
  * Reduction filter is the separable (1,3,3,1)/8 (mvtools rfilter=1).
@@ -161,13 +175,13 @@ typedef struct McdPyramid McdPyramid;   /* opaque */
  *      not padded; callers that use negative level-0 coordinates must supply
  *      source planes whose backing storage includes that margin.
  * max_levels: cap on reduction levels (typ. 4).                              */
-int  mcd_pyramid_create(const McdPlane *src_planes, uint32_t n_planes,
-                        uint32_t pad, uint32_t max_levels, McdPyramid **out);
-void mcd_pyramid_destroy(McdPyramid **p);
-const McdPlane *mcd_pyramid_get(const McdPyramid *p, uint32_t plane, uint32_t level);
-uint32_t        mcd_pyramid_levels(const McdPyramid *p);
+int             mcd_pyramid_create(const McdPlane* src_planes, uint32_t n_planes, uint32_t pad, uint32_t max_levels,
+                                   McdPyramid** out);
+void            mcd_pyramid_destroy(McdPyramid** p);
+const McdPlane* mcd_pyramid_get(const McdPyramid* p, uint32_t plane, uint32_t level);
+uint32_t        mcd_pyramid_levels(const McdPyramid* p);
 
-typedef struct McdPelSet McdPelSet;     /* opaque */
+typedef struct McdPelSet McdPelSet; /* opaque */
 
 /* Half-pel (pel=2) phase planes over the ORIGINAL pixels, with Wiener 6-tap
  * (1,-5,20,20,-5,1)/32 interpolation for non-integer phases (mvtools
@@ -176,8 +190,7 @@ typedef struct McdPelSet McdPelSet;     /* opaque */
  * clamps to that depth's sample range, including for uint16-backed planes.
  * Fetch clamps requested coordinates into the valid padded region, so any
  * in-range motion vector is safe to fetch.                                   */
-int  mcd_pelset_create(const McdPlane *src_planes, uint32_t n_planes,
-                       uint32_t bitdepth, uint32_t pad, McdPelSet **out);
+int mcd_pelset_create(const McdPlane* src_planes, uint32_t n_planes, uint32_t bitdepth, uint32_t pad, McdPelSet** out);
 
 /* Create variant for callers that already hold an identical padded copy of
  * src_planes[0] (same w/h/stride/highbd, edge-replicated margin of exactly
@@ -187,10 +200,9 @@ int  mcd_pelset_create(const McdPlane *src_planes, uint32_t n_planes,
  * other phases and planes are built exactly as mcd_pelset_create would;
  * fetches are bit-identical. borrow0 == NULL behaves like
  * mcd_pelset_create. */
-int  mcd_pelset_create_borrow0(const McdPlane *src_planes, uint32_t n_planes,
-                               uint32_t bitdepth, uint32_t pad,
-                               const McdPlane *borrow0, McdPelSet **out);
-void mcd_pelset_destroy(McdPelSet **p);
+int  mcd_pelset_create_borrow0(const McdPlane* src_planes, uint32_t n_planes, uint32_t bitdepth, uint32_t pad,
+                               const McdPlane* borrow0, McdPelSet** out);
+void mcd_pelset_destroy(McdPelSet** p);
 
 /* Copy a w x h block whose top-left corner is at (x_halfpel, y_halfpel) in
  * half-pel luma-sample units (for chroma planes the caller passes the same
@@ -198,9 +210,8 @@ void mcd_pelset_destroy(McdPelSet **p);
  * caller pre-shifts, see mc_denoise_degrain.c). Interpolated with the
  * 6-tap Wiener filter for fractional phases. dst is uint16_t[w * h] and
  * holds native-depth values regardless of plane bit width.                   */
-void mcd_pelset_fetch(const McdPelSet *s, uint32_t plane,
-                      int32_t x_halfpel, int32_t y_halfpel,
-                      uint32_t w, uint32_t h, uint16_t *dst);
+void mcd_pelset_fetch(const McdPelSet* s, uint32_t plane, int32_t x_halfpel, int32_t y_halfpel, uint32_t w, uint32_t h,
+                      uint16_t* dst);
 
 /* Same fetch, with the coordinate clamp applied as if the pelset carried the
  * margin `eff_pad` instead of its own (clamped to the pelset's own pad, so
@@ -209,10 +220,8 @@ void mcd_pelset_fetch(const McdPelSet *s, uint32_t plane,
  * with a smaller eff_pad is bit-identical to fetching from a pelset built
  * with that smaller pad. Callers use this to share one cached pelset across
  * users that were built expecting different margins. */
-void mcd_pelset_fetch_pad(const McdPelSet *s, uint32_t plane,
-                          int32_t x_halfpel, int32_t y_halfpel,
-                          uint32_t w, uint32_t h, uint32_t eff_pad,
-                          uint16_t *dst);
+void mcd_pelset_fetch_pad(const McdPelSet* s, uint32_t plane, int32_t x_halfpel, int32_t y_halfpel, uint32_t w,
+                          uint32_t h, uint32_t eff_pad, uint16_t* dst);
 
 /* Direct-access twin of mcd_pelset_fetch_pad: applies the exact same
  * coordinate clamp and phase selection, but instead of copying a w x h
@@ -221,10 +230,8 @@ void mcd_pelset_fetch_pad(const McdPelSet *s, uint32_t plane,
  * *element_size, element_size 2 for highbd pelsets / 1 otherwise, samples
  * in their native depth). Callers can therefore run block kernels (e.g.
  * SAD) straight over the phase plane with no staging copy. */
-void mcd_pelset_locate(const McdPelSet *s, uint32_t plane,
-                       int32_t x_halfpel, int32_t y_halfpel,
-                       uint32_t w, uint32_t h, uint32_t eff_pad,
-                       const void **row0, int32_t *stride);
+void mcd_pelset_locate(const McdPelSet* s, uint32_t plane, int32_t x_halfpel, int32_t y_halfpel, uint32_t w, uint32_t h,
+                       uint32_t eff_pad, const void** row0, int32_t* stride);
 
 /* ---------------------------------------------------------------------- */
 /* mc_denoise_dfttest.c — spatial prefilter                                */
@@ -236,19 +243,17 @@ void mcd_pelset_locate(const McdPelSet *s, uint32_t plane,
  *   8-bit^2 units] scaled by sigma_pct/100, zmean on.
  * Internal pixel scale is the 8-bit range (native/2^(bd-8)) so the sigma
  * profile keeps its 8-bit meaning at any depth. dst may not alias src.      */
-int mcd_dfttest_plane(const McdPlane *src, McdPlane *dst, uint32_t sigma_pct,
-                      uint32_t bitdepth);
+int mcd_dfttest_plane(const McdPlane* src, McdPlane* dst, uint32_t sigma_pct, uint32_t bitdepth);
 
 /* Reusable constant-table context (window, frequency response, twiddles):
  * depends only on sigma_pct. Build once and share across calls and threads
  * (read-only after creation); saves rebuilding the tables per call. */
 typedef struct McdDftCtx McdDftCtx;
-int  mcd_dfttest_ctx_create(uint32_t sigma_pct, McdDftCtx **out);
-void mcd_dfttest_ctx_destroy(McdDftCtx **ctx);
+int                      mcd_dfttest_ctx_create(uint32_t sigma_pct, McdDftCtx** out);
+void                     mcd_dfttest_ctx_destroy(McdDftCtx** ctx);
 /* Same filter as mcd_dfttest_plane, using the caller's context (which must
  * have been created with the same sigma_pct the plain call would pass). */
-int  mcd_dfttest_plane_with_ctx(const McdDftCtx *ctx, const McdPlane *src,
-                                McdPlane *dst, uint32_t bitdepth);
+int mcd_dfttest_plane_with_ctx(const McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth);
 
 /* vsdenoise luma-masked merge, applied after the dfttest pass:
  *   m = clamp((Y8 - 16) / (75 - 16), 0, 1)  from the SOURCE luma
@@ -258,23 +263,22 @@ int  mcd_dfttest_plane_with_ctx(const McdDftCtx *ctx, const McdPlane *src,
  * plane triplets; out may alias src and/or filt. When the luma output
  * aliases the source, the implementation snapshots the source luma so the
  * chroma box masks still read unmodified luma. */
-int mcd_prefilter_mask_merge(const McdPlane *src_planes, const McdPlane *filt_planes,
-                             McdPlane *out_planes, uint32_t n_planes,
-                             uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
+int mcd_prefilter_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                             uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
 
 /* ---------------------------------------------------------------------- */
 /* mc_denoise_me.c — motion analysis                                        */
 
 typedef struct McdVector {
-    int32_t x, y;          /* half-pel luma samples, relative to block origin  */
-    int32_t sad_norm;      /* normalized SAD (see mcd_norm_sad)                */
+    int32_t x, y; /* half-pel luma samples, relative to block origin  */
+    int32_t sad_norm; /* normalized SAD (see mcd_norm_sad)                */
 } McdVector;
 
 typedef struct McdMeResult {
-    uint32_t blk_w, blk_h, overlap;   /* final grid geometry (post-recalc)     */
-    uint32_t n_blks_x, n_blks_y;      /* block grid covering the frame         */
-    McdVector *vecs;                  /* n_blks_x*n_blks_y, row-major          */
-    int      scene_change;            /* 1 if vs ref judged a scene change     */
+    uint32_t   blk_w, blk_h, overlap; /* final grid geometry (post-recalc)     */
+    uint32_t   n_blks_x, n_blks_y; /* block grid covering the frame         */
+    McdVector* vecs; /* n_blks_x*n_blks_y, row-major          */
+    int        scene_change; /* 1 if vs ref judged a scene change     */
 } McdMeResult;
 
 /* Hierarchical EPZ analysis of cur vs ref (both must be PREFILTERED frames
@@ -287,8 +291,7 @@ typedef struct McdMeResult {
  * built internally by this module). delta is signed frame distance
  * (positive = ref is in the past). Grid geometry in *out matches
  * cfg->blksize with overlap blksize/2.                                      */
-int  mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
-                    const McdConfig *cfg, McdMeResult **out);
+int mcd_me_analyze(const McdFrame* cur, const McdFrame* ref, int32_t delta, const McdConfig* cfg, McdMeResult** out);
 
 /* Reusable per-caller scratch for the motion analysis passes (predictor
  * fields; a few hundred KB at 1080p). Create one per calling thread context
@@ -297,23 +300,21 @@ int  mcd_me_analyze(const McdFrame *cur, const McdFrame *ref, int32_t delta,
  * above behave exactly like the _s variants with a NULL scratch (they
  * allocate internally and free before returning). */
 typedef struct McdMeScratch McdMeScratch;
-int  mcd_me_scratch_create(McdMeScratch **out);
-void mcd_me_scratch_destroy(McdMeScratch **s);
-int  mcd_me_analyze_s(const McdFrame *cur, const McdFrame *ref, int32_t delta,
-                      const McdConfig *cfg, McdMeScratch *scratch, McdMeResult **out);
+int                         mcd_me_scratch_create(McdMeScratch** out);
+void                        mcd_me_scratch_destroy(McdMeScratch** s);
+int mcd_me_analyze_s(const McdFrame* cur, const McdFrame* ref, int32_t delta, const McdConfig* cfg,
+                     McdMeScratch* scratch, McdMeResult** out);
 
 /* Refinement pass on the same pair (prefiltered frames): re-grids the
  * vectors to blksize/2 with overlap blksize/4, recomputes every normalized
  * SAD from the prefiltered pixels at half-pel precision, and re-searches
  * (small hexagon, radius 2 half-pel) only blocks whose SAD exceeds
  * thsad/2. inout is mutated (vecs reallocated). */
-int  mcd_me_recalculate(const McdFrame *cur, const McdFrame *ref,
-                        const McdConfig *cfg, McdMeResult *inout);
+int mcd_me_recalculate(const McdFrame* cur, const McdFrame* ref, const McdConfig* cfg, McdMeResult* inout);
 /* Scratch-sharing variant of mcd_me_recalculate (same semantics). */
-int  mcd_me_recalculate_s(const McdFrame *cur, const McdFrame *ref,
-                          const McdConfig *cfg, McdMeScratch *scratch,
-                          McdMeResult *inout);
-void mcd_me_result_free(McdMeResult **r);
+int  mcd_me_recalculate_s(const McdFrame* cur, const McdFrame* ref, const McdConfig* cfg, McdMeScratch* scratch,
+                          McdMeResult* inout);
+void mcd_me_result_free(McdMeResult** r);
 
 /* ---------------------------------------------------------------------- */
 /* mc_denoise_degrain.c — temporal aggregation                              */
@@ -333,9 +334,8 @@ void mcd_me_result_free(McdMeResult **r);
  * dst planes are written fully (luma + chroma); dst must not alias any
  * ref plane it reads; dst MAY alias center->planes ONLY if the caller
  * guarantees refs' pel sets were built before (they are, by the glue).      */
-int mcd_degrain_frame(const McdFrame *center, const McdFrame *const *refs,
-                      const McdMeResult *const *results, uint32_t n_refs,
-                      const McdConfig *cfg, McdPlane *dst_planes);
+int mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const McdMeResult* const* results,
+                      uint32_t n_refs, const McdConfig* cfg, McdPlane* dst_planes);
 
 #ifdef __cplusplus
 }
