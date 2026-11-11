@@ -438,6 +438,8 @@ __attribute__((target("avx2"))) uint64_t svt_mcd_simd_sad_u16u8(const uint16_t* 
 /* fallback in mc_denoise_me.c.                                        */
 /* ================================================================== */
 
+#if EN_AVX512_SUPPORT
+
 __attribute__((target("avx512bw,avx512vl"))) uint64_t svt_mcd_simd_satd_u8u8(const uint8_t* a, int32_t sa,
                                                                              const uint8_t* b, int32_t sb, uint32_t w,
                                                                              uint32_t h, uint64_t bound) {
@@ -607,6 +609,9 @@ __attribute__((target("avx512f,avx512bw,avx512vl"))) uint64_t svt_mcd_simd_satd_
     return total;
 }
 
+#endif /* EN_AVX512_SUPPORT */
+
+#if EN_AVX512_SUPPORT
 /* Symmetric mirror reflection of i into [0, w) (same as the scalar
  * mcd_mirror in mc_denoise_dfttest.c). */
 static int32_t mcd_simd_mirror(int32_t i, uint32_t w) {
@@ -622,6 +627,8 @@ static int32_t mcd_simd_mirror(int32_t i, uint32_t w) {
     }
     return i;
 }
+
+#endif /* EN_AVX512_SUPPORT */
 
 /* ================================================================== */
 /* pelset: half-pel phase plane filters (6-tap Wiener 1,-5,20,20,-5,1) */
@@ -747,6 +754,7 @@ __attribute__((target("avx2"))) void svt_mcd_simd_halfpel_v_u8(const uint8_t* sr
 /* 16-bit passes: i32 math (52 * 1023 exceeds i16), 16 outputs per zmm.
  * Saturation to [0, maxval] with maxval <= 0xFFFF, then a truncating
  * narrowing store is exact. */
+#if EN_AVX512_SUPPORT
 __attribute__((target("avx512bw,avx512vl"))) static inline __m512i mcd_halfpel_load16(const uint16_t* p, uint32_t X) {
     return _mm512_cvtepu16_epi32(_mm256_loadu_si256((const __m256i*)(const void*)(p + X)));
 }
@@ -844,6 +852,8 @@ __attribute__((target("avx512bw,avx512vl"))) void svt_mcd_simd_halfpel_v_u16(con
         }
     }
 }
+
+#endif /* EN_AVX512_SUPPORT */
 
 /* ================================================================== */
 /* degrain: element-wise loops. Integer lane ops, bit-exact.           */
@@ -1039,6 +1049,7 @@ static inline void mcd_merge_pix(const McdPlane* s, const McdPlane* f, McdPlane*
     }
 }
 
+#if EN_AVX512_SUPPORT
 __attribute__((target("avx512f,avx512bw,avx512dq"))) static inline __m512 mcd_merge_mask512(__m512 yv, __m512 kK,
                                                                                             __m512 v16, __m512 v59,
                                                                                             __m512 v1, __m512 v0) {
@@ -1175,6 +1186,8 @@ __attribute__((target("avx512f,avx512bw,avx512dq"))) static void mcd_merge_plane
         }
     }
 }
+
+#endif /* EN_AVX512_SUPPORT */
 
 /* One plane, 8 lanes per chunk (AVX2). Same structure as the AVX-512
  * kernel; chroma gathers precomputed luma mask rows (see above). */
@@ -1316,10 +1329,12 @@ int svt_mcd_simd_mask_merge(const McdPlane* src_planes, const McdPlane* filt_pla
             return MCD_ERR_PARAM;
         }
     }
-    const uint32_t  pmax     = (1u << bitdepth) - 1;
-    const float     inv_pmax = 1.0f / (float)pmax;
-    const int       use512   = mcd_use_avx512();
-    const McdPlane* yl       = &src_planes[0];
+    const uint32_t pmax     = (1u << bitdepth) - 1;
+    const float    inv_pmax = 1.0f / (float)pmax;
+#if EN_AVX512_SUPPORT
+    const int use512 = mcd_use_avx512();
+#endif /* EN_AVX512_SUPPORT */
+    const McdPlane* yl = &src_planes[0];
     /* scratch for the two precomputed luma mask rows of the chroma box
      * (4:2:0 chroma only; NULL otherwise) */
     float* mrows = NULL;
@@ -1333,9 +1348,12 @@ int svt_mcd_simd_mask_merge(const McdPlane* src_planes, const McdPlane* filt_pla
         const McdPlane* s = &src_planes[p];
         const McdPlane* f = &filt_planes[p];
         McdPlane*       o = &out_planes[p];
+#if EN_AVX512_SUPPORT
         if (use512) {
             mcd_merge_plane512(s, f, o, yl, p == 0, mrows, inv_pmax, pmax);
-        } else {
+        } else
+#endif /* EN_AVX512_SUPPORT */
+        {
             mcd_merge_plane256(s, f, o, yl, p == 0, mrows, inv_pmax, pmax);
         }
     }
@@ -1363,6 +1381,8 @@ int svt_mcd_simd_mask_merge(const McdPlane* src_planes, const McdPlane* filt_pla
 
 #define MCD_SIMD_EPSSH (1e-15f)
 #define MCD_SIMD_ACC_MARGIN 96
+
+#if EN_AVX512_SUPPORT
 
 /* One 1D FFT16 over the 16 vector slots at re/im, where slot k lives at
  * base + k * sstride floats (sstride == 16: contiguous row slots,
@@ -1717,5 +1737,7 @@ cleanup:
     free(scratch);
     return ret;
 }
+
+#endif /* EN_AVX512_SUPPORT */
 
 #endif /* x86-64 */

@@ -215,10 +215,12 @@ void svt_mcd_dfttest_ctx_destroy(McdDftCtx** ctx) {
 }
 
 int svt_mcd_dfttest_plane_with_ctx(const McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth) {
+#if EN_AVX512_SUPPORT
     if (mcd_use_avx512()) {
         /* bit-identical 16-block vector path (see mc_denoise_simd.c) */
         return svt_mcd_simd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
     }
+#endif
     if (!ctx || !src || !dst || !src->data || (bitdepth != 8 && bitdepth != 10 && bitdepth != 12) ||
         src->highbd != (bitdepth > 8)) {
         return MCD_ERR_PARAM;
