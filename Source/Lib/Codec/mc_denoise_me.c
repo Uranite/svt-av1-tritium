@@ -277,9 +277,11 @@ static uint64_t mcd_satd_scalar_u8u8(const uint8_t* a, int32_t sa, const uint8_t
 
 static uint64_t mcd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                               uint64_t bound) {
+#if EN_AVX512_SUPPORT
     if (mcd_me_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0) {
         return svt_mcd_simd_satd_u8u8(a, sa, b, sb, w, h, bound);
     }
+#endif
     return mcd_satd_scalar_u8u8(a, sa, b, sb, w, h, bound);
 }
 
@@ -305,9 +307,11 @@ static uint64_t mcd_satd_scalar_u16u16(const uint16_t* a, int32_t sa, const uint
 
 static uint64_t mcd_satd_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                                 uint64_t bound) {
+#if EN_AVX512_SUPPORT
     if (mcd_me_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0) {
         return svt_mcd_simd_satd_u16u16(a, sa, b, sb, w, h, bound);
     }
+#endif
     return mcd_satd_scalar_u16u16(a, sa, b, sb, w, h, bound);
 }
 
@@ -645,11 +649,16 @@ static uint64_t mcd_l0_raw_u8(const McdMeLevel* lv, const McdMeL0Win* wn, int32_
         if (ox >= 0 && oy >= 0 && ox + b <= wn->ww[0] && oy + b <= wn->wh[0]) {
             const uint8_t* r = wn->win[0] + (size_t)oy * (size_t)wn->win_str[0] + (size_t)ox;
             if (lv->use_satd) {
+#if EN_AVX512_SUPPORT
                 cost = wn->satd_simd
                     ? svt_mcd_simd_satd_u8u8(
                           wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound)
                     : mcd_satd_scalar_u8u8(
                           wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound);
+#else
+                cost = mcd_satd_scalar_u8u8(
+                    wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound);
+#endif
             } else {
                 cost = wn->sad_simd
                     ? svt_mcd_simd_sad_u8u8(
@@ -712,6 +721,7 @@ static uint64_t mcd_l0_raw_u16(const McdMeLevel* lv, const McdMeL0Win* wn, int32
         if (ox >= 0 && oy >= 0 && ox + b <= wn->ww[0] && oy + b <= wn->wh[0]) {
             const uint16_t* r = (const uint16_t*)wn->win[0] + (size_t)oy * (size_t)wn->win_str[0] + (size_t)ox;
             if (lv->use_satd) {
+#if EN_AVX512_SUPPORT
                 cost = wn->satd_simd ? svt_mcd_simd_satd_u16u16((const uint16_t*)wn->cur[0],
                                                                 wn->cur_str[0],
                                                                 r,
@@ -726,6 +736,10 @@ static uint64_t mcd_l0_raw_u16(const McdMeLevel* lv, const McdMeL0Win* wn, int32
                                                               (uint32_t)b,
                                                               (uint32_t)b,
                                                               bound);
+#else
+                cost = mcd_satd_scalar_u16u16(
+                    (const uint16_t*)wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound);
+#endif
             } else {
                 cost = wn->sad_simd ? svt_mcd_simd_sad_u16u16((const uint16_t*)wn->cur[0],
                                                               wn->cur_str[0],

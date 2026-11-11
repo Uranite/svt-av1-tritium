@@ -402,10 +402,12 @@ static void mcd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w, u
 
 static void mcd_halfpel_h_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
                               uint16_t* dst, uint32_t dstride, uint32_t maxval) {
+#if EN_AVX512_SUPPORT
     if (mcd_use_avx512()) {
         svt_mcd_simd_halfpel_h_u16(src, sstride, w, h, pad, dst, dstride, maxval);
         return;
     }
+#endif
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  wm1 = (int32_t)w - 1;
@@ -430,10 +432,12 @@ static void mcd_halfpel_h_u16(const uint16_t* src, uint32_t sstride, uint32_t w,
 
 static void mcd_halfpel_v_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
                               uint16_t* dst, uint32_t dstride, uint32_t maxval) {
+#if EN_AVX512_SUPPORT
     if (mcd_use_avx512()) {
         svt_mcd_simd_halfpel_v_u16(src, sstride, w, h, pad, dst, dstride, maxval);
         return;
     }
+#endif
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  hm1 = (int32_t)h - 1;
