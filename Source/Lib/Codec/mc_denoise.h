@@ -42,14 +42,17 @@
  *     with thresholds from other denoisers.
  *   - Module scratch uses plain malloc/free; the encoder-lifetime buffers
  *     owned by the glue use the EB_MALLOC/EB_FREE accounting macros. Every
- *     create/destroy pair is balanced. Functions return MCD_* codes.
+ *     create/destroy pair is balanced. Functions return MCD_* codes, which
+ *     are EbErrorType values (see below).
  */
 
-#ifndef MC_DENOISE_H
-#define MC_DENOISE_H
+#ifndef MC_DENOISE_H_
+#define MC_DENOISE_H_
 
 #include <stdint.h>
 #include <stdbool.h>
+
+#include "EbSvtAv1.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,9 +63,13 @@ extern "C" {
 
 #define MCD_PI 3.14159265358979323846
 
-#define MCD_SUCCESS 0
-#define MCD_ERR_NOMEM 1
-#define MCD_ERR_PARAM 2
+/* Module result codes are EbErrorType values so a result can cross the
+ * encoder API boundary unchanged (svt_mcd_state_create returns EbErrorType;
+ * callers previously received the numeric module codes 1/2, which are not
+ * defined enumerators). */
+#define MCD_SUCCESS EB_ErrorNone
+#define MCD_ERR_NOMEM EB_ErrorInsufficientResources
+#define MCD_ERR_PARAM EB_ErrorBadParameter
 
 /* ---------------------------------------------------------------------- */
 /* configuration (mirrors the --mc-denoise* encoder parameters)            */
@@ -344,4 +351,4 @@ int svt_mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, c
 }
 #endif
 
-#endif /* MC_DENOISE_H */
+#endif // MC_DENOISE_H_
