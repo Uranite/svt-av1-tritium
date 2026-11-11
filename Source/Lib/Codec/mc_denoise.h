@@ -40,8 +40,9 @@
  *     at 8-bit range (see mcd_norm_sad). Thresholds (thsad, thscd1) use this
  *     implementation-specific unit; they are not directly interchangeable
  *     with thresholds from other denoisers.
- *   - Internal scratch memory uses plain malloc/free; every create/destroy
- *     pair is balanced. Functions return MCD_* codes.
+ *   - Module scratch uses plain malloc/free; the encoder-lifetime buffers
+ *     owned by the glue use the EB_MALLOC/EB_FREE accounting macros. Every
+ *     create/destroy pair is balanced. Functions return MCD_* codes.
  */
 
 #ifndef MC_DENOISE_H
