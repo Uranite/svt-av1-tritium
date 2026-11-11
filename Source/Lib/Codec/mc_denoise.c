@@ -1,4 +1,15 @@
 /*
+ * Copyright(c) 2026 Alliance for Open Media. All rights reserved
+ *
+ * This source code is subject to the terms of the BSD 2 Clause License and
+ * the Alliance for Open Media Patent License 1.0. If the BSD 2 Clause License
+ * was not distributed with this source code in the LICENSE file, you can
+ * obtain it at https://www.aomedia.org/license/software-license. If the
+ * Alliance for Open Media Patent License 1.0 was not distributed with this
+ * source code in the PATENTS file, you can obtain it at
+ * https://www.aomedia.org/license/patent-license.
+ */
+/*
  * mc_denoise.c — encoder glue for the motion-compensated temporal denoiser.
  *
  * Bridges the mc_denoise.* algorithm modules (see mc_denoise.h) into the SVT
@@ -83,6 +94,7 @@
  *     arrival, using whatever neighbour frames are already copied (the
  *     previous ones).
  */
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #ifndef _WIN32
@@ -108,6 +120,7 @@
 static EbCpuFlags mcd_cpu_flags;
 
 DEFINE_ONCE(mcd_cpu_flags_once);
+
 static ONCE_ROUTINE(mcd_cpu_flags_init) {
     mcd_cpu_flags = svt_aom_get_cpu_flags_to_use();
     ONCE_ROUTINE_EPILOG;
@@ -126,8 +139,8 @@ int mcd_have_avx512(void) {
 #if defined(ARCH_X86_64)
     svt_run_once(&mcd_cpu_flags_once, mcd_cpu_flags_init);
     return (mcd_cpu_flags &
-            (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512CD | EB_CPU_FLAGS_AVX512DQ |
-             EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512VL)) != 0;
+            (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512CD | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512BW |
+             EB_CPU_FLAGS_AVX512VL)) != 0;
 #else
     return 0;
 #endif
@@ -175,20 +188,20 @@ static void mcd_wait_short(void) {
 
 typedef struct McdBufs {
     uint64_t picture_number;
-    bool     valid;               /* pixels copied for picture_number      */
-    bool     denoised;            /* had its (one) denoise turn; it can only
+    bool     valid; /* pixels copied for picture_number      */
+    bool     denoised; /* had its (one) denoise turn; it can only
                                      serve as a neighbour afterwards       */
-    McdFrame frame;               /* planes[] point into pix_buf           */
-    void*    pix_buf[3];          /* module copies of the original planes;
+    McdFrame frame; /* planes[] point into pix_buf           */
+    void*    pix_buf[3]; /* module copies of the original planes;
                                      returned to the state's pix pool once
                                      the picture itself has been denoised
                                      (it is never read again afterwards)  */
-    size_t   pix_bytes[3];        /* 0 when pix_buf[p] is not owned        */
-    void*    fplane_buf[3];       /* padded prefiltered search planes      */
-    void*    dft_buf[3];          /* dfttest scratch (freed after merge)   */
-    void*    out_buf[3];          /* degrain destination planes            */
-    EbHandle build_mutex;         /* serializes lazy per-buffer cache builds */
-    int32_t  refs;                /* guarded by SvtMcdState.mutex          */
+    size_t   pix_bytes[3]; /* 0 when pix_buf[p] is not owned        */
+    void*    fplane_buf[3]; /* padded prefiltered search planes      */
+    void*    dft_buf[3]; /* dfttest scratch (freed after merge)   */
+    void*    out_buf[3]; /* degrain destination planes            */
+    EbHandle build_mutex; /* serializes lazy per-buffer cache builds */
+    int32_t  refs; /* guarded by SvtMcdState.mutex          */
     /* eager-build job queue link (intrusive FIFO; every field guarded by
      * SvtMcdState.mutex). A queued/being-built buffer carries one extra
      * reference, so it can never be recycled or freed under the helpers. */
@@ -197,7 +210,7 @@ typedef struct McdBufs {
 } McdBufs;
 
 typedef struct McdSlot {
-    McdBufs* buf;                 /* the slot holds one owning reference   */
+    McdBufs* buf; /* the slot holds one owning reference   */
 } McdSlot;
 
 typedef struct McdHold {
@@ -230,42 +243,42 @@ typedef struct McdPopped {
 typedef struct SvtMcdState {
     EbHandle  mutex;
     McdConfig cfg;
-    uint32_t  ring_len;                 /* 2*tr + 1                            */
+    uint32_t  ring_len; /* 2*tr + 1                            */
     McdSlot*  ring;
     McdHold   hold[SVT_MCD_MAX_RELEASED]; /* sorted by picture_number           */
     uint32_t  hold_count;
-    uint64_t  newest;                   /* newest picture_number copied        */
+    uint64_t  newest; /* newest picture_number copied        */
     bool      newest_valid;
     /* Release watermark: the largest N such that every picture 0..N has been
      * through the arrival hook (copied, or settled without a copy). Arrivals
      * are ordered on it (see DETERMINISM above) and heads are released once
      * head + tr <= watermark. */
-    uint64_t  watermark;
-    bool      watermark_valid;
+    uint64_t watermark;
+    bool     watermark_valid;
     /* settled-set window over (watermark, watermark + 64]: a picture that
      * settles out of order records its bit here instead of being LOST (the
      * old single-step settle froze the watermark forever after any
      * out-of-order settle, which backed up the hold queue until the
      * capacity guard force-released heads with arbitrary missing
      * neighbours). */
-    uint64_t  settled_bits;
-    uint32_t  in_flight;                /* denoises running outside the mutex  */
-    uint32_t  in_copy;                  /* pixel copies running outside the
+    uint64_t   settled_bits;
+    uint32_t   in_flight; /* denoises running outside the mutex  */
+    uint32_t   in_copy; /* pixel copies running outside the
                                            mutex (defensive teardown wait)    */
-    EbHandle  done_semaphore;           /* posted once per finished denoise    */
-    McdDftCtx* dft_ctx;                 /* shared dfttest constant tables      */
+    EbHandle   done_semaphore; /* posted once per finished denoise    */
+    McdDftCtx* dft_ctx; /* shared dfttest constant tables      */
     /* scratch pools (all guarded by mutex) */
     McdMeScratch* me_pool[MCD_ME_POOL_MAX];
     uint32_t      me_pool_n;
-    void*         pix_pool[3];          /* one recycled copy buffer per plane  */
-    size_t        pix_pool_bytes[3];    /* 0 when the slot is empty            */
+    void*         pix_pool[3]; /* one recycled copy buffer per plane  */
+    size_t        pix_pool_bytes[3]; /* 0 when the slot is empty            */
     /* eager cache-build helper pool (guarded by mutex where noted) */
-    McdBufs*  build_head;               /* FIFO front                          */
-    McdBufs*  build_tail;               /* FIFO back                           */
-    EbHandle  build_semaphore;          /* one token per queued job            */
-    EbHandle  build_threads[MCD_BUILD_THREADS];
-    uint32_t  build_threads_n;          /* threads actually running            */
-    bool      build_shutdown;           /* destroy asked helpers to exit       */
+    McdBufs* build_head; /* FIFO front                          */
+    McdBufs* build_tail; /* FIFO back                           */
+    EbHandle build_semaphore; /* one token per queued job            */
+    EbHandle build_threads[MCD_BUILD_THREADS];
+    uint32_t build_threads_n; /* threads actually running            */
+    bool     build_shutdown; /* destroy asked helpers to exit       */
 } SvtMcdState;
 
 /* ------------------------------------------------------------------ */
@@ -293,7 +306,7 @@ static int mcd_alloc_padded_plane(uint32_t w, uint32_t h, bool highbd, McdPlane*
      * replicated margin by mcd_replicate_margins; the stride-alignment slack
      * columns past w + 2*pad are never read by any module (all reads are
      * clamped to the core +/- the replicated margin) */
-    uint8_t*       buf    = malloc((size_t)stride * (h + 2 * pad) * esz);
+    uint8_t* buf = malloc((size_t)stride * (h + 2 * pad) * esz);
     if (!buf) {
         return MCD_ERR_NOMEM;
     }
@@ -325,7 +338,7 @@ static void mcd_replicate_margins(const McdPlane* pl, uint32_t pad) {
             const uint16_t first = ((uint16_t*)row)[0];
             const uint16_t last  = ((uint16_t*)row)[pl->w - 1];
             for (uint32_t x = 1; x <= pad; ++x) {
-                ((uint16_t*)row)[-(int32_t)x]      = first;
+                ((uint16_t*)row)[-(int32_t)x]   = first;
                 ((uint16_t*)row)[pl->w - 1 + x] = last;
             }
         } else {
@@ -338,10 +351,10 @@ static void mcd_replicate_margins(const McdPlane* pl, uint32_t pad) {
      * pl->data sits pad rows and pad columns into the buffer. The template
      * rows are the first/last VISIBLE padded rows (pl->data's row shifted
      * back to column 0), not the margin rows themselves. */
-    uint8_t*     base     = vis - ((size_t)pad * stride + pad) * esz;
-    const size_t rowb     = (size_t)(pl->w + 2 * pad) * esz;
-    const uint8_t* firstrow = vis - (size_t)pad * esz;
-    const uint8_t* lastrow  = vis + (size_t)(pl->h - 1) * stride * esz - (size_t)pad * esz;
+    uint8_t*       base      = vis - ((size_t)pad * stride + pad) * esz;
+    const size_t   rowb      = (size_t)(pl->w + 2 * pad) * esz;
+    const uint8_t* firstrow  = vis - (size_t)pad * esz;
+    const uint8_t* lastrow   = vis + (size_t)(pl->h - 1) * stride * esz - (size_t)pad * esz;
     uint8_t*       lastrow_w = (uint8_t*)lastrow; /* mutable alias for the dest */
     for (uint32_t y = 0; y < pad; ++y) {
         memcpy(base + (size_t)y * stride * esz, firstrow, rowb);
@@ -447,8 +460,8 @@ static void mcd_me_pool_put(SvtMcdState* s, McdMeScratch* sc) {
  * must malloc; the caller records the ownership in b->pix_bytes). */
 static void* mcd_pix_pool_take(SvtMcdState* s, uint32_t p, size_t bytes) {
     if (s->pix_pool[p] && s->pix_pool_bytes[p] == bytes) {
-        void* buf     = s->pix_pool[p];
-        s->pix_pool[p]      = NULL;
+        void* buf            = s->pix_pool[p];
+        s->pix_pool[p]       = NULL;
         s->pix_pool_bytes[p] = 0;
         return buf;
     }
@@ -465,7 +478,7 @@ static void mcd_pix_pool_put(SvtMcdState* s, uint32_t p, void* buf, size_t bytes
     if (bytes > s->pix_pool_bytes[p]) {
         free(s->pix_pool[p]);
         s->pix_pool[p]       = buf;
-        s->pix_pool_bytes[p]  = bytes;
+        s->pix_pool_bytes[p] = bytes;
     } else {
         free(buf);
     }
@@ -485,8 +498,7 @@ static void mcd_pix_pool_put(SvtMcdState* s, uint32_t p, void* buf, size_t bytes
 static void mcd_bufs_maybe_recycle_pix(SvtMcdState* s, McdBufs* b) {
     const McdFrame* fr = &b->frame;
     svt_block_on_mutex(b->build_mutex);
-    const int dead = b->denoised && fr->prefiltered && fr->pyr_valid &&
-                     fr->pel_valid && fr->me_pel_valid;
+    const int dead = b->denoised && fr->prefiltered && fr->pyr_valid && fr->pel_valid && fr->me_pel_valid;
     if (dead) {
         for (uint32_t p = 0; p < 3; ++p) {
             mcd_pix_pool_put(s, p, b->pix_buf[p], b->pix_bytes[p]);
@@ -548,9 +560,9 @@ static int mcd_bufs_copy_pixels(SvtMcdState* s, McdBufs* b, const EbPictureBuffe
     b->frame.pel_valid   = false;
 
     for (uint32_t p = 0; p < b->frame.num_planes; ++p) {
-        const uint32_t w   = g.w[p];
-        const uint32_t h   = g.h[p];
-        const size_t   esz = g.highbd ? sizeof(uint16_t) : sizeof(uint8_t);
+        const uint32_t w     = g.w[p];
+        const uint32_t h     = g.h[p];
+        const size_t   esz   = g.highbd ? sizeof(uint16_t) : sizeof(uint8_t);
         const size_t   bytes = (size_t)w * h * esz;
 
         /* keep an already-owned buffer of the right size (steady state);
@@ -647,14 +659,16 @@ static int mcd_bufs_build_search(SvtMcdState* s, McdBufs* b) {
         if (s->cfg.prefilter) {
             /* dfttest pass into a first padded buffer set */
             for (uint32_t p = 0; p < fr->num_planes; ++p) {
-                rc = mcd_alloc_padded_plane(
-                    fr->planes[p].w, fr->planes[p].h, fr->planes[p].highbd, &fr->fplanes[p], &b->dft_buf[p],
-                    MCD_PAD_SEARCH);
+                rc = mcd_alloc_padded_plane(fr->planes[p].w,
+                                            fr->planes[p].h,
+                                            fr->planes[p].highbd,
+                                            &fr->fplanes[p],
+                                            &b->dft_buf[p],
+                                            MCD_PAD_SEARCH);
                 if (rc) {
                     goto unlock;
                 }
-                rc = mcd_dfttest_plane_with_ctx(s->dft_ctx, &fr->planes[p],
-                                                &fr->fplanes[p], fr->bitdepth);
+                rc = mcd_dfttest_plane_with_ctx(s->dft_ctx, &fr->planes[p], &fr->fplanes[p], fr->bitdepth);
                 if (rc) {
                     goto unlock;
                 }
@@ -682,9 +696,12 @@ static int mcd_bufs_build_search(SvtMcdState* s, McdBufs* b) {
         } else {
             /* search over edge-replicated copies of the original pixels */
             for (uint32_t p = 0; p < fr->num_planes; ++p) {
-                rc = mcd_alloc_padded_plane(
-                    fr->planes[p].w, fr->planes[p].h, fr->planes[p].highbd, &fr->fplanes[p], &b->fplane_buf[p],
-                    MCD_PAD_SEARCH);
+                rc = mcd_alloc_padded_plane(fr->planes[p].w,
+                                            fr->planes[p].h,
+                                            fr->planes[p].highbd,
+                                            &fr->fplanes[p],
+                                            &b->fplane_buf[p],
+                                            MCD_PAD_SEARCH);
                 if (rc) {
                     goto unlock;
                 }
@@ -729,11 +746,8 @@ static int mcd_bufs_build_pel(SvtMcdState* s, McdBufs* b) {
          * does not depend on the margin width, so normal-motion fetches are
          * bit-identical to the previous 64-sample margin). */
         const uint32_t pad = 32u + (s->cfg.blksize >> 1);
-        rc = mcd_pelset_create(b->frame.planes,
-                               b->frame.num_planes,
-                               b->frame.bitdepth,
-                               pad,
-                               (McdPelSet**)&b->frame.pel);
+        rc                 = mcd_pelset_create(
+            b->frame.planes, b->frame.num_planes, b->frame.bitdepth, pad, (McdPelSet**)&b->frame.pel);
         if (rc == MCD_SUCCESS) {
             b->frame.pel_valid = true;
         }
@@ -752,21 +766,15 @@ static int mcd_bufs_build_me_pel(SvtMcdState* s, McdBufs* b) {
     int rc = MCD_SUCCESS;
     svt_block_on_mutex(b->build_mutex);
     if (!b->frame.me_pel_valid) {
-        const uint32_t pad = 32u + (s->cfg.blksize >> 1); /* MCD_ME_EDGE_PAD + blk/2 */
+        const uint32_t  pad = 32u + (s->cfg.blksize >> 1); /* MCD_ME_EDGE_PAD + blk/2 */
         const McdPlane* src = b->frame.prefiltered ? &b->frame.fplanes[0] : &b->frame.planes[0];
         /* The padded search plane's margin is MCD_PAD_SEARCH; when it equals
          * the ME margin, fplanes[0] IS byte-identical to what phase 0 of the
          * pelset would be (same pad, stride and edge replication), so adopt
          * its storage instead of rebuilding one padded luma plane per slot.
          * mcd_bufs_free_caches destroys me_pel before freeing fplane_buf. */
-        const McdPlane* borrow =
-            (b->fplane_buf[0] && pad == MCD_PAD_SEARCH) ? &b->frame.fplanes[0] : NULL;
-        rc = mcd_pelset_create_borrow0(src,
-                                       1,
-                                       b->frame.bitdepth,
-                                       pad,
-                                       borrow,
-                                       (McdPelSet**)&b->frame.me_pel);
+        const McdPlane* borrow = (b->fplane_buf[0] && pad == MCD_PAD_SEARCH) ? &b->frame.fplanes[0] : NULL;
+        rc = mcd_pelset_create_borrow0(src, 1, b->frame.bitdepth, pad, borrow, (McdPelSet**)&b->frame.me_pel);
         if (rc == MCD_SUCCESS) {
             b->frame.me_pel_valid = true;
         }
@@ -890,9 +898,9 @@ static void mcd_build_stop(SvtMcdState* s) {
      * unless a future edit breaks that invariant — never leak the refs */
     svt_block_on_mutex(s->mutex);
     while (s->build_head) {
-        McdBufs* b   = s->build_head;
-        s->build_head = b->build_next;
-        b->build_next  = NULL;
+        McdBufs* b      = s->build_head;
+        s->build_head   = b->build_next;
+        b->build_next   = NULL;
         b->build_queued = false;
         mcd_bufs_unref(s, b);
     }
@@ -927,7 +935,7 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
     /* backward neighbours (in the past) first, then forward neighbours */
     for (uint32_t i = 0; i < pop->n_neigh; ++i) {
         McdBufs* neigh = pop->neigh[i];
-        rc = mcd_bufs_build_search(s, neigh);
+        rc             = mcd_bufs_build_search(s, neigh);
         if (rc == MCD_SUCCESS) {
             rc = mcd_bufs_build_pel(s, neigh);
         }
@@ -949,8 +957,7 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
         mcd_bufs_maybe_recycle_pix(s, neigh);
         svt_release_mutex(s->mutex);
         McdMeResult* res = NULL;
-        rc               = mcd_me_analyze_s(fr, &neigh->frame, pop->neigh_delta[i], &s->cfg,
-                                            pop->me_scratch, &res);
+        rc               = mcd_me_analyze_s(fr, &neigh->frame, pop->neigh_delta[i], &s->cfg, pop->me_scratch, &res);
         if (rc == MCD_SUCCESS) {
             rc = mcd_me_recalculate_s(fr, &neigh->frame, &s->cfg, pop->me_scratch, res);
         }
@@ -1030,7 +1037,7 @@ EbErrorType svt_mcd_state_create(void** state_ptr, const EbSvtAv1EncConfiguratio
     s->cfg.limit      = cfg->mc_denoise_limit;
     /* SATD (Hadamard) luma cost at the finest ME level, as in the
      * vsdenoise MVToolsPreset.HQ_SAD port target; not exposed as a knob */
-    s->cfg.satd       = 1;
+    s->cfg.satd = 1;
 
     s->ring_len = 2u * s->cfg.tr + 1u;
     EB_MALLOC_NO_CHECK(s->ring, sizeof(McdSlot) * s->ring_len);
@@ -1063,7 +1070,9 @@ EbErrorType svt_mcd_state_create(void** state_ptr, const EbSvtAv1EncConfiguratio
     /* One dfttest constant-table context per encoder instance: identical for
      * every frame and plane of the same sigma, shared read-only by all PA
      * threads. */
-    EbErrorType rc = mcd_dfttest_ctx_create(s->cfg.sigma_pct, &s->dft_ctx);
+    EbErrorType rc = mcd_dfttest_ctx_create(s->cfg.sigma_pct, &s->dft_ctx) == MCD_SUCCESS
+        ? EB_ErrorNone
+        : EB_ErrorInsufficientResources;
     if (rc != EB_ErrorNone) {
         EB_DESTROY_SEMAPHORE(s->done_semaphore);
         EB_DESTROY_MUTEX(s->mutex);
@@ -1210,8 +1219,8 @@ static void mcd_hold_push(SvtMcdState* s, EbObjectWrapper* wrapper, struct Pictu
 }
 
 /* Pop the holding-queue head, denoise it (outside the mutex) and emit it. */
-static void mcd_release_head(SvtMcdState* s, EbObjectWrapper** out_wrappers,
-                             struct PictureParentControlSet** out_pcs, uint32_t* n_out);
+static void mcd_release_head(SvtMcdState* s, EbObjectWrapper** out_wrappers, struct PictureParentControlSet** out_pcs,
+                             uint32_t* n_out);
 
 /* Release held heads whose temporal neighbours have all settled. Never
  * emits more than the caller's output array can hold (see svt_mcd_pa_arrival). */
@@ -1226,10 +1235,10 @@ static void mcd_release_ready_heads(SvtMcdState* s, EbObjectWrapper** out_wrappe
 /* Pop the holding-queue head into pop and take its references. State mutex
  * held; queue must be non-empty. */
 static void mcd_hold_pop(SvtMcdState* s, McdPopped* pop) {
-    McdHold* head = &s->hold[0];
-    pop->wrapper         = head->wrapper;
-    pop->pcs             = head->pcs;
-    pop->picture_number  = head->picture_number;
+    McdHold* head       = &s->hold[0];
+    pop->wrapper        = head->wrapper;
+    pop->pcs            = head->pcs;
+    pop->picture_number = head->picture_number;
     --s->hold_count;
     memmove(&s->hold[0], &s->hold[1], sizeof(McdHold) * s->hold_count);
     mcd_pop_resolve(s, pop);
@@ -1248,10 +1257,10 @@ static void mcd_release_popped(SvtMcdState* s, McdPopped* pop, EbObjectWrapper**
         /* ERR_PARAM = nothing to denoise (start of stream) / geometry
          * mismatch: the picture passes through undenoised and is never
          * retried, so its pixel copies are recyclable on the same terms */
-        denoised     = (rc == MCD_SUCCESS || rc == MCD_ERR_PARAM);
+        denoised = (rc == MCD_SUCCESS || rc == MCD_ERR_PARAM);
         if (rc != MCD_SUCCESS && rc != MCD_ERR_PARAM) {
-            SVT_ERROR("MC denoiser: failed to denoise picture %llu (rc=%d), passing it through undenoised\n",
-                      (unsigned long long)pop->picture_number,
+            SVT_ERROR("MC denoiser: failed to denoise picture %" PRIu64 " (rc=%d), passing it through undenoised\n",
+                      pop->picture_number,
                       rc);
         }
     }
@@ -1282,8 +1291,8 @@ static void mcd_release_popped(SvtMcdState* s, McdPopped* pop, EbObjectWrapper**
 }
 
 /* Pop the holding-queue head, denoise it (outside the mutex) and emit it. */
-static void mcd_release_head(SvtMcdState* s, EbObjectWrapper** out_wrappers,
-                             struct PictureParentControlSet** out_pcs, uint32_t* n_out) {
+static void mcd_release_head(SvtMcdState* s, EbObjectWrapper** out_wrappers, struct PictureParentControlSet** out_pcs,
+                             uint32_t* n_out) {
     McdPopped pop;
     mcd_hold_pop(s, &pop);
     mcd_release_popped(s, &pop, out_wrappers, out_pcs, n_out);
@@ -1295,8 +1304,8 @@ static void mcd_release_head(SvtMcdState* s, EbObjectWrapper** out_wrappers,
  * every temporal neighbour that will ever exist has settled -- any missing
  * ones are legitimately absent tail neighbours and the neighbour sets match
  * a serial arrival exactly. */
-static void mcd_eos_flush(SvtMcdState* s, EbObjectWrapper** out_wrappers,
-                          struct PictureParentControlSet** out_pcs, uint32_t* n_out) {
+static void mcd_eos_flush(SvtMcdState* s, EbObjectWrapper** out_wrappers, struct PictureParentControlSet** out_pcs,
+                          uint32_t* n_out) {
     /* Pure drain; see the header comment above. */
     uint32_t quota = SVT_MCD_MAX_EMITTED - *n_out;
     while (s->hold_count > 0 && quota > 0) {
@@ -1338,15 +1347,12 @@ static void mcd_settle_ordered(SvtMcdState* s, uint64_t picture_number) {
     }
 }
 
-uint32_t svt_mcd_pa_arrival(void* state,
-                            struct PictureParentControlSet* pcs,
-                            EbObjectWrapper* pcs_wrapper,
-                            EbObjectWrapper** out_wrappers,
-                            struct PictureParentControlSet** out_pcs) {
-    SvtMcdState*        s       = (SvtMcdState*)state;
-    SequenceControlSet* scs     = pcs->scs;
+uint32_t svt_mcd_pa_arrival(void* state, struct PictureParentControlSet* pcs, EbObjectWrapper* pcs_wrapper,
+                            EbObjectWrapper** out_wrappers, struct PictureParentControlSet** out_pcs) {
+    SvtMcdState*        s   = (SvtMcdState*)state;
+    SequenceControlSet* scs = pcs->scs;
     /* EncodeContext* unused since the terminating-flag belt removal */
-    uint32_t            n_out   = 0;
+    uint32_t n_out = 0;
 
     svt_block_on_mutex(s->mutex);
 
@@ -1377,9 +1383,7 @@ uint32_t svt_mcd_pa_arrival(void* state,
              * The old poll-cap break let an arrival proceed out of order,
              * evicting ring slots still needed as neighbours (and, via the
              * lost settle, freezing the watermark). */
-            while (s->watermark_valid
-                       ? s->watermark + 1 < pcs->picture_number
-                       : pcs->picture_number != 0) {
+            while (s->watermark_valid ? s->watermark + 1 < pcs->picture_number : pcs->picture_number != 0) {
                 svt_release_mutex(s->mutex);
                 mcd_wait_short();
                 svt_block_on_mutex(s->mutex);
@@ -1405,8 +1409,7 @@ uint32_t svt_mcd_pa_arrival(void* state,
             if (!b) {
                 /* out of memory: settle and pass the picture through
                  * undenoised rather than dropping it */
-                while (!no_hold && s->hold_count >= SVT_MCD_MAX_RELEASED &&
-                       n_out < SVT_MCD_MAX_EMITTED) {
+                while (!no_hold && s->hold_count >= SVT_MCD_MAX_RELEASED && n_out < SVT_MCD_MAX_EMITTED) {
                     mcd_release_head(s, out_wrappers, out_pcs, &n_out);
                 }
                 if (!no_hold && s->hold_count < SVT_MCD_MAX_RELEASED) {
@@ -1431,8 +1434,7 @@ uint32_t svt_mcd_pa_arrival(void* state,
                 /* The state mutex is still held. Do not publish a buffer
                  * whose lazy cache-build lock could not be created. */
                 free(b); /* fresh zeroed allocation owns no subordinate data */
-                while (!no_hold && s->hold_count >= SVT_MCD_MAX_RELEASED &&
-                       n_out < SVT_MCD_MAX_EMITTED) {
+                while (!no_hold && s->hold_count >= SVT_MCD_MAX_RELEASED && n_out < SVT_MCD_MAX_EMITTED) {
                     mcd_release_head(s, out_wrappers, out_pcs, &n_out);
                 }
                 if (!no_hold && s->hold_count < SVT_MCD_MAX_RELEASED) {
@@ -1450,7 +1452,7 @@ uint32_t svt_mcd_pa_arrival(void* state,
                 svt_release_mutex(s->mutex);
                 return n_out;
             }
-            sl->buf        = b;
+            sl->buf = b;
         }
         /* Pre-take the recycled copy buffers for this geometry (cheap,
          * under the mutex), then run the copy OUTSIDE the mutex: slot
@@ -1460,8 +1462,7 @@ uint32_t svt_mcd_pa_arrival(void* state,
          * half-copied state or mutate it concurrently. */
         {
             McdGeom      g;
-            const size_t esz = pcs->enhanced_pic->bit_depth > 8 ? sizeof(uint16_t)
-                                                                : sizeof(uint8_t);
+            const size_t esz = pcs->enhanced_pic->bit_depth > 8 ? sizeof(uint16_t) : sizeof(uint8_t);
             mcd_geom_from_pic(&g, pcs->enhanced_pic);
             const uint32_t np = g.has_chroma ? 3 : 1;
             for (uint32_t p = 0; p < np; ++p) {
@@ -1571,8 +1572,7 @@ uint32_t svt_mcd_pa_arrival(void* state,
          * (divergent output) or draining the flush before the twin is held
          * (stranding it in the hold queue forever: encoder deadlock). */
         if (!no_hold) {
-            while (s->watermark_valid ? s->watermark < pcs->picture_number
-                                      : pcs->picture_number != 0) {
+            while (s->watermark_valid ? s->watermark < pcs->picture_number : pcs->picture_number != 0) {
                 svt_release_mutex(s->mutex);
                 mcd_wait_short();
                 svt_block_on_mutex(s->mutex);
