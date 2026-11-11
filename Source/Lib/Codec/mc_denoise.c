@@ -1088,6 +1088,12 @@ EbErrorType svt_mcd_state_create(void** state_ptr, const EbSvtAv1EncConfiguratio
         for (uint32_t i = 0; i < MCD_BUILD_THREADS; ++i) {
             char name[16];
             svt_format_thread_name(name, sizeof(name), "mcd_build", i);
+            /* Raw create + EB_NO_THROW_ADD_MEM rather than
+             * EB_CREATE_THREAD_NAMED: that macro uses EB_ADD_MEM, whose
+             * EB_CHECK_MEM returns EB_ErrorInsufficientResources, but a helper
+             * that fails to spawn must degrade to the lazy path instead of
+             * failing state creation. Same create+add sequence as
+             * kernel_dispatch.c:60-64. */
             s->build_threads[i] = svt_create_thread(mcd_build_thread, s, name);
             EB_NO_THROW_ADD_MEM(s->build_threads[i], 1, EB_THREAD);
             if (!s->build_threads[i]) {

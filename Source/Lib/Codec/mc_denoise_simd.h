@@ -25,8 +25,8 @@
  * the scalar paths everywhere (checked once per process). This is a debug/test
  * hook only; the encoder CLI is unchanged.
  */
-#ifndef MC_DENOISE_SIMD_H
-#define MC_DENOISE_SIMD_H
+#ifndef MC_DENOISE_SIMD_H_
+#define MC_DENOISE_SIMD_H_
 
 #include <stdint.h>
 #include "mc_denoise.h"
@@ -121,4 +121,4 @@ struct McdDftCtx;
 }
 #endif
 
-#endif /* MC_DENOISE_SIMD_H */
+#endif // MC_DENOISE_SIMD_H_

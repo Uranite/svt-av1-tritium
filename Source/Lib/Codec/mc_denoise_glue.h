@@ -21,8 +21,8 @@
  * signalled), denoises them, and writes the result back into the pcs input
  * buffers before the regular PA body runs.
  */
-#ifndef MC_DENOISE_GLUE_H
-#define MC_DENOISE_GLUE_H
+#ifndef MC_DENOISE_GLUE_H_
+#define MC_DENOISE_GLUE_H_
 
 #include "EbSvtAv1Enc.h"
 #include "mc_denoise.h"
@@ -72,4 +72,4 @@ uint32_t svt_mcd_pa_arrival(void* state, struct PictureParentControlSet* pcs, st
 }
 #endif
 
-#endif // MC_DENOISE_GLUE_H
+#endif // MC_DENOISE_GLUE_H_

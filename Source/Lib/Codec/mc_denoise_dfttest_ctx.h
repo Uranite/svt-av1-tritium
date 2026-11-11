@@ -14,8 +14,8 @@
  * dfttest constant-table context. Not part of the module contract; include
  * only from mc_denoise_dfttest.c and mc_denoise_simd.c.
  */
-#ifndef MC_DENOISE_DFTTEST_CTX_H
-#define MC_DENOISE_DFTTEST_CTX_H
+#ifndef MC_DENOISE_DFTTEST_CTX_H_
+#define MC_DENOISE_DFTTEST_CTX_H_
 
 #include <stdint.h>
 
@@ -37,4 +37,4 @@ struct McdDftCtx {
     uint32_t sigma_pct; /* the sigma this context was built for */
 };
 
-#endif /* MC_DENOISE_DFTTEST_CTX_H */
+#endif // MC_DENOISE_DFTTEST_CTX_H_
