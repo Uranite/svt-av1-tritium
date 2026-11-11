@@ -285,10 +285,8 @@ typedef struct SvtMcdState {
 /* small helpers                                                       */
 
 static void* mcd_alloc_zeroed(size_t bytes) {
-    void* p = malloc(bytes);
-    if (p) {
-        memset(p, 0, bytes);
-    }
+    void* p = NULL;
+    EB_CALLOC_NO_CHECK(p, 1, bytes);
     return p;
 }
 
@@ -306,7 +304,8 @@ static int mcd_alloc_padded_plane(uint32_t w, uint32_t h, bool highbd, McdPlane*
      * replicated margin by mcd_replicate_margins; the stride-alignment slack
      * columns past w + 2*pad are never read by any module (all reads are
      * clamped to the core +/- the replicated margin) */
-    uint8_t* buf = malloc((size_t)stride * (h + 2 * pad) * esz);
+    uint8_t* buf = NULL;
+    EB_MALLOC_NO_CHECK(buf, (size_t)stride * (h + 2 * pad) * esz);
     if (!buf) {
         return MCD_ERR_NOMEM;
     }
@@ -320,8 +319,7 @@ static int mcd_alloc_padded_plane(uint32_t w, uint32_t h, bool highbd, McdPlane*
 }
 
 static void mcd_free_padded(void** buf) {
-    free(*buf);
-    *buf = NULL;
+    EB_FREE(*buf);
 }
 
 /* Edge-replicate the margin of a padded plane (mirrors the module e2e test:
@@ -384,8 +382,7 @@ static void mcd_bufs_free_caches(McdBufs* b) {
     for (uint32_t p = 0; p < 3; ++p) {
         mcd_free_padded(&b->dft_buf[p]);
         mcd_free_padded(&b->fplane_buf[p]);
-        free(b->out_buf[p]);
-        b->out_buf[p] = NULL;
+        EB_FREE(b->out_buf[p]);
     }
     b->frame.prefiltered = false;
 }
@@ -405,8 +402,7 @@ static void mcd_bufs_reset(McdBufs* b) {
     svt_release_mutex(b->build_mutex);
     mcd_bufs_free_caches(b);
     for (uint32_t p = 0; p < 3; ++p) {
-        free(b->pix_buf[p]);
-        b->pix_buf[p]   = NULL;
+        EB_FREE(b->pix_buf[p]);
         b->pix_bytes[p] = 0;
     }
     b->valid = false;
@@ -418,7 +414,7 @@ static void mcd_bufs_destroy(McdBufs* b) {
     if (b->build_mutex) {
         EB_DESTROY_MUTEX(b->build_mutex);
     }
-    free(b);
+    EB_FREE(b);
 }
 
 /* Drop one reference (state mutex held); free on the last one. */
@@ -476,11 +472,11 @@ static void mcd_pix_pool_put(SvtMcdState* s, uint32_t p, void* buf, size_t bytes
         return;
     }
     if (bytes > s->pix_pool_bytes[p]) {
-        free(s->pix_pool[p]);
+        EB_FREE(s->pix_pool[p]);
         s->pix_pool[p]       = buf;
         s->pix_pool_bytes[p] = bytes;
     } else {
-        free(buf);
+        EB_FREE(buf);
     }
 }
 
@@ -568,8 +564,8 @@ static int mcd_bufs_copy_pixels(SvtMcdState* s, McdBufs* b, const EbPictureBuffe
         /* keep an already-owned buffer of the right size (steady state);
          * otherwise the pool was pre-taken under the mutex, else malloc */
         if (!b->pix_buf[p] || b->pix_bytes[p] != bytes) {
-            free(b->pix_buf[p]);
-            b->pix_buf[p]   = malloc(bytes);
+            EB_FREE(b->pix_buf[p]);
+            EB_MALLOC_NO_CHECK(b->pix_buf[p], bytes);
             b->pix_bytes[p] = b->pix_buf[p] ? bytes : 0;
         }
         /* uninitialized memory is fine: the compact planes are fully
@@ -991,7 +987,7 @@ static int mcd_denoise_center(SvtMcdState* s, McdPopped* pop) {
                 /* uninitialized malloc: on success svt_mcd_degrain_frame writes
                  * every sample of the plane before mcd_write_back reads it;
                  * on failure the buffer is never read (no write-back) */
-                center->out_buf[p] = malloc((size_t)fr->planes[p].w * fr->planes[p].h * esz);
+                EB_MALLOC_NO_CHECK(center->out_buf[p], (size_t)fr->planes[p].w * fr->planes[p].h * esz);
             }
             if (!center->out_buf[p]) {
                 rc = MCD_ERR_NOMEM;
@@ -1154,7 +1150,7 @@ void svt_mcd_state_destroy(void** state_ptr) {
     }
     s->me_pool_n = 0;
     for (uint32_t p = 0; p < 3; ++p) {
-        free(s->pix_pool[p]);
+        EB_FREE(s->pix_pool[p]);
         s->pix_pool[p]       = NULL;
         s->pix_pool_bytes[p] = 0;
     }
@@ -1433,7 +1429,7 @@ uint32_t svt_mcd_pa_arrival(void* state, struct PictureParentControlSet* pcs, Eb
             if (!b->build_mutex) {
                 /* The state mutex is still held. Do not publish a buffer
                  * whose lazy cache-build lock could not be created. */
-                free(b); /* fresh zeroed allocation owns no subordinate data */
+                EB_FREE(b); /* fresh zeroed allocation owns no subordinate data */
                 while (!no_hold && s->hold_count >= SVT_MCD_MAX_RELEASED && n_out < SVT_MCD_MAX_EMITTED) {
                     mcd_release_head(s, out_wrappers, out_pcs, &n_out);
                 }
@@ -1469,7 +1465,7 @@ uint32_t svt_mcd_pa_arrival(void* state, struct PictureParentControlSet* pcs, Eb
                 if (b->pix_buf[p] && b->pix_bytes[p] == (size_t)g.w[p] * g.h[p] * esz) {
                     continue; /* already owned from the reset path */
                 }
-                free(b->pix_buf[p]);
+                EB_FREE(b->pix_buf[p]);
                 b->pix_buf[p]   = mcd_pix_pool_take(s, p, (size_t)g.w[p] * g.h[p] * esz);
                 b->pix_bytes[p] = b->pix_buf[p] ? (size_t)g.w[p] * g.h[p] * esz : 0;
             }
