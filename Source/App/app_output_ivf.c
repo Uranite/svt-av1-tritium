@@ -61,7 +61,7 @@ void write_ivf_frame_header(EbConfig* app_cfg, uint32_t byte_count) {
     fwrite(header, 1, IVF_FRAME_HEADER_SIZE, app_cfg->bitstream_file);
 }
 
-#ifdef CONFIG_WEBM_IO
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
 
 // Scans a buffer of OBUs and returns a pointer to the sequence header OBU
 // (obu_type == 1) and its total byte length, or NULL if not found.

@@ -174,6 +174,16 @@
 #define OUTPUT_FORMAT_IVF_TOKEN "--ivf"
 #define OUTPUT_FORMAT_OBU_TOKEN "--obu"
 #define OUTPUT_FORMAT_WEBM_TOKEN "--webm"
+
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
+#define OUTPUT_FORMAT_EXT_HELP "(.ivf, .obu, or .webm)"
+#else
+#define OUTPUT_FORMAT_EXT_HELP "(.ivf or .obu)"
+#endif
+
+#define WEBM_UNSUPPORTED_WARNING                                              \
+    "Warning: This build does not have WebM IO support, falling back to IVF " \
+    "(the output file will contain IVF data even if its name ends in .webm)\n"
 #define WIDTH_LONG_TOKEN "--width"
 #define HEIGHT_LONG_TOKEN "--height"
 #define NUMBER_OF_PICTURES_LONG_TOKEN "--frames"
@@ -487,6 +497,23 @@ static EbErrorType set_cfg_stream_file(EbConfig* cfg, const char* token, const c
         }
     }
     return open_file(&cfg->bitstream_file, token, value, "wb");
+}
+
+static EbErrorType set_cfg_output_format(EbConfig* cfg, const char* token, const char* value) {
+    (void)value;
+    if (!strcmp(token, OUTPUT_FORMAT_IVF_TOKEN)) {
+        cfg->output_format = OUTPUT_FORMAT_IVF;
+    } else if (!strcmp(token, OUTPUT_FORMAT_OBU_TOKEN)) {
+        cfg->output_format = OUTPUT_FORMAT_OBU;
+    } else if (!strcmp(token, OUTPUT_FORMAT_WEBM_TOKEN)) {
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
+        cfg->output_format = OUTPUT_FORMAT_WEBM;
+#else
+        fputs(WEBM_UNSUPPORTED_WARNING, stderr);
+        cfg->output_format = OUTPUT_FORMAT_IVF;
+#endif
+    }
+    return EB_ErrorNone;
 }
 
 static EbErrorType set_cfg_error_file(EbConfig* cfg, const char* token, const char* value) {
@@ -853,16 +880,20 @@ ConfigDescription config_entry_options[] = {
 
     {OUTPUT_BITSTREAM_TOKEN,
      "Output compressed file path, use `stdout` or `-` to write to pipe. "
-     "Format is auto-detected from extension (.ivf or .obu), default is IVF. If omitted, a path is derived from the "
+     "Format is auto-detected from extension " OUTPUT_FORMAT_EXT_HELP
+     ", default is IVF. If omitted, a path is derived from the "
      "input"},
     {OUTPUT_BITSTREAM_LONG_TOKEN,
      "Output compressed file path, use `stdout` or `-` to write to pipe. "
-     "Format is auto-detected from extension (.ivf or .obu), default is IVF. If omitted, a path is derived from the "
+     "Format is auto-detected from extension " OUTPUT_FORMAT_EXT_HELP
+     ", default is IVF. If omitted, a path is derived from the "
      "input"},
 
     {OUTPUT_FORMAT_IVF_TOKEN, "Output bitstream in IVF container format (default)"},
     {OUTPUT_FORMAT_OBU_TOKEN, "Output bitstream as raw OBU (Open Bitstream Units) without IVF container"},
-    {OUTPUT_FORMAT_WEBM_TOKEN, "Output bitstream in a WebM container (requires WebM IO support)"},
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
+    {OUTPUT_FORMAT_WEBM_TOKEN, "Output bitstream in a WebM container"},
+#endif
 
     {CONFIG_FILE_TOKEN, "Configuration file path"},
     {CONFIG_FILE_LONG_TOKEN, "Configuration file path"},
@@ -1294,6 +1325,9 @@ ConfigEntry config_entry[] = {
     {ALLOW_MMAP_FILE_TOKEN, "AllowMmapFile", set_allow_mmap_file},
     {OUTPUT_BITSTREAM_TOKEN, "StreamFile", set_cfg_stream_file},
     {OUTPUT_BITSTREAM_LONG_TOKEN, "StreamFile", set_cfg_stream_file},
+    {OUTPUT_FORMAT_IVF_TOKEN, OUTPUT_FORMAT_IVF_TOKEN, set_cfg_output_format},
+    {OUTPUT_FORMAT_OBU_TOKEN, OUTPUT_FORMAT_OBU_TOKEN, set_cfg_output_format},
+    {OUTPUT_FORMAT_WEBM_TOKEN, OUTPUT_FORMAT_WEBM_TOKEN, set_cfg_output_format},
     {ERROR_FILE_TOKEN, "ErrorFile", set_cfg_error_file},
     {OUTPUT_RECON_TOKEN, "ReconFile", set_cfg_recon_file},
     {OUTPUT_RECON_LONG_TOKEN, "ReconFile", set_cfg_recon_file},
@@ -2660,7 +2694,7 @@ EbErrorType read_command_line(int32_t argc, char* const argv[], EncChannel* chan
     const char* cmd_copy[MAX_NUM_TOKENS]; // keep track of extra tokens
     const char* arg_copy[MAX_NUM_TOKENS]; // keep track of extra arguments
 
-#ifdef CONFIG_WEBM_IO
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
     channel->app_cfg->argc = argc;
     channel->app_cfg->argv = (const char**)argv;
 #endif
@@ -2746,6 +2780,11 @@ EbErrorType read_command_line(int32_t argc, char* const argv[], EncChannel* chan
 
     // Parse command line for tokens
     for (ConfigEntry* entry = config_entry; entry->token; ++entry) {
+        // Output format flags are argumentless and handled separately below.
+        if (!strcmp(entry->token, OUTPUT_FORMAT_IVF_TOKEN) || !strcmp(entry->token, OUTPUT_FORMAT_OBU_TOKEN) ||
+            !strcmp(entry->token, OUTPUT_FORMAT_WEBM_TOKEN)) {
+            continue;
+        }
         if (!find_token_multiple_inputs(argc, argv, entry->token, config_strings, cmd_copy, arg_copy)) {
             continue;
         }
@@ -2763,7 +2802,7 @@ EbErrorType read_command_line(int32_t argc, char* const argv[], EncChannel* chan
         return_error          = (EbErrorType)(return_error & channel->return_error);
     }
 
-    // Handle --ivf and --obu flags (argumentless, override auto-detection from extension)
+    // Handle --ivf, --obu, and --webm flags (argumentless, override auto-detection from extension)
     for (int32_t i = 0; i < argc; ++i) {
         if (cmd_copy[i] && !strcmp(argv[i], OUTPUT_FORMAT_IVF_TOKEN)) {
             channel->app_cfg->output_format = OUTPUT_FORMAT_IVF;
@@ -2772,17 +2811,17 @@ EbErrorType read_command_line(int32_t argc, char* const argv[], EncChannel* chan
             channel->app_cfg->output_format = OUTPUT_FORMAT_OBU;
             cmd_copy[i]                     = TOKEN_READ_MARKER;
         } else if (cmd_copy[i] && !strcmp(argv[i], OUTPUT_FORMAT_WEBM_TOKEN)) {
-#ifdef CONFIG_WEBM_IO
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
             channel->app_cfg->output_format = OUTPUT_FORMAT_WEBM;
 #else
-            fputs("Warning: This build does not have WebM IO support, falling back to IVF\n", stderr);
+            fputs(WEBM_UNSUPPORTED_WARNING, stderr);
             channel->app_cfg->output_format = OUTPUT_FORMAT_IVF;
 #endif
             cmd_copy[i] = TOKEN_READ_MARKER;
         }
     }
 
-#ifdef CONFIG_WEBM_IO
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
     if (channel->app_cfg->output_format == OUTPUT_FORMAT_WEBM) {
         if (channel->app_cfg->bitstream_file == stdout) {
             fputs("Warning: WebM output requires a seekable file, falling back to IVF\n", stderr);
@@ -2792,7 +2831,7 @@ EbErrorType read_command_line(int32_t argc, char* const argv[], EncChannel* chan
     channel->app_cfg->write_webm = channel->app_cfg->output_format == OUTPUT_FORMAT_WEBM;
 #else
     if (channel->app_cfg->output_format == OUTPUT_FORMAT_WEBM) {
-        fputs("Warning: This build does not have WebM IO support, falling back to IVF\n", stderr);
+        fputs(WEBM_UNSUPPORTED_WARNING, stderr);
         channel->app_cfg->output_format = OUTPUT_FORMAT_IVF;
     }
 #endif

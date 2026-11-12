@@ -19,7 +19,7 @@
 void write_ivf_stream_header(EbConfig* app_cfg, int32_t length);
 void write_ivf_frame_header(EbConfig* app_cfg, uint32_t byte_count);
 
-#ifdef CONFIG_WEBM_IO
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
 int write_webm_stream_header(EbConfig* app_cfg, const uint8_t* buf, size_t buf_sz);
 int write_webm_frame_data(EbConfig* app_cfg, const uint8_t* buf, size_t sz, int64_t pts, int is_keyframe);
 int write_webm_stream_footer(EbConfig* app_cfg);
