@@ -1344,12 +1344,23 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t light_rdoq;
 
+    /* Generate a photon noise film grain table. ISO sensitivity of the
+    * simulated sensor, 0 disables it.
+    *
+    * Default is 0. */
+    uint32_t photon_noise_iso;
+
     /* Pin the execution of threads to the first N logical processors.
     * 0: unpinned
     * N: pin threads to the first N processors
     *
     * Default is 0. */
     uint32_t pin_threads;
+
+    /* Enable chroma scaling for the photon noise table.
+    *
+    * Default is 0. */
+    uint8_t enable_photon_noise_chroma;
 
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
@@ -1391,6 +1402,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint8_t) // alt_dlf
         - sizeof(bool) // multiply_min_keyint
         - sizeof(uint8_t) // light_rdoq
+        - sizeof(uint32_t) - sizeof(uint8_t) // photon_noise_iso, enable_photon_noise_chroma
         - sizeof(uint32_t) // pin_threads
     ];
     // clang-format on
