@@ -133,6 +133,10 @@ When no output path is given, the encoder derives one from the input file name (
 
 Sets the film grain random seed(s) used for grain synthesis. Multiple seeds are cycled in display order; `-1` selects the built-in seed pool. Default is unset (legacy seed).
 
+- `--film-grain -1`
+
+Enables automatic film grain analysis: the encoder estimates the grain strength from the source and applies film grain synthesis automatically. `0` disables film grain, and `1` to `50` set a manual denoising strength.
+
 - `--enable-tf 3`
 
 The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  
