@@ -1362,6 +1362,13 @@ typedef struct EbSvtAv1EncConfiguration {
     * Default is 0. */
     uint8_t enable_photon_noise_chroma;
 
+    /**
+     * @brief Prevent macroblocks from being boosted to very low q.
+     *
+     * Default is 0. 0 = off, 1 = on.
+     */
+    bool low_q_taper;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1404,6 +1411,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint8_t) // light_rdoq
         - sizeof(uint32_t) - sizeof(uint8_t) // photon_noise_iso, enable_photon_noise_chroma
         - sizeof(uint32_t) // pin_threads
+        - sizeof(bool) // low_q_taper
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
