@@ -2,7 +2,7 @@ Name: libwebm
 URL: https://chromium.googlesource.com/webm/libwebm
 Version: N/A
 Update Mechanism: Manual
-Revision: 3b630045052e1e4d563207ab9e3be8d137c26067
+Revision: a7c6662c68a90af18dd53dbb1f4262a346e9a547
 License: BSD-3-Clause
 License File: LICENSE.TXT
 Shipped in Chromium: no
@@ -23,3 +23,9 @@ Only keep:
  - mkvmuxer/
  - mkvparser/
  - PATENTS.TXT
+
+Patches on top of upstream:
+ - mkvmuxer/mkvmuxer.cc/h: BlockAdditionMapping omits BlockAddIdValue when
+   the value is 0; Tag supports set_track_uid() and writes Targets/TagTrackUID.
+ - mkvmuxer/mkvwriter.cc/h: track seekability and bytes written so Position()
+   works on non-seekable streams.

@@ -2391,14 +2391,15 @@ bool Tag::ExpandSimpleTagsArray() {
 
 uint64_t Tag::Write(IMkvWriter* writer) const {
   // IDs not in the enum for this libwebm version
-  const uint64_t kMkvTargets         = 0x63C0;
-  const uint64_t kMkvTagTrackUID     = 0x63C5;
+  const uint64_t kMkvTargets = 0x63C0;
+  const uint64_t kMkvTagTrackUID = 0x63C5;
   uint64_t payload_size = 0;
 
   uint64_t targets_payload = 0;
   if (track_uid_ != 0) {
     targets_payload = EbmlElementSize(kMkvTagTrackUID, uint64(track_uid_));
-    payload_size += EbmlMasterElementSize(kMkvTargets, targets_payload) + targets_payload;
+    payload_size +=
+        EbmlMasterElementSize(kMkvTargets, targets_payload) + targets_payload;
   }
 
   for (int idx = 0; idx < simple_tags_count_; ++idx) {
@@ -2419,9 +2420,9 @@ uint64_t Tag::Write(IMkvWriter* writer) const {
 
   if (track_uid_ != 0) {
     if (!WriteEbmlMasterElement(writer, kMkvTargets, targets_payload))
-        return 0;
+      return 0;
     if (!WriteEbmlElement(writer, kMkvTagTrackUID, uint64(track_uid_)))
-        return 0;
+      return 0;
   }
 
   for (int idx = 0; idx < simple_tags_count_; ++idx) {
@@ -4277,12 +4278,14 @@ bool Segment::WriteFramesLessThan(uint64_t timestamp) {
         doc_type_version_ = 4;
       if (!cluster->AddFrame(frame_prev)) {
         delete frame_prev;
+        ++shift_left;
         continue;
       }
 
       if (new_cuepoint_ && cues_track_ == frame_prev->track_number()) {
         if (!AddCuePoint(frame_prev->timestamp(), cues_track_)) {
           delete frame_prev;
+          ++shift_left;
           continue;
         }
       }
