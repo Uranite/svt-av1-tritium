@@ -1380,6 +1380,15 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t output_format;
 
+    /* Film grain random seeds, cycled in display order.
+    * Set through --fgs-seed / FilmGrainSeed; -1 selects the built-in pool.
+    * Owned by the app; the library deep-copies it on set_parameter.
+    * The pair is deducted from the trailing padding budget so
+    * sizeof(EbSvtAv1EncConfiguration) is unchanged.
+    * Default is NULL / 0. */
+    uint32_t  fgs_seed_count;
+    uint16_t* fgs_seeds;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1424,6 +1433,9 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint32_t) // pin_threads
         - sizeof(bool) // low_q_taper
         - sizeof(uint8_t) // output_format
+        - sizeof(uint32_t) // fgs_seed_count
+        - sizeof(uint32_t) // alignment hole before fgs_seeds (8-byte aligned pointer)
+        - sizeof(uint16_t*) // fgs_seeds
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
