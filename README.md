@@ -133,6 +133,10 @@ When no output path is given, the encoder derives one from the input file name (
 
 Sets the film grain random seed(s) used for grain synthesis. Multiple seeds are cycled in display order; `-1` selects the built-in seed pool. Default is unset (legacy seed).
 
+- `--photon-noise` *0 to 100000*
+
+Generates a physically motivated photon-noise film grain table from a simulated camera ISO sensitivity. The table is applied as `--fgs-table` during the encode.
+
 - `--enable-tf 3`
 
 The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  

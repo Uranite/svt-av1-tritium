@@ -209,6 +209,8 @@ set(all_files
         pass2_strategy.h
         noise_generation.c
         noise_generation.h
+        photon_noise.c
+        photon_noise.h
         film_grain_seeds.h
         pic_analysis_process.c
         pic_analysis_process.h

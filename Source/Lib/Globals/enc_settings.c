@@ -945,6 +945,14 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("Noise strength value should be in the range [0 - 200]\n");
         return_error = EB_ErrorBadParameter;
     }
+    if (config->enable_photon_noise_chroma != 0 && config->enable_photon_noise_chroma != 1) {
+        SVT_ERROR("Photon noise chroma signal can only have a value of 0 or 1.\n");
+        return_error = EB_ErrorBadParameter;
+    }
+    if (config->photon_noise_iso > 100000) {
+        SVT_ERROR("Photon noise ISO value should be in range [0-100000]\n");
+        return_error = EB_ErrorBadParameter;
+    }
     if (config->noise_strength_chroma < -1 || config->noise_strength_chroma > 200) {
         SVT_ERROR("Chroma noise strength value should be in the range [-1 - 200]\n");
         return_error = EB_ErrorBadParameter;
@@ -1253,6 +1261,8 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->noise_strength_chroma       = -1;
     config_ptr->noise_chroma_from_luma      = 0;
     config_ptr->noise_size                  = -1;
+    config_ptr->photon_noise_iso            = 0;
+    config_ptr->enable_photon_noise_chroma  = 0;
 
     // CPU Flags
     config_ptr->use_cpu_flags = EB_CPU_FLAGS_ALL;
@@ -1639,6 +1649,12 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                      config->noise_chroma_from_luma == 1 ? " (from luma)" : "",
                      config->noise_size == -1 ? "auto" : (config->noise_size == 0 ? "0" : ""),
                      config->noise_size > 0 ? config->noise_size : 0);
+        }
+        if (config->photon_noise_iso > 0) {
+            SVT_INFO("SVT [config]: photon noise synth / ISO / chroma \t\t\t: %d / %d / %s\n",
+                     1,
+                     config->photon_noise_iso,
+                     config->enable_photon_noise_chroma ? "on" : "off");
         }
         SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t\t: %d / %d\n",
                  config->sharpness,
@@ -2881,6 +2897,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"level", &config_struct->level},
         {"lp", &config_struct->level_of_parallelism},
         {"pin", &config_struct->pin_threads},
+        {"photon-noise", &config_struct->photon_noise_iso},
         {"fps-num", &config_struct->frame_rate_numerator},
         {"fps-denom", &config_struct->frame_rate_denominator},
         {"lookahead", &config_struct->look_ahead_distance},

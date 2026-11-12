@@ -58,6 +58,7 @@
 #include "metadata_handle.h"
 #include "grainSynthesis.h"
 #include "noise_generation.h"
+#include "photon_noise.h"
 
 #include "pack_unpack_c.h"
 #include "enc_mode_config.h"
@@ -982,6 +983,7 @@ static void svt_enc_handle_stop_threads(EbEncHandle* enc_handle_ptr) {
 static void svt_enc_handle_dctor(EbPtr p) {
     EbEncHandle* enc_handle_ptr = (EbEncHandle*)p;
     svt_enc_handle_stop_threads(enc_handle_ptr);
+    free(enc_handle_ptr->photon_noise_table);
     EB_FREE(enc_handle_ptr->app_callback_ptr);
     EB_DELETE(enc_handle_ptr->scs_pool_ptr);
     EB_DELETE(enc_handle_ptr->picture_parent_control_set_pool_ptr);
@@ -4307,6 +4309,31 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
             "Fwd key frame is only supported for hierarchical levels 4 at this point. Hierarchical levels are set to "
             "4\n");
     }
+    if (scs->static_config.photon_noise_iso > 0) {
+        // Photon noise generates its own film grain table.
+        if (scs->static_config.film_grain_denoise_strength != 0) {
+            SVT_WARN("Both film-grain and photon-noise were specified; film-grain will be disabled\n");
+            scs->static_config.film_grain_denoise_strength = 0;
+        }
+        if (scs->static_config.noise_strength > 0) {
+            SVT_WARN("Both noise strength and photon-noise were specified; noise table generation will be disabled\n");
+            scs->static_config.noise_strength         = 0;
+            scs->static_config.noise_strength_chroma  = -1;
+            scs->static_config.noise_chroma_from_luma = 0;
+            scs->static_config.noise_size             = -1;
+        }
+        if (scs->static_config.fgs_table) {
+            SVT_WARN("Both photon-noise and fgs-table were specified; photon-noise will be disabled\n");
+            scs->static_config.photon_noise_iso = 0;
+        } else {
+            if (scs->static_config.transfer_characteristics == EB_CICP_TC_UNSPECIFIED) {
+                SVT_WARN("Transfer characteristics is not specified, photon noise will be defaulting to BT.709\n");
+            }
+            svt_av1_generate_photon_noise_table(&scs->static_config);
+        }
+    } else if (scs->static_config.enable_photon_noise_chroma == 1) {
+        SVT_WARN("Photon noise chroma signal is going to be ignored when photon noise level is 0.\n");
+    }
     if (scs->static_config.noise_strength > 0) {
         // Check if film-grain-denoise is also enabled (should be disabled if fgs_table is present)
         if (scs->static_config.film_grain_denoise_strength > 0) {
@@ -4702,11 +4729,14 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     if (scs->static_config.film_grain_denoise_strength == 0 && scs->static_config.film_grain_denoise_apply == 1) {
         SVT_WARN("Film grain denoise apply signal is going to be ignored when film grain is off.\n");
     }
-    scs->seq_header.film_grain_params_present = (uint8_t)(CONFIG_ENABLE_FILM_GRAIN &&
-                                                          (scs->static_config.film_grain_denoise_strength > 0 ||
-                                                           config_struct->fgs_table != NULL ||
-                                                           config_struct->noise_strength > 0));
-    scs->static_config.fgs_table              = config_struct->fgs_table;
+    scs->seq_header.film_grain_params_present     = (uint8_t)(CONFIG_ENABLE_FILM_GRAIN &&
+                                                              (scs->static_config.film_grain_denoise_strength > 0 ||
+                                                               config_struct->fgs_table != NULL ||
+                                                               config_struct->noise_strength > 0 ||
+                                                               config_struct->photon_noise_iso > 0));
+    scs->static_config.fgs_table                  = config_struct->fgs_table;
+    scs->static_config.photon_noise_iso           = config_struct->photon_noise_iso;
+    scs->static_config.enable_photon_noise_chroma = config_struct->enable_photon_noise_chroma;
     scs->static_config.noise_strength         = config_struct->noise_strength;
     scs->static_config.noise_strength_chroma  = config_struct->noise_strength_chroma;
     scs->static_config.noise_chroma_from_luma = config_struct->noise_chroma_from_luma;
@@ -5277,6 +5307,8 @@ EB_API EbErrorType svt_av1_enc_set_parameter(EbComponentType*          svt_enc_c
     EB_FREE_ARRAY(scs->static_config.fgs_seeds);
     scs->static_config.fgs_seeds      = fgs_seeds;
     scs->static_config.fgs_seed_count = config_struct->fgs_seed_count;
+    free(enc_handle->photon_noise_table);
+    enc_handle->photon_noise_table = NULL;
     copy_api_from_app(scs, config_struct);
 
     EbErrorType return_error = svt_av1_verify_settings(scs);
@@ -5326,6 +5358,9 @@ EB_API EbErrorType svt_av1_enc_set_parameter(EbComponentType*          svt_enc_c
     }
 
     set_param_based_on_input(scs);
+    if (scs->static_config.photon_noise_iso > 0) {
+        enc_handle->photon_noise_table = scs->static_config.fgs_table;
+    }
 
     // LTR pins anchors in DPB slots {4,5,6,7} (svt_aom_ref_mgmt_storeable_slots_mask).
     // That is only safe while the regular refs stay in the bottom 4, i.e. ref counts
