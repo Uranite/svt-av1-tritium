@@ -194,6 +194,7 @@
 #define MASTERING_DISPLAY_TOKEN "--mastering-display"
 #define CONTENT_LIGHT_LEVEL_TOKEN "--content-light"
 #define FGS_TABLE_TOKEN "--fgs-table"
+#define FGS_SEED_TOKEN "--fgs-seed"
 #ifdef LIBDOVI_FOUND
 #define DOLBY_VISION_RPU_TOKEN "--dolby-vision-rpu"
 #endif
@@ -1125,6 +1126,8 @@ ConfigDescription config_entry_specific[] = {
      "still in frame header, 1: level of denoising is set by the film-grain parameter]"},
 
     {FGS_TABLE_TOKEN, "Set the film grain model table path"},
+    {FGS_SEED_TOKEN,
+     "Film grain random seed(s), comma separated. -1 selects the built-in seed pool. Default is unset (legacy seed)"},
 
     {NOISE_TOKEN,
      "Generate noise table for film grain. 50 is roughly equivalent to `--film-grain 50`, default is 0 [0: off, 1-200: "
@@ -1414,6 +1417,7 @@ ConfigEntry config_entry[] = {
     {FILM_GRAIN_TOKEN, "FilmGrain", set_cfg_generic_token},
     {FILM_GRAIN_DENOISE_APPLY_TOKEN, "FilmGrainDenoise", set_cfg_generic_token},
     {FGS_TABLE_TOKEN, "FilmGrainTable", set_cfg_fgs_table_path},
+    {FGS_SEED_TOKEN, "FilmGrainSeed", set_cfg_generic_token},
     {NOISE_TOKEN, "Noise", set_cfg_generic_token},
     {NOISE_CHROMA_TOKEN, "NoiseChroma", set_cfg_generic_token},
     {NOISE_CHROMA_FROM_LUMA_TOKEN, "NoiseChromaFromLuma", set_cfg_generic_token},
@@ -1661,6 +1665,10 @@ void svt_config_dtor(EbConfig* app_cfg) {
     }
 
     free_film_grain_table(&app_cfg->fgs_table);
+
+    free(app_cfg->config.fgs_seeds);
+    app_cfg->config.fgs_seeds      = NULL;
+    app_cfg->config.fgs_seed_count = 0;
 
     for (size_t i = 0; i < app_cfg->forced_keyframes.count; ++i) {
         free(app_cfg->forced_keyframes.specifiers[i]);

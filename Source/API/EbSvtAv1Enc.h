@@ -1340,6 +1340,13 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t light_rdoq;
 
+    /* Film grain random seeds, cycled in display order.
+    * Set through --fgs-seed / FilmGrainSeed; -1 selects the built-in pool.
+    * Owned by the app; the library deep-copies it on set_parameter.
+    * Default is NULL. */
+    uint16_t* fgs_seeds;
+    uint32_t  fgs_seed_count;
+
     /* Pin the execution of threads to the first N logical processors.
     * 0: unpinned
     * N: pin threads to the first N processors
@@ -1387,6 +1394,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(bool) // multiply_min_keyint
         - sizeof(uint8_t) // light_rdoq
         - sizeof(uint32_t) // pin_threads
+        - sizeof(uint16_t*) - sizeof(uint32_t) // fgs_seeds, fgs_seed_count
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
