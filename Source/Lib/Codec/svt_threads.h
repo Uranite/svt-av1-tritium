@@ -51,6 +51,11 @@ EbErrorType svt_destroy_thread(EbHandle thread_handle);
 // buffer (typical size 16 to match TASK_COMM_LEN). Used by EB_CREATE_THREAD_ARRAY.
 void svt_format_thread_name(char* buf, size_t size, const char* prefix, uint32_t index);
 
+// Restrict subsequently created encoder threads to the first `num_threads`
+// logical processors. A value of 0 disables pinning. No-op on platforms
+// without thread affinity support.
+void svt_set_thread_affinity(uint32_t num_threads);
+
 /**************************************
      * Semaphores
      **************************************/

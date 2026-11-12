@@ -367,6 +367,9 @@ void set_segments_numbers(SequenceControlSet* scs) {
 static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet* scs) {
     EbErrorType return_error = EB_ErrorNone;
     uint32_t    core_count   = get_num_processors();
+    if (scs->static_config.pin_threads && scs->static_config.pin_threads < core_count) {
+        core_count = scs->static_config.pin_threads;
+    }
 
     uint32_t lp = scs->static_config.level_of_parallelism;
     if (lp == 0) {
@@ -2121,6 +2124,9 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     /************************************
     * Thread Handles
     ************************************/
+    if (scs->static_config.pin_threads) {
+        svt_set_thread_affinity(scs->static_config.pin_threads);
+    }
 #if CONFIG_SINGLE_THREAD_KERNEL
     // Single-thread kernel dispatch: at lp=1, register all kernels for
     // cooperative dispatch instead of creating 16 OS threads.
@@ -4914,6 +4920,7 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.use_cpu_flags = config_struct->use_cpu_flags;
 
     scs->static_config.level_of_parallelism = config_struct->level_of_parallelism;
+    scs->static_config.pin_threads          = config_struct->pin_threads;
     if (scs->static_config.level_of_parallelism >= PARALLEL_LEVEL_COUNT) {
         SVT_WARN("Level of parallelism supports levels [0-%d]. Setting maximum parallelism level.\n",
                  PARALLEL_LEVEL_COUNT - 1);
@@ -4928,7 +4935,11 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // derived scs->lp used for segment/dispatcher setup; otherwise a 1-core
     // machine gets scs->lp == 1 (ST dispatch) while these checks still see 0.
     if (scs->static_config.level_of_parallelism == 0) {
-        scs->static_config.level_of_parallelism = get_default_level_of_parallelism(get_num_processors());
+        uint32_t core_count = get_num_processors();
+        if (scs->static_config.pin_threads && scs->static_config.pin_threads < core_count) {
+            core_count = scs->static_config.pin_threads;
+        }
+        scs->static_config.level_of_parallelism = get_default_level_of_parallelism(core_count);
     }
 
     scs->static_config.qp            = config_struct->qp;

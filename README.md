@@ -117,6 +117,10 @@ It is most effective in CRF/CQP Random Access mode.
 
 Hides the encoder parameters banner that is normally printed at the start of an encode. This helps keep the console output cleaner if you are scripting or wrapping the encoder.
 
+- `--pin` *0 to core count*
+
+Pins the encoder threads to the first N logical processors of the machine. This gives better control over CPU core usage. Default is 0 (unpinned).
+
 - `--enable-tf 3`
 
 The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  
