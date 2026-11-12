@@ -121,6 +121,14 @@ Hides the encoder parameters banner that is normally printed at the start of an 
 
 Pins the encoder threads to the first N logical processors of the machine. This gives better control over CPU core usage. Default is 0 (unpinned).
 
+- **`--webm`**
+
+Outputs the bitstream in a WebM container instead of IVF, including the encoder version and command-line settings as track tags. A `.webm` output extension selects WebM automatically. Requires building with `--use-webm-io` (`enable-webm` in `build.bat`).
+
+- **Automatic output fallback**
+
+When no output path is given, the encoder derives one from the input file name (`<input>_skibidi.ivf`, `.obu`, or `.webm` depending on the selected format).
+
 - `--enable-tf 3`
 
 The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  

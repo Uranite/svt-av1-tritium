@@ -24,6 +24,10 @@
 #include "EbSvtAv1Enc.h"
 #include "app_film_grain.h"
 
+#ifdef CONFIG_WEBM_IO
+#include "third_party/webm/webmenc.h"
+#endif
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -60,6 +64,7 @@ typedef enum EncPass {
 typedef enum OutputFormat {
     OUTPUT_FORMAT_IVF = 0,
     OUTPUT_FORMAT_OBU,
+    OUTPUT_FORMAT_WEBM,
 } OutputFormat;
 
 #define WARNING_LENGTH 100
@@ -224,6 +229,13 @@ typedef struct EbConfig {
     void* ffms_index;
     int   ffms_track_num;
     int   crop_x, crop_y, crop_w, crop_h;
+
+#ifdef CONFIG_WEBM_IO
+    bool                     write_webm;
+    struct WebmOutputContext webm_ctx;
+    int                      argc;
+    const char**             argv;
+#endif
 } EbConfig;
 
 typedef struct EncChannel {

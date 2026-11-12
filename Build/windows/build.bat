@@ -172,6 +172,9 @@ if -%1-==-- (
 ) else if /I "%1"=="enable-libhdr10plus" (
     set "cmake_eflags=%cmake_eflags% -DLIBHDR10PLUS_RS_FOUND=1"
     shift
+) else if /I "%1"=="enable-webm" (
+    set "cmake_eflags=%cmake_eflags% -DUSE_WEBM_IO=ON"
+    shift
 ) else if /I "%1"=="ext-lib-static" (
     set "cmake_eflags=%cmake_eflags% -DEXT_LIB_STATIC=ON"
     shift
@@ -196,6 +199,6 @@ goto :args
 
 :help
     echo Batch file to build SVT-AV1 on Windows
-    echo Usage: build.bat [2022^|2019^|2017^|2015^|clean] [release^|debug] [nobuild] [test] [shared^|static] [c-only] [no-avx512] [enable-libdovi] [enable-libhdr10plus] [ext-lib-static] [no-apps] [lto] [no-lto] [no-enc]
+    echo Usage: build.bat [2022^|2019^|2017^|2015^|clean] [release^|debug] [nobuild] [test] [shared^|static] [c-only] [no-avx512] [enable-libdovi] [enable-libhdr10plus] [enable-webm] [ext-lib-static] [no-apps] [lto] [no-lto] [no-enc]
     exit /b 1
 goto :EOF

@@ -752,6 +752,13 @@ EbErrorType init_encoder(EbConfig* app_cfg) {
         }
     }
 
+    if (!app_cfg->config.hide_banner && app_cfg->config.pass != ENC_FIRST_PASS) {
+        const char* format = app_cfg->output_format == OUTPUT_FORMAT_WEBM ? "WebM"
+            : app_cfg->output_format == OUTPUT_FORMAT_OBU                 ? "OBU"
+                                                                          : "IVF";
+        fprintf(stderr, "Svt[info]: SVT [config]: output format \t\t\t\t\t\t: %s\n", format);
+    }
+
     // Send over all configuration parameters
     // Set the Parameters
     EbErrorType return_error = svt_av1_enc_set_parameter(app_cfg->svt_encoder_handle, &app_cfg->config);
