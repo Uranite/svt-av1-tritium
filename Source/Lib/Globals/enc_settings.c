@@ -1364,6 +1364,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->kf_tf_strength           = 1;
     config_ptr->alt_lambda_factors       = 0;
     config_ptr->sharp_tx                 = 1;
+    config_ptr->low_q_taper              = false;
     config_ptr->light_rdoq               = 1;
     config_ptr->alt_ssim_tuning          = false;
     config_ptr->tx_bias                  = 0;
@@ -1666,6 +1667,10 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
         SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t\t: %d / %d\n",
                  config->sharpness,
                  config->luminance_qp_bias);
+
+        if (config->low_q_taper) {
+            SVT_INFO("SVT [config]: Low Q Taper \t\t\t\t\t\t\t: on\n");
+        }
 
         switch (config->enable_tf) {
         case 1:
@@ -3116,6 +3121,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"avif", &config_struct->avif},
         {"rtc", &config_struct->rtc},
         {"adaptive-film-grain", &config_struct->adaptive_film_grain},
+        {"low-q-taper", &config_struct->low_q_taper},
         {"enable-kf-tf", &config_struct->enable_tf_key},
         {"enable-intrabc", &config_struct->enable_intrabc},
         {"alt-lambda-factors", &config_struct->alt_lambda_factors},

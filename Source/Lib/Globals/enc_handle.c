@@ -5214,6 +5214,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // Sharp TX
     scs->static_config.sharp_tx = config_struct->sharp_tx;
 
+    // Low Q Taper
+    scs->static_config.low_q_taper = config_struct->low_q_taper;
+
     // Light RDOQ
     scs->static_config.light_rdoq = config_struct->light_rdoq;
 

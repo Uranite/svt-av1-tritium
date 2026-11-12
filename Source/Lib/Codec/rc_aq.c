@@ -13,6 +13,7 @@
 #include "sequence_control_set.h"
 #include "inv_transforms.h"
 #include "me_context.h"
+#include "md_process.h"
 #include "utility.h"
 
 #include "rc_process.h"
@@ -650,6 +651,47 @@ void svt_av1_normalize_sb_delta_q(PictureControlSet* pcs) {
             SVT_LOG("\n");
         }
 #endif
+    }
+}
+
+/******************************************************
+ * svt_av1_lowq_taper
+ * Prevents macroblocks from being boosted to very low q.
+ * If macroblocks are boosted below q11, taper the effect.
+ ******************************************************/
+void svt_av1_lowq_taper(PictureControlSet* pcs) {
+    SequenceControlSet* scs = pcs->ppcs->scs;
+
+    // q_index 0 is lossless; leave it untouched
+    if (pcs->ppcs->frm_hdr.quantization_params.base_q_idx == 0) {
+        return;
+    }
+
+    const int16_t scs_qindex = CLIP3(MINQ,
+                                     MAXQ,
+                                     quantizer_to_qindex[(uint8_t)scs->static_config.qp] +
+                                         scs->static_config.extended_crf_qindex_offset);
+    const int16_t dampening_thr = MIN(44, scs_qindex);
+    uint16_t      sb_cnt        = scs->sb_total_count;
+
+    for (uint32_t sb_addr = 0; sb_addr < sb_cnt; ++sb_addr) {
+        SuperBlock* sb_ptr    = pcs->sb_ptr_array[sb_addr];
+        int16_t     sb_qindex = sb_ptr->qindex;
+
+        if (sb_qindex < dampening_thr && sb_qindex < scs_qindex) {
+            int16_t boost = scs_qindex - sb_qindex;
+            int16_t boost_beyond_thr;
+            if (dampening_thr == scs_qindex) {
+                boost_beyond_thr = boost;
+            } else {
+                boost_beyond_thr = dampening_thr - sb_qindex;
+            }
+            float boost_before_thr = boost - boost_beyond_thr;
+            float x                = 1 - (float)sb_qindex / dampening_thr;
+            float boost_dampener   = (-0.3 * pow(x, 2) + x) / x;
+            int16_t new_boost      = boost_before_thr + boost_beyond_thr * boost_dampener;
+            sb_ptr->qindex         = scs_qindex - new_boost;
+        }
     }
 }
 

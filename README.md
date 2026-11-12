@@ -316,6 +316,12 @@ A smarter content detection algorithm to optimize the encoder for either screen 
 
 Controls noise detection which disables CDEF/restoration when noise level is high enough. [0: off, 1: both CDEF and restoration noise-adaptive filtering are on, 2: default tune behavior, 3: noise-adaptive CDEF only, 4: noise-adaptive restoration only] The default is 2.
 
+### From [SVT-AV1-PSYEX](https://github.com/BlueSwordM/svt-av1-psyex)
+
+- `--low-q-taper` *0 and 1*
+
+Prevents the encoder from choosing extremely low quantizers for blocks/keyframes, tapering off the quantizers chosen below q11; this can greatly increase efficiency at very low CRF. The default is 0 (off).
+
 ### Modified Defaults
 
 While SVT-AV1-HDR has questionable defaults that I'd like to change, I don't want to make the fork situation worse by yet introducing another fork with different defaults that you'd have to learn and remember. Instead, I opted to keep SVT-AV1-HDR defaults, but enable Scene Change Detection and Auto Tiling on top of that
