@@ -751,6 +751,10 @@ static void generate_sb_qindex(PictureControlSet* pcs) {
 
     svt_av1_rc_init_sb_qindex(pcs, scs);
 
+    if (scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF && scs->static_config.low_q_taper) {
+        svt_av1_lowq_taper(pcs);
+    }
+
     if (ppcs->frm_hdr.delta_q_params.delta_q_present && ppcs->frm_hdr.delta_q_params.delta_q_res != 1) {
         // adjust delta q res and normalize superblock delta q values to reduce signaling overhead
         svt_av1_normalize_sb_delta_q(pcs);

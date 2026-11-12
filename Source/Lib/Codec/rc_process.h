@@ -247,6 +247,7 @@ void svt_av1_rc_init_sb_qindex(struct PictureControlSet* pcs, struct SequenceCon
 void svt_av1_variance_adjust_qp(struct PictureControlSet* pcs, bool readjust_base_q_idx);
 void svt_aom_sb_qp_derivation_tpl_la(struct PictureControlSet* pcs);
 void svt_av1_normalize_sb_delta_q(struct PictureControlSet* pcs);
+void svt_av1_lowq_taper(struct PictureControlSet* pcs);
 void svt_av1_generate_b64_me_qindex_map(struct PictureControlSet* pcs);
 
 int32_t svt_av1_convert_qindex_to_q_fp8(int32_t qindex, EbBitDepth bit_depth);
