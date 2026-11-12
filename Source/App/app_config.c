@@ -2100,7 +2100,7 @@ static EbErrorType set_default_output_path(EbConfig* cfg) {
                                                                : "_skibidi.ivf";
 
     size_t total    = base_len + strlen(ext) + 1;
-    char*  out_path = malloc(total);
+    char*  out_path = (char*)malloc(total);
     if (!out_path) {
         return EB_ErrorInsufficientResources;
     }
