@@ -20,6 +20,8 @@ set "buildtype=Release"
 :: Default is static
 set "shared=OFF"
 set "GENERATOR="
+:: Set when the selected generator only supports one build type at a time
+set "SINGLE_CONFIG="
 :: (cmake -G 2>&1 | Select-String -SimpleMatch '*').Line.Split('=')[0].TrimEnd().Replace('* ','')
 :: Default is not building unit tests
 set "unittest=OFF"
@@ -41,7 +43,7 @@ if "%shared%"=="ON" (
 
 if "%unittest%"=="ON" echo Building unit tests
 
-if /I "%GENERATOR:"=%"=="-GNinja" (
+if defined SINGLE_CONFIG (
     cmake ../.. %GENERATOR% -DCMAKE_BUILD_TYPE=%buildtype% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% || exit /b 1
 ) else if "%vs%"=="2019" (
     cmake ../.. %GENERATOR% -A x64 -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% || exit /b 1
@@ -51,7 +53,7 @@ if /I "%GENERATOR:"=%"=="-GNinja" (
     cmake ../.. %GENERATOR% -DCMAKE_INSTALL_PREFIX=%SYSTEMDRIVE%\svt-encoders -DBUILD_SHARED_LIBS=%shared% -DBUILD_TESTING=%unittest% %cmake_eflags% || exit /b 1
 )
 
-if "%build%"=="y" cmake --build . --config %buildtype%
+if "%build%"=="y" cmake --build . --config %buildtype% || exit /b 1
 goto :EOF
 
 :args
@@ -59,8 +61,10 @@ if -%1-==-- (
     exit /b
 ) else if /I "%1"=="/help" (
     call :help
+    exit /b 1
 ) else if /I "%1"=="help" (
     call :help
+    exit /b 1
 ) else if /I "%1"=="clean" (
     echo Cleaning build folder
     for %%i in (*) do if not "%%~i" == "build.bat" del "%%~i"
@@ -135,9 +139,12 @@ if -%1-==-- (
     shift
 ) else if /I "%1"=="clang" (
     echo Setting environment for Clang with Ninja
+    where clang >nul 2>nul || (echo clang not found in PATH & exit /b 1)
+    where ninja >nul 2>nul || (echo ninja not found in PATH & exit /b 1)
     set "GENERATOR=Ninja"
+    set "SINGLE_CONFIG=y"
     set "CC=clang"
-    set "CXX=clang"
+    set "CXX=clang++"
     shift
 ) else if /I "%1"=="release" (
     set "buildtype=Release"
@@ -199,6 +206,6 @@ goto :args
 
 :help
     echo Batch file to build SVT-AV1 on Windows
-    echo Usage: build.bat [2022^|2019^|2017^|2015^|clean] [release^|debug] [nobuild] [test] [shared^|static] [c-only] [no-avx512] [enable-libdovi] [enable-libhdr10plus] [enable-webm] [ext-lib-static] [no-apps] [lto] [no-lto] [no-enc]
+    echo Usage: build.bat [clang^|ninja^|2022^|2019^|2017^|2015^|clean] [release^|debug] [nobuild] [test] [shared^|static] [c-only] [no-avx512] [enable-libdovi] [enable-libhdr10plus] [enable-webm] [ext-lib-static] [no-apps] [lto] [no-lto] [no-enc]
     exit /b 1
 goto :EOF
