@@ -1340,6 +1340,13 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t light_rdoq;
 
+    /* Pin the execution of threads to the first N logical processors.
+    * 0: unpinned
+    * N: pin threads to the first N processors
+    *
+    * Default is 0. */
+    uint32_t pin_threads;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1379,6 +1386,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint8_t) // alt_dlf
         - sizeof(bool) // multiply_min_keyint
         - sizeof(uint8_t) // light_rdoq
+        - sizeof(uint32_t) // pin_threads
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
