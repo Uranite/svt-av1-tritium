@@ -660,8 +660,9 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
                 const bool sparse_primary = use_grid && subsampling_factor == 4 && plan->strength_count <= 2 &&
                     !(plan->secondary_mask | plan->zero_secondary_mask);
                 // The grid fast path bypasses the per-strength loop below, so it must be
-                // disabled when alt-cdef strength biasing is active.
-                if (!scs->static_config.alt_cdef && use_grid && !sparse_primary &&
+                // disabled when alt-cdef strength biasing is active, and for luma when the
+                // Daala CDEF metric is in use.
+                if (!scs->static_config.alt_cdef && !(use_daala_cdef && pli == 0) && use_grid && !sparse_primary &&
                     (!pli || xdec[pli] == ydec[pli])) {
                     uint64_t ssd[TOTAL_STRENGTHS];
                     svt_cdef_search_fb_10bit(

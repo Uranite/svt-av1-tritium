@@ -1076,24 +1076,24 @@ static uint64_t pd0_prediction_distortion(PictureControlSet* pcs, ModeDecisionCo
             distortion = fn->vf(
                 pred->y_buffer + pred_offset, pred->y_stride, input->y_buffer + src_offset, input->y_stride, &sse);
         }
-        if (ctx->tune_daala_level >= 4) {
-            const uint32_t qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
-            uint64_t       daala_dist = svt_spatial_full_distortion_daala_kernel(input->y_buffer,
-                                                                   src_offset,
-                                                                   input->y_stride,
-                                                                   pred->y_buffer,
-                                                                   pred_offset,
-                                                                   pred->y_stride,
-                                                                   width,
-                                                                   height,
-                                                                   pcs->scs->static_config.encoder_bit_depth,
-                                                                   qindex,
-                                                                   1);
-            if (pcs->scs->static_config.encoder_bit_depth > EB_EIGHT_BIT) {
-                daala_dist <<= 4;
-            }
-            distortion += daala_dist;
+    }
+    if (ctx->tune_daala_level >= 4) {
+        const uint32_t qindex     = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+        uint64_t       daala_dist = svt_spatial_full_distortion_daala_kernel(input->y_buffer,
+                                                                             src_offset,
+                                                                             input->y_stride,
+                                                                             pred->y_buffer,
+                                                                             pred_offset,
+                                                                             pred->y_stride,
+                                                                             width,
+                                                                             height,
+                                                                             pcs->scs->static_config.encoder_bit_depth,
+                                                                             qindex,
+                                                                             1);
+        if (pcs->scs->static_config.encoder_bit_depth > EB_EIGHT_BIT) {
+            daala_dist <<= 4;
         }
+        distortion += daala_dist;
     }
     return distortion;
 }
