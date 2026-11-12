@@ -176,6 +176,54 @@ void svt_format_thread_name(char* buf, size_t size, const char* prefix, uint32_t
 }
 
 /****************************************
+ * Thread affinity
+ ****************************************/
+#if defined(_WIN32)
+static uint8_t   pin_threads_enabled = 0;
+static DWORD_PTR pin_threads_mask    = 0;
+#elif defined(__linux__) && !defined(__ANDROID__)
+static uint8_t   pin_threads_enabled = 0;
+static cpu_set_t pin_threads_set;
+#else
+static uint8_t pin_threads_enabled = 0;
+#endif
+
+void svt_set_thread_affinity(uint32_t num_threads) {
+#if defined(_WIN32)
+    if (num_threads == 0) {
+        pin_threads_enabled = 0;
+        return;
+    }
+    // A processor group holds at most 64 logical processors; clamp the mask.
+    if (num_threads > sizeof(DWORD_PTR) * 8) {
+        num_threads = (uint32_t)(sizeof(DWORD_PTR) * 8);
+    }
+    DWORD_PTR mask = 0;
+    for (uint32_t i = 0; i < num_threads; i++) {
+        mask |= (DWORD_PTR)1 << i;
+    }
+    pin_threads_mask    = mask;
+    pin_threads_enabled = 1;
+#elif defined(__linux__) && !defined(__ANDROID__)
+    if (num_threads == 0) {
+        pin_threads_enabled = 0;
+        return;
+    }
+    if (num_threads > CPU_SETSIZE) {
+        num_threads = CPU_SETSIZE;
+    }
+    CPU_ZERO(&pin_threads_set);
+    for (uint32_t i = 0; i < num_threads; i++) {
+        CPU_SET(i, &pin_threads_set);
+    }
+    pin_threads_enabled = 1;
+#else
+    (void)num_threads;
+    pin_threads_enabled = 0;
+#endif
+}
+
+/****************************************
  * svt_create_thread
  ****************************************/
 EbHandle svt_create_thread(THREAD_FUNC_RETURN thread_function(void*), void* thread_context, const char* name) {
@@ -222,6 +270,10 @@ EbHandle svt_create_thread(THREAD_FUNC_RETURN thread_function(void*), void* thre
                 }
             }
         }
+    }
+
+    if (thread_handle && pin_threads_enabled) {
+        SetThreadAffinityMask((HANDLE)thread_handle, pin_threads_mask);
     }
 
 #else
@@ -282,6 +334,12 @@ EbHandle svt_create_thread(THREAD_FUNC_RETURN thread_function(void*), void* thre
     }
 
     pthread_attr_destroy(&attr);
+
+#if defined(__linux__) && !defined(__ANDROID__)
+    if (pin_threads_enabled) {
+        pthread_setaffinity_np(*th, sizeof(cpu_set_t), &pin_threads_set);
+    }
+#endif
 
     thread_handle = th;
 #endif // _WIN32
