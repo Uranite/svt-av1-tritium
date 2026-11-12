@@ -97,6 +97,7 @@
 #define NOISE_TOKEN "--noise"
 #define NOISE_CHROMA_TOKEN "--noise-chroma"
 #define PHOTON_NOISE_TOKEN "--photon-noise"
+#define PHOTON_NOISE_CHROMA_TOKEN "--photon-noise-chroma"
 #define NOISE_CHROMA_FROM_LUMA_TOKEN "--noise-chroma-from-luma"
 #define NOISE_SIZE_TOKEN "--noise-size"
 #define INTRA_REFRESH_TYPE_TOKEN "--irefresh-type" // no Eval
@@ -1138,6 +1139,9 @@ ConfigDescription config_entry_specific[] = {
      "Generate photon noise table for film grain from a simulated camera ISO, default is 0 [0: off, 1-100000: ISO "
      "value]"},
 
+    {PHOTON_NOISE_CHROMA_TOKEN,
+     "Apply the photon noise table to chroma using luma scaling, default is 0 [0: off, 1: on]"},
+
     {NOISE_CHROMA_TOKEN,
      "Chroma noise with strength based on `--noise` setting (-1) or set its strength independently (0-200), default is "
      "-1 [-1: ~60% of luma, 0: off, 1-200: strength value]"},
@@ -1426,6 +1430,7 @@ ConfigEntry config_entry[] = {
     {NOISE_TOKEN, "Noise", set_cfg_generic_token},
     {NOISE_CHROMA_TOKEN, "NoiseChroma", set_cfg_generic_token},
     {PHOTON_NOISE_TOKEN, "PhotonNoise", set_cfg_generic_token},
+    {PHOTON_NOISE_CHROMA_TOKEN, "PhotonNoiseChroma", set_cfg_generic_token},
     {NOISE_CHROMA_FROM_LUMA_TOKEN, "NoiseChromaFromLuma", set_cfg_generic_token},
     {NOISE_SIZE_TOKEN, "NoiseSize", set_cfg_generic_token},
 #endif

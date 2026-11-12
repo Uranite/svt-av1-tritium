@@ -137,6 +137,10 @@ Sets the film grain random seed(s) used for grain synthesis. Multiple seeds are 
 
 Generates a physically motivated photon-noise film grain table from a simulated camera ISO sensitivity. The table is applied as `--fgs-table` during the encode.
 
+- `--photon-noise-chroma` *0 and 1*
+
+Applies the photon-noise table to the chroma planes using luma scaling, default is 0.
+
 - `--enable-tf 3`
 
 The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  

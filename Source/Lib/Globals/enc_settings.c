@@ -2942,6 +2942,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"film-grain-denoise", &config_struct->film_grain_denoise_apply},
         {"noise", &config_struct->noise_strength},
         {"noise-chroma-from-luma", &config_struct->noise_chroma_from_luma},
+        {"photon-noise-chroma", &config_struct->enable_photon_noise_chroma},
         {"enable-dlf", &config_struct->enable_dlf_flag},
         {"resize-mode", &config_struct->resize_mode},
         {"resize-denom", &config_struct->resize_denom},
