@@ -1320,9 +1320,9 @@ typedef struct EbSvtAv1EncConfiguration {
 
     /* @brief use settings which reduce memory usage
      *
-     * Default is false.
+     * Default is 0.
      */
-    bool low_memory;
+    uint8_t low_memory;
 
     /* @brief do not print encoder parameters
      *
