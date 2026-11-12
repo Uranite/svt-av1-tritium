@@ -868,8 +868,9 @@ typedef struct EbSvtAv1EncConfiguration {
     /* Stores the optional film grain synthesis info */
     AomFilmGrain* fgs_table;
 
-    /* New parameters can go in under this line. Also deduct the size of the parameter */
-    /* from the padding array */
+    /* New parameters can go in under this line. The trailing padding budget is fully
+     * consumed (see fgs_seed_count/fgs_seeds at the end of the struct), so additional
+     * fields must either reclaim existing alignment holes or grow the struct size. */
 
     /* Variance Boost
      * false = disable Variance Boost
@@ -1437,53 +1438,15 @@ typedef struct EbSvtAv1EncConfiguration {
     * Default is 0. */
     uint32_t mc_denoise_limit;
 
-    // clang-format off
-    /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
-    uint8_t padding[128
-        - sizeof(uint8_t) // roi_map_block_size
-        - sizeof(PredStructure) + sizeof (uint8_t) // pred_strucutre type was changed from uint8_t to PredStructure
-        - sizeof(int) // This was added to take into account the new hbd_mds field while keeping previous ABI compat
-        - sizeof(bool) // add the ability to shut MCTF for key frames
-        - sizeof(uint32_t) * 2 // max intra/inter bitrates
-        - sizeof(bool) // enable_intrabc
-        - sizeof(uint8_t) // max_managed_refs (ref-frame mgmt)
-        - sizeof(uint8_t) // max_hierarchical_levels (runtime MG size change)
-        - sizeof(uint8_t) // max_allowed_consecutive_frames_skips
-        - sizeof(uint8_t) // fast_decode_user_opts
-        - sizeof(uint8_t) // noise_norm_strength
-        - sizeof(uint8_t) // kf_tf_strength
-        - sizeof(bool) // alt_lambda_factors
-        - sizeof(uint8_t) // sharp_tx
-        - sizeof(double) // qp_scale_compress_strength
-        - sizeof(bool) // alt_ssim_tuning
-        - sizeof(uint8_t) // tx_bias
-        - sizeof(uint8_t) // complex_hvs
-        - sizeof(uint8_t) // noise_adaptive_filtering
-        - sizeof(uint8_t) // cdef_scaling
-        - sizeof(uint8_t) // noise_strength
-        - sizeof(int32_t) // noise_strength_chroma
-        - sizeof(bool) // color_range_provided
-        - sizeof(int8_t) // noise_size
-        - sizeof(uint8_t) // noise_chroma_from_luma
-        - sizeof(int8_t) // enable_qmpsnr
-        - sizeof(bool) // auto_tiling
-        - sizeof(int32_t) // min_intra_period_length
-        - sizeof(SvtAv1QualityZone*) // quality_zones
-        - sizeof(uint16_t) // num_zones
-        - sizeof(uint8_t) // alt_cdef
-        - sizeof(uint8_t) // enable_daala
-        - sizeof(bool) // low_memory
-        - sizeof(bool) // hide_banner
-        - sizeof(uint8_t) // alt_dlf
-        - sizeof(bool) // multiply_min_keyint
-        - sizeof(uint8_t) // light_rdoq
-        - sizeof(uint32_t) - sizeof(uint8_t) // photon_noise_iso, enable_photon_noise_chroma
-        - sizeof(uint32_t) // pin_threads
-        - sizeof(bool) // low_q_taper
-        - sizeof(uint8_t) // output_format
-        - sizeof(uint32_t) * 9 // mc_denoise configuration fields appended for ABI compatibility
-    ];
-    // clang-format on
+    /* Film grain random seeds, cycled in display order.
+    * Set through --fgs-seed / FilmGrainSeed; -1 selects the built-in pool.
+    * Owned by the app; the library deep-copies it on set_parameter.
+    * Appended here to preserve offsets of the existing public fields. The count is
+    * declared first so the pair packs into the struct's final 12 bytes, consuming the
+    * last of the trailing padding budget; sizeof(EbSvtAv1EncConfiguration) is unchanged.
+    * Default is NULL / 0. */
+    uint32_t  fgs_seed_count;
+    uint16_t* fgs_seeds;
 } EbSvtAv1EncConfiguration;
 
 /**

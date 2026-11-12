@@ -221,6 +221,7 @@ set(all_files
         noise_generation.h
         photon_noise.c
         photon_noise.h
+        film_grain_seeds.h
         pic_analysis_process.c
         pic_analysis_process.h
         pic_analysis_results.c
