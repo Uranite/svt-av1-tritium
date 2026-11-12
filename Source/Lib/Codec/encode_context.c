@@ -13,6 +13,7 @@
 
 #include "encode_context.h"
 #include "EbSvtAv1ErrorCodes.h"
+#include "mc_denoise_glue.h"
 #include "svt_threads.h"
 
 static EbErrorType create_stats_buffer(FIRSTPASS_STATS** frame_stats_buffer, STATS_BUFFER_CTX* stats_buf_context,
@@ -57,6 +58,8 @@ static void destroy_stats_buffer(STATS_BUFFER_CTX* stats_buf_context, FIRSTPASS_
 
 static void encode_context_dctor(EbPtr p) {
     EncodeContext* obj = (EncodeContext*)p;
+    // motion-compensated denoiser state (created in svt_av1_enc_init when enabled)
+    svt_mcd_state_destroy(&obj->mcd_state);
     EB_DESTROY_MUTEX(obj->total_number_of_recon_frame_mutex);
     EB_DESTROY_MUTEX(obj->total_number_of_shown_frames_mutex);
     EB_DESTROY_MUTEX(obj->sc_buffer_mutex);

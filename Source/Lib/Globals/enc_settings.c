@@ -864,6 +864,49 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         return_error = EB_ErrorBadParameter;
     }
 
+    if (config->mc_denoise) {
+        if (config->mc_denoise != 1) {
+            SVT_ERROR("The mc-denoise signal can only have a value of 0 or 1\n");
+            return_error = EB_ErrorBadParameter;
+        }
+        if (config->mc_denoise_tr < 1 || config->mc_denoise_tr > 3) {
+            SVT_ERROR("The mc-denoise temporal radius is only supported for values in [1,3]\n");
+            return_error = EB_ErrorBadParameter;
+        }
+        if (config->mc_denoise_blksize != 8 && config->mc_denoise_blksize != 16 && config->mc_denoise_blksize != 32) {
+            SVT_ERROR("The mc-denoise block size is only supported for values of 8, 16 or 32\n");
+            return_error = EB_ErrorBadParameter;
+        }
+        if (config->mc_denoise_prefilter != 0 && config->mc_denoise_prefilter != 1) {
+            SVT_ERROR("The mc-denoise prefilter signal can only have a value of 0 or 1\n");
+            return_error = EB_ErrorBadParameter;
+        }
+        if (config->mc_denoise_thsad > 10000) {
+            SVT_WARN("mc-denoise-thsad %u is unusually large; the supported range is [0,10000]\n",
+                     config->mc_denoise_thsad);
+        }
+        if (config->mc_denoise_sigma < 1 || config->mc_denoise_sigma > 1000) {
+            SVT_WARN("mc-denoise-sigma %u is outside the supported range [1,1000]\n", config->mc_denoise_sigma);
+        }
+        if (config->mc_denoise_thscd1 > 10000) {
+            SVT_WARN("mc-denoise-thscd1 %u is unusually large; the supported range is [0,10000]\n",
+                     config->mc_denoise_thscd1);
+        }
+        if (config->mc_denoise_thscd2 > 100) {
+            SVT_ERROR("The mc-denoise changed block percentage is only supported for values in [0,100]\n");
+            return_error = EB_ErrorBadParameter;
+        }
+        if (config->mc_denoise_limit > 255) {
+            SVT_ERROR("The mc-denoise pixel delta limit is only supported for values in [0,255]\n");
+            return_error = EB_ErrorBadParameter;
+        }
+        if (config->enc_mode > 6) {
+            SVT_WARN(
+                "It is recommended to not use the motion-compensated denoiser for presets greater than 6 as it "
+                "produces a significant compute overhead.\n");
+        }
+    }
+
     if (config->noise_strength > 200) {
         SVT_ERROR("Noise strength value should be in the range [0 - 200]\n");
         return_error = EB_ErrorBadParameter;
@@ -1176,6 +1219,17 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->noise_strength_chroma       = -1;
     config_ptr->noise_chroma_from_luma      = 0;
     config_ptr->noise_size                  = -1;
+
+    // Motion-compensated temporal denoising
+    config_ptr->mc_denoise          = 0;
+    config_ptr->mc_denoise_tr       = 1;
+    config_ptr->mc_denoise_thsad    = 50;
+    config_ptr->mc_denoise_blksize  = 16;
+    config_ptr->mc_denoise_prefilter = 1;
+    config_ptr->mc_denoise_sigma    = 50;
+    config_ptr->mc_denoise_thscd1   = 400;
+    config_ptr->mc_denoise_thscd2   = 51;
+    config_ptr->mc_denoise_limit    = 0;
 
     // CPU Flags
     config_ptr->use_cpu_flags = EB_CPU_FLAGS_ALL;
@@ -1548,6 +1602,21 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                      config->noise_chroma_from_luma == 1 ? " (from luma)" : "",
                      config->noise_size == -1 ? "auto" : (config->noise_size == 0 ? "0" : ""),
                      config->noise_size > 0 ? config->noise_size : 0);
+        }
+        if (config->mc_denoise) {
+            SVT_INFO(
+                "SVT [config]: mc denoise / tr / thsad / blksize / prefilter \t\t\t: %d / %d / %d / %d / %d\n",
+                config->mc_denoise,
+                config->mc_denoise_tr,
+                config->mc_denoise_thsad,
+                config->mc_denoise_blksize,
+                config->mc_denoise_prefilter);
+            SVT_INFO(
+                "SVT [config]: mc denoise sigma / thscd1 / thscd2 / limit \t\t\t: %d / %d / %d / %d\n",
+                config->mc_denoise_sigma,
+                config->mc_denoise_thscd1,
+                config->mc_denoise_thscd2,
+                config->mc_denoise_limit);
         }
         SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t\t: %d / %d\n",
                  config->sharpness,
@@ -2769,6 +2838,15 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"q", &config_struct->qp},
         {"qp", &config_struct->qp},
         {"film-grain", &config_struct->film_grain_denoise_strength},
+        {"mc-denoise", &config_struct->mc_denoise},
+        {"mc-denoise-tr", &config_struct->mc_denoise_tr},
+        {"mc-denoise-thsad", &config_struct->mc_denoise_thsad},
+        {"mc-denoise-blksize", &config_struct->mc_denoise_blksize},
+        {"mc-denoise-prefilter", &config_struct->mc_denoise_prefilter},
+        {"mc-denoise-sigma", &config_struct->mc_denoise_sigma},
+        {"mc-denoise-thscd1", &config_struct->mc_denoise_thscd1},
+        {"mc-denoise-thscd2", &config_struct->mc_denoise_thscd2},
+        {"mc-denoise-limit", &config_struct->mc_denoise_limit},
         {"hierarchical-levels", &config_struct->hierarchical_levels},
         {"tier", &config_struct->tier},
         {"level", &config_struct->level},

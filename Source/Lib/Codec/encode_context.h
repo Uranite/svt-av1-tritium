@@ -190,6 +190,7 @@ typedef struct EncodeContext {
 #if CONFIG_SINGLE_THREAD_KERNEL
     void* st_me_context; // MotionEstimationContext_t* for inline TF in ST mode
 #endif
+    void* mcd_state; // motion-compensated denoiser state (owned by mc_denoise.c), created in svt_av1_enc_init
 } EncodeContext;
 
 typedef struct EncodeContextInitData {

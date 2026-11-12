@@ -55,6 +55,7 @@
 #include "rc_results.h"
 #include "definitions.h"
 #include "metadata_handle.h"
+#include "mc_denoise_glue.h"
 #include "noise_generation.h"
 
 #include "pack_unpack_c.h"
@@ -653,7 +654,10 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         scs->total_process_init_count += (scs->cdef_process_init_count = 1);
         scs->total_process_init_count += (scs->rest_process_init_count = 1);
     } else if (lp <= PARALLEL_LEVEL_2) {
-        const uint8_t pa_processes = scs->static_config.film_grain_denoise_strength ? 16 : 1;
+        const uint8_t pa_processes = (scs->static_config.film_grain_denoise_strength ||
+                                      scs->static_config.mc_denoise)
+            ? 16
+            : 1;
         scs->total_process_init_count += (scs->source_based_operations_process_init_count = 1);
         scs->total_process_init_count += (scs->picture_analysis_process_init_count = clamp(
                                               pa_processes, 1, max_pa_proc));
@@ -670,7 +674,10 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         scs->total_process_init_count += (scs->cdef_process_init_count = clamp(6, 1, max_cdef_proc));
         scs->total_process_init_count += (scs->rest_process_init_count = clamp(1, 1, max_rest_proc));
     } else if (lp <= PARALLEL_LEVEL_3) {
-        const uint8_t pa_processes = scs->static_config.film_grain_denoise_strength ? 16 : 1;
+        const uint8_t pa_processes = (scs->static_config.film_grain_denoise_strength ||
+                                      scs->static_config.mc_denoise)
+            ? 16
+            : 1;
         scs->total_process_init_count += (scs->source_based_operations_process_init_count = 1);
         scs->total_process_init_count += (scs->picture_analysis_process_init_count = clamp(
                                               pa_processes, 1, max_pa_proc));
@@ -687,7 +694,8 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         scs->total_process_init_count += (scs->cdef_process_init_count = clamp(6, 1, max_cdef_proc));
         scs->total_process_init_count += (scs->rest_process_init_count = clamp(2, 1, max_rest_proc));
     } else if (lp <= PARALLEL_LEVEL_5 || scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
-        uint8_t pa_processes = scs->static_config.film_grain_denoise_strength ? 20 : 4;
+        uint8_t pa_processes = (scs->static_config.film_grain_denoise_strength || scs->static_config.mc_denoise) ? 20
+                                                                                                                 : 4;
         if (scs->static_config.pass == ENC_FIRST_PASS) {
             pa_processes = lp <= PARALLEL_LEVEL_5 ? 12 : 20;
         }
@@ -708,7 +716,8 @@ static EbErrorType load_default_buffer_configuration_settings(SequenceControlSet
         scs->total_process_init_count += (scs->rest_process_init_count = clamp(4, 1, max_rest_proc));
     } else {
         const uint8_t pa_processes = (scs->static_config.pass == ENC_FIRST_PASS ||
-                                      scs->static_config.film_grain_denoise_strength)
+                                      scs->static_config.film_grain_denoise_strength ||
+                                      scs->static_config.mc_denoise)
             ? 20
             : 16;
         scs->total_process_init_count += (scs->source_based_operations_process_init_count = 1);
@@ -1342,6 +1351,18 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     svt_aom_setup_common_rtcd_internal(scs->static_config.use_cpu_flags);
     svt_aom_setup_rtcd_internal(scs->static_config.use_cpu_flags);
     svt_run_once(&global_tables_once, init_global_tables);
+
+    // Motion-compensated denoiser state: one per encoder instance, living on the
+    // shared EncodeContext (SCS objects are struct-copied, so the state cannot hang
+    // off SCS). Released by encode_context_dctor.
+    if (scs->static_config.mc_denoise) {
+        return_error = svt_mcd_state_create(&enc_handle_ptr->scs_instance->enc_ctx->mcd_state,
+                                            &scs->static_config);
+        if (return_error != EB_ErrorNone) {
+            SVT_ERROR("Failed to initialize the motion-compensated denoiser state\n");
+            return return_error;
+        }
+    }
 
     // Per-instance block geometry table allocation
     EB_MALLOC_ARRAY(scs->blk_geom_mds, scs->max_block_cnt);
@@ -4615,6 +4636,27 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.noise_strength_chroma  = config_struct->noise_strength_chroma;
     scs->static_config.noise_chroma_from_luma = config_struct->noise_chroma_from_luma;
     scs->static_config.noise_size             = config_struct->noise_size;
+
+    // Motion-compensated temporal denoising
+    scs->static_config.mc_denoise          = config_struct->mc_denoise;
+    scs->static_config.mc_denoise_tr       = config_struct->mc_denoise_tr;
+    scs->static_config.mc_denoise_thsad    = config_struct->mc_denoise_thsad;
+    scs->static_config.mc_denoise_blksize  = config_struct->mc_denoise_blksize;
+    scs->static_config.mc_denoise_prefilter = config_struct->mc_denoise_prefilter;
+    scs->static_config.mc_denoise_sigma    = config_struct->mc_denoise_sigma;
+    scs->static_config.mc_denoise_thscd1   = config_struct->mc_denoise_thscd1;
+    scs->static_config.mc_denoise_thscd2   = config_struct->mc_denoise_thscd2;
+    scs->static_config.mc_denoise_limit    = config_struct->mc_denoise_limit;
+    if (scs->static_config.mc_denoise && scs->static_config.film_grain_denoise_strength > 0) {
+        SVT_WARN(
+            "Both mc-denoise and film-grain denoising are enabled. The motion-compensated denoiser runs first, and "
+            "the film grain estimation then works on already denoised pixels, which degrades the grain estimate.\n");
+    }
+    if (scs->static_config.mc_denoise && scs->static_config.enable_overlays) {
+        SVT_WARN(
+            "mc-denoise with overlays enabled: the coded overlay pictures are not denoised (only the base layer is), "
+            "so denoised and un-denoised frames will alternate in the output.\n");
+    }
 
     // MD Parameters
     scs->enable_hbd_mode_decision = SVT_EFFECTIVE_BIT_DEPTH(config_struct->encoder_bit_depth) > 8 ? DEFAULT : 0;

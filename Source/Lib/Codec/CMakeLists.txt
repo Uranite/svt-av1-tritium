@@ -169,6 +169,16 @@ set(all_files
         k_means_template.h
         lambda_rate_tables.h
         mathutils.h
+        mc_denoise.c
+        mc_denoise.h
+        mc_denoise_degrain.c
+        mc_denoise_dfttest.c
+        mc_denoise_dfttest_ctx.h
+        mc_denoise_glue.h
+        mc_denoise_me.c
+        mc_denoise_pel.c
+        mc_denoise_simd.c
+        mc_denoise_simd.h
         mcomp.c
         mcomp.h
         md_rate_estimation.c
@@ -305,6 +315,27 @@ set(all_files
         warped_motion.c
         warped_motion.h
         )
+
+# The denoiser's scalar and SIMD float kernels must not contract mul+add into
+# FMA: their dfttest and mask-merge results are bit-identical only without
+# contraction. MSVC does not contract under its default /fp:precise. Apply
+# this to every GNU-style compiler and architecture (not only x86) so the
+# denoiser's output does not depend on the host ISA; AArch64 additionally
+# gets the flag globally for cross-arch bitstream parity.
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        # clang-cl ignores the bare GNU flag (and warns); it has to be
+        # forwarded through /clang: to reach the clang driver.
+        set_source_files_properties(mc_denoise_simd.c mc_denoise_dfttest.c PROPERTIES
+            COMPILE_OPTIONS "/clang:-ffp-contract=off")
+    else()
+        set_source_files_properties(mc_denoise_simd.c mc_denoise_dfttest.c PROPERTIES
+            # keep -ffp-contract=off AFTER any -march/-mno-avx additions in the
+            # global C flags (see the add_compile_options ordering above): parity
+            # of the scalar and SIMD float kernels depends on FMA staying disabled
+            COMPILE_OPTIONS "-ffp-contract=off")
+    endif()
+endif()
 
 add_library(CODEC OBJECT ${all_files})
 

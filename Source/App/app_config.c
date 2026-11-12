@@ -94,6 +94,15 @@
 #define LEVEL_TOKEN "--level"
 #define FILM_GRAIN_TOKEN "--film-grain"
 #define FILM_GRAIN_DENOISE_APPLY_TOKEN "--film-grain-denoise"
+#define MC_DENOISE_TOKEN "--mc-denoise"
+#define MC_DENOISE_TR_TOKEN "--mc-denoise-tr"
+#define MC_DENOISE_THSAD_TOKEN "--mc-denoise-thsad"
+#define MC_DENOISE_BLKSIZE_TOKEN "--mc-denoise-blksize"
+#define MC_DENOISE_PREFILTER_TOKEN "--mc-denoise-prefilter"
+#define MC_DENOISE_SIGMA_TOKEN "--mc-denoise-sigma"
+#define MC_DENOISE_THSCD1_TOKEN "--mc-denoise-thscd1"
+#define MC_DENOISE_THSCD2_TOKEN "--mc-denoise-thscd2"
+#define MC_DENOISE_LIMIT_TOKEN "--mc-denoise-limit"
 #define NOISE_TOKEN "--noise"
 #define NOISE_CHROMA_TOKEN "--noise-chroma"
 #define NOISE_CHROMA_FROM_LUMA_TOKEN "--noise-chroma-from-luma"
@@ -1121,6 +1130,35 @@ ConfigDescription config_entry_specific[] = {
      "grain size]"},
 
 #endif
+    // Motion-compensated temporal denoising
+    {MC_DENOISE_TOKEN,
+     "Motion-compensated temporal denoising of the input picture (runs before encoding), default is 0 [0: off, "
+     "1: on]"},
+
+    {MC_DENOISE_TR_TOKEN,
+     "Temporal radius of the motion-compensated denoiser, default is 1 [1-3]"},
+
+    {MC_DENOISE_THSAD_TOKEN,
+     "SAD soft threshold of the motion-compensated denoiser (normalized 8-bit units), default is 50 [0-10000]"},
+
+    {MC_DENOISE_BLKSIZE_TOKEN, "Motion-compensated denoiser analysis block size, default is 16 [8, 16, 32]"},
+
+    {MC_DENOISE_PREFILTER_TOKEN,
+     "Spatial prefilter guiding the motion-compensated denoiser motion search, default is 1 [0: off, 1: dfttest]"},
+
+    {MC_DENOISE_SIGMA_TOKEN,
+     "Scale percent of the dfttest prefilter noise sigma, default is 50 [1-1000]"},
+
+    {MC_DENOISE_THSCD1_TOKEN,
+     "Per-block scene change SAD threshold of the motion-compensated denoiser, default is 400 [0-10000]"},
+
+    {MC_DENOISE_THSCD2_TOKEN,
+     "Percentage of changed blocks judged a scene change by the motion-compensated denoiser, default is 51 [0-100]"},
+
+    {MC_DENOISE_LIMIT_TOKEN,
+     "Maximum absolute change vs. the source allowed by the motion-compensated denoiser (normalized 8-bit scale), "
+     "default is 0 [0: off, 1-255]"},
+
     // --- start: SUPER-RESOLUTION SUPPORT
     {SUPERRES_MODE_INPUT,
      "Enable super-resolution mode, refer to the super-resolution section in the user guide, "
@@ -1401,6 +1439,18 @@ ConfigEntry config_entry[] = {
     {NOISE_CHROMA_FROM_LUMA_TOKEN, "NoiseChromaFromLuma", set_cfg_generic_token},
     {NOISE_SIZE_TOKEN, "NoiseSize", set_cfg_generic_token},
 #endif
+
+    // Motion-compensated temporal denoising
+    {MC_DENOISE_TOKEN, "McDenoise", set_cfg_generic_token},
+    {MC_DENOISE_TR_TOKEN, "McDenoiseTr", set_cfg_generic_token},
+    {MC_DENOISE_THSAD_TOKEN, "McDenoiseThsad", set_cfg_generic_token},
+    {MC_DENOISE_BLKSIZE_TOKEN, "McDenoiseBlksize", set_cfg_generic_token},
+    {MC_DENOISE_PREFILTER_TOKEN, "McDenoisePrefilter", set_cfg_generic_token},
+    {MC_DENOISE_SIGMA_TOKEN, "McDenoiseSigma", set_cfg_generic_token},
+    {MC_DENOISE_THSCD1_TOKEN, "McDenoiseThscd1", set_cfg_generic_token},
+    {MC_DENOISE_THSCD2_TOKEN, "McDenoiseThscd2", set_cfg_generic_token},
+    {MC_DENOISE_LIMIT_TOKEN, "McDenoiseLimit", set_cfg_generic_token},
+
 #ifdef LIBHDR10PLUS_RS_FOUND
     {HDR10PLUS_JSON_TOKEN, "Hdr10PlusJson", set_cfg_hdr10plus_json},
 #endif
