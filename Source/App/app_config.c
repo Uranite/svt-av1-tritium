@@ -846,10 +846,12 @@ ConfigDescription config_entry_options[] = {
 
     {OUTPUT_BITSTREAM_TOKEN,
      "Output compressed file path, use `stdout` or `-` to write to pipe. "
-     "Format is auto-detected from extension (.ivf or .obu), default is IVF"},
+     "Format is auto-detected from extension (.ivf or .obu), default is IVF. If omitted, a path is derived from the "
+     "input"},
     {OUTPUT_BITSTREAM_LONG_TOKEN,
      "Output compressed file path, use `stdout` or `-` to write to pipe. "
-     "Format is auto-detected from extension (.ivf or .obu), default is IVF"},
+     "Format is auto-detected from extension (.ivf or .obu), default is IVF. If omitted, a path is derived from the "
+     "input"},
 
     {OUTPUT_FORMAT_IVF_TOKEN, "Output bitstream in IVF container format (default)"},
     {OUTPUT_FORMAT_OBU_TOKEN, "Output bitstream as raw OBU (Open Bitstream Units) without IVF container"},
@@ -2012,6 +2014,44 @@ static EbErrorType app_verify_config(EbConfig* app_cfg) {
     return return_error;
 }
 
+static EbErrorType set_default_output_path(EbConfig* cfg) {
+    if (cfg->bitstream_file || !cfg->input_file_path) {
+        return EB_ErrorNone; // already set or no input to derive from
+    }
+    if (!strcmp(cfg->input_file_path, "stdin") || !strcmp(cfg->input_file_path, "-")) {
+        return EB_ErrorNone; // cannot derive a file name from a pipe
+    }
+
+    const char* input      = cfg->input_file_path;
+    const char* last_dot   = strrchr(input, '.');
+    const char* last_slash = strrchr(input, '/');
+#ifdef _WIN32
+    const char* last_bslash = strrchr(input, '\\');
+    if (last_bslash && (!last_slash || last_bslash > last_slash)) {
+        last_slash = last_bslash;
+    }
+#endif
+    // Only strip the extension if the dot is after the last path separator.
+    size_t base_len = (last_dot && (!last_slash || last_dot > last_slash)) ? (size_t)(last_dot - input) : strlen(input);
+
+    const char* ext = cfg->output_format == OUTPUT_FORMAT_OBU ? "_skibidi.obu" : "_skibidi.ivf";
+
+    size_t total    = base_len + strlen(ext) + 1;
+    char*  out_path = malloc(total);
+    if (!out_path) {
+        return EB_ErrorInsufficientResources;
+    }
+
+    memcpy(out_path, input, base_len);
+    strcpy(out_path + base_len, ext);
+
+    fprintf(stderr, "No output provided: writing to %s\n", out_path);
+    EbErrorType err = open_file(&cfg->bitstream_file, "--output", out_path, "wb");
+    free(out_path);
+
+    return err;
+}
+
 static const char* TOKEN_READ_MARKER  = "THIS_TOKEN_HAS_BEEN_READ";
 static const char* TOKEN_ERROR_MARKER = "THIS_TOKEN_HAS_ERROR";
 
@@ -2743,6 +2783,7 @@ EbErrorType read_command_line(int32_t argc, char* const argv[], EncChannel* chan
             if (channel->return_error == EB_ErrorNone) {
                 app_cfg->input_padded_width  = app_cfg->config.source_width;
                 app_cfg->input_padded_height = app_cfg->config.source_height;
+                channel->return_error        = set_default_output_path(app_cfg);
             }
 
             const int32_t input_frame_count = compute_frames_to_be_encoded(app_cfg);
