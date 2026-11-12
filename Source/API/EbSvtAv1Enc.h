@@ -1315,9 +1315,9 @@ typedef struct EbSvtAv1EncConfiguration {
 
     /* @brief use settings which reduce memory usage
      *
-     * Default is false.
+     * Default is 0.
      */
-    bool low_memory;
+    uint8_t low_memory;
 
     /* @brief do not print encoder parameters
      *
@@ -1399,7 +1399,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint16_t) // num_zones
         - sizeof(uint8_t) // alt_cdef
         - sizeof(uint8_t) // enable_daala
-        - sizeof(bool) // low_memory
+        - sizeof(uint8_t) // low_memory
         - sizeof(bool) // hide_banner
         - sizeof(uint8_t) // alt_dlf
         - sizeof(bool) // multiply_min_keyint

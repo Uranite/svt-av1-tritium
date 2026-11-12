@@ -107,11 +107,13 @@ Proposes different CDEF trade-offs, typically resulting in weaker deringing but 
 Proposes different DLF trade-offs, typically resulting in weaker deblocking but improved fidelity. May gradually cause higher distortion, especially at high presets.  
 It is recommended to pair it with `--enable-dlf 3` to force the best DLF quality level, which can improve results at the cost of speed.
 
-- `--low-memory` *0 and 1*
+- `--low-memory` *0 to 2*
 
 This parameter sets options that reduce RAM usage of the encoding instance significantly.
 Enabling low-memory can have some impact on encoding speeds and perceptual quality.
 It is most effective in CRF/CQP Random Access mode.
+**0** disables it, **1** reduces the buffer/worker footprint, and **2** additionally
+forces `--hierarchical-levels 4` and disables lookahead for the largest reduction.
 
 - `--hide-banner` *0 and 1*
 

@@ -474,6 +474,10 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
         SVT_ERROR("Log2Tile rows/cols must be [0 - 6] \n");
         return_error = EB_ErrorBadParameter;
     }
+    if (config->low_memory > 2) {
+        SVT_ERROR("Low memory mode must be [0 - 2]\n");
+        return_error = EB_ErrorBadParameter;
+    }
     if ((1u << config->tile_rows) * (1u << config->tile_columns) > 128 || config->tile_columns > 4) {
         SVT_ERROR("MaxTiles is 128 and MaxTileCols is 16 (Annex A.3) \n");
         return_error = EB_ErrorBadParameter;
@@ -1375,7 +1379,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->enable_daala             = 0;
     config_ptr->enable_daala_rd          = 0;
     config_ptr->enable_daala_filtering   = 0;
-    config_ptr->low_memory               = false;
+    config_ptr->low_memory               = 0;
     config_ptr->hide_banner              = false;
     return return_error;
 }
@@ -2976,6 +2980,7 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"enable-daala", &config_struct->enable_daala},
         {"enable-daala-rd", &config_struct->enable_daala_rd},
         {"enable-daala-filtering", &config_struct->enable_daala_filtering},
+        {"low-memory", &config_struct->low_memory},
     };
 
     const size_t uint8_opts_size = sizeof(uint8_opts) / sizeof(uint8_opts[0]);
@@ -3116,7 +3121,6 @@ EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_
         {"alt-lambda-factors", &config_struct->alt_lambda_factors},
         {"alt-ssim-tuning", &config_struct->alt_ssim_tuning},
         {"auto-tiling", &config_struct->auto_tiling},
-        {"low-memory", &config_struct->low_memory},
         {"hide-banner", &config_struct->hide_banner},
     };
     const size_t bool_opts_size = sizeof(bool_opts) / sizeof(bool_opts[0]);
