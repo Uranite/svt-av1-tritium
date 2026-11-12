@@ -1121,7 +1121,8 @@ ConfigDescription config_entry_specific[] = {
     {ENABLE_INTRABC_TOKEN, "Enable Intra Block Copy, default is 1 [0: off, 1: on]"},
 #if CONFIG_ENABLE_FILM_GRAIN
     // Annex A parameters
-    {FILM_GRAIN_TOKEN, "Enable film grain, default is 0 [0: off, 1-50: level of denoising for film grain]"},
+    {FILM_GRAIN_TOKEN,
+     "Enable film grain, default is 0 [-1: automatic analysis, 0: off, 1-50: level of denoising for film grain]"},
 
     {FILM_GRAIN_DENOISE_APPLY_TOKEN,
      "Apply denoising when film grain is ON, default is 0 [0: no denoising, film grain data is "
@@ -1238,7 +1239,7 @@ ConfigDescription config_entry_psychovisual[] = {
     // QP scale compress
     {QP_SCALE_COMPRESS_STRENGTH_TOKEN, "QP scale compress strength, default is 1.0 [0.0-8.0]"},
     // Adaptive film grain
-    {ADAPTIVE_FILM_GRAIN_TOKEN, "Adapts film grain blocksize based on video resolution, default is 1 [0-1]"},
+    {ADAPTIVE_FILM_GRAIN_TOKEN, "Adapts manual film grain blocksize based on video resolution, default is 1 [0-1]"},
     // Max TX size
     {MAX_TX_SIZE_TOKEN, "Limits the allowed transform sizes to the specified, default is 64 [32,64]"},
     //AC-Bias
@@ -2809,7 +2810,7 @@ EbErrorType read_command_line(int32_t argc, char* const argv[], EncChannel* chan
 #if CONFIG_ENABLE_FILM_GRAIN
     EbConfig* cfg = channel->app_cfg;
     if (cfg->fgs_table_path) {
-        if (cfg->config.film_grain_denoise_strength > 0) {
+        if (cfg->config.film_grain_denoise_strength != 0) {
             fprintf(stderr,
                     "Warning: Both film-grain-denoise and fgs-table were specified\nfilm-grain-denoise will be "
                     "disabled\n");

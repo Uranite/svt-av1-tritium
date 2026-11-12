@@ -141,6 +141,10 @@ Generates a physically motivated photon-noise film grain table from a simulated 
 
 Applies the photon-noise table to the chroma planes using luma scaling, default is 0.
 
+- `--film-grain -1`
+
+Enables automatic film grain analysis: the encoder estimates the grain strength from the source and applies film grain synthesis automatically. `0` disables film grain, and `1` to `50` set a manual denoising strength.
+
 - `--enable-tf 3`
 
 The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  
