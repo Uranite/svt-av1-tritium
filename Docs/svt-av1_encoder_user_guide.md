@@ -80,14 +80,19 @@ indicated below.
 
 `-b filename` **[Optional]**
 
-The resulting encoded bit stream file in binary format. If none specified, no
-output bit stream will be produced by the encoder.
+The resulting encoded bit stream file in binary format. If none is specified, a
+path is derived from the input file name (`<input>_skibidi.ivf`, `.obu`, or
+`.webm` depending on the selected format).
 
-The output format can be selected with `--ivf` (default) for IVF container or
-`--obu` for raw OBU (Open Bitstream Units) without container framing. The
+The output format can be selected with `--ivf` (default) for IVF container,
+`--obu` for raw OBU (Open Bitstream Units) without container framing, or
+`--webm` for a WebM container (requires a build with `USE_WEBM_IO=ON`). The
 format is also auto-detected from the file extension: `.ivf` produces IVF
-output, `.obu` produces raw OBU output. Explicit `--ivf`/`--obu` flags
-override extension-based auto-detection.
+output, `.obu` produces raw OBU output, and `.webm` produces WebM output.
+Explicit `--ivf`/`--obu`/`--webm` flags override extension-based
+auto-detection. The same flags are accepted in configuration files, where they
+take a value that is ignored (for example, `--obu : 1`). If WebM support is not
+compiled in, a `.webm` output path falls back to IVF and a warning is printed.
 
 `-w integer` **[Required]**
 

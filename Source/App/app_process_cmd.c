@@ -1257,7 +1257,7 @@ void process_output_stream_buffer(EncChannel* channel, EncApp* enc_app, int32_t*
                 // Release the output buffer
                 svt_av1_enc_release_out_buffer(&header_ptr);
 
-#ifdef CONFIG_WEBM_IO
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
                 if (app_cfg->write_webm && stream_file) {
                     if (write_webm_stream_footer(app_cfg) != 0) {
                         fprintf(stderr, "Warning: WebM file finalization failed\n");
@@ -1304,7 +1304,7 @@ void process_output_stream_buffer(EncChannel* channel, EncApp* enc_app, int32_t*
 
                 // Write Stream Data to file
                 if (stream_file) {
-#ifdef CONFIG_WEBM_IO
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
                     if (app_cfg->write_webm && app_cfg->performance_context.frame_count == 1 &&
                         !(flags & EB_BUFFERFLAG_IS_ALT_REF)) {
                         if (write_webm_stream_header(app_cfg, header_ptr->p_buffer, header_ptr->n_filled_len) != 0) {

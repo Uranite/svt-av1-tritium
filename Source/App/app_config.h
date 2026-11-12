@@ -24,7 +24,7 @@
 #include "EbSvtAv1Enc.h"
 #include "app_film_grain.h"
 
-#ifdef CONFIG_WEBM_IO
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
 #include "third_party/webm/webmenc.h"
 #endif
 
@@ -230,7 +230,7 @@ typedef struct EbConfig {
     int   ffms_track_num;
     int   crop_x, crop_y, crop_w, crop_h;
 
-#ifdef CONFIG_WEBM_IO
+#if defined(CONFIG_WEBM_IO) && CONFIG_WEBM_IO
     bool                     write_webm;
     struct WebmOutputContext webm_ctx;
     int                      argc;
