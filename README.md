@@ -132,6 +132,11 @@ When no output path is given, the encoder derives one from the input file name (
 - `--photon-noise` *0 to 100000*
 
 Generates a physically motivated photon-noise film grain table from a simulated camera ISO sensitivity. The table is applied as `--fgs-table` during the encode.
+
+- `--photon-noise-chroma` *0 and 1*
+
+Applies the photon-noise table to the chroma planes using luma scaling, default is 0.
+
 - `--enable-tf 3`
 
 The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  
