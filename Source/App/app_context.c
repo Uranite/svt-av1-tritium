@@ -467,6 +467,13 @@ static EbErrorType init_ffms2(EbConfig* app_cfg) {
 
     const FFMS_VideoProperties* props = FFMS_GetVideoProperties(video_source);
 
+    if (app_cfg->frames_to_be_skipped >= props->NumFrames) {
+        fprintf(stderr, "Error: FramesToBeSkipped is greater than or equal to the number of frames detected\n");
+        FFMS_DestroyVideoSource(video_source);
+        FFMS_DestroyIndex(index);
+        return EB_ErrorBadParameter;
+    }
+
     // Check first frame
     const FFMS_Frame* test_frame = FFMS_GetFrame(video_source, 0, &err_info);
     if (!test_frame) {
