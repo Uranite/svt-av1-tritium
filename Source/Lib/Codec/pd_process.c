@@ -5446,7 +5446,8 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
                 pcs->ahd_error = calc_ahd_pd(scs, pcs, ctx);
             }
             // If the relevant frames are available, perform scene change detection
-            if (window_avail == true && queue_entry_ptr->picture_number > 0) {
+            if (window_avail == true && queue_entry_ptr->picture_number > 0 &&
+                scs->static_config.scene_change_detection == 1) {
                 perform_scene_change_detection(scs, pcs, ctx);
             }
         }
