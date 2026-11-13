@@ -81,7 +81,7 @@ indicated below.
 `-b filename` **[Optional]**
 
 The resulting encoded bit stream file in binary format. If none is specified, a
-path is derived from the input file name (`<input>_skibidi.ivf`, `.obu`, or
+path is derived from the input file name (`<input>_tritium.ivf`, `.obu`, or
 `.webm` depending on the selected format).
 
 The output format can be selected with `--ivf` (default) for IVF container,
