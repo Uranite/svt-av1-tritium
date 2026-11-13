@@ -502,22 +502,26 @@ static EbErrorType init_ffms2(EbConfig* app_cfg) {
         }
     }
 
-    if (!(app_cfg->config.source_width != 0 && (uint32_t)test_frame->EncodedWidth != app_cfg->config.source_width)) {
-        if (app_cfg->crop_w > 0) {
-            app_cfg->config.source_width = app_cfg->crop_w;
-        } else {
-            app_cfg->config.source_width = test_frame->EncodedWidth;
+    if (app_cfg->crop_w > 0 && app_cfg->crop_h > 0) {
+        if ((app_cfg->config.source_width && app_cfg->config.source_width != (uint32_t)app_cfg->crop_w) ||
+            (app_cfg->config.source_height && app_cfg->config.source_height != (uint32_t)app_cfg->crop_h)) {
+            fprintf(stderr, "Error: Cropping and resizing cannot be combined\n");
+            FFMS_DestroyVideoSource(video_source);
+            FFMS_DestroyIndex(index);
+            return EB_ErrorBadParameter;
         }
-        app_cfg->input_padded_width = app_cfg->config.source_width;
-    }
-    if (!(app_cfg->config.source_height != 0 && (uint32_t)test_frame->EncodedHeight != app_cfg->config.source_height)) {
-        if (app_cfg->crop_h > 0) {
-            app_cfg->config.source_height = app_cfg->crop_h;
-        } else {
-            app_cfg->config.source_height = test_frame->EncodedHeight;
+        app_cfg->config.source_width  = app_cfg->crop_w;
+        app_cfg->config.source_height = app_cfg->crop_h;
+    } else {
+        if (!app_cfg->config.source_width) {
+            app_cfg->config.source_width = src_width;
         }
-        app_cfg->input_padded_height = app_cfg->config.source_height;
+        if (!app_cfg->config.source_height) {
+            app_cfg->config.source_height = src_height;
+        }
     }
+    app_cfg->input_padded_width  = app_cfg->config.source_width;
+    app_cfg->input_padded_height = app_cfg->config.source_height;
 
     if (app_cfg->config.frame_rate_numerator != (uint32_t)props->FPSNumerator ||
         app_cfg->config.frame_rate_denominator != (uint32_t)props->FPSDenominator) {
@@ -600,7 +604,12 @@ static EbErrorType init_ffms2(EbConfig* app_cfg) {
     pixfmts[0] = FFMS_GetPixFmt("yuv420p10le");
     pixfmts[1] = -1;
 
-    if (FFMS_SetOutputFormatV2(video_source, pixfmts, src_width, src_height, FFMS_RESIZER_BILINEAR, &err_info)) {
+    if (FFMS_SetOutputFormatV2(video_source,
+                               pixfmts,
+                               app_cfg->crop_w ? src_width : (int)app_cfg->config.source_width,
+                               app_cfg->crop_h ? src_height : (int)app_cfg->config.source_height,
+                               FFMS_RESIZER_BILINEAR,
+                               &err_info)) {
         fprintf(stderr, "FFMS2 Error: Failed to set output format to yuv420p10le: %s\n", errmsg);
         FFMS_DestroyVideoSource(video_source);
         FFMS_DestroyIndex(index);
@@ -662,14 +671,21 @@ static EbErrorType preload_frames_ffms2(EbConfig* app_cfg) {
     // 10-bit = 2 bytes per sample
     const size_t frame_size = (width * height + 2 * chroma_width * chroma_height) * 2;
 
-    app_cfg->sequence_buffer = calloc(app_cfg->buffered_input, sizeof(uint8_t*));
+    if (app_cfg->frames_to_be_skipped >= props->NumFrames) {
+        fprintf(stderr, "Error: FramesToBeSkipped is greater than or equal to the number of frames detected\n");
+        return EB_ErrorBadParameter;
+    }
+    if (app_cfg->buffered_input > props->NumFrames - app_cfg->frames_to_be_skipped) {
+        app_cfg->buffered_input = props->NumFrames - app_cfg->frames_to_be_skipped;
+    }
+    if (app_cfg->buffered_input < 0) {
+        app_cfg->buffered_input = 0;
+    }
+    const int frames_to_load = app_cfg->buffered_input;
+
+    app_cfg->sequence_buffer = calloc(frames_to_load, sizeof(uint8_t*));
     if (!app_cfg->sequence_buffer) {
         return EB_ErrorInsufficientResources;
-    }
-
-    int frames_to_load = app_cfg->buffered_input;
-    if (frames_to_load > props->NumFrames - app_cfg->frames_to_be_skipped) {
-        frames_to_load = props->NumFrames - app_cfg->frames_to_be_skipped;
     }
 
     for (int i = 0; i < frames_to_load; i++) {
@@ -719,8 +735,10 @@ static EbErrorType preload_frames_ffms2(EbConfig* app_cfg) {
     }
 
     // Fill remaining slots if looping is needed (though I disabled looping for FFMS2)
-    for (int i = frames_to_load; i < app_cfg->buffered_input; i++) {
-        app_cfg->sequence_buffer[i] = app_cfg->sequence_buffer[i % frames_to_load];
+    if (frames_to_load > 0) {
+        for (int i = frames_to_load; i < app_cfg->buffered_input; i++) {
+            app_cfg->sequence_buffer[i] = app_cfg->sequence_buffer[i % frames_to_load];
+        }
     }
 
     return EB_ErrorNone;
