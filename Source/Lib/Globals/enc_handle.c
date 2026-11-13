@@ -4205,14 +4205,23 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
             scs->tf_params_per_type[1].max_num_future_pics);
     }
     scs->scd_delay = MAX(scd_delay_islice, scd_delay_base);
+    // Low-delay has no lookahead; SCD needs future frames (pd_window[2]), so any
+    // scd_delay deadlocks the 1-in-1-out pipeline against blocking get_packet().
+    const bool low_delay = scs->static_config.pred_structure == LOW_DELAY;
+    if (low_delay) {
+        scs->static_config.scene_change_detection      = 0;
+        scs->vq_ctrls.sharpness_ctrls.scene_transition = 0;
+        scs->scd_delay                                 = 0;
+    }
     // Update the scd_delay based on SCD, 1first pass
     // Delay needed for SCD , 1first pass of (2pass and 1pass VBR)
-    if (scs->static_config.scene_change_detection || scs->vq_ctrls.sharpness_ctrls.scene_transition || scs->lap_rc) {
+    if (!low_delay &&
+        (scs->static_config.scene_change_detection || scs->vq_ctrls.sharpness_ctrls.scene_transition || scs->lap_rc)) {
         scs->scd_delay = MAX(scs->scd_delay, 2);
     }
 
 #if CONFIG_ENABLE_FILM_GRAIN
-    if (scs->static_config.film_grain_denoise_strength == -1 && !allintra) {
+    if (scs->static_config.film_grain_denoise_strength == -1 && !allintra && !low_delay) {
         scs->scd_delay = MAX(scs->scd_delay, 1);
     }
 #endif
