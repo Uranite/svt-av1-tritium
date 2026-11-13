@@ -4202,7 +4202,8 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     }
 
 #if CONFIG_ENABLE_FILM_GRAIN
-    if (scs->static_config.film_grain_denoise_strength == -1 && !allintra) {
+    // Film grain analysis needs a lookahead frame; skip it in low-delay (no future frames) to avoid a pipeline deadlock.
+    if (scs->static_config.film_grain_denoise_strength == -1 && !allintra && !low_delay) {
         scs->scd_delay = MAX(scs->scd_delay, 1);
     }
 #endif
