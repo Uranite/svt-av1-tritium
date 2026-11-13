@@ -1019,7 +1019,7 @@ static void ffms2_read_input_frames(EbConfig* app_cfg, uint8_t is_16bit, EbBuffe
     FFMS_VideoSource* video_source = (FFMS_VideoSource*)app_cfg->ffms_video_source;
     EbSvtIOFormat*    input_ptr    = (EbSvtIOFormat*)header_ptr->p_buffer;
 
-    int frame_num = app_cfg->processed_frame_count;
+    int64_t frame_num = app_cfg->processed_frame_count + app_cfg->frames_to_be_skipped;
 
     const FFMS_VideoProperties* props = FFMS_GetVideoProperties(video_source);
 
@@ -1037,9 +1037,9 @@ static void ffms2_read_input_frames(EbConfig* app_cfg, uint8_t is_16bit, EbBuffe
     err_info.ErrorType  = FFMS_ERROR_SUCCESS;
     err_info.SubType    = FFMS_ERROR_SUCCESS;
 
-    const FFMS_Frame* frame = FFMS_GetFrame(video_source, frame_num, &err_info);
+    const FFMS_Frame* frame = FFMS_GetFrame(video_source, (int)frame_num, &err_info);
     if (!frame) {
-        fprintf(stderr, "FFMS2 Error getting frame %d: %s\n", frame_num, errmsg);
+        fprintf(stderr, "FFMS2 Error getting frame %d: %s\n", (int)frame_num, errmsg);
         header_ptr->n_filled_len = 0;
         return;
     }
