@@ -2158,7 +2158,10 @@ EB_API EbErrorType svt_av1_enc_init(EbComponentType* svt_enc_component) {
     * Thread Handles
     ************************************/
     if (scs->static_config.pin_threads) {
-        svt_set_thread_affinity(scs->static_config.pin_threads);
+        const uint32_t num_processors = get_num_processors();
+        const uint32_t pin_threads    = scs->static_config.pin_threads < num_processors ? scs->static_config.pin_threads
+                                                                                        : num_processors;
+        svt_set_thread_affinity(pin_threads);
     }
 #if CONFIG_SINGLE_THREAD_KERNEL
     // Single-thread kernel dispatch: at lp=1, register all kernels for
