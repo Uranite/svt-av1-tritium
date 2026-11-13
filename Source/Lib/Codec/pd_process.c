@@ -5501,7 +5501,8 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
             }
         }
         // Enforce minimum keyframe distance
-        if (scs->static_config.min_intra_period_length > 0 && pcs->picture_number != 0) {
+        if (scs->static_config.min_intra_period_length > 0 && pcs->picture_number != 0 &&
+            pcs->input_ptr->pic_type != EB_AV1_KEY_PICTURE) {
             if ((pcs->cra_flag || pcs->idr_flag) &&
                 (enc_ctx->intra_period_position < (uint32_t)scs->static_config.min_intra_period_length)) {
                 // Too soon to place another keyframe
