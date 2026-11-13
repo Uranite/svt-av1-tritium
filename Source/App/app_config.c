@@ -2095,9 +2095,9 @@ static EbErrorType set_default_output_path(EbConfig* cfg) {
     // Only strip the extension if the dot is after the last path separator.
     size_t base_len = (last_dot && (!last_slash || last_dot > last_slash)) ? (size_t)(last_dot - input) : strlen(input);
 
-    const char* ext = cfg->output_format == OUTPUT_FORMAT_WEBM ? "_skibidi.webm"
-        : cfg->output_format == OUTPUT_FORMAT_OBU              ? "_skibidi.obu"
-                                                               : "_skibidi.ivf";
+    const char* ext = cfg->output_format == OUTPUT_FORMAT_WEBM ? "_tritium.webm"
+        : cfg->output_format == OUTPUT_FORMAT_OBU              ? "_tritium.obu"
+                                                               : "_tritium.ivf";
 
     size_t total    = base_len + strlen(ext) + 1;
     char*  out_path = (char*)malloc(total);

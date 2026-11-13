@@ -201,7 +201,7 @@ int write_webm_stream_header(EbConfig* app_cfg, const uint8_t* buf, size_t buf_s
 
     const char* svt_version = svt_av1_get_version();
     char        version[128];
-    snprintf(version, sizeof(version), "SVT-AV1-Skibidi %s", svt_version);
+    snprintf(version, sizeof(version), "SVT-AV1-Tritium %s", svt_version);
 
     char* enc_settings = NULL;
     if (app_cfg->argc > 0 && app_cfg->argv) {
