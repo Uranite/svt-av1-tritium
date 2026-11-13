@@ -95,7 +95,7 @@ int write_webm_file_header(struct WebmOutputContext *webm_ctx,
     }
 
     info->set_timecode_scale(1000); // cfg->timebase_den ?
-    std::string writing_app = "SVT-AV1-Essential";
+    std::string writing_app = "SVT-AV1-Tritium";
     info->set_writing_app(writing_app.c_str());
 
     const uint64_t video_track_id =
