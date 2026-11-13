@@ -4222,6 +4222,9 @@ static void mctf_frame(SequenceControlSet* scs, PictureParentControlSet* pcs, Pi
         if (tf_type_index == 0 && pcs->slice_type != I_SLICE) {
             tf_type_index = 1; // Use BASE params for non-I frames at temporal layer 0
         }
+        if (!scs->tf_params_per_type[tf_type_index].enabled) {
+            tf_type_index = 1;
+        }
 
         // Copy the TF parameters
         pcs->tf_ctrls         = scs->tf_params_per_type[tf_type_index];
