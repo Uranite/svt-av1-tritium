@@ -695,7 +695,7 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
                 }
 #endif
 
-                int alt_cdef1, alt_cdef2, alt_cdef3, alt_cdef4;
+                int alt_cdef1 = 0, alt_cdef2 = 0, alt_cdef3 = 0, alt_cdef4 = 0;
                 switch (scs->static_config.alt_cdef) {
                 case 3:
                     alt_cdef1 = 1;

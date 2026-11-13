@@ -1276,7 +1276,7 @@ static INLINE int search_filter_level_facade(EbPictureBufferDesc* sd, // source
             sd, temp_lf_recon_buffer, pcs, partial_frame, last_frame_filter_level, best_cost_ret, plane, dir);
     } else {
         // case alt_dlf
-        int alt_dlf_maxy, alt_dlf_maxuv, alt_dlf_miny, alt_dlf_minuv;
+        int alt_dlf_maxy = 0, alt_dlf_maxuv = 0, alt_dlf_miny = 0, alt_dlf_minuv = 0;
         switch (pcs->scs->static_config.alt_dlf) {
         case 3:
             alt_dlf_maxy  = 6;
