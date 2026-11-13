@@ -603,6 +603,10 @@ static EbErrorType set_cfg_frames_to_be_encoded(EbConfig* cfg, const char* token
 
 static EbErrorType set_cfg_frames_to_be_skipped(EbConfig* cfg, const char* token, const char* value) {
     EbErrorType ret = str_to_int64(token, value, &cfg->frames_to_be_skipped);
+    if (ret == EB_ErrorNone && cfg->frames_to_be_skipped < 0) {
+        fprintf(stderr, "Error: FramesToBeSkipped must be non-negative\n");
+        return EB_ErrorBadParameter;
+    }
     if (cfg->frames_to_be_skipped > 0) {
         cfg->need_to_skip = true;
     }
