@@ -127,7 +127,7 @@ Outputs the bitstream in a WebM container instead of IVF, including the encoder 
 
 - **Automatic output fallback**
 
-When no output path is given, the encoder derives one from the input file name (`<input>_skibidi.ivf`, `.obu`, or `.webm` depending on the selected format).
+When no output path is given, the encoder derives one from the input file name (`<input>_tritium.ivf`, `.obu`, or `.webm` depending on the selected format).
 
 - `--photon-noise` *0 to 100000*
 
