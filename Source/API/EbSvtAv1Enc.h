@@ -1365,6 +1365,16 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool low_q_taper;
 
+    /**
+     * @brief Container format of the output bitstream, as selected by the
+     * application. The library does not parse or validate the container; the
+     * value is carried through so the configuration banner can report it.
+     * 0: IVF, 1: OBU, 2: WebM
+     *
+     * Default is 0.
+     */
+    uint8_t output_format;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1407,6 +1417,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint32_t) - sizeof(uint8_t) // photon_noise_iso, enable_photon_noise_chroma
         - sizeof(uint32_t) // pin_threads
         - sizeof(bool) // low_q_taper
+        - sizeof(uint8_t) // output_format
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;

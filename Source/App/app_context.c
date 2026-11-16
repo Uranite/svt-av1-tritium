@@ -777,12 +777,8 @@ EbErrorType init_encoder(EbConfig* app_cfg) {
         }
     }
 
-    if (!app_cfg->config.hide_banner && app_cfg->config.pass != ENC_FIRST_PASS) {
-        const char* format = app_cfg->output_format == OUTPUT_FORMAT_WEBM ? "WebM"
-            : app_cfg->output_format == OUTPUT_FORMAT_OBU                 ? "OBU"
-                                                                          : "IVF";
-        fprintf(stderr, "Svt[info]: SVT [config]: output format \t\t\t\t\t\t: %s\n", format);
-    }
+    // Report the container format as part of the library configuration banner.
+    app_cfg->config.output_format = (uint8_t)app_cfg->output_format;
 
     // Send over all configuration parameters
     // Set the Parameters
