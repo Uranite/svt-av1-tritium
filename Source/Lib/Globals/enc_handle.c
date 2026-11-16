@@ -4224,9 +4224,24 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     }
 
 #if CONFIG_ENABLE_FILM_GRAIN
-    // Film grain analysis needs a lookahead frame; skip it in low-delay (no future frames) to avoid a pipeline deadlock.
-    if (scs->static_config.film_grain_denoise_strength == -1 && !allintra && !low_delay) {
-        scs->scd_delay = MAX(scs->scd_delay, 1);
+    // Film grain analysis needs a lookahead frame; disable it in low-delay (no future frames) to avoid a pipeline
+    // deadlock.
+    if (scs->static_config.film_grain_denoise_strength == -1 && !allintra) {
+        if (low_delay) {
+            SVT_WARN("Automatic film grain analysis is disabled in RTC / low-delay mode.\n");
+            scs->static_config.film_grain_denoise_strength = 0;
+            scs->seq_header.film_grain_params_present      = (uint8_t)(scs->static_config.fgs_table != NULL ||
+                                                                       scs->static_config.noise_strength > 0 ||
+                                                                       scs->static_config.photon_noise_iso > 0);
+        } else {
+            scs->scd_delay = MAX(scs->scd_delay, 1);
+        }
+    }
+#else
+    if (scs->static_config.film_grain_denoise_strength == -1) {
+        SVT_WARN("Automatic film grain analysis is disabled in %s.\n",
+                 low_delay ? "RTC / low-delay mode" : "this build");
+        scs->static_config.film_grain_denoise_strength = 0;
     }
 #endif
 
