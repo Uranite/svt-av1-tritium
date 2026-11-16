@@ -2614,9 +2614,6 @@ static EbErrorType str_to_sframe_qp_offset(const char* nptr, SvtAv1SFramePositio
             return svt_aom_parse_##opt(&config_struct->opt, value) ? EB_ErrorNone : EB_ErrorBadParameter; \
     } while (0)
 
-#if CONFIG_ENABLE_FAST_DECODE_3
-static EbErrorType enc_parse_parameter(EbSvtAv1EncConfiguration* config_struct, const char* name, const char* value) {
-#else
 static EbErrorType parse_zones_string(const char* zones_str, SvtAv1QualityZone** zones_out, uint16_t* num_zones_out) {
     if (!zones_str || strlen(zones_str) == 0) {
         *zones_out     = NULL;
@@ -2703,6 +2700,9 @@ static EbErrorType parse_zones_string(const char* zones_str, SvtAv1QualityZone**
     return EB_ErrorNone;
 }
 
+#if CONFIG_ENABLE_FAST_DECODE_3
+static EbErrorType enc_parse_parameter(EbSvtAv1EncConfiguration* config_struct, const char* name, const char* value) {
+#else
 EB_API EbErrorType svt_av1_enc_parse_parameter(EbSvtAv1EncConfiguration* config_struct, const char* name,
                                                const char* value) {
 #endif
