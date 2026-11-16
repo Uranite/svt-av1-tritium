@@ -4181,6 +4181,9 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     // scd_delay deadlocks the 1-in-1-out pipeline against blocking get_packet().
     const bool low_delay = scs->static_config.pred_structure == LOW_DELAY;
     if (low_delay) {
+        if (scs->static_config.scene_change_detection) {
+            SVT_WARN("SCD is disabled in RTC / low-delay mode.\n");
+        }
         scs->static_config.scene_change_detection      = 0;
         scs->vq_ctrls.sharpness_ctrls.scene_transition = 0;
         scs->scd_delay                                 = 0;
