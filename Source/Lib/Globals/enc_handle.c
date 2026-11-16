@@ -5194,6 +5194,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     // Light RDOQ
     scs->static_config.light_rdoq = config_struct->light_rdoq;
 
+    // Output container format (banner only)
+    scs->static_config.output_format = config_struct->output_format;
+
     // Alternative SSIM tuning
     scs->static_config.alt_ssim_tuning = config_struct->alt_ssim_tuning;
 
