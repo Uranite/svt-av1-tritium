@@ -1364,6 +1364,7 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->sharp_tx                 = 1;
     config_ptr->low_q_taper              = false;
     config_ptr->light_rdoq               = 1;
+    config_ptr->output_format            = 0; // IVF
     config_ptr->alt_ssim_tuning          = false;
     config_ptr->tx_bias                  = 0;
     config_ptr->complex_hvs              = 0;
@@ -1519,6 +1520,10 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                                                                : "Unknown profile",
                  tier_to_str(config->tier),
                  level_to_str(config->level));
+        SVT_INFO("SVT [config]: output format \t\t\t\t\t\t: %s\n",
+                 config->output_format == 2       ? "WebM"
+                     : config->output_format == 1 ? "OBU"
+                                                  : "IVF");
         SVT_INFO(
             "SVT [config]: width / height / fps numerator / fps denominator \t\t: %d / %d / %d / "
             "%d\n",
