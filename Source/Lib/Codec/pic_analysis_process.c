@@ -1738,7 +1738,7 @@ static float vmaf_get_coherence_factor(float gcoh) {
 }
 
 static float vmaf_compute_combined_amount(PictureParentControlSet* pcs, uint32_t avg_mad, float gcoh) {
-    float per_qp     = vmaf_get_qp_amount(pcs->scs->static_config.qp);
+    float per_qp     = vmaf_get_qp_amount(svt_av1_get_effective_qp(pcs->scs, pcs->picture_number).qp);
     float spatial    = vmaf_get_spatial_amount(avg_mad);
     float coh_factor = vmaf_get_coherence_factor(gcoh);
 
@@ -1912,7 +1912,11 @@ static void vmaf_preprocess_frame(PictureAnalysisContext* pa_ctx, PictureParentC
     const EbSvtAv1EncConfiguration* config = &pcs->scs->static_config;
     pcs->vmaf_sharpening_amount            = 0;
     // Sharpening modifies the source and must not run for lossless coding.
-    if (config->lossless || (config->rate_control_mode == 0 && config->qp == 0 && !config->use_qp_file)) {
+    // Use the frame's effective QP: a zone can raise the quality above zero
+    // even when the global QP is zero.
+    const SvtAv1EffectiveQp effective_qp = svt_av1_get_effective_qp(pcs->scs, pcs->picture_number);
+    if (config->lossless ||
+        (config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF && effective_qp.qp == 0 && !config->use_qp_file)) {
         return;
     }
     EbPictureBufferDesc* pic_ptr    = pcs->enhanced_pic;
@@ -1967,7 +1971,8 @@ static void vmaf_preprocess_frame(PictureAnalysisContext* pa_ctx, PictureParentC
         luma, blur_plane, pic_width, pic_height, y_stride, flat_detail_thr);
     const int is_busy_frame = (flat_pixel_count < flat_pixel_target);
 
-    const int32_t delta_clip = vmaf_get_delta_clip((int32_t)pcs->scs->static_config.qp, is_busy_frame);
+    const int32_t delta_clip = vmaf_get_delta_clip((int32_t)svt_av1_get_effective_qp(pcs->scs, pcs->picture_number).qp,
+                                                   is_busy_frame);
     pcs->vmaf_max_delta      = delta_clip;
 
     /* Step 4: apply the unsharp mask in place, writing the sharpened luma back over the source. */

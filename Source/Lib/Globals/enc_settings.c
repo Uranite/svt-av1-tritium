@@ -2671,6 +2671,12 @@ static EbErrorType parse_zones_string(const char* zones_str, SvtAv1QualityZone**
             return EB_ErrorBadParameter;
         }
 
+        if (!isfinite(quality)) {
+            SVT_ERROR("Invalid quality value in zone: must be a finite number\n");
+            EB_FREE(zones);
+            return EB_ErrorBadParameter;
+        }
+
         if (quality < 0.0 || quality > 70.0) {
             SVT_ERROR("Invalid quality value (%.2f) in zone, must be 0-70\n", quality);
             EB_FREE(zones);

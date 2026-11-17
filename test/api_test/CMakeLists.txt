@@ -17,6 +17,7 @@ include_directories(${PROJECT_SOURCE_DIR}/test/
     ${PROJECT_SOURCE_DIR}/test/e2e_test/
     ${PROJECT_SOURCE_DIR}/third_party/googletest/include
     ${PROJECT_SOURCE_DIR}/third_party/googletest/src
+    ${PROJECT_SOURCE_DIR}/Source/Lib/Codec
     ${PROJECT_SOURCE_DIR}/Source/API)
 
 set(all_files
@@ -33,6 +34,7 @@ set(all_files
     SvtAv1EncFilmGrainApiTest.cc
     SvtAv1EncParamsTest.cc
     SvtAv1EncReconApiTest.cc
+    SvtAv1EncZonesApiTest.cc
     params.h
     ${PROJECT_SOURCE_DIR}/test/e2e_test/VideoSource.cc
     )

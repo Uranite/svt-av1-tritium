@@ -318,6 +318,12 @@ typedef struct SvtAv1EffectiveQp {
     bool     from_zone;
 } SvtAv1EffectiveQp;
 
+/* Returns true when zones are configured and actually applied by the encoder. */
+static INLINE bool svt_av1_zones_active(const SequenceControlSet* scs) {
+    return scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF && scs->enable_qp_scaling_flag &&
+        scs->static_config.quality_zones && scs->static_config.num_zones > 0;
+}
+
 static INLINE SvtAv1EffectiveQp svt_av1_get_effective_qp(const SequenceControlSet* scs, uint64_t picture_number) {
     SvtAv1EffectiveQp qp = {
         (uint8_t)scs->static_config.qp,
@@ -327,11 +333,11 @@ static INLINE SvtAv1EffectiveQp svt_av1_get_effective_qp(const SequenceControlSe
         false,
     };
 
-    if (scs->static_config.rate_control_mode != SVT_AV1_RC_MODE_CQP_OR_CRF || !scs->enable_qp_scaling_flag ||
-        !scs->static_config.quality_zones || scs->static_config.num_zones == 0) {
+    if (!svt_av1_zones_active(scs)) {
         return qp;
     }
 
+    // Zones are scanned in order; if several match a frame, the last one wins.
     for (uint16_t i = 0; i < scs->static_config.num_zones; i++) {
         const SvtAv1QualityZone* zone = &scs->static_config.quality_zones[i];
         if (picture_number < zone->start_frame || picture_number > zone->end_frame) {
@@ -358,6 +364,19 @@ static INLINE SvtAv1EffectiveQp svt_av1_get_effective_qp(const SequenceControlSe
     }
 
     return qp;
+}
+
+/* Returns true when any quality zone requests a non-lossless quality. */
+static INLINE bool svt_av1_zones_request_nonzero_quality(const SequenceControlSet* scs) {
+    if (!svt_av1_zones_active(scs)) {
+        return false;
+    }
+    for (uint16_t i = 0; i < scs->static_config.num_zones; ++i) {
+        if (scs->static_config.quality_zones[i].zone_baseq > 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 typedef struct EbSequenceControlSetInstance {
