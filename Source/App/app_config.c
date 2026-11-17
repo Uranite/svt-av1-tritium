@@ -1658,7 +1658,10 @@ void svt_config_dtor(EbConfig* app_cfg) {
     }
 
     if (app_cfg->bitstream_file) {
-        if (app_cfg->output_format == OUTPUT_FORMAT_IVF) {
+        // Only finalize the IVF header when at least one frame was written.
+        // A rejected configuration (e.g. multi-pass CRF) must not leave a
+        // valid-looking 32-byte IVF file behind.
+        if (app_cfg->output_format == OUTPUT_FORMAT_IVF && app_cfg->frames_encoded > 0) {
             if (!fseek(app_cfg->bitstream_file, 0, SEEK_SET)) {
                 write_ivf_stream_header(app_cfg, app_cfg->frames_encoded);
             }
