@@ -689,6 +689,13 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
             config->tune);
         return_error = EB_ErrorBadParameter;
     }
+#if !CONFIG_ENABLE_VMAF
+    // Tune VMAF requires the VMAF preprocessing pipeline
+    if (config->tune == TUNE_VMAF) {
+        SVT_ERROR("Tune VMAF is not supported by this build\n");
+        return_error = EB_ErrorBadParameter;
+    }
+#endif
     // RC: SSIM, IQ, MS_SSIM, VMAF -> CRF only (VBR, CBR not supported)
     if (config->tune == TUNE_SSIM || config->tune == TUNE_IQ || config->tune == TUNE_MS_SSIM ||
         config->tune == TUNE_VMAF) {

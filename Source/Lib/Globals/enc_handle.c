@@ -5275,8 +5275,10 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         scs->static_config.enable_variance_boost   = 1;
         scs->static_config.variance_boost_strength = 3;
         scs->static_config.variance_boost_curve    = 2;
+#if CONFIG_ENABLE_VMAF
     } else if (scs->static_config.tune == TUNE_VMAF) {
         SVT_WARN("Tune VMAF: a pre-processing / unsharp masking is applied\n");
+#endif
     }
     // Override settings for Film Grain tune
     if (scs->static_config.tune == TUNE_FILM_GRAIN) {
