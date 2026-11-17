@@ -622,8 +622,8 @@ static void add_noise_to_block_hbd(const AomFilmGrain* params, uint16_t* luma, u
     int32_t rounding_offset = (1 << (params->scaling_shift - 1));
 
     int32_t apply_y  = params->num_y_points > 0 ? 1 : 0;
-    int32_t apply_cb = params->num_cb_points > 0 ? 1 : 0;
-    int32_t apply_cr = params->num_cr_points > 0 ? 1 : 0;
+    int32_t apply_cb = (params->num_cb_points > 0 || params->chroma_scaling_from_luma) ? 1 : 0;
+    int32_t apply_cr = (params->num_cr_points > 0 || params->chroma_scaling_from_luma) ? 1 : 0;
 
     if (params->chroma_scaling_from_luma) {
         cb_mult      = 0; // fixed scale
