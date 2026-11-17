@@ -3469,8 +3469,10 @@ static void derive_vq_params(SequenceControlSet* scs) {
 static void derive_tf_params(SequenceControlSet* scs) {
     const uint32_t hierarchical_levels = scs->static_config.hierarchical_levels;
     // Filtering changes the source even when every coded frame uses qindex zero.
-    const bool qp0 = scs->static_config.rate_control_mode == 0 && scs->static_config.qp == 0 &&
-        !scs->static_config.use_qp_file;
+    // A zone can raise the quality above zero even when the global QP is zero,
+    // so the global QP alone is not enough to decide this.
+    const bool qp0 = scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF && scs->static_config.qp == 0 &&
+        !scs->static_config.use_qp_file && !svt_av1_zones_request_nonzero_quality(scs);
     const bool do_tf = scs->static_config.enable_tf && hierarchical_levels >= 1 && !scs->static_config.lossless && !qp0;
     const EncMode enc_mode = SVT_ENC_MODE(scs->static_config.enc_mode);
     uint8_t       tf_level = 0;
@@ -4229,8 +4231,12 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     // when resize mode is used, use sb 64 because of a r2r when 128 is used
     // In low delay mode, sb size is set to 64
     // in 240P resolution, sb size is set to 64
-    if ((scs->static_config.fast_decode && scs->static_config.qp <= 56 &&
-         !(scs->input_resolution <= INPUT_SIZE_360p_RANGE)) ||
+    // The QP thresholds below must consider zones: a zone can move the quality
+    // across the threshold even when the global QP does not. The sequence-level
+    // decision uses frame 0's effective QP, which is exactly the global QP when
+    // no zone covers frame 0.
+    const uint8_t sb_qp = svt_av1_get_effective_qp(scs, 0).qp;
+    if ((scs->static_config.fast_decode && sb_qp <= 56 && !(scs->input_resolution <= INPUT_SIZE_360p_RANGE)) ||
         scs->static_config.resize_mode > RESIZE_NONE || scs->static_config.rtc ||
         (scs->input_resolution == INPUT_SIZE_240p_RANGE) || scs->static_config.enable_variance_boost) {
         scs->super_block_size = 64;
@@ -4243,11 +4249,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     } else if (scs->static_config.enc_mode <= ENC_MR) {
         scs->super_block_size = 128;
     } else if (scs->static_config.enc_mode <= ENC_M5) {
-        if (scs->static_config.qp <= 57) {
-            scs->super_block_size = 64;
-        } else {
-            scs->super_block_size = 128;
-        }
+        scs->super_block_size = sb_qp > 57 ? 128 : 64;
     } else {
         scs->super_block_size = 64;
     }
@@ -5231,15 +5233,17 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.enable_daala_filtering = config_struct->enable_daala_filtering;
 
     // Zones
+    EB_FREE_ARRAY(scs->static_config.quality_zones);
+    scs->static_config.num_zones = 0;
     if (config_struct->quality_zones && config_struct->num_zones > 0) {
         EB_NO_THROW_MALLOC(scs->static_config.quality_zones, sizeof(SvtAv1QualityZone) * config_struct->num_zones);
-        memcpy(scs->static_config.quality_zones,
-               config_struct->quality_zones,
-               sizeof(SvtAv1QualityZone) * config_struct->num_zones);
-    } else {
-        scs->static_config.quality_zones = NULL;
+        if (scs->static_config.quality_zones) {
+            memcpy(scs->static_config.quality_zones,
+                   config_struct->quality_zones,
+                   sizeof(SvtAv1QualityZone) * config_struct->num_zones);
+            scs->static_config.num_zones = config_struct->num_zones;
+        }
     }
-    scs->static_config.num_zones = config_struct->num_zones;
 
     scs->static_config.hide_banner = config_struct->hide_banner;
 
@@ -5257,8 +5261,10 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         scs->static_config.enable_variance_boost   = 1;
         scs->static_config.variance_boost_strength = 3;
         scs->static_config.variance_boost_curve    = 2;
-        scs->static_config.max_tx_size             = scs->static_config.qp <= 45 ? 32 : 64;
-        scs->static_config.screen_content_mode     = 3;
+        // Use frame 0's effective QP so a zone covering the clip drives this
+        // sequence-level choice, while non-zoned encodes keep the global QP.
+        scs->static_config.max_tx_size         = svt_av1_get_effective_qp(scs, 0).qp <= 45 ? 32 : 64;
+        scs->static_config.screen_content_mode = 3;
     } else if (scs->static_config.tune == TUNE_MS_SSIM) {
         SVT_WARN("Tune MS_SSIM overrides: sharpness, Var. Boost strength/curve, enable-qm and min/max level\n");
         scs->static_config.enable_qm               = 1;
