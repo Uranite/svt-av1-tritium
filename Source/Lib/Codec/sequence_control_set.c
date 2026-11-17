@@ -169,6 +169,7 @@ EbErrorType copy_sequence_control_set(SequenceControlSet* dst, SequenceControlSe
     if (dst->b64_geom != NULL) {
         EB_FREE_ARRAY(dst->b64_geom);
     }
+    EB_FREE_ARRAY(dst->static_config.quality_zones);
     // Copy the non-pointer members
     *dst = *src;
 
@@ -224,6 +225,7 @@ EbErrorType copy_sequence_control_set(SequenceControlSet* dst, SequenceControlSe
             sizeof(src->static_config.sframe_posi.sframe_qp_offsets[0]) * src->static_config.sframe_posi.sframe_qp_num);
     }
     if (src->static_config.quality_zones) {
+        dst->static_config.quality_zones = NULL;
         EB_MALLOC(dst->static_config.quality_zones, sizeof(SvtAv1QualityZone) * src->static_config.num_zones);
         memcpy(dst->static_config.quality_zones,
                src->static_config.quality_zones,

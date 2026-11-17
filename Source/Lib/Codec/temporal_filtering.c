@@ -2755,11 +2755,11 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
     // Smaller q -> weaker filtering -> smaller weight.
 
     // Fixed-QP offsets are use here since final picture QP(s) are not generated @ this early stage
-    const int         bit_depth            = scs->static_config.encoder_bit_depth;
-    SvtAv1EffectiveQp effective_qp         = svt_av1_get_effective_qp(scs, centre_pcs->picture_number);
-    int               active_best_quality  = 0;
-    int               active_worst_quality = quantizer_to_qindex[effective_qp.qp];
-    int               q;
+    const int         bit_depth           = scs->static_config.encoder_bit_depth;
+    SvtAv1EffectiveQp effective_qp        = svt_av1_get_effective_qp(scs, centre_pcs->picture_number);
+    int               active_best_quality = 0;
+    int active_worst_quality = AOMMIN(MAXQ, quantizer_to_qindex[effective_qp.qp] + effective_qp.qindex_offset);
+    int q;
     FP_ASSERT(TF_Q_DECAY_THRESHOLD == 20);
     int offset_idx;
     if (!centre_pcs->is_ref) {

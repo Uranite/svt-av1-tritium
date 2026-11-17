@@ -667,10 +667,8 @@ void svt_av1_lowq_taper(PictureControlSet* pcs) {
         return;
     }
 
-    const int16_t scs_qindex = CLIP3(MINQ,
-                                     MAXQ,
-                                     quantizer_to_qindex[(uint8_t)scs->static_config.qp] +
-                                         scs->static_config.extended_crf_qindex_offset);
+    const SvtAv1EffectiveQp effective_qp = svt_av1_get_effective_qp(scs, pcs->ppcs->picture_number);
+    const int16_t scs_qindex    = CLIP3(MINQ, MAXQ, quantizer_to_qindex[effective_qp.qp] + effective_qp.qindex_offset);
     const int16_t dampening_thr = MIN(44, scs_qindex);
     uint16_t      sb_cnt        = scs->sb_total_count;
 

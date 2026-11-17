@@ -437,8 +437,9 @@ static EbErrorType reset_pcs_av1(PictureParentControlSet* pcs) {
     frm_hdr->delta_q_params.delta_q_present   = 1;
     frm_hdr->delta_lf_params.delta_lf_present = 0;
 
-    frm_hdr->delta_q_params.delta_q_res = get_delta_q_res((uint8_t)pcs->scs->static_config.qp,
-                                                          pcs->scs->static_config.enable_variance_boost);
+    frm_hdr->delta_q_params.delta_q_res = get_delta_q_res(
+        (uint8_t)svt_av1_get_effective_qp(pcs->scs, pcs->picture_number).qp,
+        pcs->scs->static_config.enable_variance_boost);
 
     frm_hdr->delta_lf_params.delta_lf_present = 0;
     frm_hdr->delta_lf_params.delta_lf_res     = 0;
@@ -1369,7 +1370,7 @@ EbErrorType svt_aom_resource_coordination_kernel_iter(void* context) {
             }
         } else {
             pcs->qp_on_the_fly = false;
-            pcs->picture_qp    = (uint8_t)scs->static_config.qp;
+            pcs->picture_qp    = svt_av1_get_effective_qp(scs, pcs->picture_number).qp;
         }
         pcs->sframe_qp_offset = 0;
 
