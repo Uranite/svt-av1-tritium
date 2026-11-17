@@ -129,14 +129,6 @@ Outputs the bitstream in a WebM container instead of IVF, including the encoder 
 
 When no output path is given, the encoder derives one from the input file name (`<input>_tritium.ivf`, `.obu`, or `.webm` depending on the selected format).
 
-- `--photon-noise` *0 to 100000*
-
-Generates a physically motivated photon-noise film grain table from a simulated camera ISO sensitivity. The table is applied as `--fgs-table` during the encode.
-
-- `--photon-noise-chroma` *0 and 1*
-
-Applies the photon-noise table to the chroma planes using luma scaling, default is 0.
-
 - `--enable-tf 3`
 
 The setting enables a more powerful, user-controllable, temporal filter on *all* frames, which can serve as an effective fast built-in temporal denoiser.  
@@ -165,6 +157,14 @@ Uses quantization matrices in the distortion computation for RD search, providin
 - `--cdef-scaling` *1 (0.06x) to 30 (2x)*
 
 Controls how 'strongly' the CDEF (Constrained Directional Enhancement Filter) is applied to the output. Lower values make output sharper, at the expense of ringing artifacts. Higher values make output smoother, with fewer ringing artifacts. Values of 10-12 have been reported to be useful by multiple people.
+
+- `--photon-noise` *0 to 100000*
+
+Generates a physically motivated photon-noise film grain table from a simulated camera ISO sensitivity. The table is applied as `--fgs-table` during the encode.
+
+- `--photon-noise-chroma` *0 and 1*
+
+Applies the photon-noise table to the chroma planes using luma scaling, default is 0.
 
 - `--noise` *0 to 200*
 
