@@ -18,6 +18,8 @@
  * @author Cidana-Edmond, Cidana-Ryan, Cidana-Wenyao
  *
  ******************************************************************************/
+#include <algorithm>
+
 #include "EbSvtAv1Enc.h"
 #include "EbSvtAv1Metadata.h"
 #include "gtest/gtest.h"
@@ -345,9 +347,13 @@ TEST_P(SmallResEncodeTest, encode_one_frame) {
 
     EbSvtIOFormat input_pic{};
 
-    const uint32_t luma_size = p.width * p.height;
-    const uint32_t chroma_w = (p.width + 1) / 2;
-    const uint32_t chroma_h = (p.height + 1) / 2;
+    // The encoder's 8-bit input path reads a padded region even for a 1x1
+    // source, so pad the test buffers to avoid reading past their end.
+    const uint32_t alloc_w = std::max<uint32_t>(64, p.width);
+    const uint32_t alloc_h = std::max<uint32_t>(64, p.height);
+    const uint32_t luma_size = alloc_w * alloc_h;
+    const uint32_t chroma_w = (alloc_w + 1) / 2;
+    const uint32_t chroma_h = (alloc_h + 1) / 2;
     const uint32_t chroma_size = chroma_w * chroma_h;
 
     std::vector<uint8_t> luma(luma_size, 128);
@@ -357,7 +363,7 @@ TEST_P(SmallResEncodeTest, encode_one_frame) {
     input_pic.luma = luma.data();
     input_pic.cb = cb.data();
     input_pic.cr = cr.data();
-    input_pic.y_stride = p.width;
+    input_pic.y_stride = alloc_w;
     input_pic.cb_stride = chroma_w;
     input_pic.cr_stride = chroma_w;
 
