@@ -634,9 +634,13 @@ static void av1_encode_tx_coef_uv(PictureControlSet* pcs, EntropyCodingContext* 
     const BlockSize bsize_uv       = get_plane_block_size(bsize, chroma_ss, chroma_ss);
     const uint8_t   tx_depth       = mbmi->block_mi.tx_depth;
     const TxSize    chroma_tx_size = av1_get_max_uv_txsize(bsize, chroma_ss, chroma_ss);
-    const int       tx_width_uv    = tx_size_wide[chroma_tx_size];
-    const int       tx_height_uv   = tx_size_high[chroma_tx_size];
-    const unsigned  txb_count      = svt_aom_uv_tx_count(bsize, chroma_ss);
+    if (chroma_tx_size == TX_INVALID) {
+        assert(0 && "Invalid UV transform size");
+        return;
+    }
+    const int      tx_width_uv  = tx_size_wide[chroma_tx_size];
+    const int      tx_height_uv = tx_size_high[chroma_tx_size];
+    const unsigned txb_count    = svt_aom_uv_tx_count(bsize, chroma_ss);
     // AV1 5.11.34: write every transform in U before the transforms in V.
     for (unsigned plane = 1; plane <= 2; ++plane) {
         NeighborArrayUnit* na = plane == 1 ? cb_dc_sign_level_coeff_na : cr_dc_sign_level_coeff_na;
