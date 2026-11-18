@@ -135,11 +135,11 @@ TEST(ZonesApiTest, ZonesRequestNonzeroQuality) {
     scs->static_config.num_zones = 1;
     EXPECT_FALSE(svt_av1_zones_request_nonzero_quality(scs.get()));
 
-    // A quarter step on top of base 0 is still treated as lossless, matching
-    // the global qp == 0 treatment of --crf 0.25.
+    // A quarter step on top of base 0 is still lossy: qindex 0 is the only
+    // lossless value.
     SvtAv1QualityZone quarter_zone = {0, 9, 0, 2};
     scs->static_config.quality_zones = &quarter_zone;
-    EXPECT_FALSE(svt_av1_zones_request_nonzero_quality(scs.get()));
+    EXPECT_TRUE(svt_av1_zones_request_nonzero_quality(scs.get()));
 
     SvtAv1QualityZone zones[2] = {{0, 4, 0, 0}, {5, 9, 35, 0}};
     scs->static_config.quality_zones = zones;
