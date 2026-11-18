@@ -1574,7 +1574,7 @@ static void av1_build_obmc_inter_prediction(uint8_t* final_dst_ptr_y, uint16_t f
     ctxt_above.final_dst_ptr_v    = final_dst_ptr_v;
     ctxt_above.final_dst_stride_v = final_dst_stride_v;
     ctxt_above.component_mask     = component_mask;
-    ctxt_above.chroma_ss          = pcs->scs->subsampling_x;
+    ctxt_above.chroma_ss          = (uint8_t)pcs->scs->subsampling_x;
 
     foreach_overlappable_nb_above(is16bit,
                                   pcs->ppcs->av1_cm,
@@ -1597,7 +1597,7 @@ static void av1_build_obmc_inter_prediction(uint8_t* final_dst_ptr_y, uint16_t f
     ctxt_left.final_dst_ptr_v    = final_dst_ptr_v;
     ctxt_left.final_dst_stride_v = final_dst_stride_v;
     ctxt_left.component_mask     = component_mask;
-    ctxt_left.chroma_ss          = pcs->scs->subsampling_x;
+    ctxt_left.chroma_ss          = (uint8_t)pcs->scs->subsampling_x;
 
     foreach_overlappable_nb_left(is16bit,
                                  pcs->ppcs->av1_cm,
@@ -3603,8 +3603,8 @@ EbErrorType svt_aom_inter_prediction(SequenceControlSet* scs, PictureControlSet*
              << is16bit);
         ConvolveParams  conv_params_cb     = get_conv_params_no_round(0, tmp_dst_cb, 64, is_compound, bit_depth);
         ConvolveParams  conv_params_cr     = get_conv_params_no_round(0, tmp_dst_cr, 64, is_compound, bit_depth);
-        const uint8_t   ss_x               = scs->subsampling_x; // pd->subsampling_x;
-        const uint8_t   ss_y               = scs->subsampling_y; //pd->subsampling_y;
+        const uint8_t   ss_x               = (uint8_t)scs->subsampling_x; // pd->subsampling_x;
+        const uint8_t   ss_y               = (uint8_t)scs->subsampling_y; //pd->subsampling_y;
         const BlockSize bsize_uv           = get_plane_block_size(bsize, ss_x, ss_y);
         const int       bwidth_uv          = block_size_wide[bsize_uv];
         const int       bheight_uv         = block_size_high[bsize_uv];

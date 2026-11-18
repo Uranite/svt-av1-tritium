@@ -86,7 +86,7 @@ static AOM_FORCE_INLINE void warp_affine_horizontal_i8mm(const uint8_t* ref8, co
             const int iy    = clamp(iy4 + k - 7, 0, height - 1);
             const int value = (ref8[iy * stride8 + ix] << 2) | (ref2[iy * stride2 + ix] >> 6);
             tmp[k]          = vdupq_n_s16((1 << (10 + FILTER_BITS - ROUND0_BITS - 1)) +
-                                 value * (1 << (FILTER_BITS - ROUND0_BITS)));
+                                          value * (1 << (FILTER_BITS - ROUND0_BITS)));
         }
         return;
     }

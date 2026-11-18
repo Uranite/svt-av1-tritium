@@ -124,7 +124,7 @@ TEST(ZonesApiTest, FailedReparseClearsZones) {
 }
 
 TEST(ZonesApiTest, ZonesRequestNonzeroQuality) {
-    auto scs = std::make_unique<SequenceControlSet>();
+    std::unique_ptr<SequenceControlSet> scs(new SequenceControlSet());
     memset(scs.get(), 0, sizeof(*scs));
     scs->static_config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
     scs->enable_qp_scaling_flag = 1;
@@ -153,7 +153,7 @@ TEST(ZonesApiTest, EffectiveQpFollowsTwoZones) {
         {1, 7, 20, 0},
         {8, 15, 50, 2},
     };
-    auto scs = std::make_unique<SequenceControlSet>();
+    std::unique_ptr<SequenceControlSet> scs(new SequenceControlSet());
     memset(scs.get(), 0, sizeof(*scs));
     scs->static_config.qp = 30;
     scs->static_config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
@@ -198,7 +198,7 @@ TEST(ZonesApiTest, EffectiveQpExtendedCrf) {
         {1, 7, 63, 1},   // 63.25
         {8, 15, 70, 0},  // 70.0
     };
-    auto scs = std::make_unique<SequenceControlSet>();
+    std::unique_ptr<SequenceControlSet> scs(new SequenceControlSet());
     memset(scs.get(), 0, sizeof(*scs));
     scs->static_config.qp = 30;
     scs->static_config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
@@ -227,7 +227,7 @@ TEST(ZonesApiTest, EffectiveQpOverlappingZonesLastWins) {
         {0, 9, 20, 0},
         {5, 15, 40, 2},
     };
-    auto scs = std::make_unique<SequenceControlSet>();
+    std::unique_ptr<SequenceControlSet> scs(new SequenceControlSet());
     memset(scs.get(), 0, sizeof(*scs));
     scs->static_config.qp = 30;
     scs->static_config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
@@ -500,7 +500,7 @@ TEST(ZonesApiTest, CappedCrfFullClipZoneIgnoresGlobalQp) {
 
 TEST(ZonesApiTest, EffectiveQpAtFrameZero) {
     SvtAv1QualityZone zones[2] = {{0, 9, 60, 0}, {10, 19, 20, 0}};
-    auto scs = std::make_unique<SequenceControlSet>();
+    std::unique_ptr<SequenceControlSet> scs(new SequenceControlSet());
     memset(scs.get(), 0, sizeof(*scs));
     scs->static_config.rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
     scs->enable_qp_scaling_flag = 1;

@@ -929,8 +929,8 @@ static void perform_intra_coding_loop(PictureControlSet* pcs, EncDecContext* ed_
 
                 // Copy neighbour arrays for intra prediction
                 const PredictionMode mode              = (blk_ptr->block_mi.uv_mode == UV_CFL_PRED)
-                                 ? (PredictionMode)UV_DC_PRED
-                                 : (PredictionMode)blk_ptr->block_mi.uv_mode;
+                    ? (PredictionMode)UV_DC_PRED
+                    : (PredictionMode)blk_ptr->block_mi.uv_mode;
                 const int            ang               = blk_ptr->block_mi.angle_delta[PLANE_TYPE_UV];
                 const IntraSize      intra_size        = ang == 0 ? svt_aom_intra_unit[mode] : (IntraSize){2, 2};
                 NeighborArrayUnit*   eb_uv_neigh_array = plane == 1 ? ep_cb_recon_na : ep_cr_recon_na;
@@ -1837,8 +1837,8 @@ static void encode_b(PictureControlSet* pcs, EncDecContext* ctx, BlkStruct* blk_
     INTRA block (since the prediction at MD may not be conformant). Lossless coding
     must recompute the residual: 8-bit MD may miss nonzero low bits of 10-bit input. */
     ctx->md_skip_blk         = !svt_av1_is_lossless_segment(pcs, blk_ptr->segment_id) && md_ctx->blk_skip_decision
-                ? ((is_intra_mode(blk_ptr->block_mi.mode) || blk_ptr->block_has_coeff) ? 0 : 1)
-                : 0;
+        ? ((is_intra_mode(blk_ptr->block_mi.mode) || blk_ptr->block_has_coeff) ? 0 : 1)
+        : 0;
     blk_ptr->block_has_coeff = 0;
 
     if (is_inter_block(&blk_ptr->block_mi)) {

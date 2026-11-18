@@ -418,7 +418,10 @@ static EbErrorType set_cfg_input_file(EbConfig* cfg, const char* token, const ch
         return validate_error(EB_ErrorBadParameter, token, "");
     }
 
-    cfg->input_file_path = strdup(value);
+    const EbErrorType str_ret = str_to_str(value, &cfg->input_file_path, token);
+    if (str_ret != EB_ErrorNone) {
+        return str_ret;
+    }
 
     const char* ext = strrchr(value, '.');
     if (ext && strcasecmp(ext, ".yuv") && strcasecmp(ext, ".y4m") && strcmp(value, "stdin") && strcmp(value, "-")) {
@@ -2204,6 +2207,7 @@ static void print_options(const char* title, const ConfigDescription* options) {
 }
 
 int get_version(int argc, char* const argv[], bool color) {
+    (void)color;
 #ifdef NDEBUG
 #define BUILD_TYPE_STRING "release"
 #else

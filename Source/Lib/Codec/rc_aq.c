@@ -668,7 +668,8 @@ void svt_av1_lowq_taper(PictureControlSet* pcs) {
     }
 
     const SvtAv1EffectiveQp effective_qp = svt_av1_get_effective_qp(scs, pcs->ppcs->picture_number);
-    const int16_t scs_qindex    = CLIP3(MINQ, MAXQ, quantizer_to_qindex[effective_qp.qp] + effective_qp.qindex_offset);
+    const int32_t qindex_sum    = (int32_t)quantizer_to_qindex[effective_qp.qp] + (int32_t)effective_qp.qindex_offset;
+    const int16_t scs_qindex    = CLIP3(MINQ, MAXQ, qindex_sum);
     const int16_t dampening_thr = MIN(44, scs_qindex);
     uint16_t      sb_cnt        = scs->sb_total_count;
 
@@ -684,11 +685,11 @@ void svt_av1_lowq_taper(PictureControlSet* pcs) {
             } else {
                 boost_beyond_thr = dampening_thr - sb_qindex;
             }
-            float boost_before_thr = boost - boost_beyond_thr;
-            float x                = 1 - (float)sb_qindex / dampening_thr;
-            float boost_dampener   = (-0.3 * pow(x, 2) + x) / x;
-            int16_t new_boost      = boost_before_thr + boost_beyond_thr * boost_dampener;
-            sb_ptr->qindex         = scs_qindex - new_boost;
+            float   boost_before_thr = (float)(boost - boost_beyond_thr);
+            float   x                = 1 - (float)sb_qindex / dampening_thr;
+            float   boost_dampener   = (float)((-0.3 * pow(x, 2) + x) / x);
+            int16_t new_boost        = (int16_t)(boost_before_thr + boost_beyond_thr * boost_dampener);
+            sb_ptr->qindex           = scs_qindex - new_boost;
         }
     }
 }

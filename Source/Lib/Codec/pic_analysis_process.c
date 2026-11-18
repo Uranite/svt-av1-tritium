@@ -610,7 +610,7 @@ static void compute_picture_spatial_statistics(SequenceControlSet* scs, PictureP
         uint32_t input_luma_origin_index = (b64_origin_y)*input_padded_pic->y_stride + b64_origin_x;
 
         compute_b64_variance(scs, pcs, input_padded_pic, b64_idx, input_luma_origin_index);
-        pic_tot_variance += (pcs->variance[b64_idx][RASTER_SCAN_CU_INDEX_64x64]);
+        pic_tot_variance += (uint64_t)(pcs->variance[b64_idx][RASTER_SCAN_CU_INDEX_64x64]);
     }
 
     pcs->pic_avg_variance = (uint16_t)(pic_tot_variance / b64_total_count);

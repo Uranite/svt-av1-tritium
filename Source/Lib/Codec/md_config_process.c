@@ -348,8 +348,8 @@ static void svt_av1_qm_init(PictureParentControlSet* pcs) {
         case TUNE_MS_SSIM: {
             int (*get_chroma_qmlevel)(int, int, int)     = pcs->scs->allintra &&
                     pcs->scs->static_config.encoder_color_format == EB_YUV444
-                    ? svt_av1_still_get_chroma_qmlevel_444
-                    : svt_av1_still_get_qmlevel;
+                ? svt_av1_still_get_chroma_qmlevel_444
+                : svt_av1_still_get_qmlevel;
             pcs->frm_hdr.quantization_params.qm[PLANE_Y] = svt_av1_still_get_qmlevel(
                 base_qindex, min_qmlevel, max_qmlevel);
             pcs->frm_hdr.quantization_params.qm[PLANE_U] = get_chroma_qmlevel(
