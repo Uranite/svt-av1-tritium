@@ -891,8 +891,16 @@ endif()
 if(BUILD_TESTING)
     include(CTest)
     message(STATUS "Building UnitTests")
+    # gtest's shared-library export macros only work with MSVC. With the clang
+    # GNU frontend on Windows, the shared gtest DLL does not export its data
+    # symbols (for example testing::FLAGS_gtest_death_test_style), so the test
+    # executables fail to link. Build gtest statically for the tests; the
+    # encoder library keeps its own BUILD_SHARED_LIBS setting.
+    set(_svt_av1_build_shared_libs ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS OFF)
     add_subdirectory(test)
     add_subdirectory(third_party/googletest)
+    set(BUILD_SHARED_LIBS ${_svt_av1_build_shared_libs})
 endif()
 
 add_subdirectory(third_party/fastfeat)
