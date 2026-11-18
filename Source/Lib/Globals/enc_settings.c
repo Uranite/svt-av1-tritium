@@ -238,6 +238,14 @@ EbErrorType svt_av1_verify_settings(SequenceControlSet* scs) {
                      config->rate_control_mode);
             zones_unsupported = true;
         }
+        if (config->use_fixed_qindex_offsets == 1) {
+            SVT_WARN("Zones are ignored when UseFixedQindexOffsets is 1\n");
+            zones_unsupported = true;
+        }
+        if (config->use_qp_file) {
+            SVT_WARN("Zones are ignored when a QP file is used\n");
+            zones_unsupported = true;
+        }
         if (zones_unsupported) {
             EB_FREE(config->quality_zones);
             config->quality_zones = NULL;
