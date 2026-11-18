@@ -377,16 +377,17 @@ static void encode_crf_packets(
     cfg.qp = qp;
     cfg.extended_crf_qindex_offset = ext_offset;
     cfg.max_bit_rate = max_bit_rate;
-    cfg.enable_variance_boost = variance_boost ? 2 : 0;
+    cfg.enable_variance_boost = variance_boost;
     cfg.level_of_parallelism =
         1;  // remove host-dependent threading from the test
     cfg.enable_overlays = false;
     cfg.look_ahead_distance = 0;
     cfg.recode_loop = recode_loop;
 
-    if (zones)
+    if (zones) {
         ASSERT_EQ(EB_ErrorNone,
                   svt_av1_enc_parse_parameter(&cfg, "zones", zones));
+    }
     ASSERT_EQ(EB_ErrorNone, svt_av1_enc_set_parameter(enc, &cfg));
     ASSERT_EQ(EB_ErrorNone, svt_av1_enc_init(enc));
 
@@ -446,8 +447,9 @@ static void expect_same_packets(const std::vector<std::vector<uint8_t>>& a,
     ASSERT_EQ(a.size(), b.size());
     for (size_t i = 0; i < a.size(); ++i) {
         EXPECT_EQ(a[i].size(), b[i].size()) << "packet " << i;
-        if (a[i].size() == b[i].size())
+        if (a[i].size() == b[i].size()) {
             EXPECT_TRUE(a[i] == b[i]) << "packet " << i;
+        }
     }
 }
 

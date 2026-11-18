@@ -47,6 +47,10 @@ static int od_compute_var_4x4(uint16_t* x, int stride) {
 void svt_aom_od_compute_diff_and_filter_h_c(const uint16_t* x, uint32_t x_stride, const uint16_t* y, uint32_t y_stride,
                                             int32_t* tmp, uint32_t tmp_stride, uint32_t width, uint32_t height) {
     int mid = OD_DIST_LP_MID;
+    // The filter reads e[1] and e[width - 2], so it needs at least two columns.
+    if (width < 2) {
+        return;
+    }
     for (uint32_t i = 0; i < height; i++) {
         const uint16_t* row_x   = x + i * x_stride;
         const uint16_t* row_y   = y + i * y_stride;
