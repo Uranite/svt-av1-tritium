@@ -220,7 +220,7 @@ static void set_scaling_points_uv(AomFilmGrain* film_grain, const NoiseArgs* noi
         film_grain->scaling_points_cr[0][1] = film_grain->scaling_points_cb[0][1] = 0;
         // lower mid ramp point
         film_grain->scaling_points_cr[1][0] = film_grain->scaling_points_cb[1][0] = range_min + 6;
-        film_grain->scaling_points_cr[1][1] = film_grain->scaling_points_cr[1][1] = get_output_noise(
+        film_grain->scaling_points_cr[1][1] = film_grain->scaling_points_cb[1][1] = get_output_noise(
             noise_setting, noise / 4, 1);
         // noise scaling points
         film_grain->scaling_points_cr[2][0] = film_grain->scaling_points_cb[2][0] = range_min + ramp_size;
