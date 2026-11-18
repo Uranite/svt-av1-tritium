@@ -375,7 +375,10 @@ uint32_t svt_aom_get_out_buffer_size(uint32_t picture_width, uint32_t picture_he
     // Compressed frames are far smaller than the raw 4:2:0 frame, so start the bitstream
     // capacity at raw/4. The entropy writer grows on demand if a (pathological, very low-QP)
     // frame ever exceeds it, so this stays correct while cutting the previous over-provisioning.
-    return picture_width * picture_height * 3 / 2 / 4; // raw 4:2:0 frame size / 4
+    const uint32_t raw_quarter = picture_width * picture_height * 3 / 2 / 4; // raw 4:2:0 frame size / 4
+    // For very small pictures raw/4 is smaller than the sequence and frame
+    // headers, which overflows the initial bitstream buffer. Keep a floor.
+    return raw_quarter < 4096 ? 4096 : raw_quarter;
 }
 
 /*
