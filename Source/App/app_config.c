@@ -934,7 +934,9 @@ ConfigDescription config_entry_global_options[] = {
 
     {FORCED_MAX_FRAME_HEIGHT_TOKEN, "Maximum frame height value to force, default is 0 [4-8704]"},
 
-    {CROP_TOKEN, "Crop the input video before encoding. Format: W:H[:X[:Y]] (default X=0, Y=0). Requires FFMS2 input"},
+    {CROP_TOKEN,
+     "Crop the input video before encoding. Format: W:H[:X[:Y]] (omitted offsets are auto-centered). Requires FFMS2 "
+     "input"},
 
     {NUMBER_OF_PICTURES_TOKEN,
      "Number of frames to encode. If `n` is larger than the input, the encoder will loop back and "
