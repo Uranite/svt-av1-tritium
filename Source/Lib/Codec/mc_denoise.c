@@ -839,7 +839,7 @@ static void mcd_build_post(SvtMcdState* s, McdBufs* b) {
  * before the helpers die — builds that a remaining denoise might wait on
  * are never lost, and on the normal teardown path every denoise has
  * already finished before shutdown is even signalled). */
-static void* mcd_build_thread(void* arg) {
+static THREAD_FUNC_RETURN mcd_build_thread(void* arg) {
     SvtMcdState* s = (SvtMcdState*)arg;
     for (;;) {
         svt_block_on_semaphore(s->build_semaphore);
@@ -871,7 +871,7 @@ static void* mcd_build_thread(void* arg) {
         mcd_bufs_unref(s, b); /* drop the job's reference (may free b) */
         svt_release_mutex(s->mutex);
     }
-    return NULL;
+    return 0;
 }
 
 /* Signal the helpers to exit (they drain the queue first), join them and
