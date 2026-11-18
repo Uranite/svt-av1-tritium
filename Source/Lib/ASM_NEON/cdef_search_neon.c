@@ -39,7 +39,7 @@ static INLINE int16x8_t cdef_secondary(const CdefDifference taps[8], int strengt
     const int16x8_t threshold = vdupq_n_s16(strength);
     const int16x8_t shift     = vdupq_n_s16(-AOMMAX(0, damping - get_msb(strength)));
     int16x8_t       near      = vaddq_s16(cdef_constrained(taps[0], threshold, shift),
-                               cdef_constrained(taps[1], threshold, shift));
+                                          cdef_constrained(taps[1], threshold, shift));
     near                      = vaddq_s16(
         near, vaddq_s16(cdef_constrained(taps[2], threshold, shift), cdef_constrained(taps[3], threshold, shift)));
     int16x8_t far = vaddq_s16(cdef_constrained(taps[4], threshold, shift), cdef_constrained(taps[5], threshold, shift));
@@ -55,9 +55,9 @@ static INLINE int16x8_t cdef_primary(const CdefDifference taps[4], int strength,
     const int16x8_t threshold = vdupq_n_s16(strength);
     const int16x8_t shift     = vdupq_n_s16(-AOMMAX(0, damping - get_msb(strength)));
     const int16x8_t near      = vaddq_s16(cdef_constrained(taps[0], threshold, shift),
-                                     cdef_constrained(taps[1], threshold, shift));
+                                          cdef_constrained(taps[1], threshold, shift));
     const int16x8_t far       = vaddq_s16(cdef_constrained(taps[2], threshold, shift),
-                                    cdef_constrained(taps[3], threshold, shift));
+                                          cdef_constrained(taps[3], threshold, shift));
     // Primary weights are either (3,3) or (4,2). Adds/shifts avoid the
     // per-strength broadcasts and vector multipliers for these small constants.
     if (strength & 4) {

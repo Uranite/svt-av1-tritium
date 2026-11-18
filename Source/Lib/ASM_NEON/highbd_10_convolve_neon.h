@@ -184,7 +184,7 @@ static inline void highbd_10_convolve_2d_horiz_neon(const uint16_t* src, int src
         : mode == 2                        ? (int16x8_t){0, 0, 0, 0, 64, 0, 0, 0}
                                            : (int16x8_t){0, 0, 0, 32, 32, 0, 0, 0};
     const int16x4_t base       = mode == 0 ? (int16x4_t){16, 0, 0, 0}
-              : mode == 2                  ? (int16x4_t){0, 16, 0, 0}
+        : mode == 2                        ? (int16x4_t){0, 16, 0, 0}
                                            : (int16x4_t){8, 8, 0, 0};
     const int16x8_t residual   = vsubq_s16(vshrq_n_s16(vld1q_s16(filter), 1), correction);
     if (taps <= 6) {

@@ -188,24 +188,6 @@ uint64_t compute_cdef_dist_sad_mse_8bit(uint8_t* dst8, int32_t dstride, uint8_t*
     return ((sad << 2) + (mse >> 1)) >> (2 * coeff_shift);
 }
 
-static int32_t svt_sb_all_skip(PictureControlSet* pcs, const Av1Common* const cm, int32_t mi_row, int32_t mi_col) {
-    int32_t maxc, maxr;
-    maxc = cm->mi_cols - mi_col;
-    maxr = cm->mi_rows - mi_row;
-
-    maxr = AOMMIN(maxr, MI_SIZE_64X64);
-    maxc = AOMMIN(maxc, MI_SIZE_64X64);
-
-    for (int32_t r = 0; r < maxr; r++) {
-        for (int32_t c = 0; c < maxc; c++) {
-            if (!(pcs->mi_grid_base[(mi_row + r) * pcs->mi_stride + mi_col + c]->block_mi.skip)) {
-                return 0;
-            }
-        }
-    }
-    return 1;
-}
-
 int32_t svt_sb_compute_cdef_list(PictureControlSet* pcs, const Av1Common* const cm, int32_t mi_row, int32_t mi_col,
                                  CdefList* dlist, BlockSize bs) {
     int32_t maxc = cm->mi_cols - mi_col;

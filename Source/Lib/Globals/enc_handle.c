@@ -4779,10 +4779,10 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.fgs_table                  = config_struct->fgs_table;
     scs->static_config.photon_noise_iso           = config_struct->photon_noise_iso;
     scs->static_config.enable_photon_noise_chroma = config_struct->enable_photon_noise_chroma;
-    scs->static_config.noise_strength         = config_struct->noise_strength;
-    scs->static_config.noise_strength_chroma  = config_struct->noise_strength_chroma;
-    scs->static_config.noise_chroma_from_luma = config_struct->noise_chroma_from_luma;
-    scs->static_config.noise_size             = config_struct->noise_size;
+    scs->static_config.noise_strength             = config_struct->noise_strength;
+    scs->static_config.noise_strength_chroma      = config_struct->noise_strength_chroma;
+    scs->static_config.noise_chroma_from_luma     = config_struct->noise_chroma_from_luma;
+    scs->static_config.noise_size                 = config_struct->noise_size;
 
     // Motion-compensated temporal denoising
     scs->static_config.mc_denoise          = config_struct->mc_denoise;

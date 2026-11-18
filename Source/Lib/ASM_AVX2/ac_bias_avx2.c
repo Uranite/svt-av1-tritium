@@ -119,8 +119,8 @@ SIMD_INLINE uint64_t psy_strip_avx2(const uint8_t* input, ptrdiff_t ss, const ui
                                     uint32_t width, uint32_t height, int hbd) {
     const int       vertical = width == 4;
     const uint32_t  length   = vertical ? height : width;
-    const ptrdiff_t step_s   = vertical ? ss : (1 << hbd);
-    const ptrdiff_t step_r   = vertical ? rs : (1 << hbd);
+    const ptrdiff_t step_s   = vertical ? ss : (ptrdiff_t)(1 << hbd);
+    const ptrdiff_t step_r   = vertical ? rs : (ptrdiff_t)(1 << hbd);
     uint64_t        gap      = 0;
     uint32_t        n        = 0;
     for (; length - n >= 8; n += 8) {

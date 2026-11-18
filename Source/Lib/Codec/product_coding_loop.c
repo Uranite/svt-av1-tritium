@@ -816,11 +816,11 @@ static void av1_perform_inverse_transform_recon(PictureControlSet* pcs, ModeDeci
         }
         uint32_t             rec_luma_offset  = txb_origin_x + txb_origin_y * cand_bf->recon->y_stride;
         uint32_t             rec_cb_offset    = ((ROUND_UV_TO(txb_origin_x, chroma_ss) +
-                                   ROUND_UV_TO(txb_origin_y, chroma_ss) * cand_bf->recon->u_stride) >>
-                                  chroma_ss);
+                                                  ROUND_UV_TO(txb_origin_y, chroma_ss) * cand_bf->recon->u_stride) >>
+                                                 chroma_ss);
         uint32_t             rec_cr_offset    = ((ROUND_UV_TO(txb_origin_x, chroma_ss) +
-                                   ROUND_UV_TO(txb_origin_y, chroma_ss) * cand_bf->recon->v_stride) >>
-                                  chroma_ss);
+                                                  ROUND_UV_TO(txb_origin_y, chroma_ss) * cand_bf->recon->v_stride) >>
+                                                 chroma_ss);
         uint32_t             txb_origin_index = txb_origin_x + txb_origin_y * cand_bf->pred->y_stride;
         EbPictureBufferDesc* recon_buffer     = cand_bf->recon;
 
@@ -1037,19 +1037,19 @@ static uint64_t pd0_prediction_distortion(PictureControlSet* pcs, ModeDecisionCo
     if (ctx->mds0_ctrls.mds0_dist_type == SSD) {
         // complex-hvs uses all rows, including the AC energy term from regular MD.
         distortion           = svt_spatial_full_distortion_kernel_facade(input->y_buffer,
-                                                               src_offset,
-                                                               input->y_stride,
-                                                               pred->y_buffer,
-                                                               pred_offset,
-                                                               pred->y_stride,
-                                                               width,
-                                                               height,
-                                                               hbd,
-                                                               &cand_bf->cand->block_mi,
-                                                               false,
-                                                               pcs->temporal_layer_index,
-                                                               pcs->scs->static_config.ac_bias,
-                                                               pcs->scs->static_config.tx_bias);
+                                                                         src_offset,
+                                                                         input->y_stride,
+                                                                         pred->y_buffer,
+                                                                         pred_offset,
+                                                                         pred->y_stride,
+                                                                         width,
+                                                                         height,
+                                                                         hbd,
+                                                                         &cand_bf->cand->block_mi,
+                                                                         false,
+                                                                         pcs->temporal_layer_index,
+                                                                         pcs->scs->static_config.ac_bias,
+                                                                         pcs->scs->static_config.tx_bias);
         const double ac_bias = get_effective_ac_bias_mds0(
             pcs->scs->static_config.ac_bias, pcs->slice_type == I_SLICE, pcs->temporal_layer_index);
         if (ac_bias) {
@@ -1244,13 +1244,13 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer* cand_bf, PictureCon
                     ? svt_full_distortion_kernel16_bits
                     : svt_spatial_full_distortion_kernel;
                 cand_bf->luma_fast_dist                          = spatial_full_dist_type_fun(input_pic->y_buffer,
-                                                                     input_origin_index,
-                                                                     input_pic->y_stride,
-                                                                     pred->y_buffer,
-                                                                     0,
-                                                                     pred->y_stride,
-                                                                     ctx->blk_geom->bwidth,
-                                                                     ctx->blk_geom->bheight);
+                                                                                              input_origin_index,
+                                                                                              input_pic->y_stride,
+                                                                                              pred->y_buffer,
+                                                                                              0,
+                                                                                              pred->y_stride,
+                                                                                              ctx->blk_geom->bwidth,
+                                                                                              ctx->blk_geom->bheight);
                 const double effective_ac_bias                   = get_effective_ac_bias_mds0(
                     pcs->scs->static_config.ac_bias, pcs->slice_type == I_SLICE, pcs->temporal_layer_index);
                 if (effective_ac_bias) {
@@ -1286,10 +1286,10 @@ static void obmc_trans_face_off(ModeDecisionCandidateBuffer* cand_bf, PictureCon
                     uint16_t*               pred_y = ((uint16_t*)pred->y_buffer);
                     uint16_t*               src_y  = ((uint16_t*)input_pic->y_buffer) + input_origin_index;
                     cand_bf->luma_fast_dist        = fn_ptr->vf_hbd_10(CONVERT_TO_BYTEPTR(pred_y),
-                                                                pred->y_stride,
-                                                                CONVERT_TO_BYTEPTR(src_y),
-                                                                input_pic->y_stride,
-                                                                &sse);
+                                                                       pred->y_stride,
+                                                                       CONVERT_TO_BYTEPTR(src_y),
+                                                                       input_pic->y_stride,
+                                                                       &sse);
                 }
                 // Shift variance by 4 because we use full lambda in the cost (since variance is proportional to sse)
                 // and full lambda is set with the expectation the variance is a squared metric shifted by 4 (the same
@@ -1410,13 +1410,13 @@ void fast_loop_core(ModeDecisionCandidateBuffer* cand_bf, PictureControlSet* pcs
             ? svt_full_distortion_kernel16_bits
             : svt_spatial_full_distortion_kernel;
         cand_bf->luma_fast_dist                          = spatial_full_dist_type_fun(input_pic->y_buffer,
-                                                             input_origin_index,
-                                                             input_pic->y_stride,
-                                                             pred->y_buffer,
-                                                             0,
-                                                             pred->y_stride,
-                                                             ctx->blk_geom->bwidth,
-                                                             ctx->blk_geom->bheight);
+                                                                                      input_origin_index,
+                                                                                      input_pic->y_stride,
+                                                                                      pred->y_buffer,
+                                                                                      0,
+                                                                                      pred->y_stride,
+                                                                                      ctx->blk_geom->bwidth,
+                                                                                      ctx->blk_geom->bheight);
         const double effective_ac_bias                   = get_effective_ac_bias_mds0(
             pcs->scs->static_config.ac_bias, pcs->slice_type == I_SLICE, pcs->temporal_layer_index);
         if (effective_ac_bias) {
@@ -3647,20 +3647,20 @@ static void av1_cost_calc_cfl(PictureControlSet* pcs, ModeDecisionCandidateBuffe
         cb_full_distortion[DIST_SSD][DIST_CALC_PREDICTION] = 0;
         cr_full_distortion[DIST_SSD][DIST_CALC_PREDICTION] = 0;
 
-        cb_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL]   = 0;
-        cr_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL]   = 0;
-        cb_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
-        cr_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION] = 0;
+        cb_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL]    = 0;
+        cr_full_distortion[DIST_SSIM][DIST_CALC_RESIDUAL]    = 0;
+        cb_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION]  = 0;
+        cr_full_distortion[DIST_SSIM][DIST_CALC_PREDICTION]  = 0;
         cb_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
         cr_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL]   = 0;
         cb_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
         cr_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = 0;
-        uint64_t cb_coeff_bits                              = 0;
-        uint64_t cr_coeff_bits                              = 0;
-        int32_t  alpha_q3                                   = (check_dc) ? 0
-                                                                         : cfl_idx_to_alpha(cand->block_mi.cfl_alpha_idx,
-                                                         cand->block_mi.cfl_alpha_signs,
-                                                         CFL_PRED_U); // once for U, once for V
+        uint64_t cb_coeff_bits                               = 0;
+        uint64_t cr_coeff_bits                               = 0;
+        int32_t  alpha_q3 = (check_dc) ? 0
+                                       : cfl_idx_to_alpha(cand->block_mi.cfl_alpha_idx,
+                                                          cand->block_mi.cfl_alpha_signs,
+                                                          CFL_PRED_U); // once for U, once for V
         assert(chroma_width <= CFL_BUF_LINE && (chroma_height - 1) * CFL_BUF_LINE + chroma_width <= CFL_BUF_SQUARE);
 
         if (!SVT_EFFECTIVE_HBD_MD(ctx->hbd_md)) {
@@ -3741,8 +3741,8 @@ static void av1_cost_calc_cfl(PictureControlSet* pcs, ModeDecisionCandidateBuffe
         uint64_t cr_coeff_bits = 0;
         int32_t  alpha_q3      = check_dc ? 0
                                           : cfl_idx_to_alpha(cand->block_mi.cfl_alpha_idx,
-                                                       cand->block_mi.cfl_alpha_signs,
-                                                       CFL_PRED_V); // once for U, once for V
+                                                             cand->block_mi.cfl_alpha_signs,
+                                                             CFL_PRED_V); // once for U, once for V
         assert(chroma_width <= CFL_BUF_LINE && (chroma_height - 1) * CFL_BUF_LINE + chroma_width <= CFL_BUF_SQUARE);
 
         if (!SVT_EFFECTIVE_HBD_MD(ctx->hbd_md)) {
@@ -4818,8 +4818,8 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
     EbPictureBufferDesc* input_pic = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? pcs->input_frame16bit
                                                                        : pcs->ppcs->enhanced_pic;
     int32_t              seg_qp    = pcs->ppcs->frm_hdr.segmentation_params.segmentation_enabled
-                        ? pcs->ppcs->frm_hdr.segmentation_params.feature_data[ctx->blk_ptr->segment_id][SEG_LVL_ALT_Q]
-                        : 0;
+        ? pcs->ppcs->frm_hdr.segmentation_params.feature_data[ctx->blk_ptr->segment_id][SEG_LVL_ALT_Q]
+        : 0;
 
     uint32_t full_lambda = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) ? ctx->full_lambda_md[EB_10_BIT_MD]
                                                              : ctx->full_lambda_md[EB_8_BIT_MD];
@@ -4879,9 +4879,9 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
     // Inter tx-depth-0 DCT_DCT coeffs persist in the candidate buffer across MD stages; the buffer holds one transform,
     // so blocks with several depth-0 transforms (128-wide/tall) do not use it
     const uint32_t dct_key             = (is_inter && ctx->tx_depth == 0 && !tx_search_skip_flag &&
-                              tx_blocks_per_depth[ctx->blk_geom->bsize][0] == 1)
-                    ? get_dct_dct_key(tx_size, pf_shape, SVT_EFFECTIVE_HBD_MD(ctx->hbd_md), ctx->mds_subres_step)
-                    : 0;
+                                          tx_blocks_per_depth[ctx->blk_geom->bsize][0] == 1)
+        ? get_dct_dct_key(tx_size, pf_shape, SVT_EFFECTIVE_HBD_MD(ctx->hbd_md), ctx->mds_subres_step)
+        : 0;
     uint64_t       best_cost_tx_search = (uint64_t)~0;
     uint64_t       dct_dct_cost        = (uint64_t)~0;
     int            best_satd_tx_search = INT_MAX;
@@ -5304,8 +5304,8 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
                 continue;
             }
 
-            EbPictureBufferDesc* recon_ptr = (tx_type == DCT_DCT) ? cand_bf->recon : ctx->recon_ptr[tx_type];
-            const uint32_t       qindex    = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            EbPictureBufferDesc* recon_ptr    = (tx_type == DCT_DCT) ? cand_bf->recon : ctx->recon_ptr[tx_type];
+            const uint32_t       daala_qindex = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
 
             txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_PREDICTION] =
                 svt_spatial_full_distortion_daala_kernel(input_pic->y_buffer,
@@ -5317,7 +5317,7 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
                                                          cropped_tx_width,
                                                          cropped_tx_height,
                                                          pcs->scs->static_config.encoder_bit_depth,
-                                                         qindex,
+                                                         daala_qindex,
                                                          1);
 
             txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_RESIDUAL] = svt_spatial_full_distortion_daala_kernel(
@@ -5330,7 +5330,7 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
                 cropped_tx_width,
                 cropped_tx_height,
                 pcs->scs->static_config.encoder_bit_depth,
-                qindex,
+                daala_qindex,
                 1);
 
             txb_full_distortion_txt[DIST_DAALA][tx_type][DIST_CALC_PREDICTION] <<= 4;
@@ -5414,19 +5414,19 @@ static void tx_type_search(PictureControlSet* pcs, ModeDecisionContext* ctx, Mod
     if (qmpsnr_search && spatial_mode_decision && eob_txt[best_tx_type]) {
         EbPictureBufferDesc* recon_ptr = best_tx_type == DCT_DCT ? cand_bf->recon : ctx->recon_ptr[best_tx_type];
         uint64_t             dist      = svt_spatial_full_distortion_kernel_facade(input_pic->y_buffer,
-                                                                  input_txb_origin_index,
-                                                                  input_pic->y_stride,
-                                                                  recon_ptr->y_buffer,
-                                                                  (int32_t)txb_origin_index,
-                                                                  recon_ptr->y_stride,
-                                                                  cropped_tx_width,
-                                                                  cropped_tx_height,
-                                                                  SVT_EFFECTIVE_HBD_MD(ctx->hbd_md),
-                                                                  &cand_bf->cand->block_mi,
-                                                                  false,
-                                                                  pcs->temporal_layer_index,
-                                                                  pcs->scs->static_config.ac_bias,
-                                                                  pcs->scs->static_config.tx_bias);
+                                                                                   input_txb_origin_index,
+                                                                                   input_pic->y_stride,
+                                                                                   recon_ptr->y_buffer,
+                                                                                   (int32_t)txb_origin_index,
+                                                                                   recon_ptr->y_stride,
+                                                                                   cropped_tx_width,
+                                                                                   cropped_tx_height,
+                                                                                   SVT_EFFECTIVE_HBD_MD(ctx->hbd_md),
+                                                                                   &cand_bf->cand->block_mi,
+                                                                                   false,
+                                                                                   pcs->temporal_layer_index,
+                                                                                   pcs->scs->static_config.ac_bias,
+                                                                                   pcs->scs->static_config.tx_bias);
         if (effective_ac_bias) {
             dist += get_svt_psy_full_dist(input_pic->y_buffer,
                                           input_txb_origin_index,
@@ -6317,7 +6317,7 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
                 effective_ac_bias);
         }
         if (ctx->tune_daala_level >= 3 || pcs->scs->static_config.enable_daala_rd) {
-            const uint32_t qindex                               = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            const uint32_t daala_qindex                         = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
             y_full_distortion[DIST_DAALA][DIST_CALC_PREDICTION] = svt_spatial_full_distortion_daala_kernel(
                 input_pic->y_buffer,
                 input_txb_origin_index,
@@ -6328,7 +6328,7 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
                 cropped_tx_width,
                 cropped_tx_height,
                 pcs->scs->static_config.encoder_bit_depth,
-                qindex,
+                daala_qindex,
                 1);
         }
 
@@ -6367,7 +6367,7 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
             }
         }
         if (ctx->tune_daala_level >= 3 || pcs->scs->static_config.enable_daala_rd) {
-            const uint32_t qindex                             = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
+            const uint32_t daala_qindex                       = pcs->ppcs->frm_hdr.quantization_params.base_q_idx;
             y_full_distortion[DIST_DAALA][DIST_CALC_RESIDUAL] = svt_spatial_full_distortion_daala_kernel(
                 input_pic->y_buffer,
                 input_txb_origin_index,
@@ -6378,7 +6378,7 @@ static void perform_dct_dct_tx(PictureControlSet* pcs, ModeDecisionContext* ctx,
                 cropped_tx_width,
                 cropped_tx_height,
                 pcs->scs->static_config.encoder_bit_depth,
-                qindex,
+                daala_qindex,
                 1);
         }
         y_full_distortion[DIST_SSD][DIST_CALC_PREDICTION] <<= 4;
@@ -8259,10 +8259,10 @@ static void search_best_independent_uv_mode(PictureControlSet* pcs, EbPictureBuf
                 uint16_t*               pred_cb = ((uint16_t*)cand_bf->pred->u_buffer) + cu_chroma_origin_index;
                 uint16_t*               src_cb  = ((uint16_t*)input_pic->u_buffer) + input_cb_origin_in_index;
                 chroma_fast_distortion          = fn_ptr->vf_hbd_10(CONVERT_TO_BYTEPTR(pred_cb),
-                                                           cand_bf->pred->u_stride,
-                                                           CONVERT_TO_BYTEPTR(src_cb),
-                                                           input_pic->u_stride,
-                                                           &sse);
+                                                                    cand_bf->pred->u_stride,
+                                                                    CONVERT_TO_BYTEPTR(src_cb),
+                                                                    input_pic->u_stride,
+                                                                    &sse);
 
                 uint16_t* pred_cr = ((uint16_t*)cand_bf->pred->v_buffer) + cu_chroma_origin_index;
                 uint16_t* src_cr  = ((uint16_t*)input_pic->v_buffer) + input_cr_origin_in_index;
@@ -9423,8 +9423,8 @@ static void copy_recon_light_pd1(PictureControlSet* pcs, ModeDecisionContext* ct
         // If using only pred depth and no NSQ, can copy directly to final buffer b/c no d1 or d2
         // decision Assume non-16bit
         recon_ptr       = (pcs->ppcs->is_ref)
-                  ? ((EbReferenceObject*)pcs->ppcs->ref_pic_wrapper->object_ptr)->reference_picture
-                  : pcs->ppcs->enc_dec_ptr->recon_pic;
+            ? ((EbReferenceObject*)pcs->ppcs->ref_pic_wrapper->object_ptr)->reference_picture
+            : pcs->ppcs->enc_dec_ptr->recon_pic;
         rec_luma_offset = (blk_org_y)*recon_ptr->y_stride + (blk_org_x);
         rec_cb_offset = rec_cr_offset = ((blk_org_x + (blk_org_y)*recon_ptr->u_stride) >> ctx->subsampling_x);
     } else {
@@ -10426,10 +10426,10 @@ static bool update_skip_nsq_based_on_split_rate(PictureControlSet* pcs, ModeDeci
     const BlkStruct* sq_blk_ptr = pc_tree->block_data[PART_N][0];
     // if hbd_md is 0, we may still use 10bit lambda to generate final costs if we are bypassing encdec for 10bit content.
     const bool     used_10bit_at_mds3 = (SVT_EFFECTIVE_BIT_DEPTH(ctx->encoder_bit_depth) > EB_EIGHT_BIT &&
-                                     ctx->bypass_encdec && ctx->pd_pass == PD_PASS_1);
+                                         ctx->bypass_encdec && ctx->pd_pass == PD_PASS_1);
     const uint32_t full_lambda        = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) || used_10bit_at_mds3
-               ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
-               : ctx->full_sb_lambda_md[EB_8_BIT_MD];
+        ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
+        : ctx->full_sb_lambda_md[EB_8_BIT_MD];
     uint32_t       nsq_split_cost_th  = ctx->nsq_search_ctrls.nsq_split_cost_th;
     // Get the rate cost of splitting into the current NSQ shape.
     // If the cost of the split rate is significant, then the shape is unlikely to be selected.
@@ -11495,18 +11495,18 @@ static bool test_split_partition(SequenceControlSet* scs, PictureControlSet* pcs
     }
     // if hbd_md is 0, we may still use 10bit lambda to generate final costs if we are bypassing encdec for 10bit content.
     const bool     used_10bit_at_mds3 = (SVT_EFFECTIVE_BIT_DEPTH(ctx->encoder_bit_depth) > EB_EIGHT_BIT &&
-                                     ctx->bypass_encdec && ctx->pd_pass == PD_PASS_1);
+                                         ctx->bypass_encdec && ctx->pd_pass == PD_PASS_1);
     const uint32_t full_lambda        = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) || used_10bit_at_mds3
-               ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
-               : ctx->full_sb_lambda_md[EB_8_BIT_MD];
+        ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
+        : ctx->full_sb_lambda_md[EB_8_BIT_MD];
     int64_t        above_split_rate   = svt_aom_partition_rate_cost(pcs->ppcs,
-                                                           pc_tree->bsize,
-                                                           mi_row,
-                                                           mi_col,
-                                                           ctx->md_rate_est_ctx,
-                                                           PARTITION_SPLIT,
-                                                           pc_tree->left_part_ctx,
-                                                           pc_tree->above_part_ctx);
+                                                                    pc_tree->bsize,
+                                                                    mi_row,
+                                                                    mi_col,
+                                                                    ctx->md_rate_est_ctx,
+                                                                    PARTITION_SPLIT,
+                                                                    pc_tree->left_part_ctx,
+                                                                    pc_tree->above_part_ctx);
 
     // If not using accurate partition rate, bias against splitting by increasing the rate of SPLIT partition
     if (!pcs->ppcs->use_accurate_part_ctx) {
@@ -11602,10 +11602,10 @@ static bool test_depth(SequenceControlSet* scs, PictureControlSet* pcs, ModeDeci
 
     // if hbd_md is 0, we may still use 10bit lambda to generate final costs if we are bypassing encdec for 10bit content.
     const bool     used_10bit_at_mds3 = (SVT_EFFECTIVE_BIT_DEPTH(ctx->encoder_bit_depth) > EB_EIGHT_BIT &&
-                                     ctx->bypass_encdec && ctx->pd_pass == PD_PASS_1);
+                                         ctx->bypass_encdec && ctx->pd_pass == PD_PASS_1);
     const uint32_t full_lambda        = SVT_EFFECTIVE_HBD_MD(ctx->hbd_md) || used_10bit_at_mds3
-               ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
-               : ctx->full_sb_lambda_md[EB_8_BIT_MD];
+        ? ctx->full_sb_lambda_md[EB_10_BIT_MD]
+        : ctx->full_sb_lambda_md[EB_8_BIT_MD];
     // Loop over all shapes set to be tested at the current depth
     for (uint32_t shape_idx = 0; shape_idx < mds->tot_shapes; shape_idx++) {
         const Part shape           = mds->shapes[shape_idx];

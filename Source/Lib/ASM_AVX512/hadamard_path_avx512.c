@@ -79,7 +79,7 @@ static INLINE int hadamard_highbd_16x16_avx512(const uint8_t* src, ptrdiff_t src
         const __m256i p0 = _mm256_loadu_si256((const __m256i*)(pred + i * pred_stride));
         const __m256i p1 = _mm256_loadu_si256((const __m256i*)(pred + (i + 8) * pred_stride));
         a[i]             = _mm512_sub_epi16(_mm512_inserti64x4(_mm512_castsi256_si512(s0), s1, 1),
-                                _mm512_inserti64x4(_mm512_castsi256_si512(p0), p1, 1));
+                                            _mm512_inserti64x4(_mm512_castsi256_si512(p0), p1, 1));
     }
     hadamard_v8_avx512(a);
     hadamard_transpose8_avx512(a);
@@ -194,7 +194,7 @@ int svt_av1_highbd_hadamard_satd_4x4_avx512(const uint16_t* src, ptrdiff_t ss, c
 
 int svt_av1_highbd_hadamard_satd_8x8_avx512(const uint16_t* src, ptrdiff_t ss, const uint16_t* pred, ptrdiff_t ps) {
     const __m512i top    = _mm512_sub_epi16(hadamard_load8x4_avx512((const uint8_t*)src, 2 * ss, 1),
-                                         hadamard_load8x4_avx512((const uint8_t*)pred, 2 * ps, 1));
+                                            hadamard_load8x4_avx512((const uint8_t*)pred, 2 * ps, 1));
     const __m512i bottom = _mm512_sub_epi16(hadamard_load8x4_avx512((const uint8_t*)(src + 4 * ss), 2 * ss, 1),
                                             hadamard_load8x4_avx512((const uint8_t*)(pred + 4 * ps), 2 * ps, 1));
     return hadamard_satd8_packed_avx512(top, bottom, NULL, 1);

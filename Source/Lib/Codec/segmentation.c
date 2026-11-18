@@ -141,7 +141,7 @@ void svt_aom_apply_segmentation_based_quantization(PictureControlSet* pcs, Super
     }
     double*             variance_ptr        = pcs->ppcs->variance[sb_ptr->index];
     SegmentationParams* segmentation_params = &pcs->ppcs->frm_hdr.segmentation_params;
-    uint16_t            variance            = get_variance_for_cu(bsize, org_x, org_y, variance_ptr);
+    uint16_t            variance            = (uint16_t)get_variance_for_cu(bsize, org_x, org_y, variance_ptr);
     blk_ptr->segment_id                     = 0;
     for (int i = MAX_SEGMENTS - 1; i >= 0; i--) {
         if (variance <= segmentation_params->variance_bin_edge[i]) {
@@ -281,9 +281,9 @@ void find_segment_qps(SegmentationParams* segmentation_params,
         uint32_t var_index, local_avg = 0;
         // Loop over all 8x8s in a 64x64
         for (var_index = ME_TIER_ZERO_PU_8x8_0; var_index <= ME_TIER_ZERO_PU_8x8_63; var_index++) {
-            max_var = MAX(max_var, variance_ptr[var_index]);
-            min_var = MIN(min_var, variance_ptr[var_index]);
-            local_avg += variance_ptr[var_index];
+            max_var = MAX(max_var, (uint16_t)variance_ptr[var_index]);
+            min_var = MIN(min_var, (uint16_t)variance_ptr[var_index]);
+            local_avg += (uint32_t)variance_ptr[var_index];
         }
         avg_var += (local_avg >> 6);
     }

@@ -1058,8 +1058,9 @@ static void intra_luma_prediction_for_interintra(ModeDecisionContext* ctx, Pictu
 void svt_aom_precompute_intra_pred_for_inter_intra(PictureControlSet* pcs, ModeDecisionContext* ctx) {
     uint32_t            j;
     EbPictureBufferDesc pred_desc;
-    pred_desc.border   = 0;
-    pred_desc.y_stride = ctx->blk_geom->bwidth;
+    pred_desc.border       = 0;
+    pred_desc.y_stride     = ctx->blk_geom->bwidth;
+    pred_desc.color_format = pcs->color_format;
 
     for (j = 0; j < INTERINTRA_MODES; ++j) {
         InterIntraMode interintra_mode = (InterIntraMode)j;

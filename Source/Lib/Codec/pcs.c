@@ -1067,10 +1067,10 @@ static EbErrorType picture_control_set_ctor(PictureControlSet* object_ptr, EbPtr
     }
     object_ptr->disallow_4x4_all_frames = disallow_4x4;
     disallow_8x8                        = allintra ? MIN(disallow_8x8, svt_aom_get_disallow_8x8_allintra())
-                               : rtc_tune          ? MIN(disallow_8x8,
+        : rtc_tune ? MIN(disallow_8x8,
                          svt_aom_get_disallow_8x8_rtc(
                              init_data_ptr->enc_mode, init_data_ptr->picture_width, init_data_ptr->picture_height))
-                                                   : MIN(disallow_8x8, svt_aom_get_disallow_8x8_default());
+                   : MIN(disallow_8x8, svt_aom_get_disallow_8x8_default());
     if (init_data_ptr->color_format == EB_YUV444) {
         disallow_8x8 = false;
     }
