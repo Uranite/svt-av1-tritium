@@ -4179,12 +4179,15 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
             scs->tf_params_per_type[1].max_num_future_pics);
     }
     scs->scd_delay = MAX(scd_delay_islice, scd_delay_base);
-    // Low-delay has no lookahead; SCD needs future frames (pd_window[2]), so any
-    // scd_delay deadlocks the 1-in-1-out pipeline against blocking get_packet().
+    // Low-delay and all-intra have no lookahead; SCD needs future frames
+    // (pd_window[2]), so any scd_delay deadlocks the pipeline against blocking
+    // get_packet(). All-intra also has no scene transitions to detect: every
+    // frame is a key frame.
     const bool low_delay = scs->static_config.pred_structure == LOW_DELAY;
-    if (low_delay) {
+    const bool no_scd    = low_delay || allintra;
+    if (no_scd) {
         if (scs->static_config.scene_change_detection) {
-            SVT_WARN("SCD is disabled in RTC / low-delay mode.\n");
+            SVT_WARN(low_delay ? "SCD is disabled in RTC / low-delay mode.\n" : "SCD is disabled in all-intra mode.\n");
         }
         scs->static_config.scene_change_detection      = 0;
         scs->vq_ctrls.sharpness_ctrls.scene_transition = 0;
@@ -4192,7 +4195,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     }
     // Update the scd_delay based on SCD, 1first pass
     // Delay needed for SCD , 1first pass of (2pass and 1pass VBR)
-    if (!low_delay &&
+    if (!no_scd &&
         (scs->static_config.scene_change_detection || scs->vq_ctrls.sharpness_ctrls.scene_transition || scs->lap_rc)) {
         scs->scd_delay = MAX(scs->scd_delay, 2);
     }
