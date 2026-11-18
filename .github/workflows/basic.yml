@@ -166,6 +166,7 @@ jobs:
         uses: $/.github/actions/compile
         with:
           cmake_build_type: Release
+          extra_cmake_flags: -DUSE_WEBM_IO=ON
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7.0.0
         with:
@@ -271,6 +272,11 @@ jobs:
               diff -u "smg${mg_size}_dec_order_reference.txt" "${output%.ivf}_dec_order.txt"
             done
           done
+      - name: Run WebM output test
+        run: |
+          ./Bin/Release/SvtAv1EncApp --preset 8 -i akiyo_cif.y4m -n 10 --webm -b test.webm
+          test -s test.webm
+          ffprobe -hide_banner -v error -show_entries format=format_name -of default=noprint_wrappers=1 test.webm | grep -q webm
       - name: Run ROI map encodes and compare reconstructions
         run: |
           cat > roi-sample-kirland_640_480_30-two-events.txt <<'EOF'
@@ -493,7 +499,7 @@ jobs:
           cmake_build_type: Release
           cc: clang
           cxx: clang++
-          extra_cmake_flags: -DCMAKE_OSX_ARCHITECTURES=arm64
+          extra_cmake_flags: -DCMAKE_OSX_ARCHITECTURES=arm64 -DUSE_WEBM_IO=ON
           save_cache: false
       - name: Prep for x86_64
         run: |
@@ -505,7 +511,7 @@ jobs:
           cmake_build_type: Release
           cc: clang
           cxx: clang++
-          extra_cmake_flags: -DCMAKE_OSX_ARCHITECTURES=x86_64
+          extra_cmake_flags: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DUSE_WEBM_IO=ON
       - name: Create universal binary
         run: |
           mv Bin/Release Bin/Release-x86_64
@@ -592,6 +598,7 @@ jobs:
           cmake -S ${env:GITHUB_WORKSPACE} -B ${env:GITHUB_WORKSPACE}/Build `
             -DREPRODUCIBLE_BUILDS=ON `
             -DBUILD_SHARED_LIBS=ON `
+            -DUSE_WEBM_IO=ON `
             -DBUILD_TESTING=OFF
       - name: Build
         run: cmake --build ${env:GITHUB_WORKSPACE}/Build --config Release --parallel
@@ -763,6 +770,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DREPRODUCIBLE_BUILDS=ON \
             -DBUILD_SHARED_LIBS=OFF \
+            -DUSE_WEBM_IO=ON \
             -DBUILD_TESTING=OFF \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
