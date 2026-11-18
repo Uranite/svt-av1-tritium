@@ -3469,10 +3469,11 @@ static void derive_vq_params(SequenceControlSet* scs) {
 static void derive_tf_params(SequenceControlSet* scs) {
     const uint32_t hierarchical_levels = scs->static_config.hierarchical_levels;
     // Filtering changes the source even when every coded frame uses qindex zero.
-    // A zone can raise the quality above zero even when the global QP is zero,
-    // so the global QP alone is not enough to decide this.
+    // A zone or an extended-CRF quarter step can raise the quality above zero
+    // even when the global QP is zero, so the global QP alone is not enough.
     const bool qp0 = scs->static_config.rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF && scs->static_config.qp == 0 &&
-        !scs->static_config.use_qp_file && !svt_av1_zones_request_nonzero_quality(scs);
+        scs->static_config.extended_crf_qindex_offset == 0 && !scs->static_config.use_qp_file &&
+        !svt_av1_zones_request_nonzero_quality(scs);
     const bool do_tf = scs->static_config.enable_tf && hierarchical_levels >= 1 && !scs->static_config.lossless && !qp0;
     const EncMode enc_mode = SVT_ENC_MODE(scs->static_config.enc_mode);
     uint8_t       tf_level = 0;

@@ -1911,7 +1911,8 @@ static void vmaf_preprocess_frame(PictureAnalysisContext* pa_ctx, PictureParentC
     // even when the global QP is zero.
     const SvtAv1EffectiveQp effective_qp = svt_av1_get_effective_qp(pcs->scs, pcs->picture_number);
     if (config->lossless ||
-        (config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF && effective_qp.qp == 0 && !config->use_qp_file)) {
+        (config->rate_control_mode == SVT_AV1_RC_MODE_CQP_OR_CRF && effective_qp.qp == 0 &&
+         effective_qp.qindex_offset == 0 && !config->use_qp_file)) {
         return;
     }
     EbPictureBufferDesc* pic_ptr    = pcs->enhanced_pic;

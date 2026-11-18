@@ -372,7 +372,10 @@ static INLINE bool svt_av1_zones_request_nonzero_quality(const SequenceControlSe
         return false;
     }
     for (uint16_t i = 0; i < scs->static_config.num_zones; ++i) {
-        if (scs->static_config.quality_zones[i].zone_baseq > 0) {
+        const SvtAv1QualityZone* zone = &scs->static_config.quality_zones[i];
+        // A quarter-step zone (for example quality 0.25) has zone_baseq == 0
+        // but is still lossy: qindex 0 is the only lossless value.
+        if (zone->zone_baseq > 0 || zone->zone_qsidx > 0) {
             return true;
         }
     }
