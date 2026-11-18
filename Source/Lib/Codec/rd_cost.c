@@ -1474,7 +1474,7 @@ EbErrorType svt_aom_full_cost_pd0(ModeDecisionContext* ctx, ModeDecisionCandidat
     const uint64_t partition_rate = ctx->blk_geom->bsize == BLOCK_4X4
         ? 0
         : ctx->md_rate_est_ctx->partition_fac_bits[0][PARTITION_NONE];
-    uint64_t distortion = y_distortion[0];
+    uint64_t       distortion     = y_distortion[0];
     if (y_daala_dist) {
         distortion += y_daala_dist;
     }
@@ -1564,6 +1564,7 @@ void svt_aom_full_cost(PictureControlSet* pcs, ModeDecisionContext* ctx, ModeDec
     uint64_t mode_ssim_distortion = update_full_cost_ssim
         ? y_distortion[DIST_SSIM][0] + cb_distortion[DIST_SSIM][0] + cr_distortion[DIST_SSIM][0]
         : 0;
+
     uint64_t mode_daala_distortion = update_full_cost_daala ? y_distortion[DIST_DAALA][0] + mode_distortion : 0;
     uint64_t mode_cost             = (dist_type == DIST_SSD) ? RDCOST(lambda, mode_rate, mode_distortion)
         : (dist_type == DIST_SSIM)                           ? RDCOST(lambda, mode_rate, mode_ssim_distortion)

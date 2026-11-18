@@ -73,12 +73,12 @@ static INLINE void qm_distortion_neon(const int32_t* coeff, const int32_t* recon
                 {
                     const uint16x8_t w16    = vmovl_u8(vget_low_u8(weights16));
                     const uint16x8_t c16    = vcombine_u16(vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(c0))),
-                                                        vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(c1))));
+                                                           vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(c1))));
                     const uint16x8_t energy = vmulq_u16(c16, w16);
                     energy0                 = vpadalq_u32(energy0, qm_square_sum16(energy));
                     if (has_coeff) {
                         const uint16x8_t d16   = vcombine_u16(vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(d0))),
-                                                            vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(d1))));
+                                                              vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(d1))));
                         const uint16x8_t error = vmulq_u16(d16, w16);
                         error0                 = vpadalq_u32(error0, qm_square_sum16(error));
                     }
@@ -86,12 +86,12 @@ static INLINE void qm_distortion_neon(const int32_t* coeff, const int32_t* recon
                 {
                     const uint16x8_t w16    = vmovl_high_u8(weights16);
                     const uint16x8_t c16    = vcombine_u16(vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(c2))),
-                                                        vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(c3))));
+                                                           vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(c3))));
                     const uint16x8_t energy = vmulq_u16(c16, w16);
                     energy1                 = vpadalq_u32(energy1, qm_square_sum16(energy));
                     if (has_coeff) {
                         const uint16x8_t d16   = vcombine_u16(vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(d2))),
-                                                            vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(d3))));
+                                                              vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(d3))));
                         const uint16x8_t error = vmulq_u16(d16, w16);
                         error1                 = vpadalq_u32(error1, qm_square_sum16(error));
                     }
@@ -138,7 +138,7 @@ static INLINE void qm_distortion_neon(const int32_t* coeff, const int32_t* recon
             const int32x4_t d0        = has_coeff ? vqsubq_s32(c0, vld1q_s32(r + x)) : vdupq_n_s32(0);
             const int32x4_t d1        = has_coeff ? vqsubq_s32(c1, vld1q_s32(r + x + 4)) : vdupq_n_s32(0);
             uint32x4_t      magnitude = vmaxq_u32(vreinterpretq_u32_s32(vabsq_s32(c0)),
-                                             vreinterpretq_u32_s32(vabsq_s32(c1)));
+                                                  vreinterpretq_u32_s32(vabsq_s32(c1)));
             if (has_coeff) {
                 magnitude = vmaxq_u32(magnitude, vreinterpretq_u32_s32(vabsq_s32(d0)));
                 magnitude = vmaxq_u32(magnitude, vreinterpretq_u32_s32(vabsq_s32(d1)));
@@ -149,12 +149,12 @@ static INLINE void qm_distortion_neon(const int32_t* coeff, const int32_t* recon
             // Apply the same unsigned-halfword bound to the eight-element tail.
             if ((uint64_t)max_magnitude * vmaxv_u8(weights8) <= UINT16_MAX) {
                 const uint16x8_t c16    = vcombine_u16(vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(c0))),
-                                                    vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(c1))));
+                                                       vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(c1))));
                 const uint16x8_t energy = vmulq_u16(c16, w16);
                 energy0                 = vpadalq_u32(energy0, qm_square_sum16(energy));
                 if (has_coeff) {
                     const uint16x8_t d16   = vcombine_u16(vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(d0))),
-                                                        vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(d1))));
+                                                          vmovn_u32(vreinterpretq_u32_s32(vabsq_s32(d1))));
                     const uint16x8_t error = vmulq_u16(d16, w16);
                     error0                 = vpadalq_u32(error0, qm_square_sum16(error));
                 }

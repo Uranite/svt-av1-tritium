@@ -4758,10 +4758,10 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.fgs_table                  = config_struct->fgs_table;
     scs->static_config.photon_noise_iso           = config_struct->photon_noise_iso;
     scs->static_config.enable_photon_noise_chroma = config_struct->enable_photon_noise_chroma;
-    scs->static_config.noise_strength         = config_struct->noise_strength;
-    scs->static_config.noise_strength_chroma  = config_struct->noise_strength_chroma;
-    scs->static_config.noise_chroma_from_luma = config_struct->noise_chroma_from_luma;
-    scs->static_config.noise_size             = config_struct->noise_size;
+    scs->static_config.noise_strength             = config_struct->noise_strength;
+    scs->static_config.noise_strength_chroma      = config_struct->noise_strength_chroma;
+    scs->static_config.noise_chroma_from_luma     = config_struct->noise_chroma_from_luma;
+    scs->static_config.noise_size                 = config_struct->noise_size;
 
     // MD Parameters
     scs->enable_hbd_mode_decision = SVT_EFFECTIVE_BIT_DEPTH(config_struct->encoder_bit_depth) > 8 ? DEFAULT : 0;

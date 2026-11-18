@@ -256,9 +256,9 @@ void svt_aom_get_txb_ctx(PictureControlSet* pcs, const int32_t plane,
     static const int8_t signs[3]    = {0, -1, 1};
     const int32_t       plane_shift = plane ? pcs->scs->subsampling_x : 0;
     int32_t             txb_w_unit  = MIN(eb_tx_size_wide_unit[tx_size],
-                             (int32_t)((pcs->ppcs->aligned_width >> plane_shift) - blk_org_x) >> 2);
+                                          (int32_t)((pcs->ppcs->aligned_width >> plane_shift) - blk_org_x) >> 2);
     int32_t             txb_h_unit  = MIN(eb_tx_size_high_unit[tx_size],
-                             (int32_t)((pcs->ppcs->aligned_height >> plane_shift) - blk_org_y) >> 2);
+                                          (int32_t)((pcs->ppcs->aligned_height >> plane_shift) - blk_org_y) >> 2);
 
     int16_t dc_sign = 0;
     int32_t top     = 0; /* OR-accumulation across neighbors */
@@ -634,9 +634,13 @@ static void av1_encode_tx_coef_uv(PictureControlSet* pcs, EntropyCodingContext* 
     const BlockSize bsize_uv       = get_plane_block_size(bsize, chroma_ss, chroma_ss);
     const uint8_t   tx_depth       = mbmi->block_mi.tx_depth;
     const TxSize    chroma_tx_size = av1_get_max_uv_txsize(bsize, chroma_ss, chroma_ss);
-    const int       tx_width_uv    = tx_size_wide[chroma_tx_size];
-    const int       tx_height_uv   = tx_size_high[chroma_tx_size];
-    const unsigned  txb_count      = svt_aom_uv_tx_count(bsize, chroma_ss);
+    if (chroma_tx_size == TX_INVALID) {
+        assert(0 && "Invalid UV transform size");
+        return;
+    }
+    const int      tx_width_uv  = tx_size_wide[chroma_tx_size];
+    const int      tx_height_uv = tx_size_high[chroma_tx_size];
+    const unsigned txb_count    = svt_aom_uv_tx_count(bsize, chroma_ss);
     // AV1 5.11.34: write every transform in U before the transforms in V.
     for (unsigned plane = 1; plane <= 2; ++plane) {
         NeighborArrayUnit* na = plane == 1 ? cb_dc_sign_level_coeff_na : cr_dc_sign_level_coeff_na;

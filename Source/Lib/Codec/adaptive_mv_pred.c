@@ -645,8 +645,9 @@ void setup_ref_mv_list(PictureControlSet* pcs, const Av1Common* cm, MacroBlockD*
         scan_blk_mbmi_all(xd, mi_row, mi_col, -1, xd->n8_w, refs, tot_refs, gm_params, 1);
     }
 
+    const bool use_temporal = frm_hdr->use_ref_frame_mvs && tot_refs;
     TplMvCache temporal;
-    if (frm_hdr->use_ref_frame_mvs && tot_refs) {
+    if (use_temporal) {
         tpl_mv_gather(&temporal, pcs->tpl_mvs, cm->mi_stride >> 1, xd, mi_row, mi_col, ctx->sb64_sq_no4xn_geom);
     }
 
@@ -664,7 +665,7 @@ void setup_ref_mv_list(PictureControlSet* pcs, const Av1Common* cm, MacroBlockD*
             ref_mv_stack[idx].weight += REF_CAT_LEVEL;
         }
 
-        if (frm_hdr->use_ref_frame_mvs) {
+        if (use_temporal) {
             for (int i = 0; temporal.count && i < 2 && rf[i] != NONE_FRAME; ++i) {
                 if (temporal.ready & (1u << rf[i])) {
                     continue;

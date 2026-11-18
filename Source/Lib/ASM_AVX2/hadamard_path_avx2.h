@@ -88,7 +88,7 @@ SIMD_INLINE void hadamard_transpose8_avx2(__m256i a[8]) {
 static INLINE __m256i hadamard_load4x4_avx2(const uint8_t* src, ptrdiff_t stride, int hbd) {
     if (hbd) {
         const __m128i top    = _mm_unpacklo_epi64(_mm_loadl_epi64((const __m128i*)src),
-                                               _mm_loadl_epi64((const __m128i*)(src + stride)));
+                                                  _mm_loadl_epi64((const __m128i*)(src + stride)));
         const __m128i bottom = _mm_unpacklo_epi64(_mm_loadl_epi64((const __m128i*)(src + 2 * stride)),
                                                   _mm_loadl_epi64((const __m128i*)(src + 3 * stride)));
         return _mm256_inserti128_si256(_mm256_castsi128_si256(top), bottom, 1);

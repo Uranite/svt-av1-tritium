@@ -685,10 +685,6 @@ EbErrorType svt_aom_mode_decision_cand_bf_ctor(ModeDecisionCandidateBuffer* buff
                                                EbPictureBufferDesc* temp_residual, EbPictureBufferDesc* temp_recon_ptr,
                                                uint64_t* fast_cost, uint64_t* full_cost, uint64_t* full_cost_ssim,
                                                uint64_t* full_cost_daala) {
-    EbPictureBufferDescInitData picture_buffer_desc_init_data;
-
-    EbPictureBufferDescInitData thirty_two_width_picture_buffer_desc_init_data;
-
     buffer_ptr->dctor = mode_decision_cand_bf_dctor;
 
     // Candidate Ptr
@@ -3399,9 +3395,9 @@ static void inject_filter_intra_candidates(PictureControlSet* pcs, ModeDecisionC
     const int       chroma_ss        = ctx->subsampling_x;
     FilterIntraMode intra_mode_start = FILTER_DC_PRED;
     FilterIntraMode intra_mode_end   = ctx->intra_ctrls.intra_mode_end == PAETH_PRED ? FILTER_PAETH_PRED
-          : ctx->intra_ctrls.intra_mode_end >= D157_PRED                             ? FILTER_D157_PRED
-          : ctx->intra_ctrls.intra_mode_end >= H_PRED                                ? FILTER_H_PRED
-          : ctx->intra_ctrls.intra_mode_end >= V_PRED                                ? FILTER_V_PRED
+        : ctx->intra_ctrls.intra_mode_end >= D157_PRED                               ? FILTER_D157_PRED
+        : ctx->intra_ctrls.intra_mode_end >= H_PRED                                  ? FILTER_H_PRED
+        : ctx->intra_ctrls.intra_mode_end >= V_PRED                                  ? FILTER_V_PRED
                                                                                      : FILTER_DC_PRED;
     intra_mode_end                   = MIN(intra_mode_end, ctx->filter_intra_ctrls.max_filter_intra_mode);
 

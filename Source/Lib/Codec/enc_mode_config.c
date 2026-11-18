@@ -124,18 +124,18 @@ static void get_sb128_variance(PictureControlSet* pcs, ModeDecisionContext* ctx,
     uint32_t b64_x          = (ctx->sb_origin_x / b64_size);
     uint32_t b64_y          = (ctx->sb_origin_y / b64_size);
     uint32_t b64_index      = b64_x + b64_y * b64_pic_width;
-    uint16_t var_64         = pcs->ppcs->variance[b64_index][ME_TIER_ZERO_PU_64x64];
+    uint16_t var_64         = (uint16_t)pcs->ppcs->variance[b64_index][ME_TIER_ZERO_PU_64x64];
     uint8_t  count          = 1;
     if (b64_x + 1 < b64_pic_width) {
-        var_64 += pcs->ppcs->variance[b64_index + 1][ME_TIER_ZERO_PU_64x64];
+        var_64 = (uint16_t)(var_64 + pcs->ppcs->variance[b64_index + 1][ME_TIER_ZERO_PU_64x64]);
         count++;
     }
     if (b64_y + 1 < b64_pic_height) {
-        var_64 += pcs->ppcs->variance[b64_index + b64_pic_width][ME_TIER_ZERO_PU_64x64];
+        var_64 = (uint16_t)(var_64 + pcs->ppcs->variance[b64_index + b64_pic_width][ME_TIER_ZERO_PU_64x64]);
         count++;
     }
     if (b64_x + 1 < b64_pic_width && b64_y + 1 < b64_pic_height) {
-        var_64 += pcs->ppcs->variance[b64_index + b64_pic_width + 1][ME_TIER_ZERO_PU_64x64];
+        var_64 = (uint16_t)(var_64 + pcs->ppcs->variance[b64_index + b64_pic_width + 1][ME_TIER_ZERO_PU_64x64]);
         count++;
     }
     var_64 /= count;
@@ -7286,7 +7286,7 @@ static void get_max_block_size_allintra(PictureControlSet* pcs, ModeDecisionCont
     // Get variance
     uint16_t variance;
     if (pcs->scs->super_block_size == 64) {
-        variance = pcs->ppcs->variance[ctx->sb_index][ME_TIER_ZERO_PU_64x64];
+        variance = (uint16_t)pcs->ppcs->variance[ctx->sb_index][ME_TIER_ZERO_PU_64x64];
     } else {
         get_sb128_variance(pcs, ctx, &variance);
     }
@@ -9756,8 +9756,8 @@ void svt_aom_sig_deriv_mode_decision_config_default(SequenceControlSet* scs, Pic
         dlf_level = get_dlf_level_default(
             pcs, dlf_enc_mode, is_not_last_layer, fast_decode, input_resolution, (pcs->temporal_layer_index == 0));
     }
-    svt_aom_set_dlf_controls(pcs->ppcs,
-                             pcs->scs->static_config.enable_dlf_flag == 3 && frm_hdr->allow_intrabc == 0 ? 1 : dlf_level);
+    svt_aom_set_dlf_controls(
+        pcs->ppcs, pcs->scs->static_config.enable_dlf_flag == 3 && frm_hdr->allow_intrabc == 0 ? 1 : dlf_level);
 }
 
 static INLINE bool should_disable_cdf_update(SequenceControlSet* scs, EncMode enc_mode, bool is_islice) {
@@ -10210,8 +10210,8 @@ void svt_aom_sig_deriv_mode_decision_config_rtc(SequenceControlSet* scs, Picture
 
         dlf_level = get_dlf_level_rtc(pcs, dlf_enc_mode, is_base);
     }
-    svt_aom_set_dlf_controls(pcs->ppcs,
-                             pcs->scs->static_config.enable_dlf_flag == 3 && frm_hdr->allow_intrabc == 0 ? 1 : dlf_level);
+    svt_aom_set_dlf_controls(
+        pcs->ppcs, pcs->scs->static_config.enable_dlf_flag == 3 && frm_hdr->allow_intrabc == 0 ? 1 : dlf_level);
 }
 
 void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, PictureControlSet* pcs) {
@@ -10462,8 +10462,8 @@ void svt_aom_sig_deriv_mode_decision_config_allintra(SequenceControlSet* scs, Pi
         }
         dlf_level = get_dlf_level_allintra(dlf_enc_mode, fast_decode, input_resolution);
     }
-    svt_aom_set_dlf_controls(pcs->ppcs,
-                             pcs->scs->static_config.enable_dlf_flag == 3 && frm_hdr->allow_intrabc == 0 ? 1 : dlf_level);
+    svt_aom_set_dlf_controls(
+        pcs->ppcs, pcs->scs->static_config.enable_dlf_flag == 3 && frm_hdr->allow_intrabc == 0 ? 1 : dlf_level);
 }
 
 /****************************************************
