@@ -69,6 +69,9 @@ class RtcResolutionEncodeTest : public ::testing::TestWithParam<RtcResParam> {
         cfg_.pred_structure = LOW_DELAY;
         cfg_.hierarchical_levels = 0;
         cfg_.intra_period_length = 30;
+        // RTC forces hierarchical_levels to 4, so the default min intra period
+        // (31 at 30 fps) would exceed the 30-frame keyint above.
+        cfg_.min_intra_period_length = 0;
         cfg_.look_ahead_distance = 0;
         cfg_.recode_loop = 0;
         ASSERT_EQ(EB_ErrorNone, svt_av1_enc_set_parameter(enc_, &cfg_));
