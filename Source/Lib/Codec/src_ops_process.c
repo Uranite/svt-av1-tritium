@@ -2291,7 +2291,7 @@ unsigned int svt_aom_get_perceptual_perpixel_variance(const uint8_t* buf, uint32
     // A better perceptual weight boosts the importance of mid-tones.
     // Let's define a boost factor, e.g., boosting it by up to 50%, or use another equation (var + var*weight / sqrt(var + 1))
     //unsigned int perceptual_var = var * (1.0 + weight);
-    unsigned int perceptual_var = var + ((var * weight) / sqrtf(var + 1.));
+    unsigned int perceptual_var = (unsigned int)(var + ((var * weight) / sqrtf((float)(var + 1.))));
 
     //fprintf(stdout, "%.4u\t", perceptual_var);
 

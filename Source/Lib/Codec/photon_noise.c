@@ -65,11 +65,11 @@ static double srgb_from_linear(double linear) {
     return linear <= 0.0031308 ? 12.92 * linear : 1.055 * pow(linear, 1.0 / 2.4) - 0.055;
 }
 
-static const double kPqM1 = 2610.0 / 16384;
-static const double kPqM2 = 128 * 2523.0 / 4096;
-static const double kPqC1 = 3424.0 / 4096;
-static const double kPqC2 = 32 * 2413.0 / 4096;
-static const double kPqC3 = 32 * 2392.0 / 4096;
+#define kPqM1 (2610.0 / 16384)
+#define kPqM2 (128 * 2523.0 / 4096)
+#define kPqC1 (3424.0 / 4096)
+#define kPqC2 (32 * 2413.0 / 4096)
+#define kPqC3 (32 * 2392.0 / 4096)
 
 static double pq_to_linear(double pq) {
     double pq_pow_inv_m2 = pow(pq, 1.0 / kPqM2);

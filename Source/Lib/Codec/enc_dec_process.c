@@ -1370,8 +1370,8 @@ static void prepare_input_picture(SequenceControlSet* scs, PictureControlSet* pc
             ((sb_org_x) >> scs->subsampling_x);
 
         sb_width  = ((sb_width < MIN_SB_SIZE) || ((sb_width > MIN_SB_SIZE) && (sb_width < MAX_SB_SIZE)))
-             ? MIN(scs->sb_size, (pcs->ppcs->aligned_width + scs->border) - sb_org_x)
-             : sb_width;
+            ? MIN(scs->sb_size, (pcs->ppcs->aligned_width + scs->border) - sb_org_x)
+            : sb_width;
         sb_height = ((sb_height < MIN_SB_SIZE) || ((sb_height > MIN_SB_SIZE) && (sb_height < MAX_SB_SIZE)))
             ? MIN(scs->sb_size, (pcs->ppcs->aligned_height + scs->border) - sb_org_y)
             : sb_height;
