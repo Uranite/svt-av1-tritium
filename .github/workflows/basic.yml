@@ -252,8 +252,11 @@ jobs:
           chmod +x Bin/Release/SvtAv1EncApp
           for preset in 5 10; do
             for mg_size in 2 3 4; do
+              # Disable SCD: a scene change inserts an early key frame that truncates
+              # the startup mini-GOP, so the decode order would not be deterministic.
               ./Bin/Release/SvtAv1EncApp \
                 --svtav1-params "startup-mg-size=${mg_size}:qp=32:aq-mode=2:hierarchical-levels=5" \
+                --scd 0 \
                 -n 120 --keyint -1 --preset "$preset" -w 640 -h 480 \
                 -i kirland_640_480_30.yuv -b "m${preset}_smg${mg_size}.ivf"
             done
