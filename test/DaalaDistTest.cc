@@ -441,6 +441,13 @@ TEST_P(DaalaVarDist8x8Test, Speed) {
     RunSpeed();
 }
 
+// These suites are only instantiated below on x86_64 (SSE4_1/AVX2). Tell
+// gtest that leaving them uninstantiated on other architectures (e.g. ARM64)
+// is intentional, otherwise the verification test fails there.
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DaalaDiffFilterHTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DaalaFilterVTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DaalaVarDist8x8Test);
+
 // Instantiate test suites for x86_64
 #ifdef ARCH_X86_64
 INSTANTIATE_TEST_SUITE_P(

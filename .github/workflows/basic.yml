@@ -287,8 +287,11 @@ jobs:
           0 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 0 -4 255 255 255 255 255 255 255 255 0 -10 0 0 255 255 255 255 255 0 -2 -6 -2 0 255 255 255 255 0 -2 -4 -6 -4 0 0 255 255 0 -2 -4 -6 -6 -6 -2 0 255 255 0 -2 -4 -6 -6 -6 -2 0 255
           60 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 0 -4 1 1 128 128 128 128 128 1 0 -10 0 0 128 128 128 128 1 0 -2 -6 -2 0 1 128 128 128 0 -2 -4 -6 -4 0 0 128 128 1 -2 -4 -6 -6 -6 -2 0 128 128 1 -2 -4 -6 -6 -6 -2 0 128
           EOF
-          ./Bin/Release/SvtAv1EncApp --roi-map-file roi-sample-kirland_640_480_30-two-events.txt --keyint 60 -n 120 -q 32 --preset 8 -w 640 -h 480 -i kirland_640_480_30.yuv -b roi.ivf -o roi_recon.yuv
-          ./Bin/Release/SvtAv1EncApp --roi-map-file roi-sample-kirland_640_480_30-two-events.txt --keyint 60 -n 120 -q 32 --preset 8 --tile-columns 1 -w 640 -h 480 -i kirland_640_480_30.yuv -b roi_tiles.ivf -o roi_tiles_recon.yuv
+          # SCD on derives a min-keyint of 64 (1 s at 30 fps), which exceeds
+          # --keyint 60; this ROI test compares reconstruction bytes, so disable
+          # SCD to keep the keyframe placement deterministic.
+          ./Bin/Release/SvtAv1EncApp --roi-map-file roi-sample-kirland_640_480_30-two-events.txt --keyint 60 --scd 0 -n 120 -q 32 --preset 8 -w 640 -h 480 -i kirland_640_480_30.yuv -b roi.ivf -o roi_recon.yuv
+          ./Bin/Release/SvtAv1EncApp --roi-map-file roi-sample-kirland_640_480_30-two-events.txt --keyint 60 --scd 0 -n 120 -q 32 --preset 8 --tile-columns 1 -w 640 -h 480 -i kirland_640_480_30.yuv -b roi_tiles.ivf -o roi_tiles_recon.yuv
           ffmpeg -hide_banner -loglevel error -y -i roi.ivf roi_dec.yuv
           ffmpeg -hide_banner -loglevel error -y -i roi_tiles.ivf roi_tiles_dec.yuv
           diff -q roi_recon.yuv roi_dec.yuv
