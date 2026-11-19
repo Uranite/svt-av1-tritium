@@ -5014,6 +5014,14 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         }
         if (scs->static_config.min_intra_period_length == -1) {
             scs->static_config.min_intra_period_length = compute_default_min_intra_period(scs);
+            // The derived default min-keyint is ~1 second (64 at 30 fps), which can exceed an
+            // explicitly-requested small keyint (e.g. --keyint 3 in the E2E IntraPeriod test).
+            // svt_av1_verify_settings() rejects min_keyint > keyint when SCD is on, so clamp the
+            // derived default to the keyint. An explicitly requested min-keyint is left alone
+            // and still validated normally.
+            if (scs->static_config.min_intra_period_length > scs->static_config.intra_period_length) {
+                scs->static_config.min_intra_period_length = scs->static_config.intra_period_length;
+            }
         }
     }
     if (scs->static_config.look_ahead_distance == (uint32_t)~0) {
