@@ -5014,6 +5014,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
         }
         if (scs->static_config.min_intra_period_length == -1) {
             scs->static_config.min_intra_period_length = compute_default_min_intra_period(scs);
+            if (scs->static_config.min_intra_period_length > scs->static_config.intra_period_length) {
+                scs->static_config.min_intra_period_length = scs->static_config.intra_period_length;
+            }
         }
     }
     if (scs->static_config.look_ahead_distance == (uint32_t)~0) {
