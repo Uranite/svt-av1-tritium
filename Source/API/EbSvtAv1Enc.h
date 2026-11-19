@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Copyright(c) 2019 Intel Corporation
 *
 * This source code is subject to the terms of the BSD 3-Clause Clear License and
@@ -1375,6 +1375,63 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     uint8_t output_format;
 
+    /* Motion-compensated temporal denoising of the input picture
+    * (dfttest-style spatial prefilter + hierarchical motion estimation +
+    * SAD-weighted motion-compensated temporal aggregation).
+    * Appended here to preserve offsets of the existing public fields.
+    *
+    * Default is 0 (off). */
+    uint32_t mc_denoise;
+
+    /* Temporal radius of the motion-compensated denoiser: number of
+    * reference frames searched backward and forward around the current
+    * picture.
+    *
+    * Default is 1. */
+    uint32_t mc_denoise_tr;
+
+    /* Motion-compensated denoiser SAD soft threshold. The unit is the mean
+    * absolute residual across the represented plane samples, scaled to 64
+    * samples at 8-bit range. Blocks above this threshold get no contribution
+    * from that reference.
+    *
+    * Default is 50. */
+    uint32_t mc_denoise_thsad;
+
+    /* Motion-compensated denoiser analysis block size.
+    *
+    * Default is 16. */
+    uint32_t mc_denoise_blksize;
+
+    /* Spatial prefilter used to guide the motion search.
+    * 0 = search on the original pixels, 1 = dfttest prefilter.
+    *
+    * Default is 1. */
+    uint32_t mc_denoise_prefilter;
+
+    /* Scale (percent) of the dfttest prefilter noise sigma.
+    *
+    * Default is 50. */
+    uint32_t mc_denoise_sigma;
+
+    /* Per-block scene change SAD threshold. Uses the same normalized mean
+    * absolute residual unit as mc_denoise_thsad.
+    *
+    * Default is 400. */
+    uint32_t mc_denoise_thscd1;
+
+    /* Percentage of blocks above thscd1 required to judge a scene change.
+    * 0 still requires one changed block; 100 requires every block to change.
+    *
+    * Default is 51. */
+    uint32_t mc_denoise_thscd2;
+
+    /* Maximum absolute output change vs. the source allowed by the
+    * motion-compensated denoiser (normalized 8-bit scale), 0 = unlimited.
+    *
+    * Default is 0. */
+    uint32_t mc_denoise_limit;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1418,6 +1475,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint32_t) // pin_threads
         - sizeof(bool) // low_q_taper
         - sizeof(uint8_t) // output_format
+        - sizeof(uint32_t) * 9 // mc_denoise configuration fields appended for ABI compatibility
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
