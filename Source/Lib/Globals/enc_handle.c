@@ -4821,9 +4821,6 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     scs->static_config.tune                = config_struct->tune;
     scs->static_config.hierarchical_levels = config_struct->hierarchical_levels;
 
-    if (scs->static_config.rtc && scs->static_config.hierarchical_levels == 0) {
-        scs->static_config.hierarchical_levels = HIERARCHICAL_LEVELS_AUTO;
-    }
     // Set hierarchical_levels to 2 to reduce memory allocation; 2 is the minimum currently supported
     if (scs->allintra) {
         scs->static_config.hierarchical_levels = 2;
