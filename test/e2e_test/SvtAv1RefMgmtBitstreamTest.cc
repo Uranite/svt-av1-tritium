@@ -15,28 +15,32 @@
  *
  * @brief End-to-end bitstream cross-check for ref-frame management.
  *
- * Encodes a 30-frame LD-CBR clip with:
- *     STORE  id=42  at frame  5
+ * Encodes a 30-frame L1T2 LD-CBR clip with (all on base/TID-0 frames):
+ *     STORE  id=42  at frame  6
  *     USE    id=42  at frame 12
- *     CLEAR  id=42  at frame 18
- *     USE    id=42  at frame 22   (anchor already CLEARed → no-op)
+ *     CLEAR  id=42  at frame 16
+ *     USE    id=42  at frame 20   (anchor already CLEARed → no-op)
+ *
+ * Ref-mgmt events are only honored on base frames, and the app-managed LTR
+ * redesign requires a hierarchical LD-CBR structure (even POCs are base in
+ * L1T2), so the clip is configured with hierarchical_levels=1.
  *
  * Decodes the bitstream through libaom (via RefDecoder +
  *AOMD_GET_LAST_REF_UPDATES) and asserts properties of the encoded
  *refresh_frame_flags that prove the encoder honored each event:
  *
- *   1. Frame 5 refresh_flags has at least one bit set — the encoder did
+ *   1. Frame 6 refresh_flags has at least one bit set — the encoder did
  *      allocate a DPB slot to STORE pic_id 42 (slot index is dynamic; the
  *      encoder picks whatever slot it was already going to refresh).
- *   2. Frames 6..11 refresh_flags NEVER include the STOREd slot — the
+ *   2. Frames 7..11 refresh_flags NEVER include the STOREd slot — the
  *      anchor is preserved.
  *   3. Frame 12 refresh_flags has popcount == 7 with the STOREd slot
  *      cleared — USE triggered the recovery-point refresh (every
  *      non-STOREd slot gets the recovery frame), preserving the anchor.
- *   4. Frame 18 refresh_flags has the legacy "normal" shape (popcount
+ *   4. Frame 16 refresh_flags has the legacy "normal" shape (popcount
  *      <= 6, NOT the recovery 7-pattern) — CLEAR alone does not trigger
  *      recovery refresh.
- *   5. Frame 22 refresh_flags also has the normal shape — USE-after-CLEAR
+ *   5. Frame 20 refresh_flags also has the normal shape — USE-after-CLEAR
  *      was no-oped (anchor was already released).
  *   6. The whole stream decodes without corruption.
  ******************************************************************************/
@@ -61,11 +65,17 @@ namespace {
 
 constexpr uint32_t kWidth = 320;
 constexpr uint32_t kHeight = 240;
+// The app-managed LTR redesign confines anchors to the top-4 DPB slots and
+// requires ld_reduce_ref_buffs >= 1, which requires a hierarchical LD-CBR
+// prediction structure. Ref-mgmt events are only honored on base (TID-0)
+// frames; in L1T2 (hierarchical_levels=1) those are the even POCs. Keep every
+// event on a base frame so STORE/USE/CLEAR are actually applied.
 constexpr uint32_t kNumFrames = 30;
-constexpr uint32_t kStoreFrame = 5;
-constexpr uint32_t kUseFrame = 12;
-constexpr uint32_t kClearFrame = 18;
-constexpr uint32_t kUseAfterClr = 22;  // USE after CLEAR → no-op + warning
+constexpr uint32_t kStoreFrame = 6;    // base (TID 0)
+constexpr uint32_t kUseFrame = 12;     // base (TID 0)
+constexpr uint32_t kClearFrame = 16;   // base (TID 0)
+constexpr uint32_t kUseAfterClr = 20;  // base (TID 0), USE after CLEAR -> no-op
+constexpr uint32_t kLegacyFrame = 4;   // base (TID 0), before any event
 constexpr uint32_t kStoreId = 42u;
 
 static inline int popcount8(uint8_t m) {
@@ -139,7 +149,8 @@ class RefMgmtBitstreamTest : public ::testing::Test {
         cfg_.tune = 1;
         cfg_.rtc = true;
         cfg_.intra_period_length = 100;
-        cfg_.hierarchical_levels = 0;
+        cfg_.hierarchical_levels =
+            1;  // L1T2: even POCs are base (TID-0) frames
         cfg_.pred_structure = LOW_DELAY;
         cfg_.rate_control_mode = SVT_AV1_RC_MODE_CBR;
         cfg_.target_bit_rate = 500000;
@@ -277,12 +288,11 @@ TEST_F(RefMgmtBitstreamTest, bitstream_matches_api_for_store_use_clear) {
     ASSERT_NE(0u, store_flags)
         << "STORE frame refresh_frame_flags=0; encoder didn't allocate a slot";
 
-    /* Reference: a "legacy" non-event frame's refresh mask in this RTC
-     * flat-IPP CBR config. Use frame 3 (before any event). The dispatcher
-     * is a no-op on this frame so it shows exactly what the encoder picks
-     * by default. */
-    ASSERT_LT(3u, info->refresh_frame_flags_list.size());
-    const uint8_t legacy_flags = info->refresh_frame_flags_list[3];
+    /* Reference: a "legacy" non-event base frame's refresh mask in this
+     * L1T2 CBR config, before any event. The dispatcher is a no-op on this
+     * frame so it shows exactly what the encoder picks by default. */
+    ASSERT_LT(kLegacyFrame, info->refresh_frame_flags_list.size());
+    const uint8_t legacy_flags = info->refresh_frame_flags_list[kLegacyFrame];
 
     /* --- 3. USE frame triggers recovery refresh: every NON-STOREd slot
      *        is refreshed with the current frame; the STOREd slot is
@@ -290,7 +300,7 @@ TEST_F(RefMgmtBitstreamTest, bitstream_matches_api_for_store_use_clear) {
     ASSERT_LT(kUseFrame, info->refresh_frame_flags_list.size());
     const uint8_t use_flags = info->refresh_frame_flags_list[kUseFrame];
     /* In the dispatcher: USE recovery sets refresh = 0xFF & ~dpb_stored_mask.
-     * dpb_stored_mask has exactly one bit (the STORE on frame 5). So
+     * dpb_stored_mask has exactly one bit (the STORE at kStoreFrame). So
      * use_flags should equal 0xFF & ~(1<<anchor_slot), i.e. exactly one
      * fewer bit set than 0xFF. Equivalently popcount==7. */
     EXPECT_EQ(7, popcount8(use_flags))
