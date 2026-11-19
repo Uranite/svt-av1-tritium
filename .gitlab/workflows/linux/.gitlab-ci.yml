@@ -581,7 +581,7 @@ Linux Startup MG Test:
     - |
       for PRESET in 5 10; do
         for MG_SIZE in 2 3 4; do
-          ./Bin/Release/SvtAv1EncApp --svtav1-params startup-mg-size=${MG_SIZE}:qp=32:aq-mode=2:hierarchical-levels=5 -n 120 --keyint -1 --preset ${PRESET} -w 640 -h 480 -i kirland_640_480_30.yuv -b m${PRESET}_smg${MG_SIZE}.ivf
+          ./Bin/Release/SvtAv1EncApp --svtav1-params startup-mg-size=${MG_SIZE}:qp=32:aq-mode=2:hierarchical-levels=5 --scd 0 -n 120 --keyint -1 --preset ${PRESET} -w 640 -h 480 -i kirland_640_480_30.yuv -b m${PRESET}_smg${MG_SIZE}.ivf
         done
       done
     - |
