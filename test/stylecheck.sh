@@ -80,7 +80,7 @@ EOF
 while read -r i; do
     printf "Checking commit message of %s\n" "$i" >&2
     msg=$(git -C "$REPO_DIR" log --format=%B -n 1 "$i")
-    if test -n "$(printf '%s' "$msg" | sed -n 2p)"; then
+    if test -n "$(printf '%s' "$msg" | sed -n 2p | tr -d '\r')"; then
         printf "Malformed commit message in %s, second line must be empty\n" "$i"
         ret=1
     fi

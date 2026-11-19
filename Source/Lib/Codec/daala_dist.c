@@ -56,8 +56,9 @@ void svt_aom_od_compute_diff_and_filter_h_c(const uint16_t* x, uint32_t x_stride
         const uint16_t* row_y   = y + i * y_stride;
         int32_t*        row_tmp = tmp + i * tmp_stride;
 
-        // Compute difference
-        int32_t e[128]; // width is at most 128 (MAX_TX_SIZE)
+        // Compute difference. Zero-initialised so the filter's neighbour reads
+        // are defined even if width is degenerate.
+        int32_t e[128] = {0}; // width is at most 128 (MAX_TX_SIZE)
         for (uint32_t j = 0; j < width; j++) {
             e[j] = (int32_t)row_x[j] - (int32_t)row_y[j];
         }
