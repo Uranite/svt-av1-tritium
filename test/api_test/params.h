@@ -424,8 +424,9 @@ static const vector<uint8_t> valid_enable_dlf_flag = {
     0,
     1,
     2,
+    3,
 };
-static const vector<uint8_t> invalid_enable_dlf_flag = {3};
+static const vector<uint8_t> invalid_enable_dlf_flag = {};
 
 /* Film grain denoising the input picture
  * Flag to enable the denoising
@@ -610,9 +611,9 @@ static const vector<uint8_t> valid_rate_control_mode = {0, 1};
 static const vector<uint8_t> invalid_rate_control_mode = {3, 4};
 /* Flag to enable the scene change detection algorithm.
  *
- * Default is 0. */
+ * Default is 1 (SCD enabled by default). */
 static const vector<uint32_t> default_scene_change_detection = {
-    0,
+    1,
 };
 static const vector<uint32_t> valid_scene_change_detection = {
     0,
