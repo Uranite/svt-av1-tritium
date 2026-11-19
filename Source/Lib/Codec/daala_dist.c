@@ -62,9 +62,12 @@ void svt_aom_od_compute_diff_and_filter_h_c(const uint16_t* x, uint32_t x_stride
             e[j] = (int32_t)row_x[j] - (int32_t)row_y[j];
         }
 
-        // Apply horizontal filter
-        row_tmp[0]         = mid * e[0] + 2 * e[1];
-        row_tmp[width - 1] = mid * e[width - 1] + 2 * e[width - 2];
+        // Apply horizontal filter. A single-column block has no neighbour, so
+        // fall back to the centre sample to keep the reads in bounds.
+        const int32_t e_right = (width > 1) ? e[1] : e[0];
+        const int32_t e_left  = (width > 1) ? e[width - 2] : e[width - 1];
+        row_tmp[0]            = mid * e[0] + 2 * e_right;
+        row_tmp[width - 1]    = mid * e[width - 1] + 2 * e_left;
         for (uint32_t j = 1; j < width - 1; j++) {
             row_tmp[j] = mid * e[j] + e[j - 1] + e[j + 1];
         }
