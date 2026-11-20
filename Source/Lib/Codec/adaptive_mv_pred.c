@@ -646,6 +646,9 @@ void setup_ref_mv_list(PictureControlSet* pcs, const Av1Common* cm, MacroBlockD*
     }
 
     TplMvCache temporal;
+    temporal.count           = 0;
+    temporal.ready           = 0;
+    temporal.first_available = 0;
     if (frm_hdr->use_ref_frame_mvs && tot_refs) {
         tpl_mv_gather(&temporal, pcs->tpl_mvs, cm->mi_stride >> 1, xd, mi_row, mi_col, ctx->sb64_sq_no4xn_geom);
     }
