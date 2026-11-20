@@ -1981,6 +1981,58 @@ static void vmaf_preprocess_frame(PictureAnalysisContext* pa_ctx, PictureParentC
 }
 #endif // CONFIG_ENABLE_VMAF
 
+#if CONFIG_ENABLE_FILM_GRAIN
+/* Snapshot the visible samples of enhanced_pic BEFORE mc-denoise modifies them,
+ * so automatic film grain analysis (Picture Decision) can estimate grain from
+ * the original pixels while the encoder codes the denoised ones. The snapshot
+ * mirrors the source sample layout (split 8-bit + packed 2-bit planes for high
+ * bit depth) but carries no border: the analysis only reads the visible core.
+ * Consumed and released by the PD kernel after the grain analysis runs. */
+static EbErrorType mcd_fgs_snapshot(PictureParentControlSet* pcs) {
+    const EbPictureBufferDesc* src = pcs->enhanced_pic;
+    EbPictureBufferDescInitData init_data;
+    memset(&init_data, 0, sizeof(init_data));
+    init_data.max_width          = src->width;
+    init_data.max_height         = src->height;
+    init_data.bit_depth          = src->bit_depth;
+    init_data.color_format       = src->color_format;
+    init_data.buffer_enable_mask = src->buffer_enable_mask;
+    init_data.border             = 0;
+    init_data.split_mode         = (src->buffer_bit_inc[0] != NULL);
+
+    EB_DELETE(pcs->mcd_fgs_pic);
+    EB_NEW(pcs->mcd_fgs_pic, svt_picture_buffer_desc_ctor, (EbPtr)&init_data);
+    EbPictureBufferDesc* dst = pcs->mcd_fgs_pic;
+
+    const uint32_t ss_x    = (src->color_format == EB_YUV444 ? 0 : 1);
+    const uint32_t ss_y    = (src->color_format >= EB_YUV422 ? 0 : 1);
+    /* 1 byte per sample for 8-bit and split high-bit-depth planes; packed
+     * high-bit-depth planes (no bit-increment) store 2 bytes per sample. */
+    const uint32_t bps     = (src->bit_depth == EB_EIGHT_BIT || src->buffer_bit_inc[0]) ? 1 : 2;
+    for (uint32_t c = 0; c < 3; ++c) {
+        if (!src->buffer[c]) {
+            continue;
+        }
+        const uint32_t w = src->width >> (c ? ss_x : 0);
+        const uint32_t h = src->height >> (c ? ss_y : 0);
+        for (uint32_t y = 0; y < h; ++y) {
+            memcpy(dst->buffer[c] + (size_t)y * dst->stride[c] * bps,
+                   src->buffer[c] + (size_t)y * src->stride[c] * bps,
+                   (size_t)w * bps);
+        }
+        if (src->buffer_bit_inc[c]) {
+            const size_t row_bytes = ((size_t)w + 3) / 4;
+            for (uint32_t y = 0; y < h; ++y) {
+                memcpy(dst->buffer_bit_inc[c] + (size_t)y * (dst->stride_bit_inc[c] >> 2),
+                       src->buffer_bit_inc[c] + (size_t)y * (src->stride_bit_inc[c] >> 2),
+                       row_bytes);
+            }
+        }
+    }
+    return EB_ErrorNone;
+}
+#endif // CONFIG_ENABLE_FILM_GRAIN
+
 /* Picture Analysis Kernel */
 
 /*********************************************************************************
@@ -2043,6 +2095,21 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
     {
         EncodeContext* enc_ctx = pcs->scs->enc_ctx;
         if (enc_ctx->mcd_state) {
+#if CONFIG_ENABLE_FILM_GRAIN
+            /* With automatic film grain, keep the original pixels for the grain
+             * analysis in Picture Decision: mc-denoise replaces the film grain
+             * denoise pass, so the estimate must not run on denoised pixels.
+             * Snapshot before the arrival hook (which may denoise immediately
+             * in low-delay / all-intra mode). Overlays carry no input pixels
+             * here and a fixed fgs_table bypasses the analysis entirely. */
+            if (pcs->scs->static_config.film_grain_denoise_strength == -1 &&
+                !pcs->scs->static_config.fgs_table && !pcs->is_overlay) {
+                const EbErrorType snap_err = mcd_fgs_snapshot(pcs);
+                if (snap_err != EB_ErrorNone) {
+                    return snap_err;
+                }
+            }
+#endif
             n_work = svt_mcd_pa_arrival(
                 enc_ctx->mcd_state, pcs, in_results_ptr->pcs_wrapper, work_wrapper, work_pcs);
         }

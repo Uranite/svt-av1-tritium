@@ -352,7 +352,7 @@ both 6 and 7 map to 6. Maps with at most eight distinct offsets keep their exact
 | **NoiseChroma**                  | --noise-chroma         | [-1 - 200]     | -1          | Chroma noise with strength based on `--noise` setting (-1) or set its strength independently (0-200), default is -1 [-1: ~60% of luma, 0: off, 1-200: strength value] |
 | **NoiseChromaFromLuma**          |--noise-chroma-from-luma| [0-1]          | 0           | Apply noise to chroma planes based on the luma plane. When enabled, chroma noise will appear on grayscale content, default is 0 [0: off, 1: on]                       |
 | **NoiseSize**                    | --noise-size           | [-1 - 13]      | -1          | Set size of noise grain. Higher value results in a larger-looking noise, default is -1 [-1: auto, 0-13: set grain size]                                               |
-| **McDenoise**                    | --mc-denoise               | [0-1]          | 0           | Motion-compensated temporal denoising of the input picture (optional dfttest prefilter + motion estimation + degrain, runs before encoding), default is 0 [0: off, 1: on] |
+| **McDenoise**                    | --mc-denoise               | [0-1]          | 0           | Motion-compensated temporal denoising of the input picture (optional dfttest prefilter + motion estimation + degrain, runs before encoding), default is 0 [0: off, 1: on]. With --film-grain -1, grain is estimated from the original pixels and mc-denoise acts as the denoise pass |
 | **McDenoiseTr**                  | --mc-denoise-tr            | [1-3]          | 1           | Temporal radius of the motion-compensated denoiser: reference frames searched backward and forward around the current picture, default is 1 [1-3: temporal radius]    |
 | **McDenoiseThsad**               | --mc-denoise-thsad         | [0-10000]      | 50          | SAD soft threshold of the motion-compensated denoiser; mean absolute residual scaled to 64 samples at 8-bit; blocks above it get no contribution, default is 50 [0-10000: SAD threshold] |
 | **McDenoiseBlksize**             | --mc-denoise-blksize       | [8, 16, 32]    | 16          | Analysis block size of the motion-compensated denoiser, default is 16 [8: 8x8, 16: 16x16, 32: 32x32]                                                                  |
@@ -637,6 +637,15 @@ This parameter allows advanced users to switch between four levels of quantizer 
 ### `--adaptive-film-grain [0,1]`
 When enabled, the `--adaptive-film-grain` parameter adaptively varies the film grain blocksize based on the resolution of the input video. This often greatly improves the consistency of film grain in the output video, reducing grain patterns.
 Adaptive film grain is enabled by default.
+
+### `--mc-denoise` with `--film-grain -1`
+Combining `--mc-denoise 1` with automatic film grain analysis (`--film-grain -1`) gives a denoise-and-regrain workflow equivalent to `--film-grain -1 --film-grain-denoise 1`, with mc-denoise acting as the denoise pass:
+
+- The grain model is estimated from the **original** (pre-denoise) pixels, snapshotted before mc-denoise runs, so the estimate is not degraded by the denoising.
+- The coded pictures are the mc-denoised ones; the grain parameters are signaled in the frame headers and the decoder resynthesizes the grain on top.
+- The film grain Wiener denoise pass (`--film-grain-denoise`) is skipped in this combination, since mc-denoise already denoised the input; setting `--film-grain-denoise 1` has no additional effect.
+
+Notes: each in-flight picture carries one extra frame-sized snapshot between Picture Analysis and Picture Decision, which adds memory proportional to the pipeline depth. Combining mc-denoise with a *manual* film grain strength (`--film-grain 1-50`) still degrades the grain estimate, because that path analyzes the already-denoised pixels; a fixed `--fgs-table` is unaffected and pairs well with mc-denoise.
 
 ### `--tf-strength [0-4]`
 `--tf-strength` is a parameter that allows users to configure the strength of temporal filtering on alternate reference frames, with an offset for keyframes if using Tune 0 (VQ). Based on the material, this can be perceptually salient.

@@ -1130,6 +1130,10 @@ static void picture_parent_control_set_dctor(EbPtr ptr) {
         EB_DELETE(obj->chroma_downsampled_pic);
     }
 
+    /* Normally consumed and released by the PD kernel; defensive cleanup for
+     * teardown before Picture Decision ran (e.g. aborted encode). */
+    EB_DELETE(obj->mcd_fgs_pic);
+
     if (obj->mean) {
         EB_FREE_ARRAY(obj->mean);
     }
@@ -1244,6 +1248,7 @@ static EbErrorType picture_parent_control_set_ctor(PictureParentControlSet* obje
     object_ptr->enhanced_pic            = NULL;
     object_ptr->enhanced_downscaled_pic = NULL;
     object_ptr->enhanced_unscaled_pic   = NULL;
+    object_ptr->mcd_fgs_pic             = NULL;
 
     if (init_data_ptr->color_format >= EB_YUV422) {
         EbPictureBufferDescInitData input_pic_buf_desc_init_data;
