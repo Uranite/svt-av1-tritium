@@ -186,19 +186,19 @@ void svt_av1_highbd_warp_affine_avx2(const int32_t* mat, const uint8_t* ref8b, c
                 }
                 const __m256i* p     = pairs + k + 4;
                 const __m256i  a     = _mm256_add_epi32(_mm256_madd_epi16(p[0], weights[0]),
-                                                   _mm256_madd_epi16(p[2], weights[1]));
+                                                        _mm256_madd_epi16(p[2], weights[1]));
                 const __m256i  b     = _mm256_add_epi32(_mm256_madd_epi16(p[4], weights[2]),
-                                                   _mm256_madd_epi16(p[6], weights[3]));
+                                                        _mm256_madd_epi16(p[6], weights[3]));
                 __m256i        v_sum = _mm256_add_epi32(a, b);
                 if (conv_params->is_compound) {
-                    __m128i* const p = (__m128i*)&conv_params->dst[(i + k + 4) * conv_params->dst_stride + j];
+                    __m128i* const dst = (__m128i*)&conv_params->dst[(i + k + 4) * conv_params->dst_stride + j];
 
                     v_sum = _mm256_add_epi32(v_sum, res_add_const);
                     v_sum = _mm256_sra_epi32(_mm256_add_epi32(v_sum, reduce_bits_vert_const), reduce_bits_vert_shift);
                     if (conv_params->do_average) {
                         v_sum = _mm256_permutevar8x32_epi32(v_sum, _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7));
                         __m128i* const dst16 = (__m128i*)&pred[(i + k + 4) * p_stride + j];
-                        __m256i        p_32  = _mm256_cvtepu16_epi32(half ? _mm_loadl_epi64(p) : _mm_loadu_si128(p));
+                        __m256i        p_32 = _mm256_cvtepu16_epi32(half ? _mm_loadl_epi64(dst) : _mm_loadu_si128(dst));
 
                         if (conv_params->use_jnt_comp_avg) {
                             v_sum = _mm256_add_epi32(_mm256_mullo_epi32(p_32, wt0), _mm256_mullo_epi32(v_sum, wt1));
@@ -221,22 +221,22 @@ void svt_av1_highbd_warp_affine_avx2(const int32_t* mat, const uint8_t* ref8b, c
                     } else {
                         const __m128i pixels = warp_pack_pixels(v_sum);
                         if (half) {
-                            _mm_storel_epi64(p, pixels);
+                            _mm_storel_epi64(dst, pixels);
                         } else {
-                            _mm_storeu_si128(p, pixels);
+                            _mm_storeu_si128(dst, pixels);
                         }
                     }
                 } else {
                     const __m256i round_const = _mm256_set1_epi32(-(1 << (bd + reduce_bits_vert - 1)) +
                                                                   ((1 << reduce_bits_vert) >> 1));
                     const __m256i rounded     = _mm256_sra_epi32(_mm256_add_epi32(v_sum, round_const),
-                                                             reduce_bits_vert_shift);
+                                                                 reduce_bits_vert_shift);
                     const __m128i pixels = _mm_min_epu16(warp_pack_pixels(rounded), _mm256_castsi256_si128(clp_pxl));
-                    __m128i*      p      = (__m128i*)&pred[(i + k + 4) * p_stride + j];
+                    __m128i*      dst16  = (__m128i*)&pred[(i + k + 4) * p_stride + j];
                     if (half) {
-                        _mm_storel_epi64(p, pixels);
+                        _mm_storel_epi64(dst16, pixels);
                     } else {
-                        _mm_storeu_si128(p, pixels);
+                        _mm_storeu_si128(dst16, pixels);
                     }
                 }
             }
