@@ -1539,13 +1539,13 @@ static AOM_FORCE_INLINE void directional_intra(uint16_t* dst, ptrdiff_t stride, 
     const __m256i tile_round = _mm256_setr_epi64x(
         0, INT64_C(0x0004000400040004), INT64_C(0x0024002400240024), INT64_C(0x0124012401240124));
     const __m512i   prev_end = _mm512_setr_epi64(0,
-                                               0x0003000300030003LL,
-                                               0x0007000700070007LL,
-                                               0x000b000b000b000bLL,
-                                               0,
-                                               0x0013001300130013LL,
-                                               0x0017001700170017LL,
-                                               0x001b001b001b001bLL);
+                                                 0x0003000300030003LL,
+                                                 0x0007000700070007LL,
+                                                 0x000b000b000b000bLL,
+                                                 0,
+                                                 0x0013001300130013LL,
+                                                 0x0017001700170017LL,
+                                                 0x001b001b001b001bLL);
     const __mmask32 valid    = w >= 16 ? UINT32_MAX : (uint32_t)(((1u << w) - 1) * 0x10001);
     for (int y = 0; y < h; y += 2, dst += 2 * stride) {
         const uint16_t* top    = y ? dst - stride : above;
@@ -1665,7 +1665,7 @@ static INLINE void z2_4x4(uint16_t* dst, ptrdiff_t stride, const uint16_t* above
         _mm256_mullo_epi16(_mm256_add_epi16(col, _mm256_set1_epi16(1)), _mm256_set1_epi16(dy)));
     const __m256i a    = _mm256_add_epi16(_mm256_sra_epi16(x, _mm_cvtsi32_si128(1 - up_a)), _mm256_set1_epi16(sa * 32));
     const __m256i l    = _mm256_add_epi16(_mm256_sra_epi16(y, _mm_cvtsi32_si128(1 - up_l)),
-                                       _mm256_set1_epi16((16 + sl) * 32));
+                                          _mm256_set1_epi16((16 + sl) * 32));
     const __m256i q    = _mm256_mask_mov_epi16(a, _mm256_movepi16_mask(a), l);
     const __m256i base = _mm256_srli_epi16(q, 5);
     const __m256i lo   = _mm256_permutex2var_epi16(top, base, side);
@@ -1689,9 +1689,9 @@ static AOM_FORCE_INLINE void z2_predict(uint16_t* dst, ptrdiff_t stride, int log
     const __m512i   l0 = _mm512_maskz_loadu_epi16(lm, left - sl), l1 = _mm512_maskz_loadu_epi16(lm, left - sl + 1);
     const __m512i   one = _mm512_set1_epi16(1);
     __m512i         x   = _mm512_sub_epi16(_mm512_slli_epi16(col, 6),
-                                 _mm512_mullo_epi16(_mm512_add_epi16(row, one), _mm512_set1_epi16(dx)));
+                                           _mm512_mullo_epi16(_mm512_add_epi16(row, one), _mm512_set1_epi16(dx)));
     const __m512i   y   = _mm512_sub_epi16(_mm512_slli_epi16(row, 6),
-                                       _mm512_mullo_epi16(_mm512_add_epi16(col, one), _mm512_set1_epi16(dy)));
+                                           _mm512_mullo_epi16(_mm512_add_epi16(col, one), _mm512_set1_epi16(dy)));
     const __m128i   ax  = _mm_cvtsi32_si128(1 - up_a);
     __m512i l = _mm512_add_epi16(_mm512_sra_epi16(y, _mm_cvtsi32_si128(1 - up_l)), _mm512_set1_epi16((32 + sl) * 32));
     for (int r = 0; r < h; r += rows, dst += rows * stride) {

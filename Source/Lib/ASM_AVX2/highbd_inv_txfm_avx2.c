@@ -7641,10 +7641,10 @@ static AOM_FORCE_INLINE void sparse_square_10bit(const int32_t* coeff, const uin
             const __m256i packed   = _mm256_permute4x64_epi64(_mm256_packs_epi32(column[y], column[y + 1]), 0xd8);
             const __m256i residual = _mm256_mulhrs_epi16(packed, _mm256_set1_epi16(2048));
             const __m256i pred     = _mm256_set_m128i(_mm_loadu_si128((const __m128i*)(src + (y + 1) * ss + x)),
-                                                  _mm_loadu_si128((const __m128i*)(src + y * ss + x)));
+                                                      _mm_loadu_si128((const __m128i*)(src + y * ss + x)));
             const __m256i sum      = _mm256_add_epi16(residual, pred);
             const __m256i result   = _mm256_min_epi16(_mm256_set1_epi16(1023),
-                                                    _mm256_max_epi16(_mm256_setzero_si256(), sum));
+                                                      _mm256_max_epi16(_mm256_setzero_si256(), sum));
             _mm_storeu_si128((__m128i*)(dst + y * ds + x), _mm256_castsi256_si128(result));
             _mm_storeu_si128((__m128i*)(dst + (y + 1) * ds + x), _mm256_extracti128_si256(result, 1));
         }

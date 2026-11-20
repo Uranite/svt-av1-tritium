@@ -56,7 +56,7 @@ static AOM_FORCE_INLINE void rdoq_deltas(const TranLow* tcoeff, const TranLow* q
         }
         const __m256i even = _mm256_sub_epi64(rdoq_square(cur_err, qm != NULL), rdoq_square(low_err, qm != NULL));
         const __m256i odd  = _mm256_sub_epi64(rdoq_square(_mm256_srli_epi64(cur_err, 32), qm != NULL),
-                                             rdoq_square(_mm256_srli_epi64(low_err, 32), qm != NULL));
+                                              rdoq_square(_mm256_srli_epi64(low_err, 32), qm != NULL));
         // A coefficient already below its target magnitude cannot be lowered.
         const __m256i disabled = _mm256_cmpgt_epi32(orig, recon);
         const __m256i never    = _mm256_set1_epi64x(INT64_MIN);

@@ -1778,12 +1778,12 @@ static INLINE void coeff_distortion_rows(const int32_t* coeff, const int32_t* re
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; x += 8) {
             const int     half = width - x == 4;
-            const __m256i w    = !weighted ? _mm256_setzero_si256()
-                                           : _mm256_cvtepu8_epi32(half ? _mm_loadu_si32(weights + x)
+            const __m256i w = !weighted ? _mm256_setzero_si256()
+                                        : _mm256_cvtepu8_epi32(half ? _mm_loadu_si32(weights + x)
                                                                     : _mm_loadl_epi64((const __m128i*)(weights + x)));
-            const __m256i c    = half ? _mm256_zextsi128_si256(_mm_loadu_si128((const __m128i*)(coeff + x)))
-                                      : _mm256_loadu_si256((const __m256i*)(coeff + x));
-            energy             = _mm256_add_epi64(energy, coefficient_squares(_mm256_abs_epi32(c), w, weighted));
+            const __m256i c = half ? _mm256_zextsi128_si256(_mm_loadu_si128((const __m128i*)(coeff + x)))
+                                   : _mm256_loadu_si256((const __m256i*)(coeff + x));
+            energy          = _mm256_add_epi64(energy, coefficient_squares(_mm256_abs_epi32(c), w, weighted));
             if (has_recon) {
                 const __m256i r = half ? _mm256_zextsi128_si256(_mm_loadu_si128((const __m128i*)(recon + x)))
                                        : _mm256_loadu_si256((const __m256i*)(recon + x));

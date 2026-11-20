@@ -263,7 +263,7 @@ int svt_av1_highbd_hadamard_satd_8x8_avx512(const uint16_t* s, ptrdiff_t ss, con
     __m256i row[4];
     for (int i = 0; i < 4; i++) {
         const __m256i src  = join128(_mm_loadu_si128((const __m128i*)(s + i * ss)),
-                                    _mm_loadu_si128((const __m128i*)(s + (i + 4) * ss)));
+                                     _mm_loadu_si128((const __m128i*)(s + (i + 4) * ss)));
         const __m256i pred = join128(_mm_loadu_si128((const __m128i*)(r + i * rs)),
                                      _mm_loadu_si128((const __m128i*)(r + (i + 4) * rs)));
         row[i]             = _mm256_sub_epi16(src, pred);

@@ -228,7 +228,7 @@ static INLINE SearchStripe stripe_layout(int stride, int w, int rows) {
     SearchStripe  s;
     const __m512i y = _mm512_srli_epi32(lane, w == 8 ? 2 : 1);
     s.index         = _mm512_add_epi32(_mm512_mullo_epi32(y, _mm512_set1_epi32(stride)),
-                               _mm512_slli_epi32(_mm512_and_si512(lane, _mm512_set1_epi32(w / 2 - 1)), 1));
+                                       _mm512_slli_epi32(_mm512_and_si512(lane, _mm512_set1_epi32(w / 2 - 1)), 1));
     s.mask          = (__mmask16)((1u << (w * rows / 2)) - 1);
     s.stride        = stride;
     s.full          = w == 8 && rows == 4;

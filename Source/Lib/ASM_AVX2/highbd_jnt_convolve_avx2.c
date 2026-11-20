@@ -617,7 +617,7 @@ static INLINE __m256i split_blend(__m256i v, __m256i prev, int compound, int ave
                 const __m256i high     = _mm256_madd_epi16(_mm256_unpackhi_epi16(prev, v), weights);
                 const __m256i rounding = _mm256_set1_epi32((32768 - 24576 + 8) * 16);
                 v                      = _mm256_packus_epi32(_mm256_srai_epi32(_mm256_add_epi32(low, rounding), 8),
-                                        _mm256_srai_epi32(_mm256_add_epi32(high, rounding), 8));
+                                                             _mm256_srai_epi32(_mm256_add_epi32(high, rounding), 8));
             } else {
                 // Decrement the biased predictor so unsigned rounded average truncates.
                 v = _mm256_avg_epu16(prev, _mm256_sub_epi16(v, _mm256_set1_epi16(1)));

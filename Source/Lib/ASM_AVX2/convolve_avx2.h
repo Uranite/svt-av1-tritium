@@ -585,7 +585,7 @@ static AOM_FORCE_INLINE void hbd_horizontal_stripe(const uint16_t* src, int stri
         const __m256i even = _mm256_sra_epi32(_mm256_add_epi32(hbd_dot_horizontal(lo, hi, coeffs, taps, 0), bias),
                                               shift);
         const __m256i odd  = _mm256_sra_epi32(_mm256_add_epi32(hbd_dot_horizontal(lo, hi, coeffs, taps, 1), bias),
-                                             shift);
+                                              shift);
         _mm256_storeu_si256((__m256i*)im,
                             _mm256_shuffle_epi8(_mm256_packs_epi32(even, odd), _mm256_broadcastsi128_si256(zip)));
     }
@@ -2714,13 +2714,13 @@ static AOM_FORCE_INLINE void hbd_vertical_stripe(const int16_t* im, const __m256
     const int     offset_bits = bd + bits;
     const __m256i offset      = _mm256_set1_epi32(3 << (offset_bits - 1));
     const __m256i bias        = _mm256_set1_epi32(((1 << params->round_1) >> 1) -
-                                           (1 << (bd + 2 * FILTER_BITS - params->round_0 - 1)));
+                                                  (1 << (bd + 2 * FILTER_BITS - params->round_0 - 1)));
     const __m128i shift       = _mm_cvtsi32_si128(params->round_1);
     const __m256i rounding    = _mm256_set1_epi32((1 << bits) >> 1);
     const __m256i max         = _mm256_set1_epi16((1 << bd) - 1);
     const __m256i fw          = _mm256_set1_epi32(compound ? params->fwd_offset : 0),
                   bw          = _mm256_set1_epi32(compound ? params->bck_offset : 0);
-    __m256i lo[4], hi[4];
+    __m256i       lo[4], hi[4];
     for (int k = 0; k < pairs - 1; ++k) {
         hbd_vertical_pair(im + 16 * k, lo + k, hi + k, w);
     }

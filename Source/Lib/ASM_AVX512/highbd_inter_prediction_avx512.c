@@ -88,7 +88,7 @@ static INLINE __m512i blend_predictors(__m512i cur, __m512i prev, const Convolve
         const __m512i lo      = _mm512_madd_epi16(_mm512_unpacklo_epi16(prev, cur), weights);
         const __m512i hi      = _mm512_madd_epi16(_mm512_unpackhi_epi16(prev, cur), weights);
         v                     = _mm512_packus_epi32(_mm512_srai_epi32(_mm512_add_epi32(lo, rnd), 8),
-                                _mm512_srai_epi32(_mm512_add_epi32(hi, rnd), 8));
+                                                    _mm512_srai_epi32(_mm512_add_epi32(hi, rnd), 8));
     } else {
         // The biased predictor is positive, so subtracting one before
         // the rounded unsigned average gives the required truncation.
@@ -190,21 +190,21 @@ static INLINE __m512i horizontal_16(const uint16_t* src, const FilterPairs* f, i
     // Only n + taps - 1 source words belong to this stripe, including the border.
     const __m512i samples = _mm512_maskz_loadu_epi16(pixel_mask(n + 2 * count - 1), src);
     const __m512i pairs   = _mm512_setr_epi32(0x10000,
-                                            0x20001,
-                                            0x30002,
-                                            0x40003,
-                                            0x50004,
-                                            0x60005,
-                                            0x70006,
-                                            0x80007,
-                                            0x90008,
-                                            0xa0009,
-                                            0xb000a,
-                                            0xc000b,
-                                            0xd000c,
-                                            0xe000d,
-                                            0xf000e,
-                                            0x10000f);
+                                              0x20001,
+                                              0x30002,
+                                              0x40003,
+                                              0x50004,
+                                              0x60005,
+                                              0x70006,
+                                              0x80007,
+                                              0x90008,
+                                              0xa0009,
+                                              0xb000a,
+                                              0xc000b,
+                                              0xd000c,
+                                              0xe000d,
+                                              0xf000e,
+                                              0x10000f);
     __m512i       sum     = _mm512_madd_epi16(_mm512_permutexvar_epi16(pairs, samples), f->coeff[0]);
     for (int i = 1; i < count; ++i) {
         const __m512i idx = _mm512_add_epi16(pairs, _mm512_set1_epi16(2 * i));
@@ -282,7 +282,7 @@ static INLINE void bilinear_sr(const uint16_t* src, int ss, uint16_t* dst, int d
             const uint16_t* s = src + y * ss + x;
             const __m512i   a = _mm512_maskz_loadu_epi16(k, s), b = _mm512_maskz_loadu_epi16(k, s + 1);
             const __m512i   row = _mm512_add_epi16(_mm512_slli_epi16(a, 4),
-                                                 _mm512_mullo_epi16(_mm512_sub_epi16(b, a), fx));
+                                                   _mm512_mullo_epi16(_mm512_sub_epi16(b, a), fx));
             if (y) {
                 // Horizontal values are at most 16368. Doubling their signed
                 // difference fits a word, so the high product gives floor(d*py/16).

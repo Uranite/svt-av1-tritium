@@ -1995,7 +1995,7 @@ void svt_sad_loop_16xh_sea_avx512(const uint8_t* src, uint32_t ss, const uint8_t
             __m256i bound = _mm256_setzero_si256();
             for (int b = 0; b < 4; ++b) {
                 const __m256i v = _mm256_maskz_loadu_epi16(mask, sea + (b & 1) * 8 + (b >> 1) * lower);
-                bound           = _mm256_add_epi16(bound,
+                bound = _mm256_add_epi16(bound,
                                          _mm256_abs_epi16(_mm256_sub_epi16(v, _mm512_castsi512_si256(boxes[b]))));
             }
             if (!_mm256_mask_cmplt_epu16_mask(mask, bound, _mm256_set1_epi16((int16_t)AOMMIN(best, UINT16_MAX)))) {
