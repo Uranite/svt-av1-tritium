@@ -4274,6 +4274,12 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
         scs->static_config.film_grain_denoise_strength = 0;
     }
 #endif
+#if CONFIG_ENABLE_FILM_GRAIN
+    if (scs->static_config.mc_denoise && scs->static_config.film_grain_denoise_strength == -1) {
+        SVT_INFO("mc-denoise with automatic film grain: grain is estimated from the original (pre-denoise) "
+                 "pixels, and mc-denoise replaces the film grain denoise pass.\n");
+    }
+#endif
 
     // no future minigop is used for lowdelay prediction structure
     if (allintra || scs->static_config.pred_structure == LOW_DELAY) {
@@ -4850,7 +4856,9 @@ static void copy_api_from_app(SequenceControlSet* scs, EbSvtAv1EncConfiguration*
     if (scs->static_config.mc_denoise && scs->static_config.film_grain_denoise_strength > 0) {
         SVT_WARN(
             "Both mc-denoise and film-grain denoising are enabled. The motion-compensated denoiser runs first, and "
-            "the film grain estimation then works on already denoised pixels, which degrades the grain estimate.\n");
+            "the film grain estimation then works on already denoised pixels, which degrades the grain estimate. "
+            "Use --film-grain -1 (automatic) instead: it estimates grain from the original pixels and lets "
+            "mc-denoise serve as the denoise pass.\n");
     }
     if (scs->static_config.mc_denoise && scs->static_config.enable_overlays) {
         SVT_WARN(
