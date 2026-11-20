@@ -156,10 +156,10 @@ static void warp_affine_paired_rows(const int32_t* mat, const uint8_t* hi, const
                     const int y0 = clamp(iy + r, 0, height - 1), y1 = clamp(iy + r + 1, 0, height - 1);
                     __m256i   v;
                     if (ix + 14 <= 0 || ix >= width - 1) {
-                        const int edge = ix < 0 ? 0 : width - 1;
-                        const int a    = (hi[y0 * hs + edge] << 2) | (lo[y0 * ls + edge] >> 6);
-                        const int b    = (hi[y1 * hs + edge] << 2) | (lo[y1 * ls + edge] >> 6);
-                        v              = _mm256_set_m128i(
+                        const int edge_x = ix < 0 ? 0 : width - 1;
+                        const int a      = (hi[y0 * hs + edge_x] << 2) | (lo[y0 * ls + edge_x] >> 6);
+                        const int b      = (hi[y1 * hs + edge_x] << 2) | (lo[y1 * ls + edge_x] >> 6);
+                        v                = _mm256_set_m128i(
                             _mm_set1_epi16(ROUND_POWER_OF_TWO((1 << (bd + FILTER_BITS - 1)) + (b << FILTER_BITS), hr)),
                             _mm_set1_epi16(ROUND_POWER_OF_TWO((1 << (bd + FILTER_BITS - 1)) + (a << FILTER_BITS), hr)));
                     } else {
@@ -210,10 +210,10 @@ static void warp_affine_paired_rows(const int32_t* mat, const uint8_t* hi, const
                     const __m512i  sum = warp_sum(row[0], row[1], row[2], row[3], wy, (1 << offset) + (1 << (vr - 1)));
                     __m512i        value = _mm512_sra_epi32(sum, _mm_cvtsi32_si128(vr));
                     if (p->is_compound && p->do_average) {
-                        const uint16_t* buf = p->dst + (y + r) * p->dst_stride + x;
-                        const __m128i   a   = _mm_maskz_loadu_epi16(mask, buf),
-                                      b     = _mm_maskz_loadu_epi16(mask, buf + (rr - r) * p->dst_stride);
-                        const __m512i prev  = _mm512_cvtepu16_epi32(_mm256_set_m128i(b, a));
+                        const uint16_t* buf  = p->dst + (y + r) * p->dst_stride + x;
+                        const __m128i   a    = _mm_maskz_loadu_epi16(mask, buf),
+                                        b    = _mm_maskz_loadu_epi16(mask, buf + (rr - r) * p->dst_stride);
+                        const __m512i   prev = _mm512_cvtepu16_epi32(_mm256_set_m128i(b, a));
                         if (p->use_jnt_comp_avg) {
                             value = _mm512_srai_epi32(
                                 _mm512_add_epi32(_mm512_mullo_epi32(prev, _mm512_set1_epi32(p->fwd_offset)),
@@ -235,7 +235,7 @@ static void warp_affine_paired_rows(const int32_t* mat, const uint8_t* hi, const
                         stride = p->dst_stride;
                     } else {
                         value  = _mm512_min_epi32(_mm512_max_epi32(value, _mm512_setzero_si512()),
-                                                 _mm512_set1_epi32((1 << bd) - 1));
+                                                  _mm512_set1_epi32((1 << bd) - 1));
                         out    = pred;
                         stride = ps;
                     }
