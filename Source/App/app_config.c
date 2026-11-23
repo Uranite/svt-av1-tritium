@@ -207,6 +207,7 @@
 #define CONTENT_LIGHT_LEVEL_TOKEN "--content-light"
 #define FGS_TABLE_TOKEN "--fgs-table"
 #define FGS_SEED_TOKEN "--fgs-seed"
+#define FGS_MULTIPLIER_TOKEN "--fgs-multiplier"
 #ifdef LIBDOVI_FOUND
 #define DOLBY_VISION_RPU_TOKEN "--dolby-vision-rpu"
 #endif
@@ -1171,6 +1172,8 @@ ConfigDescription config_entry_specific[] = {
     {FGS_TABLE_TOKEN, "Set the film grain model table path"},
     {FGS_SEED_TOKEN,
      "Film grain random seed(s), comma separated. -1 selects the built-in seed pool. Default is unset (legacy seed)"},
+    {FGS_MULTIPLIER_TOKEN,
+     "Grain amplitude multiplier for --film-grain -1 only, default is 1 [0-2]; 0 disables synthesis"},
 
     {NOISE_TOKEN,
      "Generate noise table for film grain. 50 is roughly equivalent to `--film-grain 50`, default is 0 [0: off, 1-200: "
@@ -1473,6 +1476,7 @@ ConfigEntry config_entry[] = {
     {FILM_GRAIN_DENOISE_APPLY_TOKEN, "FilmGrainDenoise", set_cfg_generic_token},
     {FGS_TABLE_TOKEN, "FilmGrainTable", set_cfg_fgs_table_path},
     {FGS_SEED_TOKEN, "FilmGrainSeed", set_cfg_generic_token},
+    {FGS_MULTIPLIER_TOKEN, "FgsMultiplier", set_cfg_generic_token},
     {NOISE_TOKEN, "Noise", set_cfg_generic_token},
     {NOISE_CHROMA_TOKEN, "NoiseChroma", set_cfg_generic_token},
     {PHOTON_NOISE_TOKEN, "PhotonNoise", set_cfg_generic_token},
