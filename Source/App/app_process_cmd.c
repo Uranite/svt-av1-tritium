@@ -269,11 +269,6 @@ static bool is_forced_keyframe(const EbConfig* app_cfg, uint64_t pts) {
 
 bool process_skip(EbConfig* app_cfg, EbBufferHeaderType* header_ptr) {
     const bool is_16bit = app_cfg->config.encoder_bit_depth > 8;
-    if (app_cfg->use_ffms2) {
-        // not implemented yet
-        app_cfg->need_to_skip = false;
-        return true;
-    }
     for (int64_t i = 0; i < app_cfg->frames_to_be_skipped; i++) {
         read_input(app_cfg, is_16bit, header_ptr);
 
