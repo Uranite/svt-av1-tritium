@@ -1389,6 +1389,13 @@ typedef struct EbSvtAv1EncConfiguration {
     uint32_t  fgs_seed_count;
     uint16_t* fgs_seeds;
 
+    /* Grain amplitude multiplier for automatic film grain analysis
+    * (--film-grain -1) only. Range [0, 2]; 0 disables synthesis.
+    * Appended here to preserve offsets of the existing public fields.
+    *
+    * Default is 1. */
+    float fgs_multiplier;
+
     // clang-format off
     /* Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct */
     uint8_t padding[128
@@ -1436,6 +1443,7 @@ typedef struct EbSvtAv1EncConfiguration {
         - sizeof(uint32_t) // fgs_seed_count
         - sizeof(uint32_t) // alignment hole before fgs_seeds (8-byte aligned pointer)
         - sizeof(uint16_t*) // fgs_seeds
+        - sizeof(float) // fgs_multiplier
     ];
     // clang-format on
 } EbSvtAv1EncConfiguration;
