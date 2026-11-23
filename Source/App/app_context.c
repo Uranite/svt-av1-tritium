@@ -502,6 +502,7 @@ static EbErrorType init_ffms2(EbConfig* app_cfg) {
         FFMS_DestroyIndex(index);
         return EB_ErrorBadParameter;
     }
+    app_cfg->need_to_skip = false;
 
     // Check first frame
     const FFMS_Frame* test_frame = FFMS_GetFrame(video_source, 0, &err_info);
