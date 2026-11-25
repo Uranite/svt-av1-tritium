@@ -126,8 +126,17 @@ static ONCE_ROUTINE(mcd_cpu_flags_init) {
     ONCE_ROUTINE_EPILOG;
 }
 
+/* Only GCC/Clang compile the SIMD kernels here; other x64 compilers (e.g.
+ * MSVC cl.exe) get the stubs in mc_denoise_simd.c, so dispatch must stay
+ * scalar for them even when the CPU advertises AVX2/AVX-512. */
+#if defined(ARCH_X86_64) && (defined(__GNUC__) || defined(__clang__))
+#define MCD_HAVE_SIMD_KERNELS 1
+#else
+#define MCD_HAVE_SIMD_KERNELS 0
+#endif
+
 int svt_mcd_have_avx2(void) {
-#if defined(ARCH_X86_64)
+#if MCD_HAVE_SIMD_KERNELS
     svt_run_once(&mcd_cpu_flags_once, mcd_cpu_flags_init);
     return (mcd_cpu_flags & EB_CPU_FLAGS_AVX2) != 0;
 #else
@@ -136,7 +145,7 @@ int svt_mcd_have_avx2(void) {
 }
 
 int svt_mcd_have_avx512(void) {
-#if defined(ARCH_X86_64)
+#if MCD_HAVE_SIMD_KERNELS
     svt_run_once(&mcd_cpu_flags_once, mcd_cpu_flags_init);
     return (mcd_cpu_flags &
             (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512CD | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512BW |
