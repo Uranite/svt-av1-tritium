@@ -79,30 +79,6 @@ static uint32_t mcd_me_grid(uint32_t dim, uint32_t ov, uint32_t step) {
 /* -------------------------------------------------------------------------- */
 /* SAD kernels (strides in samples, native depth, uint64 accumulation)         */
 
-/* Process-lifetime cached dispatch flags. Cached once per process so the
- * per-SAD-candidate dispatch cost is a branch on a global instead of the
- * CPU-flag lookup in the candidate search loops. */
-static int g_me_avx2;
-static int g_me_avx512;
-
-DEFINE_ONCE(g_me_cpu_once);
-
-static ONCE_ROUTINE(init_me_cpu) {
-    g_me_avx2   = mcd_use_avx2();
-    g_me_avx512 = mcd_use_avx512();
-    ONCE_ROUTINE_EPILOG;
-}
-
-static int mcd_me_use_avx2(void) {
-    svt_run_once(&g_me_cpu_once, init_me_cpu);
-    return g_me_avx2;
-}
-
-static int mcd_me_use_avx512(void) {
-    svt_run_once(&g_me_cpu_once, init_me_cpu);
-    return g_me_avx512;
-}
-
 uint64_t svt_mcd_simd_sad_u8u8_c(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                                     uint64_t bound) {
     uint64_t sum = 0;
@@ -122,10 +98,7 @@ uint64_t svt_mcd_simd_sad_u8u8_c(const uint8_t* a, int32_t sa, const uint8_t* b,
 
 static uint64_t mcd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                              uint64_t bound) {
-    if (mcd_me_use_avx2()) {
-        return svt_mcd_simd_sad_u8u8(a, sa, b, sb, w, h, bound);
-    }
-    return svt_mcd_simd_sad_u8u8_c(a, sa, b, sb, w, h, bound);
+    return svt_mcd_simd_sad_u8u8(a, sa, b, sb, w, h, bound);
 }
 
 uint64_t svt_mcd_simd_sad_u16u16_c(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w,
@@ -147,7 +120,7 @@ uint64_t svt_mcd_simd_sad_u16u16_c(const uint16_t* a, int32_t sa, const uint16_t
 
 static uint64_t mcd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                                uint64_t bound) {
-    if (mcd_me_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull) {
+    if ((uint64_t)w * h * 65535ull < 0x7fffffffull) {
         return svt_mcd_simd_sad_u16u16(a, sa, b, sb, w, h, bound);
     }
     return svt_mcd_simd_sad_u16u16_c(a, sa, b, sb, w, h, bound);
@@ -155,7 +128,7 @@ static uint64_t mcd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b,
 
 uint64_t svt_mcd_simd_sad_u8u16_c(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                               uint64_t bound) {
-    if (mcd_me_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull) {
+    if ((uint64_t)w * h * 65535ull < 0x7fffffffull) {
         return svt_mcd_simd_sad_u8u16(a, sa, b, sb, w, h, bound);
     }
     uint64_t sum = 0;
@@ -175,7 +148,7 @@ uint64_t svt_mcd_simd_sad_u8u16_c(const uint8_t* a, int32_t sa, const uint16_t* 
 
 uint64_t svt_mcd_simd_sad_u16u8_c(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                               uint64_t bound) {
-    if (mcd_me_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull) {
+    if ((uint64_t)w * h * 65535ull < 0x7fffffffull) {
         return svt_mcd_simd_sad_u16u8(a, sa, b, sb, w, h, bound);
     }
     uint64_t sum = 0;
@@ -279,7 +252,7 @@ uint64_t svt_mcd_simd_satd_u8u8_c(const uint8_t* a, int32_t sa, const uint8_t* b
 static uint64_t mcd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                               uint64_t bound) {
 #if EN_AVX512_SUPPORT
-    if (mcd_me_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0) {
+    if (w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0) {
         return svt_mcd_simd_satd_u8u8(a, sa, b, sb, w, h, bound);
     }
 #endif
@@ -309,7 +282,7 @@ uint64_t svt_mcd_simd_satd_u16u16_c(const uint16_t* a, int32_t sa, const uint16_
 static uint64_t mcd_satd_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                                 uint64_t bound) {
 #if EN_AVX512_SUPPORT
-    if (mcd_me_use_avx512() && w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0) {
+    if (w >= 16 && h >= 16 && (w & 15) == 0 && (h & 15) == 0) {
         return svt_mcd_simd_satd_u16u16(a, sa, b, sb, w, h, bound);
     }
 #endif
@@ -519,9 +492,9 @@ struct McdMeScratch {
  *   - the window aliases the padded plane with its origin at sample
  *     (-MCD_ME_EDGE_PAD, -MCD_ME_EDGE_PAD), so its bounds cover the FULL
  *     clamp range and every candidate sums the identical samples;
- *   - the kernel flags replicate the wrappers' dispatch conditions exactly
- *     (mcd_use_avx2/avx512 honor the MCD_NO_SIMD hook), so each plane cost
- *     comes from the same kernel body the direct chain would pick;
+ *   - the capability flags reflect only geometry/precision limits; CPU
+ *     dispatch (and MCD_NO_SIMD) is handled by the RTCD table, so each plane
+ *     cost comes from the same kernel body the direct chain would pick;
  *   - bound (early-abort) bookkeeping is replicated line for line, so
  *     fused and direct values agree for winners and aborted losers alike.
  * mcd_me_level_search below mirrors the reference candidate order and the
@@ -544,9 +517,9 @@ typedef struct McdMeL0Win {
     int32_t  cur_str[3], win_str[3]; /* strides in samples                        */
     int32_t  wx[3], wy[3]; /* window origins (ref sample coordinates)   */
     int32_t  ww[3], wh[3]; /* window extents                            */
-    bool     sad_simd;
-    bool     satd_simd; /* luma kernel selection */
-    bool     csad_simd; /* chroma kernel selection */
+    bool     sad_capable;
+    bool     satd_capable; /* luma kernel selection */
+    bool     csad_capable; /* chroma kernel selection */
 } McdMeL0Win;
 
 /* Resolve, once per block, everything the per-candidate cost needs. Sets
@@ -620,18 +593,18 @@ static void mcd_me_l0_setup(const McdMeLevel* lv, McdMeL0Win* wn) {
         }
     }
 
-    /* kernel selection: replicates the dispatch conditions of mcd_sad_* /
-     * mcd_satd_* exactly (w == h == bblk for luma; bw x bh for chroma) */
+    /* kernel capability: geometry/precision limits of the vector kernels
+     * (w == h == bblk for luma; bw x bh for chroma). CPU dispatch is in the RTCD table. */
     if (wn->highbd) {
         const uint64_t lum = (uint64_t)b * (uint64_t)b * 65535ull;
         const uint64_t chr = (uint64_t)wn->bw * (uint64_t)wn->bh * 65535ull;
-        wn->sad_simd       = mcd_me_use_avx2() && lum < 0x7fffffffull;
-        wn->csad_simd      = mcd_me_use_avx2() && chr < 0x7fffffffull;
+        wn->sad_capable        = lum < 0x7fffffffull;
+        wn->csad_capable       = chr < 0x7fffffffull;
     } else {
-        wn->sad_simd  = mcd_me_use_avx2();
-        wn->csad_simd = wn->sad_simd;
+        wn->sad_capable  = 1;
+        wn->csad_capable = wn->sad_capable;
     }
-    wn->satd_simd = mcd_me_use_avx512() && b >= 16 && (b & 15) == 0;
+    wn->satd_capable = b >= 16 && (b & 15) == 0;
 }
 
 /* Fused twin of mcd_me_sad_raw (identical bound semantics, see there) over
@@ -651,7 +624,7 @@ static uint64_t mcd_l0_raw_u8(const McdMeLevel* lv, const McdMeL0Win* wn, int32_
             const uint8_t* r = wn->win[0] + (size_t)oy * (size_t)wn->win_str[0] + (size_t)ox;
             if (lv->use_satd) {
 #if EN_AVX512_SUPPORT
-                cost = wn->satd_simd
+                cost = wn->satd_capable
                     ? svt_mcd_simd_satd_u8u8(
                           wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound)
                     : svt_mcd_simd_satd_u8u8_c(
@@ -661,7 +634,7 @@ static uint64_t mcd_l0_raw_u8(const McdMeLevel* lv, const McdMeL0Win* wn, int32_
                     wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound);
 #endif
             } else {
-                cost = wn->sad_simd
+                cost = wn->sad_capable
                     ? svt_mcd_simd_sad_u8u8(
                           wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound)
                     : svt_mcd_simd_sad_u8u8_c(
@@ -687,7 +660,7 @@ static uint64_t mcd_l0_raw_u8(const McdMeLevel* lv, const McdMeL0Win* wn, int32_
         const int32_t  oy     = ryc - wn->wy[p];
         if (ox >= 0 && oy >= 0 && ox + wn->bw <= wn->ww[p] && oy + wn->bh <= wn->wh[p]) {
             const uint8_t* r = wn->win[p] + (size_t)oy * (size_t)wn->win_str[p] + (size_t)ox;
-            sum += wn->csad_simd
+            sum += wn->csad_capable
                 ? svt_mcd_simd_sad_u8u8(
                       wn->cur[p], wn->cur_str[p], r, wn->win_str[p], (uint32_t)wn->bw, (uint32_t)wn->bh, rbound)
                 : svt_mcd_simd_sad_u8u8_c(
@@ -723,7 +696,7 @@ static uint64_t mcd_l0_raw_u16(const McdMeLevel* lv, const McdMeL0Win* wn, int32
             const uint16_t* r = (const uint16_t*)wn->win[0] + (size_t)oy * (size_t)wn->win_str[0] + (size_t)ox;
             if (lv->use_satd) {
 #if EN_AVX512_SUPPORT
-                cost = wn->satd_simd ? svt_mcd_simd_satd_u16u16((const uint16_t*)wn->cur[0],
+                cost = wn->satd_capable ? svt_mcd_simd_satd_u16u16((const uint16_t*)wn->cur[0],
                                                                 wn->cur_str[0],
                                                                 r,
                                                                 wn->win_str[0],
@@ -742,7 +715,7 @@ static uint64_t mcd_l0_raw_u16(const McdMeLevel* lv, const McdMeL0Win* wn, int32
                     (const uint16_t*)wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound);
 #endif
             } else {
-                cost = wn->sad_simd ? svt_mcd_simd_sad_u16u16((const uint16_t*)wn->cur[0],
+                cost = wn->sad_capable ? svt_mcd_simd_sad_u16u16((const uint16_t*)wn->cur[0],
                                                               wn->cur_str[0],
                                                               r,
                                                               wn->win_str[0],
@@ -777,7 +750,7 @@ static uint64_t mcd_l0_raw_u16(const McdMeLevel* lv, const McdMeL0Win* wn, int32
         const int32_t  oy     = ryc - wn->wy[p];
         if (ox >= 0 && oy >= 0 && ox + wn->bw <= wn->ww[p] && oy + wn->bh <= wn->wh[p]) {
             const uint16_t* r = (const uint16_t*)wn->win[p] + (size_t)oy * (size_t)wn->win_str[p] + (size_t)ox;
-            sum += wn->csad_simd ? svt_mcd_simd_sad_u16u16((const uint16_t*)wn->cur[p],
+            sum += wn->csad_capable ? svt_mcd_simd_sad_u16u16((const uint16_t*)wn->cur[p],
                                                            wn->cur_str[p],
                                                            r,
                                                            wn->win_str[p],

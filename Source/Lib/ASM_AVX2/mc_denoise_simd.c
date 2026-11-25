@@ -46,62 +46,6 @@
 #include "mc_denoise_simd.h"
 #include "mc_denoise_dfttest_ctx.h"
 #include "svt_threads.h"
-/* scalar tail helpers (shared by the vector kernels in this TU) */
-static inline int32_t mcd_simd_clampi(int32_t v, int32_t lo, int32_t hi) {
-    return v < lo ? lo : (v > hi ? hi : v);
-}
-
-/* ---- scalar helpers (shared tails; mirror mc_denoise_dfttest.c) ---- */
-
-static inline float mcd_merge_getf(const McdPlane* p, uint32_t x, uint32_t y) {
-    return p->highbd ? (float)((const uint16_t*)p->data)[(size_t)y * p->stride + x]
-                     : (float)((const uint8_t*)p->data)[(size_t)y * p->stride + x];
-}
-
-static inline float mcd_merge_mask(const McdPlane* yl, uint32_t x, uint32_t y, float kK) {
-    const float y8 = mcd_merge_getf(yl, x, y) * kK;
-    const float m  = (y8 - 16.0f) / 59.0f;
-    return m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m);
-}
-
-static inline float mcd_merge_box(const McdPlane* yl, uint32_t cx, uint32_t cy, uint32_t x_ss, uint32_t y_ss,
-                                  float kK) {
-    const uint32_t span_x = 1u << x_ss;
-    const uint32_t span_y = 1u << y_ss;
-    float          sum    = 0.0f;
-    for (uint32_t dy = 0; dy < span_y; dy++) {
-        uint32_t yy = cy * span_y + dy;
-        if (yy >= yl->h) {
-            yy = yl->h - 1;
-        }
-        for (uint32_t dx = 0; dx < span_x; dx++) {
-            uint32_t xx = cx * span_x + dx;
-            if (xx >= yl->w) {
-                xx = yl->w - 1;
-            }
-            sum += mcd_merge_mask(yl, xx, yy, kK);
-        }
-    }
-    return sum / (float)(span_x * span_y);
-}
-
-/* scalar lerp + round-clamp for one pixel (tails) */
-static inline void mcd_merge_pix(const McdPlane* s, const McdPlane* f, McdPlane* o, uint32_t x, uint32_t y, float m,
-                                 uint32_t pmax) {
-    const float sv = mcd_merge_getf(s, x, y);
-    const float fv = mcd_merge_getf(f, x, y);
-    const float v  = sv + m * (fv - sv);
-    uint32_t    iv = (v <= 0.0f) ? 0 : (uint32_t)(v + 0.5f);
-    if (iv > pmax) {
-        iv = pmax;
-    }
-    if (o->highbd) {
-        ((uint16_t*)o->data)[(size_t)y * o->stride + x] = (uint16_t)iv;
-    } else {
-        ((uint8_t*)o->data)[(size_t)y * o->stride + x] = (uint8_t)iv;
-    }
-}
-
 #define svt_mcd_simd_sad_u8u8 mcd_avx2_sad_u8u8
 #define svt_mcd_simd_sad_u16u16 mcd_avx2_sad_u16u16
 #define svt_mcd_simd_sad_u8u16 mcd_avx2_sad_u8u16
@@ -647,3 +591,40 @@ MCD_TARGET_AVX2 void mcd_merge_plane256(const McdPlane* s, const McdPlane* f, Mc
     }
 }
 
+
+/* Mask-merge RTCD kernel: validates the call and drives the per-plane
+ * vector merge. Returns MCD_ERR_PARAM without writing when unsupported. */
+int mcd_avx2_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes, uint32_t n_planes,
+       uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
+    if (n_planes != 1 && n_planes != 3) {
+        return MCD_ERR_PARAM;
+    }
+    if (n_planes == 3 && !(x_ss == 1 && y_ss == 1)) {
+        return MCD_ERR_PARAM;
+    }
+    if (bitdepth != 8 && bitdepth != 10) {
+        return MCD_ERR_PARAM;
+    }
+    for (uint32_t p = 0; p < n_planes; p++) {
+        const McdPlane* s = &src_planes[p];
+        const McdPlane* f = &filt_planes[p];
+        const McdPlane* o = &out_planes[p];
+        if (!s->data || !f->data || !o->data || s->w == 0 || s->h == 0 || s->stride < s->w || f->w != s->w ||
+            f->h != s->h || f->stride < f->w || o->w != s->w || o->h != s->h || o->stride < o->w ||
+            f->highbd != s->highbd || o->highbd != s->highbd) {
+            return MCD_ERR_PARAM;
+        }
+    }
+    const uint32_t pmax     = (1u << bitdepth) - 1;
+    const float    inv_pmax = 1.0f / (float)pmax;
+    const McdPlane* yl      = &src_planes[0];
+    float* mrows = n_planes == 3 ? (float*)malloc(2 * (size_t)yl->w * sizeof(float)) : NULL;
+    if (n_planes == 3 && !mrows) {
+        return MCD_ERR_NOMEM;
+    }
+    for (uint32_t p = 0; p < n_planes; p++) {
+        mcd_avx2_merge_plane256(&src_planes[p], &filt_planes[p], &out_planes[p], yl, p == 0, mrows, inv_pmax, pmax);
+    }
+    free(mrows);
+    return MCD_SUCCESS;
+}

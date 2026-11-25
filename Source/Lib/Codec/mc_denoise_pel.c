@@ -345,10 +345,6 @@ uint32_t svt_mcd_pyramid_levels(const McdPyramid* p) {
 
 void svt_mcd_simd_halfpel_h_u8_c(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
                              uint32_t dstride, uint32_t maxval) {
-    if (mcd_use_avx2()) {
-        svt_mcd_simd_halfpel_h_u8(src, sstride, w, h, pad, dst, dstride, maxval);
-        return;
-    }
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  wm1 = (int32_t)w - 1;
@@ -373,10 +369,6 @@ void svt_mcd_simd_halfpel_h_u8_c(const uint8_t* src, uint32_t sstride, uint32_t 
 
 void svt_mcd_simd_halfpel_v_u8_c(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
                              uint32_t dstride, uint32_t maxval) {
-    if (mcd_use_avx2()) {
-        svt_mcd_simd_halfpel_v_u8(src, sstride, w, h, pad, dst, dstride, maxval);
-        return;
-    }
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  hm1 = (int32_t)h - 1;
@@ -403,12 +395,6 @@ void svt_mcd_simd_halfpel_v_u8_c(const uint8_t* src, uint32_t sstride, uint32_t 
 
 void svt_mcd_simd_halfpel_h_u16_c(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
                               uint16_t* dst, uint32_t dstride, uint32_t maxval) {
-#if EN_AVX512_SUPPORT
-    if (mcd_use_avx512()) {
-        svt_mcd_simd_halfpel_h_u16(src, sstride, w, h, pad, dst, dstride, maxval);
-        return;
-    }
-#endif
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  wm1 = (int32_t)w - 1;
@@ -433,12 +419,6 @@ void svt_mcd_simd_halfpel_h_u16_c(const uint16_t* src, uint32_t sstride, uint32_
 
 void svt_mcd_simd_halfpel_v_u16_c(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
                               uint16_t* dst, uint32_t dstride, uint32_t maxval) {
-#if EN_AVX512_SUPPORT
-    if (mcd_use_avx512()) {
-        svt_mcd_simd_halfpel_v_u16(src, sstride, w, h, pad, dst, dstride, maxval);
-        return;
-    }
-#endif
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  hm1 = (int32_t)h - 1;
@@ -541,17 +521,17 @@ static int mcd_pelset_build_plane(McdPelSet* s, uint32_t i, const McdPlane* src,
         src0 = (uint8_t*)borrow->data - ((size_t)pad * stride + pad) * esz;
     }
     if (!src->highbd) {
-        svt_mcd_simd_halfpel_h_u8_c(src0, stride, w, h, pad, buf + wbase, stride, maxval);
-        svt_mcd_simd_halfpel_v_u8_c(src0, stride, w, h, pad, buf + wbase + pb, stride, maxval);
+        svt_mcd_simd_halfpel_h_u8(src0, stride, w, h, pad, buf + wbase, stride, maxval);
+        svt_mcd_simd_halfpel_v_u8(src0, stride, w, h, pad, buf + wbase + pb, stride, maxval);
         /* xy: horizontal 6-tap over the vertically interpolated phase */
-        svt_mcd_simd_halfpel_h_u8_c(buf + wbase + pb, stride, w, h, pad, buf + wbase + 2 * pb, stride, maxval);
+        svt_mcd_simd_halfpel_h_u8(buf + wbase + pb, stride, w, h, pad, buf + wbase + 2 * pb, stride, maxval);
     } else {
         uint16_t*    s0   = (uint16_t*)src0;
         uint16_t*    b    = (uint16_t*)buf;
         const size_t wb16 = wbase / 2; /* wbase is even: stride*rows*esq */
-        svt_mcd_simd_halfpel_h_u16_c(s0, stride, w, h, pad, b + wb16, stride, maxval);
-        svt_mcd_simd_halfpel_v_u16_c(s0, stride, w, h, pad, b + wb16 + (size_t)pb / 2, stride, maxval);
-        svt_mcd_simd_halfpel_h_u16_c(b + wb16 + (size_t)pb / 2, stride, w, h, pad, b + wb16 + (size_t)pb, stride, maxval);
+        svt_mcd_simd_halfpel_h_u16(s0, stride, w, h, pad, b + wb16, stride, maxval);
+        svt_mcd_simd_halfpel_v_u16(s0, stride, w, h, pad, b + wb16 + (size_t)pb / 2, stride, maxval);
+        svt_mcd_simd_halfpel_h_u16(b + wb16 + (size_t)pb / 2, stride, w, h, pad, b + wb16 + (size_t)pb, stride, maxval);
     }
     return MCD_SUCCESS;
 }
@@ -686,7 +666,7 @@ void svt_mcd_pelset_fetch_pad(const McdPelSet* s, uint32_t plane, int32_t x_half
                               uint32_t h, uint32_t eff_pad, uint16_t* dst) {
     const McdPlane* p;
     int32_t         lo_x, hi_x, lo_y, hi_y, ix, iy;
-    uint32_t        fx, fy, phase, r, c;
+    uint32_t        fx, fy, phase, r;
 
     if (!s || !dst || w == 0 || h == 0 || plane >= s->n_planes) {
         return;
@@ -722,17 +702,10 @@ void svt_mcd_pelset_fetch_pad(const McdPelSet* s, uint32_t plane, int32_t x_half
         const uint32_t sy = (uint32_t)(iy + (int32_t)s->pad);
         if (!p->highbd) {
             const uint8_t* data = (const uint8_t*)p->data;
-            const int      simd = mcd_use_avx2();
             for (r = 0; r < h; r++) {
                 const uint8_t* row = data + (size_t)(sy + r) * p->stride + sx;
                 uint16_t*      out = dst + (size_t)r * w;
-                if (simd) {
-                    svt_mcd_simd_fetch_u8_row(row, out, w);
-                } else {
-                    for (c = 0; c < w; c++) {
-                        out[c] = (uint16_t)row[c];
-                    }
-                }
+                svt_mcd_simd_fetch_u8_row(row, out, w);
             }
         } else {
             const uint16_t* data = (const uint16_t*)p->data;

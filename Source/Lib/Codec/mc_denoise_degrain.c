@@ -379,22 +379,14 @@ int svt_mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, c
                 }
 
                 /* B = (128 + WSrc*src + sum_i w_i*comp_i) >> 8 */
-                const bool simd = mcd_use_avx2();
                 for (ly = 0; ly < bh; ly++) {
                     const uint32_t Y = y0_p + ly;
-                    if (simd) {
-                        svt_mcd_simd_degrain_init_row(bacc + (size_t)ly * bw, sp, Y, x0_p, wsrc, bw);
-                    } else {
-                        for (lx = 0; lx < bw; lx++) {
-                            bacc[(size_t)ly * bw + lx] = 128 + wsrc * mcd_plane_load(sp, Y, x0_p + lx);
-                        }
-                    }
+                    svt_mcd_simd_degrain_init_row(bacc + (size_t)ly * bw, sp, Y, x0_p, wsrc, bw);
                 }
                 for (i = 0; i < n_refs; i++) {
                     const McdVector* v;
                     const uint32_t   w = wts[i];
                     int32_t          fx, fy;
-                    size_t           l;
                     if (!w) {
                         continue;
                     }
@@ -404,22 +396,10 @@ int svt_mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, c
                     fx = 2 * (int32_t)x0_p + mcd_floor_shr(v->x, ssx);
                     fy = 2 * (int32_t)y0_p + mcd_floor_shr(v->y, ssy);
                     svt_mcd_pelset_fetch((const McdPelSet*)refs[i]->pel, p, fx, fy, bw, bh, comp);
-                    if (simd) {
-                        svt_mcd_simd_degrain_add_ref(bacc, comp, w, (uint32_t)(bw * bh));
-                    } else {
-                        for (l = 0; l < (size_t)bw * bh; l++) {
-                            bacc[l] += (uint32_t)w * comp[l];
-                        }
-                    }
+                    svt_mcd_simd_degrain_add_ref(bacc, comp, w, (uint32_t)(bw * bh));
                 }
                 n = bw * bh;
-                if (simd) {
-                    svt_mcd_simd_degrain_shift(bacc, n);
-                } else {
-                    for (lx = 0; lx < n; lx++) {
-                        bacc[lx] >>= 8;
-                    }
-                }
+                svt_mcd_simd_degrain_shift(bacc, n);
 
                 /* accumulate with exact-sum windows at luma-grid offsets */
                 for (lx = 0; lx < bw; lx++) {
@@ -447,13 +427,7 @@ int svt_mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, c
                         }
                         win[lx] = w;
                     }
-                    if (simd) {
-                        svt_mcd_simd_degrain_acc_row(accrow, brow, win, bw);
-                    } else {
-                        for (lx = 0; lx < bw; lx++) {
-                            accrow[lx] += brow[lx] * win[lx];
-                        }
-                    }
+                    svt_mcd_simd_degrain_acc_row(accrow, brow, win, bw);
                 }
             }
         }
@@ -466,9 +440,8 @@ int svt_mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, c
         const McdPlane* sp  = &center->planes[p];
         const int32_t   lim = cfg->limit ? (int32_t)((uint64_t)cfg->limit * pmax / 255) : 0;
         uint32_t        x, y;
-        const bool      simd_fin = mcd_use_avx2();
         for (y = 0; y < sp->h; y++) {
-            if (simd_fin && svt_mcd_simd_degrain_finalize_row(&dst_planes[p], y, acc[p], sp, lim, pmax)) {
+            if (svt_mcd_simd_degrain_finalize_row(&dst_planes[p], y, acc[p], sp, lim, pmax)) {
                 continue;
             }
             for (x = 0; x < sp->w; x++) {

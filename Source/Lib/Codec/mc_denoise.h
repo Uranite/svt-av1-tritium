@@ -347,6 +347,64 @@ void svt_mcd_me_result_free(McdMeResult** r);
 int svt_mcd_degrain_frame(const McdFrame* center, const McdFrame* const* refs, const McdMeResult* const* results,
                           uint32_t n_refs, const McdConfig* cfg, McdPlane* dst_planes);
 
+/* Shared scalar tails for the per-ISA mc-denoise kernels. */
+/* scalar tail helpers (shared by the vector kernels in this TU) */
+static inline int32_t mcd_simd_clampi(int32_t v, int32_t lo, int32_t hi) {
+    return v < lo ? lo : (v > hi ? hi : v);
+}
+
+/* ---- scalar helpers (shared tails; mirror mc_denoise_dfttest.c) ---- */
+
+static inline float mcd_merge_getf(const McdPlane* p, uint32_t x, uint32_t y) {
+    return p->highbd ? (float)((const uint16_t*)p->data)[(size_t)y * p->stride + x]
+                     : (float)((const uint8_t*)p->data)[(size_t)y * p->stride + x];
+}
+
+static inline float mcd_merge_mask(const McdPlane* yl, uint32_t x, uint32_t y, float kK) {
+    const float y8 = mcd_merge_getf(yl, x, y) * kK;
+    const float m  = (y8 - 16.0f) / 59.0f;
+    return m < 0.0f ? 0.0f : (m > 1.0f ? 1.0f : m);
+}
+
+static inline float mcd_merge_box(const McdPlane* yl, uint32_t cx, uint32_t cy, uint32_t x_ss, uint32_t y_ss,
+                                  float kK) {
+    const uint32_t span_x = 1u << x_ss;
+    const uint32_t span_y = 1u << y_ss;
+    float          sum    = 0.0f;
+    for (uint32_t dy = 0; dy < span_y; dy++) {
+        uint32_t yy = cy * span_y + dy;
+        if (yy >= yl->h) {
+            yy = yl->h - 1;
+        }
+        for (uint32_t dx = 0; dx < span_x; dx++) {
+            uint32_t xx = cx * span_x + dx;
+            if (xx >= yl->w) {
+                xx = yl->w - 1;
+            }
+            sum += mcd_merge_mask(yl, xx, yy, kK);
+        }
+    }
+    return sum / (float)(span_x * span_y);
+}
+
+/* scalar lerp + round-clamp for one pixel (tails) */
+static inline void mcd_merge_pix(const McdPlane* s, const McdPlane* f, McdPlane* o, uint32_t x, uint32_t y, float m,
+                                 uint32_t pmax) {
+    const float sv = mcd_merge_getf(s, x, y);
+    const float fv = mcd_merge_getf(f, x, y);
+    const float v  = sv + m * (fv - sv);
+    uint32_t    iv = (v <= 0.0f) ? 0 : (uint32_t)(v + 0.5f);
+    if (iv > pmax) {
+        iv = pmax;
+    }
+    if (o->highbd) {
+        ((uint16_t*)o->data)[(size_t)y * o->stride + x] = (uint16_t)iv;
+    } else {
+        ((uint8_t*)o->data)[(size_t)y * o->stride + x] = (uint8_t)iv;
+    }
+}
+
+
 #ifdef __cplusplus
 }
 #endif

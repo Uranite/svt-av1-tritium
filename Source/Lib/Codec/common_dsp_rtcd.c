@@ -537,90 +537,167 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     //to use C: flags=0
 #endif
 
+    const bool mcd_no_simd = svt_mcd_simd_disabled() != 0;
     /* mc-denoise SIMD dispatch */
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_sad_u8u8, svt_mcd_simd_sad_u8u8_c, mcd_avx2_sad_u8u8);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_sad_u8u8, svt_mcd_simd_sad_u8u8_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_sad_u8u8, svt_mcd_simd_sad_u8u8_c, mcd_avx2_sad_u8u8);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_sad_u8u8, svt_mcd_simd_sad_u8u8_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_sad_u16u16, svt_mcd_simd_sad_u16u16_c, mcd_avx2_sad_u16u16);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_sad_u16u16, svt_mcd_simd_sad_u16u16_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_sad_u16u16, svt_mcd_simd_sad_u16u16_c, mcd_avx2_sad_u16u16);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_sad_u16u16, svt_mcd_simd_sad_u16u16_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_sad_u8u16, svt_mcd_simd_sad_u8u16_c, mcd_avx2_sad_u8u16);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_sad_u8u16, svt_mcd_simd_sad_u8u16_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_sad_u8u16, svt_mcd_simd_sad_u8u16_c, mcd_avx2_sad_u8u16);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_sad_u8u16, svt_mcd_simd_sad_u8u16_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_sad_u16u8, svt_mcd_simd_sad_u16u8_c, mcd_avx2_sad_u16u8);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_sad_u16u8, svt_mcd_simd_sad_u16u8_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_sad_u16u8, svt_mcd_simd_sad_u16u8_c, mcd_avx2_sad_u16u8);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_sad_u16u8, svt_mcd_simd_sad_u16u8_c);
 #endif
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    SET_AVX512(svt_mcd_simd_satd_u8u8, svt_mcd_simd_satd_u8u8_c, mcd_avx512_satd_u8u8);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_satd_u8u8, svt_mcd_simd_satd_u8u8_c);
+    } else {
+        SET_AVX512(svt_mcd_simd_satd_u8u8, svt_mcd_simd_satd_u8u8_c, mcd_avx512_satd_u8u8);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_satd_u8u8, svt_mcd_simd_satd_u8u8_c);
 #endif
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    SET_AVX512(svt_mcd_simd_satd_u16u16, svt_mcd_simd_satd_u16u16_c, mcd_avx512_satd_u16u16);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_satd_u16u16, svt_mcd_simd_satd_u16u16_c);
+    } else {
+        SET_AVX512(svt_mcd_simd_satd_u16u16, svt_mcd_simd_satd_u16u16_c, mcd_avx512_satd_u16u16);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_satd_u16u16, svt_mcd_simd_satd_u16u16_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_halfpel_h_u8, svt_mcd_simd_halfpel_h_u8_c, mcd_avx2_halfpel_h_u8);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_halfpel_h_u8, svt_mcd_simd_halfpel_h_u8_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_halfpel_h_u8, svt_mcd_simd_halfpel_h_u8_c, mcd_avx2_halfpel_h_u8);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_halfpel_h_u8, svt_mcd_simd_halfpel_h_u8_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_halfpel_v_u8, svt_mcd_simd_halfpel_v_u8_c, mcd_avx2_halfpel_v_u8);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_halfpel_v_u8, svt_mcd_simd_halfpel_v_u8_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_halfpel_v_u8, svt_mcd_simd_halfpel_v_u8_c, mcd_avx2_halfpel_v_u8);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_halfpel_v_u8, svt_mcd_simd_halfpel_v_u8_c);
 #endif
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    SET_AVX512(svt_mcd_simd_halfpel_h_u16, svt_mcd_simd_halfpel_h_u16_c, mcd_avx512_halfpel_h_u16);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_halfpel_h_u16, svt_mcd_simd_halfpel_h_u16_c);
+    } else {
+        SET_AVX512(svt_mcd_simd_halfpel_h_u16, svt_mcd_simd_halfpel_h_u16_c, mcd_avx512_halfpel_h_u16);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_halfpel_h_u16, svt_mcd_simd_halfpel_h_u16_c);
 #endif
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    SET_AVX512(svt_mcd_simd_halfpel_v_u16, svt_mcd_simd_halfpel_v_u16_c, mcd_avx512_halfpel_v_u16);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_halfpel_v_u16, svt_mcd_simd_halfpel_v_u16_c);
+    } else {
+        SET_AVX512(svt_mcd_simd_halfpel_v_u16, svt_mcd_simd_halfpel_v_u16_c, mcd_avx512_halfpel_v_u16);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_halfpel_v_u16, svt_mcd_simd_halfpel_v_u16_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_fetch_u8_row, svt_mcd_simd_fetch_u8_row_c, mcd_avx2_fetch_u8_row);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_fetch_u8_row, svt_mcd_simd_fetch_u8_row_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_fetch_u8_row, svt_mcd_simd_fetch_u8_row_c, mcd_avx2_fetch_u8_row);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_fetch_u8_row, svt_mcd_simd_fetch_u8_row_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_degrain_init_row, svt_mcd_simd_degrain_init_row_c, mcd_avx2_degrain_init_row);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_degrain_init_row, svt_mcd_simd_degrain_init_row_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_degrain_init_row, svt_mcd_simd_degrain_init_row_c, mcd_avx2_degrain_init_row);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_degrain_init_row, svt_mcd_simd_degrain_init_row_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_degrain_add_ref, svt_mcd_simd_degrain_add_ref_c, mcd_avx2_degrain_add_ref);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_degrain_add_ref, svt_mcd_simd_degrain_add_ref_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_degrain_add_ref, svt_mcd_simd_degrain_add_ref_c, mcd_avx2_degrain_add_ref);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_degrain_add_ref, svt_mcd_simd_degrain_add_ref_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_degrain_shift, svt_mcd_simd_degrain_shift_c, mcd_avx2_degrain_shift);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_degrain_shift, svt_mcd_simd_degrain_shift_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_degrain_shift, svt_mcd_simd_degrain_shift_c, mcd_avx2_degrain_shift);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_degrain_shift, svt_mcd_simd_degrain_shift_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_degrain_acc_row, svt_mcd_simd_degrain_acc_row_c, mcd_avx2_degrain_acc_row);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_degrain_acc_row, svt_mcd_simd_degrain_acc_row_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_degrain_acc_row, svt_mcd_simd_degrain_acc_row_c, mcd_avx2_degrain_acc_row);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_degrain_acc_row, svt_mcd_simd_degrain_acc_row_c);
 #endif
 #if defined(ARCH_X86_64)
-    SET_AVX2(svt_mcd_simd_degrain_finalize_row, svt_mcd_simd_degrain_finalize_row_c, mcd_avx2_degrain_finalize_row);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_degrain_finalize_row, svt_mcd_simd_degrain_finalize_row_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_degrain_finalize_row, svt_mcd_simd_degrain_finalize_row_c, mcd_avx2_degrain_finalize_row);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_degrain_finalize_row, svt_mcd_simd_degrain_finalize_row_c);
 #endif
-    /* mask_merge: dispatch stays in the caller */
+#if defined(ARCH_X86_64)
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_mask_merge, svt_mcd_simd_mask_merge_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_mask_merge, svt_mcd_simd_mask_merge_c, mcd_avx2_mask_merge);
+    }
+#else
+    SET_ONLY_C(svt_mcd_simd_mask_merge, svt_mcd_simd_mask_merge_c);
+#endif
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    SET_AVX512(svt_mcd_simd_dfttest_plane_with_ctx, svt_mcd_simd_dfttest_plane_with_ctx_c, mcd_avx512_dfttest_plane_with_ctx);
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_dfttest_plane_with_ctx, svt_mcd_simd_dfttest_plane_with_ctx_c);
+    } else {
+        SET_AVX512(svt_mcd_simd_dfttest_plane_with_ctx, svt_mcd_simd_dfttest_plane_with_ctx_c, mcd_avx512_dfttest_plane_with_ctx);
+    }
 #else
     SET_ONLY_C(svt_mcd_simd_dfttest_plane_with_ctx, svt_mcd_simd_dfttest_plane_with_ctx_c);
 #endif

@@ -38,22 +38,16 @@ extern "C" {
 /* ---- forced-scalar test hook (1 = use scalar paths) ------------------- */
 int svt_mcd_simd_disabled(void);
 
-/* ---- CPU feature checks (cached once per process; safe from any thread). */
-int svt_mcd_have_avx2(void);
-int svt_mcd_have_avx512(void);
-
-static inline int mcd_use_avx2(void) {
-    return !svt_mcd_simd_disabled() && svt_mcd_have_avx2();
-}
-
-static inline int mcd_use_avx512(void) {
-    return !svt_mcd_simd_disabled() && svt_mcd_have_avx512();
-}
-
 
 /* The dfttest context struct is shared with the scalar implementation; the
  * definition lives in mc_denoise_dfttest.c. */
 struct McdDftCtx;
+
+/* Per-ISA mask-merge kernels */
+int mcd_avx2_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                        uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
+int mcd_avx512_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                          uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
 
 /* Scalar C implementations (RTCD defaults) */
 uint64_t svt_mcd_simd_sad_u8u8_c(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
