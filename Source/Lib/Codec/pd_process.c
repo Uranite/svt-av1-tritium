@@ -5509,13 +5509,13 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
              * The motion-compensated denoiser replaces the film grain denoise
              * pass, so neither the Wiener pass nor the picture-analysis refresh
              * runs in that case. */
-            const bool           mcd_fgs  = pcs->mcd_fgs_pic != NULL;
-            EbPictureBufferDesc* source   = mcd_fgs ? pcs->mcd_fgs_pic : pcs->enhanced_pic;
+            const bool           mcd_fgs = pcs->mcd_fgs_pic != NULL;
+            EbPictureBufferDesc* source  = mcd_fgs ? pcs->mcd_fgs_pic : pcs->enhanced_pic;
             if (!ctx->film_grain_analysis) {
                 ctx->film_grain_analysis = svt_aom_fga_create(source->width, source->height, source->bit_depth);
             }
-            PictureParentControlSet* next = scs->scd_delay ? pcs->pd_window[2] : NULL;
-            EbPictureBufferDesc* next_pic = NULL;
+            PictureParentControlSet* next     = scs->scd_delay ? pcs->pd_window[2] : NULL;
+            EbPictureBufferDesc*     next_pic = NULL;
             if (next) {
                 next_pic = next->mcd_fgs_pic ? next->mcd_fgs_pic : next->enhanced_pic;
             }

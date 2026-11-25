@@ -1989,7 +1989,7 @@ static void vmaf_preprocess_frame(PictureAnalysisContext* pa_ctx, PictureParentC
  * bit depth) but carries no border: the analysis only reads the visible core.
  * Consumed and released by the PD kernel after the grain analysis runs. */
 static EbErrorType mcd_fgs_snapshot(PictureParentControlSet* pcs) {
-    const EbPictureBufferDesc* src = pcs->enhanced_pic;
+    const EbPictureBufferDesc*  src = pcs->enhanced_pic;
     EbPictureBufferDescInitData init_data;
     memset(&init_data, 0, sizeof(init_data));
     init_data.max_width          = src->width;
@@ -2004,11 +2004,11 @@ static EbErrorType mcd_fgs_snapshot(PictureParentControlSet* pcs) {
     EB_NEW(pcs->mcd_fgs_pic, svt_picture_buffer_desc_ctor, (EbPtr)&init_data);
     EbPictureBufferDesc* dst = pcs->mcd_fgs_pic;
 
-    const uint32_t ss_x    = (src->color_format == EB_YUV444 ? 0 : 1);
-    const uint32_t ss_y    = (src->color_format >= EB_YUV422 ? 0 : 1);
+    const uint32_t ss_x = (src->color_format == EB_YUV444 ? 0 : 1);
+    const uint32_t ss_y = (src->color_format >= EB_YUV422 ? 0 : 1);
     /* 1 byte per sample for 8-bit and split high-bit-depth planes; packed
      * high-bit-depth planes (no bit-increment) store 2 bytes per sample. */
-    const uint32_t bps     = (src->bit_depth == EB_EIGHT_BIT || src->buffer_bit_inc[0]) ? 1 : 2;
+    const uint32_t bps = (src->bit_depth == EB_EIGHT_BIT || src->buffer_bit_inc[0]) ? 1 : 2;
     for (uint32_t c = 0; c < 3; ++c) {
         if (!src->buffer[c]) {
             continue;
@@ -2090,8 +2090,8 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
     EbObjectWrapper*         work_wrapper[SVT_MCD_MAX_EMITTED];
     PictureParentControlSet* work_pcs[SVT_MCD_MAX_EMITTED];
     uint32_t                 n_work = 1;
-    work_wrapper[0]                  = in_results_ptr->pcs_wrapper;
-    work_pcs[0]                      = pcs;
+    work_wrapper[0]                 = in_results_ptr->pcs_wrapper;
+    work_pcs[0]                     = pcs;
     {
         EncodeContext* enc_ctx = pcs->scs->enc_ctx;
         if (enc_ctx->mcd_state) {
@@ -2102,16 +2102,15 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
              * Snapshot before the arrival hook (which may denoise immediately
              * in low-delay / all-intra mode). Overlays carry no input pixels
              * here and a fixed fgs_table bypasses the analysis entirely. */
-            if (pcs->scs->static_config.film_grain_denoise_strength == -1 &&
-                !pcs->scs->static_config.fgs_table && !pcs->is_overlay) {
+            if (pcs->scs->static_config.film_grain_denoise_strength == -1 && !pcs->scs->static_config.fgs_table &&
+                !pcs->is_overlay) {
                 const EbErrorType snap_err = mcd_fgs_snapshot(pcs);
                 if (snap_err != EB_ErrorNone) {
                     return snap_err;
                 }
             }
 #endif
-            n_work = svt_mcd_pa_arrival(
-                enc_ctx->mcd_state, pcs, in_results_ptr->pcs_wrapper, work_wrapper, work_pcs);
+            n_work = svt_mcd_pa_arrival(enc_ctx->mcd_state, pcs, in_results_ptr->pcs_wrapper, work_wrapper, work_pcs);
         }
     }
 
@@ -2181,11 +2180,11 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
                 switch (scs->static_config.screen_content_mode) {
                 case 0:
                     pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 =
-                        pcs->sc_class5 = 0;
+                        pcs->sc_class5                                                = 0;
                     break;
                 case 1:
                     pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 =
-                        pcs->sc_class5 = 1;
+                        pcs->sc_class5                                                = 1;
                     break;
                 case 2:
                     // SC Detection is OFF for 4K and higher

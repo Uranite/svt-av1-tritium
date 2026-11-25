@@ -1336,15 +1336,15 @@ EbErrorType svt_av1_set_default_params(EbSvtAv1EncConfiguration* config_ptr) {
     config_ptr->enable_photon_noise_chroma  = 0;
 
     // Motion-compensated temporal denoising
-    config_ptr->mc_denoise          = 0;
-    config_ptr->mc_denoise_tr       = 1;
-    config_ptr->mc_denoise_thsad    = 50;
-    config_ptr->mc_denoise_blksize  = 16;
+    config_ptr->mc_denoise           = 0;
+    config_ptr->mc_denoise_tr        = 1;
+    config_ptr->mc_denoise_thsad     = 50;
+    config_ptr->mc_denoise_blksize   = 16;
     config_ptr->mc_denoise_prefilter = 1;
-    config_ptr->mc_denoise_sigma    = 50;
-    config_ptr->mc_denoise_thscd1   = 400;
-    config_ptr->mc_denoise_thscd2   = 51;
-    config_ptr->mc_denoise_limit    = 0;
+    config_ptr->mc_denoise_sigma     = 50;
+    config_ptr->mc_denoise_thscd1    = 400;
+    config_ptr->mc_denoise_thscd2    = 51;
+    config_ptr->mc_denoise_limit     = 0;
 
     // CPU Flags
     config_ptr->use_cpu_flags = EB_CPU_FLAGS_ALL;
@@ -1752,19 +1752,17 @@ void svt_av1_print_lib_params(SequenceControlSet* scs) {
                      config->enable_photon_noise_chroma ? "on" : "off");
         }
         if (config->mc_denoise) {
-            SVT_INFO(
-                "SVT [config]: mc denoise / tr / thsad / blksize / prefilter \t\t\t: %d / %d / %d / %d / %d\n",
-                config->mc_denoise,
-                config->mc_denoise_tr,
-                config->mc_denoise_thsad,
-                config->mc_denoise_blksize,
-                config->mc_denoise_prefilter);
-            SVT_INFO(
-                "SVT [config]: mc denoise sigma / thscd1 / thscd2 / limit \t\t\t: %d / %d / %d / %d\n",
-                config->mc_denoise_sigma,
-                config->mc_denoise_thscd1,
-                config->mc_denoise_thscd2,
-                config->mc_denoise_limit);
+            SVT_INFO("SVT [config]: mc denoise / tr / thsad / blksize / prefilter \t\t\t: %d / %d / %d / %d / %d\n",
+                     config->mc_denoise,
+                     config->mc_denoise_tr,
+                     config->mc_denoise_thsad,
+                     config->mc_denoise_blksize,
+                     config->mc_denoise_prefilter);
+            SVT_INFO("SVT [config]: mc denoise sigma / thscd1 / thscd2 / limit \t\t\t: %d / %d / %d / %d\n",
+                     config->mc_denoise_sigma,
+                     config->mc_denoise_thscd1,
+                     config->mc_denoise_thscd2,
+                     config->mc_denoise_limit);
         }
         SVT_INFO("SVT [config]: sharpness / luminance-based QP bias \t\t\t\t: %d / %d\n",
                  config->sharpness,
