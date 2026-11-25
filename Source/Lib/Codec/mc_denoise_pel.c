@@ -44,6 +44,7 @@
 
 #include "mc_denoise.h"
 #include "mc_denoise_simd.h"
+#include "common_dsp_rtcd.h"
 
 #define MCD_PYR_MAX_LEVELS 12 /* hard cap on pyramid depth                */
 #define MCD_STRIDE_ALIGN 16 /* samples per row alignment                */

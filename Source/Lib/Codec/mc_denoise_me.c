@@ -37,6 +37,7 @@
 
 #include "mc_denoise.h"
 #include "mc_denoise_simd.h"
+#include "common_dsp_rtcd.h"
 #include "svt_threads.h"
 
 /* Side padding, in samples, that every pyramid plane and pelset is guaranteed

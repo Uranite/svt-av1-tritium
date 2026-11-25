@@ -45,6 +45,7 @@
 
 #include "mc_denoise.h"
 #include "mc_denoise_simd.h"
+#include "common_dsp_rtcd.h"
 #include "mc_denoise_dfttest_ctx.h"
 
 /* Symmetric mirror reflection of i into [0, w). */

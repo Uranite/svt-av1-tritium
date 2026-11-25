@@ -16,6 +16,7 @@
 #define COMMON_DSP_RTCD_H_
 
 #include "definitions.h"
+#include "mc_denoise.h"
 
 #ifdef RTCD_C
 #define RTCD_EXTERN                //CHKN RTCD call in effect. declare the function pointers in  encHandle.
@@ -42,6 +43,41 @@ EbCpuFlags svt_aom_get_cpu_flags();
 EbCpuFlags svt_aom_get_cpu_flags_to_use();
 #endif
 void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags);
+
+/* mc-denoise SIMD RTCD pointers */
+extern uint64_t(*svt_mcd_simd_sad_u8u8)(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                               uint64_t bound);
+extern uint64_t(*svt_mcd_simd_sad_u16u16)(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                 uint64_t bound);
+extern uint64_t(*svt_mcd_simd_sad_u8u16)(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound);
+extern uint64_t(*svt_mcd_simd_sad_u16u8)(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound);
+extern uint64_t(*svt_mcd_simd_satd_u8u8)(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound);
+extern uint64_t(*svt_mcd_simd_satd_u16u16)(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                  uint64_t bound);
+extern void(*svt_mcd_simd_halfpel_h_u8)(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+                               uint32_t dstride, uint32_t maxval);
+extern void(*svt_mcd_simd_halfpel_v_u8)(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+                               uint32_t dstride, uint32_t maxval);
+extern void(*svt_mcd_simd_halfpel_h_u16)(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+                                uint16_t* dst, uint32_t dstride, uint32_t maxval);
+extern void(*svt_mcd_simd_halfpel_v_u16)(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+                                uint16_t* dst, uint32_t dstride, uint32_t maxval);
+extern void(*svt_mcd_simd_fetch_u8_row)(const uint8_t* row, uint16_t* dst, uint32_t w);
+extern void(*svt_mcd_simd_degrain_init_row)(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p, uint32_t wsrc,
+                                   uint32_t n);
+extern void(*svt_mcd_simd_degrain_add_ref)(uint32_t* bacc, const uint16_t* comp, uint32_t w, uint32_t n);
+extern void(*svt_mcd_simd_degrain_shift)(uint32_t* bacc, uint32_t n);
+extern void(*svt_mcd_simd_degrain_acc_row)(uint32_t* accrow, const uint32_t* brow, const uint32_t* win, uint32_t n);
+extern int(*svt_mcd_simd_degrain_finalize_row)(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp, int32_t lim,
+                                      uint32_t pmax);
+extern int(*svt_mcd_simd_mask_merge)(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                            uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
+extern int(*svt_mcd_simd_dfttest_plane_with_ctx)(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
+                                        uint32_t bitdepth);
+
 
 // Returns 1 if the library was compiled with SVT_AV1_UNIT_TEST_BUILD defined,
 // 0 otherwise. The unit-test harness calls this at startup to verify it is

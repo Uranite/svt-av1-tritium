@@ -52,6 +52,7 @@
 
 #include "mc_denoise.h"
 #include "mc_denoise_simd.h"
+#include "common_dsp_rtcd.h"
 
 #define MCD_WIN_Q 2048 /* raised-cosine^2 window quantization scale */
 #define MCD_W_ONE 256 /* unity degrain weight of a single ref       */
