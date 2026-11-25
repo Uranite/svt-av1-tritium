@@ -102,7 +102,7 @@ static int mcd_me_use_avx512(void) {
     return g_me_avx512;
 }
 
-static uint64_t mcd_sad_scalar_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+uint64_t svt_mcd_simd_sad_u8u8_c(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                                     uint64_t bound) {
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
@@ -124,10 +124,10 @@ static uint64_t mcd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int
     if (mcd_me_use_avx2()) {
         return svt_mcd_simd_sad_u8u8(a, sa, b, sb, w, h, bound);
     }
-    return mcd_sad_scalar_u8u8(a, sa, b, sb, w, h, bound);
+    return svt_mcd_simd_sad_u8u8_c(a, sa, b, sb, w, h, bound);
 }
 
-static uint64_t mcd_sad_scalar_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w,
+uint64_t svt_mcd_simd_sad_u16u16_c(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w,
                                       uint32_t h, uint64_t bound) {
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
@@ -149,10 +149,10 @@ static uint64_t mcd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b,
     if (mcd_me_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull) {
         return svt_mcd_simd_sad_u16u16(a, sa, b, sb, w, h, bound);
     }
-    return mcd_sad_scalar_u16u16(a, sa, b, sb, w, h, bound);
+    return svt_mcd_simd_sad_u16u16_c(a, sa, b, sb, w, h, bound);
 }
 
-static uint64_t mcd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+uint64_t svt_mcd_simd_sad_u8u16_c(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                               uint64_t bound) {
     if (mcd_me_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull) {
         return svt_mcd_simd_sad_u8u16(a, sa, b, sb, w, h, bound);
@@ -172,7 +172,7 @@ static uint64_t mcd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, i
     return sum;
 }
 
-static uint64_t mcd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+uint64_t svt_mcd_simd_sad_u16u8_c(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                               uint64_t bound) {
     if (mcd_me_use_avx2() && (uint64_t)w * h * 65535ull < 0x7fffffffull) {
         return svt_mcd_simd_sad_u16u8(a, sa, b, sb, w, h, bound);
@@ -212,12 +212,12 @@ static uint64_t mcd_plane_sad(const McdPlane* pa, int32_t ax, int32_t ay, const 
     if (!pa->highbd) {
         const uint8_t*  a = (const uint8_t*)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint16_t* b = (const uint16_t*)pb->data + (ptrdiff_t)by * sb + bx;
-        return mcd_sad_u8u16(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
+        return svt_mcd_simd_sad_u8u16_c(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
     {
         const uint16_t* a = (const uint16_t*)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint8_t*  b = (const uint8_t*)pb->data + (ptrdiff_t)by * sb + bx;
-        return mcd_sad_u16u8(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
+        return svt_mcd_simd_sad_u16u8_c(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
 }
 
@@ -255,7 +255,7 @@ static inline int32_t mcd_satd_4x4(const int32_t d[16]) {
     return sum;
 }
 
-static uint64_t mcd_satd_scalar_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+uint64_t svt_mcd_simd_satd_u8u8_c(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                                      uint64_t bound) {
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y += 4) {
@@ -282,10 +282,10 @@ static uint64_t mcd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, in
         return svt_mcd_simd_satd_u8u8(a, sa, b, sb, w, h, bound);
     }
 #endif
-    return mcd_satd_scalar_u8u8(a, sa, b, sb, w, h, bound);
+    return svt_mcd_simd_satd_u8u8_c(a, sa, b, sb, w, h, bound);
 }
 
-static uint64_t mcd_satd_scalar_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w,
+uint64_t svt_mcd_simd_satd_u16u16_c(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w,
                                        uint32_t h, uint64_t bound) {
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y += 4) {
@@ -312,7 +312,7 @@ static uint64_t mcd_satd_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b
         return svt_mcd_simd_satd_u16u16(a, sa, b, sb, w, h, bound);
     }
 #endif
-    return mcd_satd_scalar_u16u16(a, sa, b, sb, w, h, bound);
+    return svt_mcd_simd_satd_u16u16_c(a, sa, b, sb, w, h, bound);
 }
 
 /* SATD between two native planes; falls back to SAD for (impossible in
@@ -653,17 +653,17 @@ static uint64_t mcd_l0_raw_u8(const McdMeLevel* lv, const McdMeL0Win* wn, int32_
                 cost = wn->satd_simd
                     ? svt_mcd_simd_satd_u8u8(
                           wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound)
-                    : mcd_satd_scalar_u8u8(
+                    : svt_mcd_simd_satd_u8u8_c(
                           wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound);
 #else
-                cost = mcd_satd_scalar_u8u8(
+                cost = svt_mcd_simd_satd_u8u8_c(
                     wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound);
 #endif
             } else {
                 cost = wn->sad_simd
                     ? svt_mcd_simd_sad_u8u8(
                           wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound)
-                    : mcd_sad_scalar_u8u8(
+                    : svt_mcd_simd_sad_u8u8_c(
                           wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound);
             }
         } else {
@@ -689,7 +689,7 @@ static uint64_t mcd_l0_raw_u8(const McdMeLevel* lv, const McdMeL0Win* wn, int32_
             sum += wn->csad_simd
                 ? svt_mcd_simd_sad_u8u8(
                       wn->cur[p], wn->cur_str[p], r, wn->win_str[p], (uint32_t)wn->bw, (uint32_t)wn->bh, rbound)
-                : mcd_sad_scalar_u8u8(
+                : svt_mcd_simd_sad_u8u8_c(
                       wn->cur[p], wn->cur_str[p], r, wn->win_str[p], (uint32_t)wn->bw, (uint32_t)wn->bh, rbound);
         } else {
             sum += mcd_plane_sad(lv->curp[p],
@@ -729,7 +729,7 @@ static uint64_t mcd_l0_raw_u16(const McdMeLevel* lv, const McdMeL0Win* wn, int32
                                                                 (uint32_t)b,
                                                                 (uint32_t)b,
                                                                 bound)
-                                     : mcd_satd_scalar_u16u16((const uint16_t*)wn->cur[0],
+                                     : svt_mcd_simd_satd_u16u16_c((const uint16_t*)wn->cur[0],
                                                               wn->cur_str[0],
                                                               r,
                                                               wn->win_str[0],
@@ -737,7 +737,7 @@ static uint64_t mcd_l0_raw_u16(const McdMeLevel* lv, const McdMeL0Win* wn, int32
                                                               (uint32_t)b,
                                                               bound);
 #else
-                cost = mcd_satd_scalar_u16u16(
+                cost = svt_mcd_simd_satd_u16u16_c(
                     (const uint16_t*)wn->cur[0], wn->cur_str[0], r, wn->win_str[0], (uint32_t)b, (uint32_t)b, bound);
 #endif
             } else {
@@ -748,7 +748,7 @@ static uint64_t mcd_l0_raw_u16(const McdMeLevel* lv, const McdMeL0Win* wn, int32
                                                               (uint32_t)b,
                                                               (uint32_t)b,
                                                               bound)
-                                    : mcd_sad_scalar_u16u16((const uint16_t*)wn->cur[0],
+                                    : svt_mcd_simd_sad_u16u16_c((const uint16_t*)wn->cur[0],
                                                             wn->cur_str[0],
                                                             r,
                                                             wn->win_str[0],
@@ -783,7 +783,7 @@ static uint64_t mcd_l0_raw_u16(const McdMeLevel* lv, const McdMeL0Win* wn, int32
                                                            (uint32_t)wn->bw,
                                                            (uint32_t)wn->bh,
                                                            rbound)
-                                 : mcd_sad_scalar_u16u16((const uint16_t*)wn->cur[p],
+                                 : svt_mcd_simd_sad_u16u16_c((const uint16_t*)wn->cur[p],
                                                          wn->cur_str[p],
                                                          r,
                                                          wn->win_str[p],

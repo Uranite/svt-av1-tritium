@@ -539,56 +539,56 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
 
     /* mc-denoise SIMD dispatch */
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_sad_u8u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u8u8 : svt_mcd_simd_sad_u8u8_stub;
+    svt_mcd_simd_sad_u8u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u8u8 : svt_mcd_simd_sad_u8u8_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_sad_u16u16 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u16u16 : svt_mcd_simd_sad_u16u16_stub;
+    svt_mcd_simd_sad_u16u16 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u16u16 : svt_mcd_simd_sad_u16u16_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_sad_u8u16 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u8u16 : svt_mcd_simd_sad_u8u16_stub;
+    svt_mcd_simd_sad_u8u16 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u8u16 : svt_mcd_simd_sad_u8u16_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_sad_u16u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u16u8 : svt_mcd_simd_sad_u16u8_stub;
+    svt_mcd_simd_sad_u16u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u16u8 : svt_mcd_simd_sad_u16u8_c;
 #endif
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    svt_mcd_simd_satd_u8u8 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_satd_u8u8 : svt_mcd_simd_satd_u8u8_stub;
+    svt_mcd_simd_satd_u8u8 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_satd_u8u8 : svt_mcd_simd_satd_u8u8_c;
 #endif
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    svt_mcd_simd_satd_u16u16 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_satd_u16u16 : svt_mcd_simd_satd_u16u16_stub;
+    svt_mcd_simd_satd_u16u16 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_satd_u16u16 : svt_mcd_simd_satd_u16u16_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_halfpel_h_u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_halfpel_h_u8 : svt_mcd_simd_halfpel_h_u8_stub;
+    svt_mcd_simd_halfpel_h_u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_halfpel_h_u8 : svt_mcd_simd_halfpel_h_u8_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_halfpel_v_u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_halfpel_v_u8 : svt_mcd_simd_halfpel_v_u8_stub;
+    svt_mcd_simd_halfpel_v_u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_halfpel_v_u8 : svt_mcd_simd_halfpel_v_u8_c;
 #endif
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    svt_mcd_simd_halfpel_h_u16 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_halfpel_h_u16 : svt_mcd_simd_halfpel_h_u16_stub;
+    svt_mcd_simd_halfpel_h_u16 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_halfpel_h_u16 : svt_mcd_simd_halfpel_h_u16_c;
 #endif
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    svt_mcd_simd_halfpel_v_u16 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_halfpel_v_u16 : svt_mcd_simd_halfpel_v_u16_stub;
+    svt_mcd_simd_halfpel_v_u16 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_halfpel_v_u16 : svt_mcd_simd_halfpel_v_u16_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_fetch_u8_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_fetch_u8_row : svt_mcd_simd_fetch_u8_row_stub;
+    svt_mcd_simd_fetch_u8_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_fetch_u8_row : svt_mcd_simd_fetch_u8_row_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_degrain_init_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_init_row : svt_mcd_simd_degrain_init_row_stub;
+    svt_mcd_simd_degrain_init_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_init_row : svt_mcd_simd_degrain_init_row_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_degrain_add_ref = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_add_ref : svt_mcd_simd_degrain_add_ref_stub;
+    svt_mcd_simd_degrain_add_ref = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_add_ref : svt_mcd_simd_degrain_add_ref_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_degrain_shift = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_shift : svt_mcd_simd_degrain_shift_stub;
+    svt_mcd_simd_degrain_shift = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_shift : svt_mcd_simd_degrain_shift_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_degrain_acc_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_acc_row : svt_mcd_simd_degrain_acc_row_stub;
+    svt_mcd_simd_degrain_acc_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_acc_row : svt_mcd_simd_degrain_acc_row_c;
 #endif
 #if defined(ARCH_X86_64)
-    svt_mcd_simd_degrain_finalize_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_finalize_row : svt_mcd_simd_degrain_finalize_row_stub;
+    svt_mcd_simd_degrain_finalize_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_finalize_row : svt_mcd_simd_degrain_finalize_row_c;
 #endif
     /* mask_merge: dispatch stays in the caller */
 #if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
-    svt_mcd_simd_dfttest_plane_with_ctx = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_dfttest_plane_with_ctx : svt_mcd_simd_dfttest_plane_with_ctx_stub;
+    svt_mcd_simd_dfttest_plane_with_ctx = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_dfttest_plane_with_ctx : svt_mcd_simd_dfttest_plane_with_ctx_c;
 #endif
 
 #ifdef ARCH_X86_64

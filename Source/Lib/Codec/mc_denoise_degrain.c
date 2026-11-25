@@ -514,3 +514,59 @@ cleanup:
     free(win_luma);
     return ret;
 }
+
+
+/* ---------------- scalar C implementations (RTCD defaults) -------------- */
+void svt_mcd_simd_degrain_init_row_c(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p, uint32_t wsrc,
+                                     uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        bacc[i] = 128 + wsrc * mcd_plane_load(sp, Y, x0_p + i);
+    }
+}
+void svt_mcd_simd_degrain_add_ref_c(uint32_t* bacc, const uint16_t* comp, uint32_t w, uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        bacc[i] += (uint32_t)w * comp[i];
+    }
+}
+void svt_mcd_simd_degrain_shift_c(uint32_t* bacc, uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        bacc[i] >>= 8;
+    }
+}
+void svt_mcd_simd_degrain_acc_row_c(uint32_t* accrow, const uint32_t* brow, const uint32_t* win, uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        accrow[i] += brow[i] * win[i];
+    }
+}
+int svt_mcd_simd_degrain_finalize_row_c(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp, int32_t lim,
+                                        uint32_t pmax) {
+    const uint32_t w = sp->w;
+    for (uint32_t x = 0; x < w; x++) {
+        uint32_t o = (acc[(size_t)y * w + x] + 1024) >> 11;
+        if (o > pmax) {
+            o = pmax;
+        }
+        if (lim) {
+            const int32_t sv = (int32_t)mcd_plane_load(sp, y, x);
+            int32_t       lo = sv - lim;
+            int32_t       hi = sv + lim;
+            if (lo < 0) {
+                lo = 0;
+            }
+            if (hi > (int32_t)pmax) {
+                hi = (int32_t)pmax;
+            }
+            if ((int32_t)o < lo) {
+                o = (uint32_t)lo;
+            } else if ((int32_t)o > hi) {
+                o = (uint32_t)hi;
+            }
+        }
+        if (dp->highbd) {
+            ((uint16_t*)dp->data)[(size_t)y * dp->stride + x] = (uint16_t)o;
+        } else {
+            ((uint8_t*)dp->data)[(size_t)y * dp->stride + x] = (uint8_t)o;
+        }
+    }
+    return 1;
+}

@@ -342,7 +342,7 @@ uint32_t svt_mcd_pyramid_levels(const McdPyramid* p) {
 /* identical to filtering an edge-replicated source (mvtools behavior)    */
 /* and stays in bounds for every padded output position.                  */
 
-static void mcd_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+void svt_mcd_simd_halfpel_h_u8_c(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
                              uint32_t dstride, uint32_t maxval) {
     if (mcd_use_avx2()) {
         svt_mcd_simd_halfpel_h_u8(src, sstride, w, h, pad, dst, dstride, maxval);
@@ -370,7 +370,7 @@ static void mcd_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w, u
     }
 }
 
-static void mcd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+void svt_mcd_simd_halfpel_v_u8_c(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
                              uint32_t dstride, uint32_t maxval) {
     if (mcd_use_avx2()) {
         svt_mcd_simd_halfpel_v_u8(src, sstride, w, h, pad, dst, dstride, maxval);
@@ -400,7 +400,7 @@ static void mcd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w, u
     }
 }
 
-static void mcd_halfpel_h_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+void svt_mcd_simd_halfpel_h_u16_c(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
                               uint16_t* dst, uint32_t dstride, uint32_t maxval) {
 #if EN_AVX512_SUPPORT
     if (mcd_use_avx512()) {
@@ -430,7 +430,7 @@ static void mcd_halfpel_h_u16(const uint16_t* src, uint32_t sstride, uint32_t w,
     }
 }
 
-static void mcd_halfpel_v_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+void svt_mcd_simd_halfpel_v_u16_c(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
                               uint16_t* dst, uint32_t dstride, uint32_t maxval) {
 #if EN_AVX512_SUPPORT
     if (mcd_use_avx512()) {
@@ -540,17 +540,17 @@ static int mcd_pelset_build_plane(McdPelSet* s, uint32_t i, const McdPlane* src,
         src0 = (uint8_t*)borrow->data - ((size_t)pad * stride + pad) * esz;
     }
     if (!src->highbd) {
-        mcd_halfpel_h_u8(src0, stride, w, h, pad, buf + wbase, stride, maxval);
-        mcd_halfpel_v_u8(src0, stride, w, h, pad, buf + wbase + pb, stride, maxval);
+        svt_mcd_simd_halfpel_h_u8_c(src0, stride, w, h, pad, buf + wbase, stride, maxval);
+        svt_mcd_simd_halfpel_v_u8_c(src0, stride, w, h, pad, buf + wbase + pb, stride, maxval);
         /* xy: horizontal 6-tap over the vertically interpolated phase */
-        mcd_halfpel_h_u8(buf + wbase + pb, stride, w, h, pad, buf + wbase + 2 * pb, stride, maxval);
+        svt_mcd_simd_halfpel_h_u8_c(buf + wbase + pb, stride, w, h, pad, buf + wbase + 2 * pb, stride, maxval);
     } else {
         uint16_t*    s0   = (uint16_t*)src0;
         uint16_t*    b    = (uint16_t*)buf;
         const size_t wb16 = wbase / 2; /* wbase is even: stride*rows*esq */
-        mcd_halfpel_h_u16(s0, stride, w, h, pad, b + wb16, stride, maxval);
-        mcd_halfpel_v_u16(s0, stride, w, h, pad, b + wb16 + (size_t)pb / 2, stride, maxval);
-        mcd_halfpel_h_u16(b + wb16 + (size_t)pb / 2, stride, w, h, pad, b + wb16 + (size_t)pb, stride, maxval);
+        svt_mcd_simd_halfpel_h_u16_c(s0, stride, w, h, pad, b + wb16, stride, maxval);
+        svt_mcd_simd_halfpel_v_u16_c(s0, stride, w, h, pad, b + wb16 + (size_t)pb / 2, stride, maxval);
+        svt_mcd_simd_halfpel_h_u16_c(b + wb16 + (size_t)pb / 2, stride, w, h, pad, b + wb16 + (size_t)pb, stride, maxval);
     }
     return MCD_SUCCESS;
 }
@@ -741,5 +741,13 @@ void svt_mcd_pelset_fetch_pad(const McdPelSet* s, uint32_t plane, int32_t x_half
                 memcpy(out, row, w * sizeof(uint16_t));
             }
         }
+    }
+}
+
+
+/* Scalar C implementation used as the RTCD default for the u8->u16 fetch. */
+void svt_mcd_simd_fetch_u8_row_c(const uint8_t* row, uint16_t* dst, uint32_t w) {
+    for (uint32_t c = 0; c < w; c++) {
+        dst[c] = (uint16_t)row[c];
     }
 }

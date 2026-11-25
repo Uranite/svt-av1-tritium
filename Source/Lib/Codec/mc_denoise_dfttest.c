@@ -214,13 +214,7 @@ void svt_mcd_dfttest_ctx_destroy(McdDftCtx** ctx) {
     *ctx = NULL;
 }
 
-int svt_mcd_dfttest_plane_with_ctx(const McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth) {
-#if EN_AVX512_SUPPORT
-    if (mcd_use_avx512()) {
-        /* bit-identical 16-block vector path (see mc_denoise_simd.c) */
-        return svt_mcd_simd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
-    }
-#endif
+int svt_mcd_simd_dfttest_plane_with_ctx_c(const McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth) {
     if (!ctx || !src || !dst || !src->data || (bitdepth != 8 && bitdepth != 10 && bitdepth != 12) ||
         src->highbd != (bitdepth > 8)) {
         return MCD_ERR_PARAM;
@@ -447,7 +441,7 @@ static inline float mcd_mask_box(const McdPlane* yp, uint32_t cx, uint32_t cy, u
     return sum / (float)(span_x * span_y);
 }
 
-int svt_mcd_prefilter_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+int svt_mcd_simd_mask_merge_c(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
                                  uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
     if (!src_planes || !filt_planes || !out_planes) {
         return MCD_ERR_PARAM;
@@ -512,17 +506,6 @@ int svt_mcd_prefilter_mask_merge(const McdPlane* src_planes, const McdPlane* fil
     const McdPlane* merge_src = luma_snapshot ? src_snapshot : src_planes;
     const McdPlane* yl        = &merge_src[0];
 
-    /* SIMD paths (bit-identical lane-wise float ops, see mc_denoise_simd.c);
-     * on any unsupported geometry they decline before writing anything and
-     * the scalar loop below runs instead. */
-    if (mcd_use_avx512() || mcd_use_avx2()) {
-        if (svt_mcd_simd_mask_merge(merge_src, filt_planes, out_planes, n_planes, x_ss, y_ss, bitdepth) ==
-            MCD_SUCCESS) {
-            free(luma_snapshot);
-            return MCD_SUCCESS;
-        }
-    }
-
     for (uint32_t p = 0; p < n_planes; p++) {
         const McdPlane* s = &merge_src[p];
         const McdPlane* f = &filt_planes[p];
@@ -552,4 +535,22 @@ int svt_mcd_prefilter_mask_merge(const McdPlane* src_planes, const McdPlane* fil
     }
     free(luma_snapshot);
     return MCD_SUCCESS;
+}
+
+
+/* RTCD dispatchers: the pointers default to the scalar C implementations. */
+int svt_mcd_dfttest_plane_with_ctx(const McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth) {
+    const int rc = svt_mcd_simd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
+    if (rc == MCD_ERR_PARAM) {
+        return svt_mcd_simd_dfttest_plane_with_ctx_c(ctx, src, dst, bitdepth);
+    }
+    return rc;
+}
+int svt_mcd_prefilter_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                                 uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
+    const int rc = svt_mcd_simd_mask_merge(src_planes, filt_planes, out_planes, n_planes, x_ss, y_ss, bitdepth);
+    if (rc == MCD_ERR_PARAM) {
+        return svt_mcd_simd_mask_merge_c(src_planes, filt_planes, out_planes, n_planes, x_ss, y_ss, bitdepth);
+    }
+    return rc;
 }
