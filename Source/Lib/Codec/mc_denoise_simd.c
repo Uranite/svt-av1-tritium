@@ -10,36 +10,16 @@
  * https://www.aomedia.org/license/patent-license.
  */
 /*
- * mc_denoise_simd.c — SIMD kernels for the motion-compensated denoiser.
+ * mc_denoise_simd.c - mc-denoise SIMD support.
  *
- * Baseline-compiled translation unit: every SIMD function carries a GCC
- * target attribute, so the file (and the whole library) still builds for a
- * generic x86-64 target and the scalar code in mc_denoise_*.c stays the
- * default compile path and the correctness oracle. Non-x86 builds get
- * unreachable stubs.
+ * Baseline-compiled: holds the forced-scalar test hook and the RTCD pointer
+ * storage. The AVX2 and AVX-512 kernels live in Source/Lib/ASM_AVX2 and
+ * Source/Lib/ASM_AVX512 and are selected in common_dsp_rtcd.c from the CPU
+ * flags; every pointer falls back to the scalar C implementation.
  *
- * Exactness contract:
- *   - Integer kernels (SAD, SATD, half-pel filters, degrain helpers) are
- *     BIT-IDENTICAL to the scalar versions: lane-wise integer operations
- *     only, accumulation order changes are associative-safe.
- *   - Float kernel (dfttest) is BIT-IDENTICAL to the scalar version: pure
- *     lane-wise IEEE-754 operations (mul/add/sub/div/compare/sqrt-free),
- *     NO fused multiply-adds and NO reassociation, so every element takes
- *     exactly the scalar operation sequence. (The library is compiled for
- *     generic x86-64 without FMA, so the scalar reference has no contractions
- *     to match — verified by disassembly.)
- *
- * Testing hook: environment variable MCD_NO_SIMD (any value) forces every
- * dispatch to the scalar path (see svt_mcd_simd_disabled).
+ * Testing hook: environment variable MCD_NO_SIMD (any value) makes the RTCD
+ * setup select the scalar implementations for every kernel.
  */
-
-/* Baseline-compiled mc-denoise SIMD support: the forced-scalar test hook and
- * stub kernels used as RTCD defaults. The real kernels live in ASM_AVX2 and
- * ASM_AVX512 and are selected in common_dsp_rtcd.c. */
-/* Per-ISA kernels live in mc_denoise_simd_avx2.c and mc_denoise_simd_avx512.c,
- * compiled as separate object libraries with their own arch flags (the repo
- * convention). This TU is baseline-compiled and only dispatches. Non-x86
- * targets get the unreachable stubs below. */
 //for getenv on windows
 #if defined(_WIN32) && !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
@@ -52,4 +32,3 @@
 int svt_mcd_simd_disabled(void) {
     return getenv("MCD_NO_SIMD") != NULL;
 }
-

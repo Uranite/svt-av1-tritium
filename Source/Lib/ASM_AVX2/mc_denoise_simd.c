@@ -10,13 +10,13 @@
  * https://www.aomedia.org/license/patent-license.
  */
 /*
- * mc_denoise_simd.c — SIMD kernels for the motion-compensated denoiser.
+ * mc_denoise_simd.c - AVX2 kernels for the motion-compensated denoiser.
  *
- * Baseline-compiled translation unit: every SIMD function carries a GCC
- * target attribute, so the file (and the whole library) still builds for a
- * generic x86-64 target and the scalar code in mc_denoise_*.c stays the
- * default compile path and the correctness oracle. Non-x86 builds get
- * unreachable stubs.
+ * This translation unit is compiled with -mavx2 / /arch:AVX2 by the build system (see
+ * Source/Lib/ASM_AVX2/CMakeLists.txt), so the instructions are available
+ * unconditionally here. The scalar implementations in mc_denoise_*.c stay the
+ * default compile path and the correctness oracle; dispatching happens in
+ * common_dsp_rtcd.c.
  *
  * Exactness contract:
  *   - Integer kernels (SAD, SATD, half-pel filters, degrain helpers) are
@@ -34,9 +34,8 @@
  */
 
 /* AVX2 kernels: compiled with -mavx2 / /arch:AVX2 by the build system. */
-#define MCD_TARGET_AVX2
 #include <immintrin.h>
-//for getenv on windows
+// for the CRT secure-API macros on Windows
 #if defined(_WIN32) && !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -60,7 +59,7 @@
 #define svt_mcd_simd_degrain_finalize_row mcd_avx2_degrain_finalize_row
 #define mcd_merge_plane256 mcd_avx2_merge_plane256
 
-MCD_TARGET_AVX2 uint64_t svt_mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w,
+uint64_t svt_mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w,
                                                uint32_t h, uint64_t bound) {
     __m128i  vacc = _mm_setzero_si128(); /* 2 x u64 partial sums */
     uint64_t tail = 0;
@@ -105,14 +104,14 @@ MCD_TARGET_AVX2 uint64_t svt_mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, con
  * (w,h <= 32): max sum = 1024 * 65535 < 2^31; the guard falls back to the
  * scalar path (via the caller) for anything larger. */
 
-MCD_TARGET_AVX2 static inline uint64_t mcd_sad_u16_reduce(const __m256i vacc, uint64_t tail) {
+static inline uint64_t mcd_sad_u16_reduce(const __m256i vacc, uint64_t tail) {
     __m128i v = _mm_add_epi32(_mm256_castsi256_si128(vacc), _mm256_extracti128_si256(vacc, 1));
     v         = _mm_add_epi32(v, _mm_shuffle_epi32(v, _MM_SHUFFLE(1, 0, 3, 2)));
     v         = _mm_add_epi32(v, _mm_shuffle_epi32(v, _MM_SHUFFLE(2, 3, 0, 1)));
     return tail + (uint64_t)(uint32_t)_mm_cvtsi128_si32(v);
 }
 
-MCD_TARGET_AVX2 uint64_t svt_mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb,
+uint64_t svt_mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb,
                                                  uint32_t w, uint32_t h, uint64_t bound) {
     if ((uint64_t)w * h * 65535ull >= 0x7fffffffull) {
         return 0; /* unreachable for module block sizes */
@@ -153,7 +152,7 @@ MCD_TARGET_AVX2 uint64_t svt_mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, 
     return mcd_sad_u16_reduce(vacc, tail);
 }
 
-MCD_TARGET_AVX2 uint64_t svt_mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w,
+uint64_t svt_mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w,
                                                 uint32_t h, uint64_t bound) {
     if ((uint64_t)w * h * 65535ull >= 0x7fffffffull) {
         return 0;
@@ -186,7 +185,7 @@ MCD_TARGET_AVX2 uint64_t svt_mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, co
     return mcd_sad_u16_reduce(vacc, tail);
 }
 
-MCD_TARGET_AVX2 uint64_t svt_mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w,
+uint64_t svt_mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w,
                                                 uint32_t h, uint64_t bound) {
     if ((uint64_t)w * h * 65535ull >= 0x7fffffffull) {
         return 0;
@@ -233,7 +232,7 @@ MCD_TARGET_AVX2 uint64_t svt_mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, c
 /* fallback in mc_denoise_me.c.                                        */
 /* ================================================================== */
 
-MCD_TARGET_AVX2 void svt_mcd_simd_fetch_u8_row(const uint8_t* row, uint16_t* dst, uint32_t w) {
+void svt_mcd_simd_fetch_u8_row(const uint8_t* row, uint16_t* dst, uint32_t w) {
     uint32_t x = 0;
     for (; x + 16 <= w; x += 16) {
         _mm256_storeu_si256((__m256i*)(void*)(dst + x),
@@ -244,7 +243,7 @@ MCD_TARGET_AVX2 void svt_mcd_simd_fetch_u8_row(const uint8_t* row, uint16_t* dst
     }
 }
 
-MCD_TARGET_AVX2 static inline void mcd_halfpel_h_row_u8(const uint8_t* srow, uint32_t X, uint8_t* drow) {
+static inline void mcd_halfpel_h_row_u8(const uint8_t* srow, uint32_t X, uint8_t* drow) {
     const __m256i s0 = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i*)(const void*)(srow + X - 2)));
     const __m256i s1 = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i*)(const void*)(srow + X - 1)));
     const __m256i s2 = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i*)(const void*)(srow + X)));
@@ -259,7 +258,7 @@ MCD_TARGET_AVX2 static inline void mcd_halfpel_h_row_u8(const uint8_t* srow, uin
                      _mm_packus_epi16(_mm256_castsi256_si128(v), _mm256_extracti128_si256(v, 1)));
 }
 
-MCD_TARGET_AVX2 void svt_mcd_simd_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h,
+void svt_mcd_simd_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h,
                                                uint32_t pad, uint8_t* dst, uint32_t dstride, uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const int32_t  wm1 = (int32_t)w - 1;
@@ -296,7 +295,7 @@ MCD_TARGET_AVX2 void svt_mcd_simd_halfpel_h_u8(const uint8_t* src, uint32_t sstr
     }
 }
 
-MCD_TARGET_AVX2 void svt_mcd_simd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h,
+void svt_mcd_simd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h,
                                                uint32_t pad, uint8_t* dst, uint32_t dstride, uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const int32_t  hm1 = (int32_t)h - 1;
@@ -338,7 +337,7 @@ MCD_TARGET_AVX2 void svt_mcd_simd_halfpel_v_u8(const uint8_t* src, uint32_t sstr
  * Saturation to [0, maxval] with maxval <= 0xFFFF, then a truncating
  * narrowing store is exact. */
 
-MCD_TARGET_AVX2 void svt_mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p,
+void svt_mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p,
                                                    uint32_t wsrc, uint32_t n) {
     const uint32_t vs = wsrc;
     uint32_t       i  = 0;
@@ -367,7 +366,7 @@ MCD_TARGET_AVX2 void svt_mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlan
     }
 }
 
-MCD_TARGET_AVX2 void svt_mcd_simd_degrain_add_ref(uint32_t* bacc, const uint16_t* comp, uint32_t w, uint32_t n) {
+void svt_mcd_simd_degrain_add_ref(uint32_t* bacc, const uint16_t* comp, uint32_t w, uint32_t n) {
     const __m256i vw = _mm256_set1_epi32((int)w);
     uint32_t      i  = 0;
     for (; i + 8 <= n; i += 8) {
@@ -381,7 +380,7 @@ MCD_TARGET_AVX2 void svt_mcd_simd_degrain_add_ref(uint32_t* bacc, const uint16_t
     }
 }
 
-MCD_TARGET_AVX2 void svt_mcd_simd_degrain_shift(uint32_t* bacc, uint32_t n) {
+void svt_mcd_simd_degrain_shift(uint32_t* bacc, uint32_t n) {
     uint32_t i = 0;
     for (; i + 8 <= n; i += 8) {
         _mm256_storeu_si256((__m256i*)(void*)(bacc + i),
@@ -392,7 +391,7 @@ MCD_TARGET_AVX2 void svt_mcd_simd_degrain_shift(uint32_t* bacc, uint32_t n) {
     }
 }
 
-MCD_TARGET_AVX2 void svt_mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32_t* brow, const uint32_t* win,
+void svt_mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32_t* brow, const uint32_t* win,
                                                   uint32_t n) {
     uint32_t i = 0;
     for (; i + 8 <= n; i += 8) {
@@ -407,7 +406,7 @@ MCD_TARGET_AVX2 void svt_mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32
     }
 }
 
-MCD_TARGET_AVX2 int svt_mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp,
+int svt_mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp,
                                                       int32_t lim, uint32_t pmax) {
     if (lim) {
         return 0; /* limit clamp kept scalar (rare knob) */
@@ -479,7 +478,7 @@ MCD_TARGET_AVX2 int svt_mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, 
 
 /* One plane, 8 lanes per chunk (AVX2). Same structure as the AVX-512
  * kernel; chroma gathers precomputed luma mask rows (see above). */
-MCD_TARGET_AVX2 static void mcd_merge_mask_row256(const McdPlane* yl, uint32_t ly, float* dst, float kK) {
+static void mcd_merge_mask_row256(const McdPlane* yl, uint32_t ly, float* dst, float kK) {
     const __m256 vK  = _mm256_set1_ps(kK);
     const __m256 v16 = _mm256_set1_ps(16.0f);
     const __m256 v59 = _mm256_set1_ps(59.0f);
@@ -504,7 +503,7 @@ MCD_TARGET_AVX2 static void mcd_merge_mask_row256(const McdPlane* yl, uint32_t l
     }
 }
 
-MCD_TARGET_AVX2 void mcd_merge_plane256(const McdPlane* s, const McdPlane* f, McdPlane* o, const McdPlane* yl,
+void mcd_merge_plane256(const McdPlane* s, const McdPlane* f, McdPlane* o, const McdPlane* yl,
                                                int is_luma, float* mrows, float inv_pmax, uint32_t pmax) {
     const float    kK     = 255.0f * inv_pmax;
     const __m256   vK     = _mm256_set1_ps(kK);
