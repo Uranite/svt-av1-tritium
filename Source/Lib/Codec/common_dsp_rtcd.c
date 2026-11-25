@@ -24,6 +24,41 @@
 #include "pack_unpack_c.h"
 #include "utility.h"
 #include "svt_threads.h"
+#include "mc_denoise_simd.h"
+
+/* mc-denoise RTCD pointers and kernel declarations */
+uint64_t mcd_avx2_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                               uint64_t bound);
+uint64_t mcd_avx2_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                 uint64_t bound);
+uint64_t mcd_avx2_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound);
+uint64_t mcd_avx2_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound);
+void mcd_avx2_fetch_u8_row(const uint8_t* row, uint16_t* dst, uint32_t w);
+void mcd_avx2_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+                               uint32_t dstride, uint32_t maxval);
+void mcd_avx2_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+                               uint32_t dstride, uint32_t maxval);
+void mcd_avx2_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p, uint32_t wsrc,
+                                   uint32_t n);
+void mcd_avx2_degrain_add_ref(uint32_t* bacc, const uint16_t* comp, uint32_t w, uint32_t n);
+void mcd_avx2_degrain_shift(uint32_t* bacc, uint32_t n);
+void mcd_avx2_degrain_acc_row(uint32_t* accrow, const uint32_t* brow, const uint32_t* win, uint32_t n);
+int mcd_avx2_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp, int32_t lim,
+                                      uint32_t pmax);
+uint64_t mcd_avx512_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound);
+uint64_t mcd_avx512_satd_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                  uint64_t bound);
+void mcd_avx512_halfpel_h_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+                                uint16_t* dst, uint32_t dstride, uint32_t maxval);
+void mcd_avx512_halfpel_v_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+                                uint16_t* dst, uint32_t dstride, uint32_t maxval);
+int mcd_avx512_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
+                                        uint32_t bitdepth);
+
+
 
 #if defined ARCH_X86_64
 #define AOM_ARCH_X86_64 ARCH_X86_64
@@ -500,6 +535,60 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
 #else
     flags = 0;
     //to use C: flags=0
+#endif
+
+    /* mc-denoise SIMD dispatch */
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_sad_u8u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u8u8 : svt_mcd_simd_sad_u8u8_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_sad_u16u16 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u16u16 : svt_mcd_simd_sad_u16u16_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_sad_u8u16 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u8u16 : svt_mcd_simd_sad_u8u16_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_sad_u16u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_sad_u16u8 : svt_mcd_simd_sad_u16u8_stub;
+#endif
+#if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
+    svt_mcd_simd_satd_u8u8 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_satd_u8u8 : svt_mcd_simd_satd_u8u8_stub;
+#endif
+#if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
+    svt_mcd_simd_satd_u16u16 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_satd_u16u16 : svt_mcd_simd_satd_u16u16_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_halfpel_h_u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_halfpel_h_u8 : svt_mcd_simd_halfpel_h_u8_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_halfpel_v_u8 = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_halfpel_v_u8 : svt_mcd_simd_halfpel_v_u8_stub;
+#endif
+#if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
+    svt_mcd_simd_halfpel_h_u16 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_halfpel_h_u16 : svt_mcd_simd_halfpel_h_u16_stub;
+#endif
+#if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
+    svt_mcd_simd_halfpel_v_u16 = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_halfpel_v_u16 : svt_mcd_simd_halfpel_v_u16_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_fetch_u8_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_fetch_u8_row : svt_mcd_simd_fetch_u8_row_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_degrain_init_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_init_row : svt_mcd_simd_degrain_init_row_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_degrain_add_ref = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_add_ref : svt_mcd_simd_degrain_add_ref_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_degrain_shift = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_shift : svt_mcd_simd_degrain_shift_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_degrain_acc_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_acc_row : svt_mcd_simd_degrain_acc_row_stub;
+#endif
+#if defined(ARCH_X86_64)
+    svt_mcd_simd_degrain_finalize_row = (flags & EB_CPU_FLAGS_AVX2) ? mcd_avx2_degrain_finalize_row : svt_mcd_simd_degrain_finalize_row_stub;
+#endif
+    /* mask_merge: dispatch stays in the caller */
+#if defined(ARCH_X86_64) && EN_AVX512_SUPPORT
+    svt_mcd_simd_dfttest_plane_with_ctx = (flags & (EB_CPU_FLAGS_AVX512F | EB_CPU_FLAGS_AVX512BW | EB_CPU_FLAGS_AVX512DQ | EB_CPU_FLAGS_AVX512VL)) ? mcd_avx512_dfttest_plane_with_ctx : svt_mcd_simd_dfttest_plane_with_ctx_stub;
 #endif
 
 #ifdef ARCH_X86_64

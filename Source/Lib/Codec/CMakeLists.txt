@@ -323,21 +323,6 @@ set(all_files
         warped_motion.h
         )
 
-# mc_denoise_simd.c: its AVX-512 float kernels must not contract mul+add into
-# FMA (AVX-512F implies FMA; only this file has float SIMD). MSVC does not
-# contract under /fp:precise; mc_denoise_dfttest.c is baseline, so it is exempt.
-if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-        # clang-cl ignores the bare GNU flag; forward it through /clang:.
-        set_source_files_properties(mc_denoise_simd.c PROPERTIES
-            COMPILE_OPTIONS "/clang:-ffp-contract=off")
-    else()
-        set_source_files_properties(mc_denoise_simd.c PROPERTIES
-            # keep AFTER any -march/-mno-avx additions in the global C flags.
-            COMPILE_OPTIONS "-ffp-contract=off")
-    endif()
-endif()
-
 add_library(CODEC OBJECT ${all_files})
 
 if(SVT_AV1_NVTX)
