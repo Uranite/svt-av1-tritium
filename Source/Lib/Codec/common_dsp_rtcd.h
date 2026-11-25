@@ -45,37 +45,37 @@ EbCpuFlags svt_aom_get_cpu_flags_to_use();
 void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags);
 
 /* mc-denoise SIMD RTCD pointers */
-extern uint64_t(*svt_mcd_simd_sad_u8u8)(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+RTCD_EXTERN uint64_t(*svt_mcd_simd_sad_u8u8)(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                                uint64_t bound);
-extern uint64_t(*svt_mcd_simd_sad_u16u16)(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+RTCD_EXTERN uint64_t(*svt_mcd_simd_sad_u16u16)(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                                  uint64_t bound);
-extern uint64_t(*svt_mcd_simd_sad_u8u16)(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+RTCD_EXTERN uint64_t(*svt_mcd_simd_sad_u8u16)(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                                 uint64_t bound);
-extern uint64_t(*svt_mcd_simd_sad_u16u8)(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+RTCD_EXTERN uint64_t(*svt_mcd_simd_sad_u16u8)(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                                 uint64_t bound);
-extern uint64_t(*svt_mcd_simd_satd_u8u8)(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+RTCD_EXTERN uint64_t(*svt_mcd_simd_satd_u8u8)(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                                 uint64_t bound);
-extern uint64_t(*svt_mcd_simd_satd_u16u16)(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+RTCD_EXTERN uint64_t(*svt_mcd_simd_satd_u16u16)(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                                   uint64_t bound);
-extern void(*svt_mcd_simd_halfpel_h_u8)(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+RTCD_EXTERN void(*svt_mcd_simd_halfpel_h_u8)(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
                                uint32_t dstride, uint32_t maxval);
-extern void(*svt_mcd_simd_halfpel_v_u8)(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+RTCD_EXTERN void(*svt_mcd_simd_halfpel_v_u8)(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
                                uint32_t dstride, uint32_t maxval);
-extern void(*svt_mcd_simd_halfpel_h_u16)(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+RTCD_EXTERN void(*svt_mcd_simd_halfpel_h_u16)(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
                                 uint16_t* dst, uint32_t dstride, uint32_t maxval);
-extern void(*svt_mcd_simd_halfpel_v_u16)(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+RTCD_EXTERN void(*svt_mcd_simd_halfpel_v_u16)(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
                                 uint16_t* dst, uint32_t dstride, uint32_t maxval);
-extern void(*svt_mcd_simd_fetch_u8_row)(const uint8_t* row, uint16_t* dst, uint32_t w);
-extern void(*svt_mcd_simd_degrain_init_row)(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p, uint32_t wsrc,
+RTCD_EXTERN void(*svt_mcd_simd_fetch_u8_row)(const uint8_t* row, uint16_t* dst, uint32_t w);
+RTCD_EXTERN void(*svt_mcd_simd_degrain_init_row)(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p, uint32_t wsrc,
                                    uint32_t n);
-extern void(*svt_mcd_simd_degrain_add_ref)(uint32_t* bacc, const uint16_t* comp, uint32_t w, uint32_t n);
-extern void(*svt_mcd_simd_degrain_shift)(uint32_t* bacc, uint32_t n);
-extern void(*svt_mcd_simd_degrain_acc_row)(uint32_t* accrow, const uint32_t* brow, const uint32_t* win, uint32_t n);
-extern int(*svt_mcd_simd_degrain_finalize_row)(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp, int32_t lim,
+RTCD_EXTERN void(*svt_mcd_simd_degrain_add_ref)(uint32_t* bacc, const uint16_t* comp, uint32_t w, uint32_t n);
+RTCD_EXTERN void(*svt_mcd_simd_degrain_shift)(uint32_t* bacc, uint32_t n);
+RTCD_EXTERN void(*svt_mcd_simd_degrain_acc_row)(uint32_t* accrow, const uint32_t* brow, const uint32_t* win, uint32_t n);
+RTCD_EXTERN int(*svt_mcd_simd_degrain_finalize_row)(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp, int32_t lim,
                                       uint32_t pmax);
-extern int(*svt_mcd_simd_mask_merge)(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+RTCD_EXTERN int(*svt_mcd_simd_mask_merge)(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
                             uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
-extern int(*svt_mcd_simd_dfttest_plane_with_ctx)(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
+RTCD_EXTERN int(*svt_mcd_simd_dfttest_plane_with_ctx)(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
                                         uint32_t bitdepth);
 
 
@@ -2125,11 +2125,11 @@ uint64_t svt_spatial_full_distortion_kernel_avx512(uint8_t *input, uint32_t inpu
 
 uint64_t svt_full_distortion_kernel16_bits_sse4_1(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
 uint64_t svt_full_distortion_kernel16_bits_avx2(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
-extern void svt_residual_kernel16bit_sse2_intrin(uint16_t *input, uint32_t input_stride, uint16_t *pred,
+RTCD_EXTERN void svt_residual_kernel16bit_sse2_intrin(uint16_t *input, uint32_t input_stride, uint16_t *pred,
     uint32_t pred_stride, int16_t *residual,
     uint32_t residual_stride, uint32_t area_width,
     uint32_t area_height);
-extern void svt_residual_kernel16bit_avx2(uint16_t *input, uint32_t input_stride, uint16_t *pred,
+RTCD_EXTERN void svt_residual_kernel16bit_avx2(uint16_t *input, uint32_t input_stride, uint16_t *pred,
     uint32_t pred_stride, int16_t *residual,
     uint32_t residual_stride, uint32_t area_width,
     uint32_t area_height);
@@ -3346,7 +3346,7 @@ void svt_aom_lpf_vertical_6_sse2(uint8_t *s, int32_t pitch, const uint8_t *blimi
 
 void svt_aom_lpf_vertical_8_sse2(uint8_t *s, int32_t pitch, const uint8_t *blimit, const uint8_t *limit, const uint8_t *thresh);
 
-extern void svt_memcpy_intrin_sse (void  *dst_ptr, void  const *src_ptr, size_t size);
+RTCD_EXTERN void svt_memcpy_intrin_sse (void  *dst_ptr, void  const *src_ptr, size_t size);
 
 void svt_aom_hadamard_4x4_sse2(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
