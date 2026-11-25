@@ -343,8 +343,8 @@ uint32_t svt_mcd_pyramid_levels(const McdPyramid* p) {
 /* identical to filtering an edge-replicated source (mvtools behavior)    */
 /* and stays in bounds for every padded output position.                  */
 
-void svt_mcd_simd_halfpel_h_u8_c(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
-                             uint32_t dstride, uint32_t maxval) {
+void svt_mcd_simd_halfpel_h_u8_c(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+                                 uint8_t* dst, uint32_t dstride, uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  wm1 = (int32_t)w - 1;
@@ -367,8 +367,8 @@ void svt_mcd_simd_halfpel_h_u8_c(const uint8_t* src, uint32_t sstride, uint32_t 
     }
 }
 
-void svt_mcd_simd_halfpel_v_u8_c(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
-                             uint32_t dstride, uint32_t maxval) {
+void svt_mcd_simd_halfpel_v_u8_c(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+                                 uint8_t* dst, uint32_t dstride, uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  hm1 = (int32_t)h - 1;
@@ -394,7 +394,7 @@ void svt_mcd_simd_halfpel_v_u8_c(const uint8_t* src, uint32_t sstride, uint32_t 
 }
 
 void svt_mcd_simd_halfpel_h_u16_c(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
-                              uint16_t* dst, uint32_t dstride, uint32_t maxval) {
+                                  uint16_t* dst, uint32_t dstride, uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  wm1 = (int32_t)w - 1;
@@ -418,7 +418,7 @@ void svt_mcd_simd_halfpel_h_u16_c(const uint16_t* src, uint32_t sstride, uint32_
 }
 
 void svt_mcd_simd_halfpel_v_u16_c(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
-                              uint16_t* dst, uint32_t dstride, uint32_t maxval) {
+                                  uint16_t* dst, uint32_t dstride, uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const uint32_t th  = h + 2 * pad;
     const int32_t  hm1 = (int32_t)h - 1;
@@ -717,7 +717,6 @@ void svt_mcd_pelset_fetch_pad(const McdPelSet* s, uint32_t plane, int32_t x_half
         }
     }
 }
-
 
 /* Scalar C implementation used as the RTCD default for the u8->u16 fetch. */
 void svt_mcd_simd_fetch_u8_row_c(const uint8_t* row, uint16_t* dst, uint32_t w) {

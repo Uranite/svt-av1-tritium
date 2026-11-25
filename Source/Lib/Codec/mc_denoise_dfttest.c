@@ -40,6 +40,7 @@
  */
 
 #include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -443,7 +444,7 @@ static inline float mcd_mask_box(const McdPlane* yp, uint32_t cx, uint32_t cy, u
 }
 
 int svt_mcd_simd_mask_merge_c(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
-                                 uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
+                              uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
     if (!src_planes || !filt_planes || !out_planes) {
         return MCD_ERR_PARAM;
     }
@@ -538,7 +539,6 @@ int svt_mcd_simd_mask_merge_c(const McdPlane* src_planes, const McdPlane* filt_p
     return MCD_SUCCESS;
 }
 
-
 /* RTCD dispatchers: the pointers default to the scalar C implementations. */
 int svt_mcd_dfttest_plane_with_ctx(const McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth) {
     const int rc = svt_mcd_simd_dfttest_plane_with_ctx(ctx, src, dst, bitdepth);
@@ -547,11 +547,45 @@ int svt_mcd_dfttest_plane_with_ctx(const McdDftCtx* ctx, const McdPlane* src, Mc
     }
     return rc;
 }
+
 int svt_mcd_prefilter_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
                                  uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
-    const int rc = svt_mcd_simd_mask_merge(src_planes, filt_planes, out_planes, n_planes, x_ss, y_ss, bitdepth);
-    if (rc == MCD_ERR_PARAM) {
-        return svt_mcd_simd_mask_merge_c(src_planes, filt_planes, out_planes, n_planes, x_ss, y_ss, bitdepth);
+    if (!src_planes || !filt_planes || !out_planes || n_planes == 0 || n_planes > MCD_MAX_PLANES ||
+        !src_planes[0].data || !out_planes[0].data) {
+        return MCD_ERR_PARAM;
     }
+
+    /* Chroma masks read neighbouring luma samples. When the output aliases the
+     * luma source, merge from a snapshot of that plane so the chroma pass still
+     * sees the original pixels (the scalar implementation does the same). */
+    McdPlane        snapshot[MCD_MAX_PLANES];
+    const McdPlane* merge_src     = src_planes;
+    void*           luma_snapshot = NULL;
+    if (out_planes[0].data == src_planes[0].data) {
+        const McdPlane* s    = &src_planes[0];
+        const size_t    elem = s->highbd ? sizeof(uint16_t) : sizeof(uint8_t);
+        if (s->w == 0 || s->h == 0 || (size_t)s->h > SIZE_MAX / s->w / elem) {
+            return MCD_ERR_PARAM;
+        }
+        luma_snapshot = malloc((size_t)s->w * s->h * elem);
+        if (!luma_snapshot) {
+            return MCD_ERR_NOMEM;
+        }
+        for (uint32_t y = 0; y < s->h; y++) {
+            memcpy((uint8_t*)luma_snapshot + (size_t)y * s->w * elem,
+                   (const uint8_t*)s->data + (size_t)y * s->stride * elem,
+                   (size_t)s->w * elem);
+        }
+        memcpy(snapshot, src_planes, n_planes * sizeof(*snapshot));
+        snapshot[0].data   = luma_snapshot;
+        snapshot[0].stride = s->w;
+        merge_src          = snapshot;
+    }
+
+    int rc = svt_mcd_simd_mask_merge(merge_src, filt_planes, out_planes, n_planes, x_ss, y_ss, bitdepth);
+    if (rc == MCD_ERR_PARAM) {
+        rc = svt_mcd_simd_mask_merge_c(merge_src, filt_planes, out_planes, n_planes, x_ss, y_ss, bitdepth);
+    }
+    free(luma_snapshot);
     return rc;
 }

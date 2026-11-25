@@ -404,7 +404,6 @@ static inline void mcd_merge_pix(const McdPlane* s, const McdPlane* f, McdPlane*
     }
 }
 
-
 #ifdef __cplusplus
 }
 #endif

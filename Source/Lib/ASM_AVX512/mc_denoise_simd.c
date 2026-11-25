@@ -54,8 +54,8 @@
 
 #if EN_AVX512_SUPPORT
 
-uint64_t svt_mcd_simd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb,
-                                                  uint32_t w, uint32_t h, uint64_t bound) {
+uint64_t svt_mcd_simd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound) {
     if (w < 16 || h < 16) {
         return 0; /* caller falls back to scalar (unreachable at level 0) */
     }
@@ -139,8 +139,8 @@ uint64_t svt_mcd_simd_satd_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, 
     return total;
 }
 
-uint64_t svt_mcd_simd_satd_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb,
-                                                    uint32_t w, uint32_t h, uint64_t bound) {
+uint64_t svt_mcd_simd_satd_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                  uint64_t bound) {
     if (w < 16 || h < 16) {
         return 0;
     }
@@ -246,8 +246,8 @@ static inline __m512i mcd_halfpel_load16(const uint16_t* p, uint32_t X) {
     return _mm512_cvtepu16_epi32(_mm256_loadu_si256((const __m256i*)(const void*)(p + X)));
 }
 
-void svt_mcd_simd_halfpel_h_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h,
-                                                  uint32_t pad, uint16_t* dst, uint32_t dstride, uint32_t maxval) {
+void svt_mcd_simd_halfpel_h_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+                                uint16_t* dst, uint32_t dstride, uint32_t maxval) {
     const uint32_t tw   = w + 2 * pad;
     const int32_t  wm1  = (int32_t)w - 1;
     const __m512i  zero = _mm512_setzero_si512();
@@ -295,8 +295,8 @@ void svt_mcd_simd_halfpel_h_u16(const uint16_t* src, uint32_t sstride, uint32_t 
     }
 }
 
-void svt_mcd_simd_halfpel_v_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h,
-                                                  uint32_t pad, uint16_t* dst, uint32_t dstride, uint32_t maxval) {
+void svt_mcd_simd_halfpel_v_u16(const uint16_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad,
+                                uint16_t* dst, uint32_t dstride, uint32_t maxval) {
     const uint32_t tw   = w + 2 * pad;
     const int32_t  hm1  = (int32_t)h - 1;
     const __m512i  zero = _mm512_setzero_si512();
@@ -339,8 +339,7 @@ void svt_mcd_simd_halfpel_v_u16(const uint16_t* src, uint32_t sstride, uint32_t 
 #endif /* EN_AVX512_SUPPORT */
 
 #if EN_AVX512_SUPPORT
-static inline __m512 mcd_merge_mask512(__m512 yv, __m512 kK, __m512 v16, __m512 v59, __m512 v1,
-                                                         __m512 v0) {
+static inline __m512 mcd_merge_mask512(__m512 yv, __m512 kK, __m512 v16, __m512 v59, __m512 v1, __m512 v0) {
     const __m512 y8 = _mm512_mul_ps(yv, kK);
     const __m512 m  = _mm512_div_ps(_mm512_sub_ps(y8, v16), v59);
     return _mm512_min_ps(_mm512_max_ps(m, v0), v1);
@@ -383,8 +382,8 @@ static void mcd_merge_mask_row512(const McdPlane* yl, uint32_t ly, float* dst, f
  * mask rows kept in `mrows` (2 * yl->w floats; rows min(2y(+1), h-1),
  * values = the same luma mask formula), keeping the scalar box tap order
  * ((m00 + m01) + m10) + m11. */
-void mcd_merge_plane512(const McdPlane* s, const McdPlane* f, McdPlane* o, const McdPlane* yl,
-                                                 int is_luma, float* mrows, float inv_pmax, uint32_t pmax) {
+void mcd_merge_plane512(const McdPlane* s, const McdPlane* f, McdPlane* o, const McdPlane* yl, int is_luma,
+                        float* mrows, float inv_pmax, uint32_t pmax) {
     const float    kK     = 255.0f * inv_pmax;
     const __m512   vK     = _mm512_set1_ps(kK);
     const __m512   v16    = _mm512_set1_ps(16.0f);
@@ -481,8 +480,7 @@ void mcd_merge_plane512(const McdPlane* s, const McdPlane* f, McdPlane* o, const
  * sstride == 256: column slots, transforming in place with no staging
  * copies — the same 16-lane slot values are loaded/stored, only the
  * addresses differ, so results are identical to the staged version). */
-static inline void mcd_fft16_vec(float* re, float* im, const struct McdDftCtx* c, int inverse,
-                                                   uint32_t sstride) {
+static inline void mcd_fft16_vec(float* re, float* im, const struct McdDftCtx* c, int inverse, uint32_t sstride) {
     for (uint32_t k = 0; k < MCD_DFT_N; k++) {
         const uint32_t j = c->brev[k];
         if (j > k) {
@@ -534,9 +532,8 @@ static inline void mcd_fft2d_vec(float* re, float* im, const struct McdDftCtx* c
 /* dfttest of a 16-block horizontal strip (lanes = block index b of
  * bx + 4*b). rex/imx: caller-provided 256*16-float scratch buffers (the
  * column FFTs transform in place, no staging scratch needed). */
-static void mcd_dfttest_group(const struct McdDftCtx* ctx, const float* pad, uint32_t pdw, int32_t bx,
-                                                int32_t by, uint32_t aw, int32_t ymax, float* acc, float* rex,
-                                                float* imx) {
+static void mcd_dfttest_group(const struct McdDftCtx* ctx, const float* pad, uint32_t pdw, int32_t bx, int32_t by,
+                              uint32_t aw, int32_t ymax, float* acc, float* rex, float* imx) {
     /* gather offsets for the windowed input load: prow already points at
      * column (bx + PAD), so lane b (block bx + 4b) reads at + (4b + x) */
     __m512i idx4[16];
@@ -643,8 +640,8 @@ static void mcd_dfttest_group(const struct McdDftCtx* ctx, const float* pad, uin
 
 /* SIMD dfttest plane: mirrors svt_mcd_dfttest_plane_with_ctx (same padding,
  * same block grid, same arithmetic order) with 16-block vector groups. */
-int svt_mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane* src,
-                                                          McdPlane* dst, uint32_t bitdepth) {
+int svt_mcd_simd_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
+                                        uint32_t bitdepth) {
     if (!ctx || !src || !dst || !src->data || (bitdepth != 8 && bitdepth != 10 && bitdepth != 12) ||
         src->highbd != (bitdepth > 8)) {
         return MCD_ERR_PARAM;
@@ -832,8 +829,8 @@ cleanup:
 
 /* Mask-merge RTCD kernel: validates the call and drives the per-plane
  * vector merge. Returns MCD_ERR_PARAM without writing when unsupported. */
-int mcd_avx512_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes, uint32_t n_planes,
-       uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
+int mcd_avx512_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                          uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
     if (n_planes != 1 && n_planes != 3) {
         return MCD_ERR_PARAM;
     }
@@ -853,10 +850,10 @@ int mcd_avx512_mask_merge(const McdPlane* src_planes, const McdPlane* filt_plane
             return MCD_ERR_PARAM;
         }
     }
-    const uint32_t pmax     = (1u << bitdepth) - 1;
-    const float    inv_pmax = 1.0f / (float)pmax;
-    const McdPlane* yl      = &src_planes[0];
-    float* mrows = n_planes == 3 ? (float*)malloc(2 * (size_t)yl->w * sizeof(float)) : NULL;
+    const uint32_t  pmax     = (1u << bitdepth) - 1;
+    const float     inv_pmax = 1.0f / (float)pmax;
+    const McdPlane* yl       = &src_planes[0];
+    float*          mrows    = n_planes == 3 ? (float*)malloc(2 * (size_t)yl->w * sizeof(float)) : NULL;
     if (n_planes == 3 && !mrows) {
         return MCD_ERR_NOMEM;
     }

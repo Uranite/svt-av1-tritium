@@ -25,12 +25,28 @@
 
 #include "gtest/gtest.h"
 
+#include "aom_dsp_rtcd.h"
 #include "mc_denoise.h"
 #include "random.h"
 
 namespace {
 
 using svt_av1_test_tool::SVTRandom;
+
+/* The pelset, dfttest and mask-merge entry points reach the SIMD kernels
+ * through the RTCD tables, so the unit-test environment has to initialise them
+ * (see test/TestEnv.c). */
+class McDenoiseSimdTest : public ::testing::Test {
+  protected:
+    void SetUp() override {
+#if defined(ARCH_X86_64) || defined(ARCH_AARCH64)
+        EbCpuFlags cpu_flags = svt_aom_get_cpu_flags_to_use();
+#else
+        EbCpuFlags cpu_flags = 0;
+#endif
+        svt_aom_setup_common_rtcd_internal(cpu_flags);
+    }
+};
 
 void check_depth(uint32_t bitdepth) {
     const uint32_t maxval = (1u << bitdepth) - 1u;
@@ -134,7 +150,7 @@ TEST(McDenoisePelRange, LocateHandlesNullOutputs) {
     EXPECT_EQ(nullptr, row);
 }
 
-TEST(McDenoisePelRange, HalfPelSamplesStayWithinNativeBitDepth) {
+TEST_F(McDenoiseSimdTest, HalfPelSamplesStayWithinNativeBitDepth) {
     check_depth(8);
     check_depth(10);
     check_depth(12);
@@ -142,7 +158,7 @@ TEST(McDenoisePelRange, HalfPelSamplesStayWithinNativeBitDepth) {
 
 /* Exercises the 8-bit half-pel kernels (AVX2 when available, scalar
  * otherwise) against the scalar 6-tap reference for every phase. */
-TEST(McDenoisePelRange, HalfPelMatchesScalarReference) {
+TEST_F(McDenoiseSimdTest, HalfPelMatchesScalarReference) {
     const uint32_t w = 16;
     const uint32_t h = 16;
     std::vector<uint8_t> src((size_t)w * h);
@@ -190,7 +206,7 @@ TEST(McDenoisePelRange, HalfPelMatchesScalarReference) {
 
 /* The 12-bit dfttest path used to assume 10-bit (pmax = 1023) and clamped
  * every output sample to the 10-bit range. */
-TEST(McDenoiseDfttest, TwelveBitOutputKeepsNativeRange) {
+TEST_F(McDenoiseSimdTest, TwelveBitOutputKeepsNativeRange) {
     const uint32_t w = 32;
     const uint32_t h = 32;
     const uint32_t bd = 12;
@@ -221,7 +237,7 @@ TEST(McDenoiseDfttest, TwelveBitOutputKeepsNativeRange) {
 /* In-place merging (out aliasing src or filt) must produce exactly the
  * same planes as the out-of-place merge. The chroma box masks read
  * neighbouring luma, so an out==src merge needs the luma snapshot. */
-TEST(McDenoiseMaskMerge, InPlaceMatchesOutOfPlace) {
+TEST_F(McDenoiseSimdTest, InPlaceMatchesOutOfPlace) {
     for (uint32_t bd = 8; bd <= 12; bd += 2) {
         for (int alias = 0; alias <= 1; alias++) {
             PlaneSet src_ref, filt_ref, out_ref;

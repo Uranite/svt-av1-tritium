@@ -59,8 +59,8 @@
 #define svt_mcd_simd_degrain_finalize_row mcd_avx2_degrain_finalize_row
 #define mcd_merge_plane256 mcd_avx2_merge_plane256
 
-uint64_t svt_mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w,
-                                               uint32_t h, uint64_t bound) {
+uint64_t svt_mcd_simd_sad_u8u8(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                               uint64_t bound) {
     __m128i  vacc = _mm_setzero_si128(); /* 2 x u64 partial sums */
     uint64_t tail = 0;
     uint32_t y;
@@ -111,8 +111,8 @@ static inline uint64_t mcd_sad_u16_reduce(const __m256i vacc, uint64_t tail) {
     return tail + (uint64_t)(uint32_t)_mm_cvtsi128_si32(v);
 }
 
-uint64_t svt_mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb,
-                                                 uint32_t w, uint32_t h, uint64_t bound) {
+uint64_t svt_mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                 uint64_t bound) {
     if ((uint64_t)w * h * 65535ull >= 0x7fffffffull) {
         return 0; /* unreachable for module block sizes */
     }
@@ -152,8 +152,8 @@ uint64_t svt_mcd_simd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* 
     return mcd_sad_u16_reduce(vacc, tail);
 }
 
-uint64_t svt_mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w,
-                                                uint32_t h, uint64_t bound) {
+uint64_t svt_mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound) {
     if ((uint64_t)w * h * 65535ull >= 0x7fffffffull) {
         return 0;
     }
@@ -185,8 +185,8 @@ uint64_t svt_mcd_simd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b,
     return mcd_sad_u16_reduce(vacc, tail);
 }
 
-uint64_t svt_mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w,
-                                                uint32_t h, uint64_t bound) {
+uint64_t svt_mcd_simd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                                uint64_t bound) {
     if ((uint64_t)w * h * 65535ull >= 0x7fffffffull) {
         return 0;
     }
@@ -258,8 +258,8 @@ static inline void mcd_halfpel_h_row_u8(const uint8_t* srow, uint32_t X, uint8_t
                      _mm_packus_epi16(_mm256_castsi256_si128(v), _mm256_extracti128_si256(v, 1)));
 }
 
-void svt_mcd_simd_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h,
-                                               uint32_t pad, uint8_t* dst, uint32_t dstride, uint32_t maxval) {
+void svt_mcd_simd_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+                               uint32_t dstride, uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const int32_t  wm1 = (int32_t)w - 1;
     for (uint32_t Y = 0; Y < h + 2 * pad; Y++) {
@@ -295,8 +295,8 @@ void svt_mcd_simd_halfpel_h_u8(const uint8_t* src, uint32_t sstride, uint32_t w,
     }
 }
 
-void svt_mcd_simd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h,
-                                               uint32_t pad, uint8_t* dst, uint32_t dstride, uint32_t maxval) {
+void svt_mcd_simd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w, uint32_t h, uint32_t pad, uint8_t* dst,
+                               uint32_t dstride, uint32_t maxval) {
     const uint32_t tw  = w + 2 * pad;
     const int32_t  hm1 = (int32_t)h - 1;
     for (uint32_t Y = 0; Y < h + 2 * pad; Y++) {
@@ -337,8 +337,8 @@ void svt_mcd_simd_halfpel_v_u8(const uint8_t* src, uint32_t sstride, uint32_t w,
  * Saturation to [0, maxval] with maxval <= 0xFFFF, then a truncating
  * narrowing store is exact. */
 
-void svt_mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p,
-                                                   uint32_t wsrc, uint32_t n) {
+void svt_mcd_simd_degrain_init_row(uint32_t* bacc, const McdPlane* sp, uint32_t Y, uint32_t x0_p, uint32_t wsrc,
+                                   uint32_t n) {
     const uint32_t vs = wsrc;
     uint32_t       i  = 0;
     if (!sp->highbd) {
@@ -391,8 +391,7 @@ void svt_mcd_simd_degrain_shift(uint32_t* bacc, uint32_t n) {
     }
 }
 
-void svt_mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32_t* brow, const uint32_t* win,
-                                                  uint32_t n) {
+void svt_mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32_t* brow, const uint32_t* win, uint32_t n) {
     uint32_t i = 0;
     for (; i + 8 <= n; i += 8) {
         const __m256i b  = _mm256_loadu_si256((const __m256i*)(const void*)(brow + i));
@@ -406,8 +405,8 @@ void svt_mcd_simd_degrain_acc_row(uint32_t* accrow, const uint32_t* brow, const 
     }
 }
 
-int svt_mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp,
-                                                      int32_t lim, uint32_t pmax) {
+int svt_mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* acc, const McdPlane* sp, int32_t lim,
+                                      uint32_t pmax) {
     if (lim) {
         return 0; /* limit clamp kept scalar (rare knob) */
     }
@@ -475,7 +474,6 @@ int svt_mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* 
 /* tails replicate the scalar formulas verbatim.                       */
 /* ================================================================== */
 
-
 /* One plane, 8 lanes per chunk (AVX2). Same structure as the AVX-512
  * kernel; chroma gathers precomputed luma mask rows (see above). */
 static void mcd_merge_mask_row256(const McdPlane* yl, uint32_t ly, float* dst, float kK) {
@@ -503,8 +501,8 @@ static void mcd_merge_mask_row256(const McdPlane* yl, uint32_t ly, float* dst, f
     }
 }
 
-void mcd_merge_plane256(const McdPlane* s, const McdPlane* f, McdPlane* o, const McdPlane* yl,
-                                               int is_luma, float* mrows, float inv_pmax, uint32_t pmax) {
+void mcd_merge_plane256(const McdPlane* s, const McdPlane* f, McdPlane* o, const McdPlane* yl, int is_luma,
+                        float* mrows, float inv_pmax, uint32_t pmax) {
     const float    kK     = 255.0f * inv_pmax;
     const __m256   vK     = _mm256_set1_ps(kK);
     const __m256   v16    = _mm256_set1_ps(16.0f);
@@ -590,11 +588,10 @@ void mcd_merge_plane256(const McdPlane* s, const McdPlane* f, McdPlane* o, const
     }
 }
 
-
 /* Mask-merge RTCD kernel: validates the call and drives the per-plane
  * vector merge. Returns MCD_ERR_PARAM without writing when unsupported. */
-int mcd_avx2_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes, uint32_t n_planes,
-       uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
+int mcd_avx2_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
+                        uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth) {
     if (n_planes != 1 && n_planes != 3) {
         return MCD_ERR_PARAM;
     }
@@ -614,10 +611,10 @@ int mcd_avx2_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes,
             return MCD_ERR_PARAM;
         }
     }
-    const uint32_t pmax     = (1u << bitdepth) - 1;
-    const float    inv_pmax = 1.0f / (float)pmax;
-    const McdPlane* yl      = &src_planes[0];
-    float* mrows = n_planes == 3 ? (float*)malloc(2 * (size_t)yl->w * sizeof(float)) : NULL;
+    const uint32_t  pmax     = (1u << bitdepth) - 1;
+    const float     inv_pmax = 1.0f / (float)pmax;
+    const McdPlane* yl       = &src_planes[0];
+    float*          mrows    = n_planes == 3 ? (float*)malloc(2 * (size_t)yl->w * sizeof(float)) : NULL;
     if (n_planes == 3 && !mrows) {
         return MCD_ERR_NOMEM;
     }
