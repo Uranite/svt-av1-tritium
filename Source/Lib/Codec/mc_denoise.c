@@ -116,6 +116,13 @@
 #include "svt_threads.h"
 #include "common_dsp_rtcd.h"
 
+/* Forced-scalar test hook: when the MCD_NO_SIMD environment variable is set,
+ * common_dsp_rtcd.c selects the scalar C implementations for every mc-denoise
+ * SIMD pointer (see svt_aom_setup_common_rtcd_internal). */
+int svt_mcd_simd_disabled(void) {
+    return getenv("MCD_NO_SIMD") != NULL;
+}
+
 /* Margin of the module-owned SEARCH planes (prefiltered fplanes and their
  * pyramid). ME clamps every candidate read to +-32 samples outside the
  * visible area, and the pyramid only reads the visible core of its source,

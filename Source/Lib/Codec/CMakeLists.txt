@@ -180,7 +180,6 @@ set(all_files
         mc_denoise_glue.h
         mc_denoise_me.c
         mc_denoise_pel.c
-        mc_denoise_simd.c
         mc_denoise_simd.h
         mcomp.c
         mcomp.h
