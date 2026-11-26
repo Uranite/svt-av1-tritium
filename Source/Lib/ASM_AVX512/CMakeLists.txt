@@ -44,6 +44,7 @@ endif()
 set(all_files
     cdef_avx512.c
     cdef_block_avx512.c
+    mc_denoise_simd.c
     compute_sad_intrin_avx512.c
     convolve_2d_avx512.c
     convolve_avx512.c
@@ -75,6 +76,15 @@ if(NOT MSVC)
     set_source_files_properties(variance_window_avx512icl.c PROPERTIES COMPILE_OPTIONS "-mavx512vnni")
 elseif(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     set_source_files_properties(variance_window_avx512icl.c PROPERTIES COMPILE_OPTIONS "/clang:-mavx512vnni")
+endif()
+
+# mc-denoise float kernels must keep the scalar operation order (no FMA).
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        set_source_files_properties(mc_denoise_simd.c PROPERTIES COMPILE_OPTIONS "/clang:-ffp-contract=off")
+    else()
+        set_source_files_properties(mc_denoise_simd.c PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+    endif()
 endif()
 
 add_library(ASM_AVX512 OBJECT ${all_files})
