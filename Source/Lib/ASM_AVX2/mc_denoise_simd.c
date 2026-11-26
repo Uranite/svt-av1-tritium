@@ -465,7 +465,8 @@ int svt_mcd_simd_degrain_finalize_row(McdPlane* dp, uint32_t y, const uint32_t* 
 /* Bit-exactness: lane-wise IEEE float ops in the exact scalar         */
 /* per-pixel order — y8 = y * (255 * inv_pmax), m = (y8 - 16) / 59,    */
 /* clamp [0,1], lerp mul+add, +0.5f, truncating conversion, clamps —   */
-/* no FMA (TU compiled with -ffp-contract=off), no reassociation.      */
+/* no FMA (-mavx2 does not enable FMA, so no contraction is possible),  */
+/* no reassociation.                                                   */
 /* Planes are processed in order 0,1,2 and the chroma box taps are     */
 /* summed (((m00+m01)+m10)+m11) exactly like the scalar loop. The      */
 /* chroma mask reads the source luma plane handed in by the caller;    */
