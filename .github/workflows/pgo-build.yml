@@ -79,6 +79,7 @@ jobs:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "true"
+        cmakeflags: "-DUSE_WEBM_IO=ON"
 
     - id: detect-icelake-server-znver5
       run: ls BuildAction/icelake-server+znver5/static/ffms2/SvtAv1EncApp.exe
@@ -127,6 +128,7 @@ jobs:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "true"
+        cmakeflags: "-DUSE_WEBM_IO=ON"
 
     - run: ls BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2/SvtAv1EncApp.exe
     - run: cd BuildAction/armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1/static/ffms2 && tar cJf Windows_arm64_ffms2_armv8.7-a+crypto+sm4+sha3+fp16+sve+sve2+oryon-1.tar.xz SvtAv1EncApp.exe
@@ -150,6 +152,7 @@ jobs:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "true"
+        cmakeflags: "-DUSE_WEBM_IO=ON"
 
     - id: detect-icelake-server-znver5
       run: ls BuildAction/icelake-server+znver5/static/base/SvtAv1EncApp
@@ -222,6 +225,7 @@ jobs:
         pgo-video: "FoodMarket2"
         pgo-parameters: "--crf 20.00 --tune 0 --film-grain 8 --enable-dlf 2"
         ffms2: "true"
+        cmakeflags: "-DUSE_WEBM_IO=ON"
 
     - run: ls BuildAction/armv8.5-a+simd+crypto+apple-m3/static/base/SvtAv1EncApp
     - run: cd BuildAction/armv8.5-a+simd+crypto+apple-m3/static/base && tar cJf macOS_arm64_armv8.5-a+simd+crypto+apple-m3.tar.xz SvtAv1EncApp
