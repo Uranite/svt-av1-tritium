@@ -26,6 +26,7 @@
 #include "resource_coordination_results.h"
 #include "pic_analysis_process.h"
 #include "pic_analysis_results.h"
+#include "mc_denoise_glue.h"
 #include "reference_object.h"
 #include "utility.h"
 #include "me_context.h"
@@ -1980,6 +1981,58 @@ static void vmaf_preprocess_frame(PictureAnalysisContext* pa_ctx, PictureParentC
 }
 #endif // CONFIG_ENABLE_VMAF
 
+#if CONFIG_ENABLE_FILM_GRAIN
+/* Snapshot the visible samples of enhanced_pic BEFORE mc-denoise modifies them,
+ * so automatic film grain analysis (Picture Decision) can estimate grain from
+ * the original pixels while the encoder codes the denoised ones. The snapshot
+ * mirrors the source sample layout (split 8-bit + packed 2-bit planes for high
+ * bit depth) but carries no border: the analysis only reads the visible core.
+ * Consumed and released by the PD kernel after the grain analysis runs. */
+static EbErrorType mcd_fgs_snapshot(PictureParentControlSet* pcs) {
+    const EbPictureBufferDesc*  src = pcs->enhanced_pic;
+    EbPictureBufferDescInitData init_data;
+    memset(&init_data, 0, sizeof(init_data));
+    init_data.max_width          = src->width;
+    init_data.max_height         = src->height;
+    init_data.bit_depth          = src->bit_depth;
+    init_data.color_format       = src->color_format;
+    init_data.buffer_enable_mask = src->buffer_enable_mask;
+    init_data.border             = 0;
+    init_data.split_mode         = (src->buffer_bit_inc[0] != NULL);
+
+    EB_DELETE(pcs->mcd_fgs_pic);
+    EB_NEW(pcs->mcd_fgs_pic, svt_picture_buffer_desc_ctor, (EbPtr)&init_data);
+    EbPictureBufferDesc* dst = pcs->mcd_fgs_pic;
+
+    const uint32_t ss_x = (src->color_format == EB_YUV444 ? 0 : 1);
+    const uint32_t ss_y = (src->color_format >= EB_YUV422 ? 0 : 1);
+    /* 1 byte per sample for 8-bit and split high-bit-depth planes; packed
+     * high-bit-depth planes (no bit-increment) store 2 bytes per sample. */
+    const uint32_t bps = (src->bit_depth == EB_EIGHT_BIT || src->buffer_bit_inc[0]) ? 1 : 2;
+    for (uint32_t c = 0; c < 3; ++c) {
+        if (!src->buffer[c]) {
+            continue;
+        }
+        const uint32_t w = src->width >> (c ? ss_x : 0);
+        const uint32_t h = src->height >> (c ? ss_y : 0);
+        for (uint32_t y = 0; y < h; ++y) {
+            memcpy(dst->buffer[c] + (size_t)y * dst->stride[c] * bps,
+                   src->buffer[c] + (size_t)y * src->stride[c] * bps,
+                   (size_t)w * bps);
+        }
+        if (src->buffer_bit_inc[c]) {
+            const size_t row_bytes = ((size_t)w + 3) / 4;
+            for (uint32_t y = 0; y < h; ++y) {
+                memcpy(dst->buffer_bit_inc[c] + (size_t)y * (dst->stride_bit_inc[c] >> 2),
+                       src->buffer_bit_inc[c] + (size_t)y * (src->stride_bit_inc[c] >> 2),
+                       row_bytes);
+            }
+        }
+    }
+    return EB_ErrorNone;
+}
+#endif // CONFIG_ENABLE_FILM_GRAIN
+
 /* Picture Analysis Kernel */
 
 /*********************************************************************************
@@ -2028,106 +2081,145 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
     // Mariana : save enhanced picture ptr, move this from here
     pcs->enhanced_unscaled_pic = pcs->enhanced_pic;
 
-    // There is no need to do processing for overlay picture. Overlay and AltRef share the same
-    // results.
-    if (!pcs->is_overlay) {
-        SequenceControlSet* scs = pcs->scs;
-        input_pic               = pcs->enhanced_pic;
-        EbPictureBufferDesc* input_padded_pic;
-        {
-            if (scs->static_config.tune == TUNE_VMAF) {
-#if CONFIG_ENABLE_VMAF
-                vmaf_preprocess_frame(pa_ctx, pcs);
+    // Motion-compensated denoiser: hand the arrived picture over to the
+    // per-instance denoiser state (its pixels are copied under the hood) and
+    // get back the picture(s) allowed to proceed: usually the arrived one,
+    // sometimes an earlier held one (temporal radius delay), or several at
+    // end of stream. When mc-denoise is off the state is NULL and the loop
+    // below runs exactly the original single-picture path.
+    EbObjectWrapper*         work_wrapper[SVT_MCD_MAX_EMITTED];
+    PictureParentControlSet* work_pcs[SVT_MCD_MAX_EMITTED];
+    uint32_t                 n_work = 1;
+    work_wrapper[0]                 = in_results_ptr->pcs_wrapper;
+    work_pcs[0]                     = pcs;
+    {
+        EncodeContext* enc_ctx = pcs->scs->enc_ctx;
+        if (enc_ctx->mcd_state) {
+#if CONFIG_ENABLE_FILM_GRAIN
+            /* With automatic film grain, keep the original pixels for the grain
+             * analysis in Picture Decision: mc-denoise replaces the film grain
+             * denoise pass, so the estimate must not run on denoised pixels.
+             * Snapshot before the arrival hook (which may denoise immediately
+             * in low-delay / all-intra mode). Overlays carry no input pixels
+             * here and a fixed fgs_table bypasses the analysis entirely. */
+            if (pcs->scs->static_config.film_grain_denoise_strength == -1 && !pcs->scs->static_config.fgs_table &&
+                !pcs->is_overlay) {
+                const EbErrorType snap_err = mcd_fgs_snapshot(pcs);
+                if (snap_err != EB_ErrorNone) {
+                    return snap_err;
+                }
+            }
 #endif
-            }
-            // Padding for input pictures
-            svt_aom_pad_input_pictures(scs, input_pic);
-
-            // Pre processing operations performed on the input picture
-            svt_aom_picture_pre_processing_operations(pcs, scs);
-
-            if (input_pic->color_format >= EB_YUV422) {
-                // Jing: Do the conversion of 422/444=>420 here since it's multi-threaded kernel
-                //       Reuse the Y, only add cb/cr in the newly created buffer desc
-                //       NOTE: since denoise may change the src, so this part is after svt_aom_picture_pre_processing_operations()
-                pcs->chroma_downsampled_pic->y_buffer = input_pic->y_buffer;
-                svt_aom_down_sample_chroma(input_pic, pcs->chroma_downsampled_pic);
-            } else {
-                pcs->chroma_downsampled_pic = input_pic;
-            }
-
-            //not passing through the DS pool, so 1/4 and 1/16 are not used
-            pcs->ds_pics.picture_ptr           = input_pic;
-            pcs->ds_pics.quarter_picture_ptr   = NULL;
-            pcs->ds_pics.sixteenth_picture_ptr = NULL;
-            pcs->ds_pics.picture_number        = pcs->picture_number;
-
-            // Original path
-            // Get PA ref, copy 8bit luma to pa_ref->input_padded_pic
-            pa_ref_obj_                 = (EbPaReferenceObject*)pcs->pa_ref_pic_wrapper->object_ptr;
-            pa_ref_obj_->picture_number = pcs->picture_number;
-            input_padded_pic            = pa_ref_obj_->input_padded_pic;
-            if (!scs->allintra) {
-                // 1/4 & 1/16 input picture downsampling through filtering
-                svt_aom_downsample_filtering_input_picture(pcs,
-                                                           input_padded_pic,
-                                                           pa_ref_obj_->quarter_downsampled_picture_ptr,
-                                                           pa_ref_obj_->sixteenth_downsampled_picture_ptr);
-
-                pcs->ds_pics.quarter_picture_ptr   = pa_ref_obj_->quarter_downsampled_picture_ptr;
-                pcs->ds_pics.sixteenth_picture_ptr = pa_ref_obj_->sixteenth_downsampled_picture_ptr;
-            }
-        }
-        // Gathering statistics of input picture, including Variance Calculation, Histogram Bins
-        {
-            svt_aom_gathering_picture_statistics(
-                scs, pcs, input_padded_pic, pa_ref_obj_->sixteenth_downsampled_picture_ptr);
-
-            pa_ref_obj_->avg_luma = pcs->avg_luma;
-        }
-
-        // If running multi-threaded mode, perform SC detection in svt_aom_picture_analysis_kernel, else in svt_aom_picture_decision_kernel
-        if (scs->static_config.level_of_parallelism != 1) {
-            switch (scs->static_config.screen_content_mode) {
-            case 0:
-                pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = pcs->sc_class5 = 0;
-                break;
-            case 1:
-                pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 = pcs->sc_class5 = 1;
-                break;
-            case 2:
-                // SC Detection is OFF for 4K and higher
-                if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
-                    svt_aom_is_screen_content(pcs);
-                }
-                break;
-            case 3:
-                // Only I-frame classes are kept, so detect here only on guaranteed I-frames;
-                // Picture Decision handles the remaining I-frames.
-                pcs->sc_aa_detected = scs->allintra || pcs->idr_flag;
-                if (pcs->sc_aa_detected) {
-                    svt_aom_is_screen_content_antialiasing_aware(pcs);
-                }
-                break;
-            }
-            // Luma-dominant detection in MT mode
-            if (scs->detect_luma_dominant_input) {
-                pcs->is_luma_dominant_input = svt_aom_is_input_luma_dominant(pcs->chroma_downsampled_pic);
-            }
+            n_work = svt_mcd_pa_arrival(enc_ctx->mcd_state, pcs, in_results_ptr->pcs_wrapper, work_wrapper, work_pcs);
         }
     }
 
-    // Get Empty Results Object
-    svt_get_empty_object(pa_ctx->picture_analysis_results_output_fifo_ptr, &out_results_wrapper);
+    for (uint32_t work_i = 0; work_i < n_work; ++work_i) {
+        pcs = work_pcs[work_i];
 
-    PictureAnalysisResults* out_results = (PictureAnalysisResults*)out_results_wrapper->object_ptr;
-    out_results->pcs_wrapper            = in_results_ptr->pcs_wrapper;
+        // There is no need to do processing for overlay picture. Overlay and AltRef share the same
+        // results.
+        if (!pcs->is_overlay) {
+            SequenceControlSet* scs = pcs->scs;
+            input_pic               = pcs->enhanced_pic;
+            EbPictureBufferDesc* input_padded_pic;
+            {
+                if (scs->static_config.tune == TUNE_VMAF) {
+#if CONFIG_ENABLE_VMAF
+                    vmaf_preprocess_frame(pa_ctx, pcs);
+#endif
+                }
+                // Padding for input pictures
+                svt_aom_pad_input_pictures(scs, input_pic);
+
+                // Pre processing operations performed on the input picture
+                svt_aom_picture_pre_processing_operations(pcs, scs);
+
+                if (input_pic->color_format >= EB_YUV422) {
+                    // Jing: Do the conversion of 422/444=>420 here since it's multi-threaded kernel
+                    //       Reuse the Y, only add cb/cr in the newly created buffer desc
+                    //       NOTE: since denoise may change the src, so this part is after svt_aom_picture_pre_processing_operations()
+                    pcs->chroma_downsampled_pic->y_buffer = input_pic->y_buffer;
+                    svt_aom_down_sample_chroma(input_pic, pcs->chroma_downsampled_pic);
+                } else {
+                    pcs->chroma_downsampled_pic = input_pic;
+                }
+
+                //not passing through the DS pool, so 1/4 and 1/16 are not used
+                pcs->ds_pics.picture_ptr           = input_pic;
+                pcs->ds_pics.quarter_picture_ptr   = NULL;
+                pcs->ds_pics.sixteenth_picture_ptr = NULL;
+                pcs->ds_pics.picture_number        = pcs->picture_number;
+
+                // Original path
+                // Get PA ref, copy 8bit luma to pa_ref->input_padded_pic
+                pa_ref_obj_                 = (EbPaReferenceObject*)pcs->pa_ref_pic_wrapper->object_ptr;
+                pa_ref_obj_->picture_number = pcs->picture_number;
+                input_padded_pic            = pa_ref_obj_->input_padded_pic;
+                if (!scs->allintra) {
+                    // 1/4 & 1/16 input picture downsampling through filtering
+                    svt_aom_downsample_filtering_input_picture(pcs,
+                                                               input_padded_pic,
+                                                               pa_ref_obj_->quarter_downsampled_picture_ptr,
+                                                               pa_ref_obj_->sixteenth_downsampled_picture_ptr);
+
+                    pcs->ds_pics.quarter_picture_ptr   = pa_ref_obj_->quarter_downsampled_picture_ptr;
+                    pcs->ds_pics.sixteenth_picture_ptr = pa_ref_obj_->sixteenth_downsampled_picture_ptr;
+                }
+            }
+            // Gathering statistics of input picture, including Variance Calculation, Histogram Bins
+            {
+                svt_aom_gathering_picture_statistics(
+                    scs, pcs, input_padded_pic, pa_ref_obj_->sixteenth_downsampled_picture_ptr);
+
+                pa_ref_obj_->avg_luma = pcs->avg_luma;
+            }
+
+            // If running multi-threaded mode, perform SC detection in svt_aom_picture_analysis_kernel, else in svt_aom_picture_decision_kernel
+            if (scs->static_config.level_of_parallelism != 1) {
+                switch (scs->static_config.screen_content_mode) {
+                case 0:
+                    pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 =
+                        pcs->sc_class5                                                = 0;
+                    break;
+                case 1:
+                    pcs->sc_class0 = pcs->sc_class1 = pcs->sc_class2 = pcs->sc_class3 = pcs->sc_class4 =
+                        pcs->sc_class5                                                = 1;
+                    break;
+                case 2:
+                    // SC Detection is OFF for 4K and higher
+                    if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
+                        svt_aom_is_screen_content(pcs);
+                    }
+                    break;
+                case 3:
+                    // Only I-frame classes are kept, so detect here only on guaranteed I-frames;
+                    // Picture Decision handles the remaining I-frames.
+                    pcs->sc_aa_detected = scs->allintra || pcs->idr_flag;
+                    if (pcs->sc_aa_detected) {
+                        svt_aom_is_screen_content_antialiasing_aware(pcs);
+                    }
+                    break;
+                }
+                // Luma-dominant detection in MT mode
+                if (scs->detect_luma_dominant_input) {
+                    pcs->is_luma_dominant_input = svt_aom_is_input_luma_dominant(pcs->chroma_downsampled_pic);
+                }
+            }
+        }
+
+        // Get Empty Results Object
+        svt_get_empty_object(pa_ctx->picture_analysis_results_output_fifo_ptr, &out_results_wrapper);
+
+        PictureAnalysisResults* out_results = (PictureAnalysisResults*)out_results_wrapper->object_ptr;
+        out_results->pcs_wrapper            = work_wrapper[work_i];
+
+        // Post the Full Results Object
+        svt_post_full_object(out_results_wrapper);
+    }
 
     // Release the Input Results
     svt_release_object(in_results_wrapper_ptr);
-
-    // Post the Full Results Object
-    svt_post_full_object(out_results_wrapper);
 
     return EB_ErrorNone;
 }

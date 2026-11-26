@@ -46,6 +46,7 @@ set(all_files
     blend_a64_mask_avx2.c
     cdef_avx2.c
     cdef_block_avx2.c
+    mc_denoise_simd.c
     cdef_filter_block_avx2.c
     cfl_avx2.c
     comb_avg_sad_intrin_avx2.c
