@@ -827,6 +827,7 @@ cleanup:
 
 #endif /* EN_AVX512_SUPPORT */
 
+#if EN_AVX512_SUPPORT
 /* Mask-merge RTCD kernel: validates the call and drives the per-plane
  * vector merge. Returns MCD_ERR_PARAM without writing when unsupported. */
 int mcd_avx512_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
@@ -863,3 +864,4 @@ int mcd_avx512_mask_merge(const McdPlane* src_planes, const McdPlane* filt_plane
     free(mrows);
     return MCD_SUCCESS;
 }
+#endif /* EN_AVX512_SUPPORT */
