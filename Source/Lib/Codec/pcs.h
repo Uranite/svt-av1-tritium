@@ -784,6 +784,12 @@ typedef struct PictureParentControlSet {
     EbPictureBufferDesc* enhanced_pic;
     EbPictureBufferDesc* enhanced_downscaled_pic;
     EbPictureBufferDesc* enhanced_unscaled_pic;
+    /* Pre-mc-denoise snapshot of enhanced_pic (visible samples, no border).
+     * Taken in Picture Analysis when --mc-denoise is combined with automatic
+     * film grain (--film-grain -1), so the grain analysis in Picture Decision
+     * can estimate from the original pixels while the encoder codes the
+     * denoised ones. Consumed and released by the PD kernel; NULL otherwise. */
+    EbPictureBufferDesc* mcd_fgs_pic;
     // if 422/444 input, down sample to 420 for MD
     EbPictureBufferDesc*       chroma_downsampled_pic;
     bool                       is_chroma_downsampled_picture_ptr_owner;

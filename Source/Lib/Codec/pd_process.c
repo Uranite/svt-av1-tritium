@@ -5504,27 +5504,45 @@ EbErrorType svt_aom_picture_decision_kernel_iter(void* context) {
 #if CONFIG_ENABLE_FILM_GRAIN
         if (scs->static_config.film_grain_denoise_strength == -1 && !scs->static_config.fgs_table &&
             !pcs->has_film_grain_event) {
-            EbPictureBufferDesc* source = pcs->enhanced_pic;
+            /* mc-denoise + automatic film grain: estimate from the pre-denoise
+             * snapshot (original pixels) while the coded picture stays denoised.
+             * The motion-compensated denoiser replaces the film grain denoise
+             * pass, so neither the Wiener pass nor the picture-analysis refresh
+             * runs in that case. */
+            const bool           mcd_fgs = pcs->mcd_fgs_pic != NULL;
+            EbPictureBufferDesc* source  = mcd_fgs ? pcs->mcd_fgs_pic : pcs->enhanced_pic;
             if (!ctx->film_grain_analysis) {
                 ctx->film_grain_analysis = svt_aom_fga_create(source->width, source->height, source->bit_depth);
             }
-            PictureParentControlSet* next = scs->scd_delay ? pcs->pd_window[2] : NULL;
+            PictureParentControlSet* next     = scs->scd_delay ? pcs->pd_window[2] : NULL;
+            EbPictureBufferDesc*     next_pic = NULL;
+            if (next) {
+                next_pic = next->mcd_fgs_pic ? next->mcd_fgs_pic : next->enhanced_pic;
+            }
             if (!ctx->film_grain_analysis ||
                 !svt_aom_fga_run(ctx->film_grain_analysis,
                                  source,
-                                 next ? next->enhanced_pic : NULL,
+                                 next_pic,
                                  pcs->scene_change_flag,
-                                 scs->static_config.film_grain_denoise_apply,
+                                 mcd_fgs ? 0 : scs->static_config.film_grain_denoise_apply,
                                  &pcs->frm_hdr.film_grain_params)) {
                 SVT_ERROR("Automatic film grain analysis failed\n");
                 CHECK_REPORT_ERROR_NC(enc_ctx->app_callback_ptr, EB_ErrorUndefined);
                 svt_release_object(in_results_wrapper_ptr);
                 return EB_ErrorUndefined;
             }
-            if (scs->static_config.film_grain_denoise_apply) {
+            if (scs->static_config.film_grain_denoise_apply && !mcd_fgs) {
                 refresh_picture_analysis(pcs);
             }
             svt_aom_fga_apply_multiplier(&pcs->frm_hdr.film_grain_params, scs->static_config.fgs_multiplier);
+        }
+        /* The snapshot is consumed (the analysis keeps its own copy of the
+         * previous frame, and the next frame's snapshot is released only when
+         * that frame becomes the queue head). Release it unconditionally so
+         * event/table frames do not leak theirs. */
+        if (pcs->mcd_fgs_pic) {
+            EB_DELETE(pcs->mcd_fgs_pic);
+            pcs->mcd_fgs_pic = NULL;
         }
 #endif
 
