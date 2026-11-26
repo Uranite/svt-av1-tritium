@@ -4670,7 +4670,7 @@ static void set_still_image_fast_decode(SequenceControlSet* scs, const EbSvtAv1E
         set_fast_decode_qm_levels(&cfg->min_qm_level,
                                   &cfg->max_qm_level,
                                   5,
-                                  (user & SVT_AV1_FD_USER_QM_MIN) || config_struct->min_qm_level != 8,
+                                  (user & SVT_AV1_FD_USER_QM_MIN) || config_struct->min_qm_level != 4,
                                   (user & SVT_AV1_FD_USER_QM_MAX) || config_struct->max_qm_level != 15);
         set_fast_decode_qm_levels(&cfg->min_chroma_qm_level,
                                   &cfg->max_chroma_qm_level,
