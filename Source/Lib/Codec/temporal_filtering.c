@@ -2729,8 +2729,8 @@ static EbErrorType produce_temporally_filtered_pic(PictureParentControlSet** pcs
     };
     int decay_control[MAX_PLANES];
 
-    if (scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance &&
-        centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH) {
+    if ((scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance &&
+         centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH) || TRUE) {
         decay_control[PLANE_Y] = 1;
         decay_control[PLANE_U] = 1;
         decay_control[PLANE_V] = 1;
@@ -3295,8 +3295,8 @@ static EbErrorType produce_temporally_filtered_pic_ld(PictureParentControlSet** 
     };
     int decay_control;
 
-    if (scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance &&
-        centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH) {
+    if ((scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance &&
+         centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH) || TRUE) {
         decay_control = 1;
     } else {
         // Hyper-parameter for filter weight adjustment.
