@@ -729,6 +729,25 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
                         continue;
                     }
 
+                    const int32_t pri_strength = cdef_ctrls->default_first_pass_fs[gi] / CDEF_SEC_STRENGTHS;
+                    const int32_t sec_strength = cdef_ctrls->default_first_pass_fs[gi] % CDEF_SEC_STRENGTHS;
+
+                    if (scs->static_config.alt_cdef) {
+                        if (pli == 0) {
+                            if (pri_strength > alt_cdef1 || pri_strength < 0 || sec_strength > alt_cdef2 ||
+                                sec_strength < 0 || (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
+                                pcs->mse_seg[0][fb_idx][gi] = default_mse_uv * 64;
+                                continue;
+                            }
+                        } else {
+                            if (pri_strength > alt_cdef3 || pri_strength < 0 || sec_strength > alt_cdef4 ||
+                                sec_strength < 0 || (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
+                                pcs->mse_seg[1][fb_idx][gi] = default_mse_uv * 64;
+                                continue;
+                            }
+                        }
+                    }
+
 #if CDEF_8BITS_PATH
                     if (native_8bit) {
                         svt_cdef_filter_fb_lbd((uint8_t*)tmp_dst,
@@ -775,25 +794,6 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
                                            coeff_shift,
                                            subsampling_factor);
 #endif
-                    int32_t pri_strength = cdef_ctrls->default_first_pass_fs[gi] / CDEF_SEC_STRENGTHS;
-                    int32_t sec_strength = cdef_ctrls->default_first_pass_fs[gi] % CDEF_SEC_STRENGTHS;
-
-                    if (scs->static_config.alt_cdef) {
-                        if (pli == 0) {
-                            if (pri_strength > alt_cdef1 || pri_strength < 0 || sec_strength > alt_cdef2 ||
-                                sec_strength < 0 || (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
-                                pcs->mse_seg[0][fb_idx][gi] = default_mse_uv * 64;
-                                continue;
-                            }
-                        } else {
-                            if (pri_strength > alt_cdef3 || pri_strength < 0 || sec_strength > alt_cdef4 ||
-                                sec_strength < 0 || (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
-                                pcs->mse_seg[1][fb_idx][gi] = default_mse_uv * 64;
-                                continue;
-                            }
-                        }
-                    }
-
                     uint64_t curr_mse;
                     if (use_daala_cdef && pli == 0) {
                         curr_mse = compute_cdef_dist_daala(
@@ -838,6 +838,27 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
                     if (pli && (cdef_ctrls->default_second_pass_fs_uv[gi - first_pass_fs_num] == -1)) {
                         pcs->mse_seg[1][fb_idx][gi] = default_mse_uv * 64;
                         continue;
+                    }
+
+                    const int32_t pri_strength = cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num] /
+                        CDEF_SEC_STRENGTHS;
+                    const int32_t sec_strength = cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num] %
+                        CDEF_SEC_STRENGTHS;
+
+                    if (scs->static_config.alt_cdef) {
+                        if (pli == 0) {
+                            if (pri_strength > alt_cdef1 || pri_strength < 0 || sec_strength > alt_cdef2 ||
+                                sec_strength < 0 || (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
+                                pcs->mse_seg[0][fb_idx][gi] = default_mse_uv * 64;
+                                continue;
+                            }
+                        } else {
+                            if (pri_strength > alt_cdef3 || pri_strength < 0 || sec_strength > alt_cdef4 ||
+                                sec_strength < 0 || (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
+                                pcs->mse_seg[1][fb_idx][gi] = default_mse_uv * 64;
+                                continue;
+                            }
+                        }
                     }
 
 #if CDEF_8BITS_PATH
@@ -886,27 +907,6 @@ static void cdef_seg_search(CdefContext* ctx, PictureControlSet* pcs, SequenceCo
                                            coeff_shift,
                                            subsampling_factor);
 #endif
-                    int32_t pri_strength = cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num] /
-                        CDEF_SEC_STRENGTHS;
-                    int32_t sec_strength = cdef_ctrls->default_second_pass_fs[gi - first_pass_fs_num] %
-                        CDEF_SEC_STRENGTHS;
-
-                    if (scs->static_config.alt_cdef) {
-                        if (pli == 0) {
-                            if (pri_strength > alt_cdef1 || pri_strength < 0 || sec_strength > alt_cdef2 ||
-                                sec_strength < 0 || (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
-                                pcs->mse_seg[0][fb_idx][gi] = default_mse_uv * 64;
-                                continue;
-                            }
-                        } else {
-                            if (pri_strength > alt_cdef3 || pri_strength < 0 || sec_strength > alt_cdef4 ||
-                                sec_strength < 0 || (sec_strength == 3 ? 4 : sec_strength) > pri_strength) {
-                                pcs->mse_seg[1][fb_idx][gi] = default_mse_uv * 64;
-                                continue;
-                            }
-                        }
-                    }
-
                     uint64_t curr_mse;
                     if (use_daala_cdef && pli == 0) {
                         curr_mse = compute_cdef_dist_daala(
