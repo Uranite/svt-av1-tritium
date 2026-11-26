@@ -141,8 +141,8 @@ For more information on valid values for specific keys, refer to the [EbEncSetti
 | **MaxIntraBitratePct**          | --max-intra-bitrate-pct          | [0- ]      | 300         | Maximum bitrate for intra frames as a percentage of the target bitrate, 0 means no limit |
 | **MaxInterBitratePct**          | --max-inter-bitrate-pct          | [0- ]      | 0           | Maximum bitrate for inter frames as a percentage of the target bitrate, 0 means no limit |
 | **EnableQM**                     | --enable-qm                      | [0-1]      | 1           | Enable quantisation matrices                                                                                                                         |
-| **MinQmLevel**                   | --qm-min                         | [0-15]     | 6           | Min quant matrix flatness                                                                                                                            |
-| **MaxQmLevel**                   | --qm-max                         | [0-15]     | 10          | Max quant matrix flatness                                                                                                                            |
+| **MinQmLevel**                   | --qm-min                         | [0-15]     | 4           | Min quant matrix flatness                                                                                                                            |
+| **MaxQmLevel**                   | --qm-max                         | [0-15]     | 15          | Max quant matrix flatness                                                                                                                            |
 | **MinChromaQmLevel**             | --chroma-qm-min                  | [0-15]     | 8           | Min chroma quant matrix flatness                                                                                                                     |
 | **MaxChromaQmLevel**             | --chroma-qm-max                  | [0-15]     | 15          | Max chroma quant matrix flatness                                                                                                                     |
 | **LambdaScaleFactors**           | --lambda-scale-factors           | [0- ]      | '128,.,128' | list of scale factors for lambda values used for different SvtAv1FrameUpdateType, separated by `,` divide by 128 is the actual scale factor in float |
@@ -204,8 +204,8 @@ same weight, whereas with non-default ones, coefficients can have different weig
 the settings made by users. The deviation of weight (or flatness, equivalently)
 is controlled by arguments `MinQmLevel` and `MaxQmLevel`. There are sixteen quantization matrix levels,
 ranging from level 0 to level 15. The lower the level is the larger deviation of weight the
-quantization matrix will provide. Level 15 is fully flat in weight and is set as the default
-quantization matrix. A lower level quantization matrix typically results in bitstreams with
+quantization matrix will provide. Level 15 is fully flat in weight; the default level range is
+4 to 15 for luma and 8 to 15 for chroma. A lower level quantization matrix typically results in bitstreams with
 lower bitrate and slightly worse quality in CRF rate control mode. The reduction in bitrate is more
 obvious with low CRF than high CRF.
 
