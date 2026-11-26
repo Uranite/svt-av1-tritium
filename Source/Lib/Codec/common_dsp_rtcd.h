@@ -2125,11 +2125,11 @@ uint64_t svt_spatial_full_distortion_kernel_avx512(uint8_t *input, uint32_t inpu
 
 uint64_t svt_full_distortion_kernel16_bits_sse4_1(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
 uint64_t svt_full_distortion_kernel16_bits_avx2(uint8_t* input, uint32_t input_offset, uint32_t input_stride, uint8_t* recon, int32_t recon_offset, uint32_t recon_stride, uint32_t area_width, uint32_t area_height);
-RTCD_EXTERN void svt_residual_kernel16bit_sse2_intrin(uint16_t *input, uint32_t input_stride, uint16_t *pred,
+extern void svt_residual_kernel16bit_sse2_intrin(uint16_t *input, uint32_t input_stride, uint16_t *pred,
     uint32_t pred_stride, int16_t *residual,
     uint32_t residual_stride, uint32_t area_width,
     uint32_t area_height);
-RTCD_EXTERN void svt_residual_kernel16bit_avx2(uint16_t *input, uint32_t input_stride, uint16_t *pred,
+extern void svt_residual_kernel16bit_avx2(uint16_t *input, uint32_t input_stride, uint16_t *pred,
     uint32_t pred_stride, int16_t *residual,
     uint32_t residual_stride, uint32_t area_width,
     uint32_t area_height);
@@ -3346,7 +3346,7 @@ void svt_aom_lpf_vertical_6_sse2(uint8_t *s, int32_t pitch, const uint8_t *blimi
 
 void svt_aom_lpf_vertical_8_sse2(uint8_t *s, int32_t pitch, const uint8_t *blimit, const uint8_t *limit, const uint8_t *thresh);
 
-RTCD_EXTERN void svt_memcpy_intrin_sse (void  *dst_ptr, void  const *src_ptr, size_t size);
+extern void svt_memcpy_intrin_sse (void  *dst_ptr, void  const *src_ptr, size_t size);
 
 void svt_aom_hadamard_4x4_sse2(const int16_t *src_diff, ptrdiff_t src_stride, int32_t *coeff);
 #if CONFIG_ENABLE_HIGH_BIT_DEPTH
