@@ -1168,7 +1168,8 @@ ConfigDescription config_entry_specific[] = {
 
     {FGS_TABLE_TOKEN, "Set the film grain model table path"},
     {FGS_SEED_TOKEN,
-     "Film grain random seed(s), comma separated. -1 selects the built-in seed pool. Default is unset (legacy seed)"},
+     "Film grain seed (1-65535) or comma-separated list; -1 uses a sequence optimized to reduce "
+     "repeating grain patterns. Lists repeat one seed per frame; default changes the seed for each frame"},
     {FGS_MULTIPLIER_TOKEN,
      "Grain amplitude multiplier for --film-grain -1 only, default is 1 [0-2]; 0 disables synthesis"},
 
