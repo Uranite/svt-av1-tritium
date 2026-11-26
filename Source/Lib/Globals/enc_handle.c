@@ -4347,8 +4347,7 @@ static void set_param_based_on_input(SequenceControlSet* scs) {
     }
     if (scs->static_config.enable_daala >= 1 && scs->static_config.cdef_level != 0) {
         if (scs->static_config.alt_cdef) {
-            SVT_WARN("Daala CDEF is enabled; alt-cdef will be disabled.\n");
-            scs->static_config.alt_cdef = 0;
+            SVT_INFO("Daala CDEF is enabled; using the Daala metric with alt-cdef strength biasing on top.\n");
         }
         if (scs->static_config.cdef_scaling != 15) {
             SVT_WARN("Daala CDEF is enabled; cdef-scaling will be ignored.\n");
