@@ -322,8 +322,6 @@ Prevents the encoder from choosing extremely low quantizers for blocks/keyframes
 
 ### Modified Defaults
 
-While SVT-AV1-HDR has questionable defaults that I'd like to change, I don't want to make the fork situation worse by yet introducing another fork with different defaults that you'd have to learn and remember. Instead, I opted to keep SVT-AV1-HDR defaults, but enable Scene Change Detection and Auto Tiling on top of that
-
 SVT-AV1-Tritium includes SVT-AV1-HDR's Modified Defaults:
 
 - Set default encoding preset to 4.
