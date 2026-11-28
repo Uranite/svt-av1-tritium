@@ -4,7 +4,7 @@ SVT-AV1-Tritium is a fork of SVT-AV1-HDR aiming to incorporate features from SVT
 
 SVT-AV1-Tritium (and SVT-AV1-HDR) is the Scalable Video Technology for AV1 (SVT-AV1 Encoder) with perceptual enhancements for psychovisually optimal SDR and HDR AV1 encoding. The goal is to create the best encoding implementation for perceptual quality with AV1, with additional optimizations for HDR encoding and content with film grain.
 
-Expect diverged history when running `git pull` due to rebasing against SVT-AV1-HDR. If you encounter errors or conflicts, run `git fetch && git reset --hard origin/main` to update instead.
+Expect diverged history when running `git pull` due to rebasing against SVT-AV1-HDR.
 
 ## Downloads
 
