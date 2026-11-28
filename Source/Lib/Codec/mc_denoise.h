@@ -76,7 +76,7 @@ extern "C" {
 
 typedef struct McdConfig {
     uint8_t  tr; /* temporal radius, 1..MCD_MAX_TR                    */
-    uint32_t thsad; /* SAD soft threshold, normalized units, default 50  */
+    uint32_t thsad; /* SAD soft threshold, normalized units, default 100 */
     uint32_t blksize; /* analysis block size (square), 8/16/32, default 16 */
     bool     prefilter; /* 0 = none, 1 = dfttest                             */
     uint32_t sigma_pct; /* prefilter sigma scale, percent, default 50         */

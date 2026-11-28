@@ -1401,7 +1401,7 @@ typedef struct EbSvtAv1EncConfiguration {
     * noisy content; higher values may also remove detail. Zero disables
     * temporal reference contributions.
     *
-    * Default is 50. */
+    * Default is 100. */
     uint32_t mc_denoise_thsad;
 
     /* Motion-compensated denoiser analysis block size.

@@ -1213,7 +1213,7 @@ ConfigDescription config_entry_specific[] = {
     {MC_DENOISE_TR_TOKEN, "Temporal radius of the motion-compensated denoiser, default is 1 [1-3]"},
 
     {MC_DENOISE_THSAD_TOKEN,
-     "Denoiser SAD threshold (8x8 block at 8-bit depth); raise for noisier content, default is 50 [0-10000]"},
+     "Denoiser SAD threshold (8x8 block at 8-bit depth); raise for noisier content, default is 100 [0-10000]"},
 
     {MC_DENOISE_BLKSIZE_TOKEN, "Motion-compensated denoiser analysis block size, default is 16 [8, 16, 32]"},
 
