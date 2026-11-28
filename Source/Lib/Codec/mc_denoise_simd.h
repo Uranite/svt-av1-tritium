@@ -47,6 +47,9 @@ int mcd_avx2_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes,
                         uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
 int mcd_avx512_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes, McdPlane* out_planes,
                           uint32_t n_planes, uint32_t x_ss, uint32_t y_ss, uint32_t bitdepth);
+int mcd_avx2_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst, uint32_t bitdepth);
+int mcd_avx512_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
+                                      uint32_t bitdepth);
 
 /* Scalar C implementations (RTCD defaults) */
 uint64_t svt_mcd_simd_sad_u8u8_c(const uint8_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,

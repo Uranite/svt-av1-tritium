@@ -120,7 +120,8 @@ uint64_t svt_mcd_simd_sad_u16u16_c(const uint16_t* a, int32_t sa, const uint16_t
 
 static uint64_t mcd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                                uint64_t bound) {
-    if ((uint64_t)w * h * 65535ull < 0x7fffffffull) {
+    const uint64_t samples = (uint64_t)w * h;
+    if (samples <= 0x7ffffffeull / 65535ull) {
         return svt_mcd_simd_sad_u16u16(a, sa, b, sb, w, h, bound);
     }
     return svt_mcd_simd_sad_u16u16_c(a, sa, b, sb, w, h, bound);
@@ -128,9 +129,6 @@ static uint64_t mcd_sad_u16u16(const uint16_t* a, int32_t sa, const uint16_t* b,
 
 uint64_t svt_mcd_simd_sad_u8u16_c(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
                                   uint64_t bound) {
-    if ((uint64_t)w * h * 65535ull < 0x7fffffffull) {
-        return svt_mcd_simd_sad_u8u16(a, sa, b, sb, w, h, bound);
-    }
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
@@ -148,9 +146,6 @@ uint64_t svt_mcd_simd_sad_u8u16_c(const uint8_t* a, int32_t sa, const uint16_t* 
 
 uint64_t svt_mcd_simd_sad_u16u8_c(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
                                   uint64_t bound) {
-    if ((uint64_t)w * h * 65535ull < 0x7fffffffull) {
-        return svt_mcd_simd_sad_u16u8(a, sa, b, sb, w, h, bound);
-    }
     uint64_t sum = 0;
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
@@ -164,6 +159,27 @@ uint64_t svt_mcd_simd_sad_u16u8_c(const uint16_t* a, int32_t sa, const uint8_t* 
         b += sb;
     }
     return sum;
+}
+
+/* Keep the RTCD C entries above as genuine scalar fallbacks. The mixed-depth
+ * kernels accumulate into signed 32-bit SIMD lanes, so route oversized
+ * blocks around them here, at the same call layer used by u16/u16 SAD. */
+static uint64_t mcd_sad_u8u16(const uint8_t* a, int32_t sa, const uint16_t* b, int32_t sb, uint32_t w, uint32_t h,
+                              uint64_t bound) {
+    const uint64_t samples = (uint64_t)w * h;
+    if (samples <= 0x7ffffffeull / 65535ull) {
+        return svt_mcd_simd_sad_u8u16(a, sa, b, sb, w, h, bound);
+    }
+    return svt_mcd_simd_sad_u8u16_c(a, sa, b, sb, w, h, bound);
+}
+
+static uint64_t mcd_sad_u16u8(const uint16_t* a, int32_t sa, const uint8_t* b, int32_t sb, uint32_t w, uint32_t h,
+                              uint64_t bound) {
+    const uint64_t samples = (uint64_t)w * h;
+    if (samples <= 0x7ffffffeull / 65535ull) {
+        return svt_mcd_simd_sad_u16u8(a, sa, b, sb, w, h, bound);
+    }
+    return svt_mcd_simd_sad_u16u8_c(a, sa, b, sb, w, h, bound);
 }
 
 /* Block SAD between two planes; (ax,ay)/(bx,by) are signed sample coordinates
@@ -186,12 +202,12 @@ static uint64_t mcd_plane_sad(const McdPlane* pa, int32_t ax, int32_t ay, const 
     if (!pa->highbd) {
         const uint8_t*  a = (const uint8_t*)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint16_t* b = (const uint16_t*)pb->data + (ptrdiff_t)by * sb + bx;
-        return svt_mcd_simd_sad_u8u16_c(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
+        return mcd_sad_u8u16(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
     {
         const uint16_t* a = (const uint16_t*)pa->data + (ptrdiff_t)ay * sa + ax;
         const uint8_t*  b = (const uint8_t*)pb->data + (ptrdiff_t)by * sb + bx;
-        return svt_mcd_simd_sad_u16u8_c(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
+        return mcd_sad_u16u8(a, sa, b, sb, (uint32_t)w, (uint32_t)h, bound);
     }
 }
 

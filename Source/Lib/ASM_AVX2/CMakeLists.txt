@@ -36,6 +36,16 @@ if(MSVC)
     check_both_flags_add(/arch:AVX2)
 endif()
 
+# The DFT prefilter uses separate float multiply/add operations to match the
+# scalar implementation bit-for-bit. Keep the compiler from contracting them.
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    if(CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        set_source_files_properties(mc_denoise_simd.c PROPERTIES COMPILE_OPTIONS "/clang:-ffp-contract=off")
+    else()
+        set_source_files_properties(mc_denoise_simd.c PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+    endif()
+endif()
+
 set(all_files
     hadamard_path_avx2.c
     hadamard_avx.h

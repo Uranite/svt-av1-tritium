@@ -868,8 +868,8 @@ typedef struct EbSvtAv1EncConfiguration {
     /* Stores the optional film grain synthesis info */
     AomFilmGrain* fgs_table;
 
-    /* New parameters can go in under this line. Also deduct the size of the parameter */
-    /* from the padding array */
+    /* The former padding reserve is exhausted; changes to this public
+     * structure require an ABI compatibility review. */
 
     /* Variance Boost
      * false = disable Variance Boost
@@ -1383,7 +1383,7 @@ typedef struct EbSvtAv1EncConfiguration {
     /* Motion-compensated temporal denoising of the input picture
     * (dfttest-style spatial prefilter + hierarchical motion estimation +
     * SAD-weighted motion-compensated temporal aggregation).
-    * Appended here to preserve offsets of the existing public fields.
+    * These fields precede the film-grain seed fields in this layout.
     *
     * Default is 0 (off). */
     uint32_t mc_denoise;
@@ -1395,12 +1395,13 @@ typedef struct EbSvtAv1EncConfiguration {
     * Default is 1. */
     uint32_t mc_denoise_tr;
 
-    /* Motion-compensated denoiser SAD soft threshold. The unit is the mean
-    * absolute residual across the represented plane samples, scaled to 64
-    * samples at 8-bit range. Blocks above this threshold get no contribution
-    * from that reference.
+    /* Motion-compensated denoiser SAD soft threshold, normalized to the SAD
+    * of an 8x8 block at 8-bit depth. Blocks at or above this threshold get no
+    * contribution from that reference. Raise it for stronger denoising of
+    * noisy content; higher values may also remove detail. Zero disables
+    * temporal reference contributions.
     *
-    * Default is 50. */
+    * Default is 100. */
     uint32_t mc_denoise_thsad;
 
     /* Motion-compensated denoiser analysis block size.
@@ -1419,8 +1420,8 @@ typedef struct EbSvtAv1EncConfiguration {
     * Default is 50. */
     uint32_t mc_denoise_sigma;
 
-    /* Per-block scene change SAD threshold. Uses the same normalized mean
-    * absolute residual unit as mc_denoise_thsad.
+    /* Per-block scene change SAD threshold. Uses the same normalized SAD
+    * unit as mc_denoise_thsad.
     *
     * Default is 400. */
     uint32_t mc_denoise_thscd1;
@@ -1440,21 +1441,20 @@ typedef struct EbSvtAv1EncConfiguration {
     /* Film grain random seeds, cycled in display order.
     * Set through --fgs-seed / FilmGrainSeed; -1 selects the built-in pool.
     * Owned by the app; the library deep-copies it on set_parameter.
-    * Appended here to preserve offsets of the existing public fields.
+    * These fields follow the mc-denoise fields in this layout.
     * Default is NULL / 0. */
     uint32_t  fgs_seed_count;
     uint16_t* fgs_seeds;
 
     /* Grain amplitude multiplier for automatic film grain analysis
     * (--film-grain -1) only. Range [0, 2]; 0 disables synthesis.
-    * Appended here to preserve offsets of the existing public fields.
+    * This field follows the mc-denoise and film-grain seed fields.
     *
     * Default is 1. */
     float fgs_multiplier;
 
-    /* The trailing 128-byte padding reserve is fully consumed by the film-grain
-     * and mc-denoise fields above, so this struct now grows with new fields.
-     * sizeof(EbSvtAv1EncConfiguration) moves from 680 to 688. */
+    /* The former trailing padding reserve has been consumed. The structure
+     * size and offsets of the film-grain fields differ from older versions. */
 } EbSvtAv1EncConfiguration;
 
 /**

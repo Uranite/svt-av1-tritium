@@ -2095,6 +2095,14 @@ EbErrorType svt_aom_picture_analysis_kernel_iter(void* context) {
     {
         EncodeContext* enc_ctx = pcs->scs->enc_ctx;
         if (enc_ctx->mcd_state) {
+            /* mc-denoise copies the input before the regular PA path applies
+             * its padding. Fill the minimum-block-size right/bottom padding
+             * first so the denoiser sees the same edge extension as the
+             * later encoder stages. The regular full padding call below is
+             * retained for the rest of PA. */
+            if (!pcs->is_overlay) {
+                svt_aom_pad_picture_to_multiple_of_min_blk_size_dimensions(pcs->scs, pcs->enhanced_pic);
+            }
 #if CONFIG_ENABLE_FILM_GRAIN
             /* With automatic film grain, keep the original pixels for the grain
              * analysis in Picture Decision: mc-denoise replaces the film grain
