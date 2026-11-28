@@ -32,6 +32,7 @@ set(all_files
     SvtAv1EncFrameSkipApiTest.cc
     SvtAv1EncMetadataApiTest.cc
     SvtAv1EncFilmGrainApiTest.cc
+    SvtAv1EncMcDenoiseApiTest.cc
     SvtAv1EncParamsTest.cc
     SvtAv1EncReconApiTest.cc
     SvtAv1EncZonesApiTest.cc

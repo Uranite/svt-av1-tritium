@@ -52,6 +52,9 @@
  *   - Arrivals are ORDERED: a picture waits (with the mutex released) until
  *     the release watermark has reached its predecessor, so slots are filled
  *     and settled in picture order exactly as a serial arrival loop would.
+ *     This also applies in no-hold modes: each picture is denoised
+ *     immediately, so its available past neighbours must not depend on which
+ *     PA worker wins the arrival race.
  *     The wait is empty in the common case and only absorbs genuine
  *     reordering between PA threads; the copies it orders cost well under a
  *     millisecond at 1080p, against tens of milliseconds of denoise.
@@ -1345,7 +1348,8 @@ uint32_t svt_mcd_pa_arrival(void* state, struct PictureParentControlSet* pcs, Eb
      * removed). A stream in which no flagged pcs ever reaches this stage
      * would hang rather than silently corrupt. */
     const bool eos = pcs->end_of_sequence_flag;
-    /* Low-delay / all-intra: never hold pictures (see file header comment). */
+    /* Low-delay / all-intra: never hold pictures (see file header comment),
+     * but still order arrivals so their neighbour sets are deterministic. */
     const bool no_hold = (scs->static_config.pred_structure == LOW_DELAY) || scs->allintra;
 
     if (!pcs->is_overlay) {
@@ -1353,20 +1357,16 @@ uint32_t svt_mcd_pa_arrival(void* state, struct PictureParentControlSet* pcs, Eb
          * release decisions (and therefore every neighbour set) are
          * independent of PA thread timing. Normally the predecessor is
          * already settled and this loop does not spin at all; it only
-         * absorbs genuine reordering between PA threads. */
-        if (!no_hold) {
-            /* Wait for the predecessor to settle, WITHOUT a poll cap: RC
-             * posts pictures through the same FIFO in order, so the
-             * predecessor is always en route and the earliest unprocessed
-             * picture never waits — no deadlock, just ordered progress.
-             * The old poll-cap break let an arrival proceed out of order,
-             * evicting ring slots still needed as neighbours (and, via the
-             * lost settle, freezing the watermark). */
-            while (s->watermark_valid ? s->watermark + 1 < pcs->picture_number : pcs->picture_number != 0) {
-                svt_release_mutex(s->mutex);
-                mcd_wait_short();
-                svt_block_on_mutex(s->mutex);
-            }
+         * absorbs genuine reordering between PA threads. In no-hold mode it
+         * fixes which earlier frames are available to the immediate denoise.
+         * Wait WITHOUT a poll cap: RC posts pictures through the same FIFO in
+         * order, so the predecessor is always en route and the earliest
+         * unprocessed picture never waits — no deadlock, just ordered
+         * progress. */
+        while (s->watermark_valid ? s->watermark + 1 < pcs->picture_number : pcs->picture_number != 0) {
+            svt_release_mutex(s->mutex);
+            mcd_wait_short();
+            svt_block_on_mutex(s->mutex);
         }
         /* copy the pixels into the ring slot for this picture number */
         McdSlot* sl = &s->ring[pcs->picture_number % s->ring_len];
@@ -1453,14 +1453,10 @@ uint32_t svt_mcd_pa_arrival(void* state, struct PictureParentControlSet* pcs, Eb
                 b->pix_bytes[p] = b->pix_buf[p] ? (size_t)g.w[p] * g.h[p] * esz : 0;
             }
         }
-        /* The out-of-mutex copy is safe only in hold mode, where the
-         * unbreakable ordered-arrival wait serializes any picture that
-         * could touch this slot (number +/- ring_len). no_hold skips that
-         * wait entirely, so two PA threads can hold number N and
-         * N + ring_len concurrently: an out-of-mutex copy there races the
-         * later arrival's slot reset (heap UAF). Keep the copy under the
-         * mutex in no_hold mode -- its cost is bounded by one memcpy and
-         * no_hold denoises inline on this thread anyway. */
+        /* In hold mode, the ordered-arrival gate keeps later pictures out of
+         * the ring while this copy runs, so it can happen outside the mutex.
+         * Keep the existing no-hold copy-under-mutex path: the copy is a
+         * short memcpy, and this keeps its slot reservation and copy atomic. */
         int copy_rc;
         if (no_hold) {
             copy_rc = mcd_bufs_copy_pixels(s, b, pcs->enhanced_pic);
@@ -1550,12 +1546,10 @@ uint32_t svt_mcd_pa_arrival(void* state, struct PictureParentControlSet* pcs, Eb
          * the state mutex -- popping heads with a mid-copy neighbour
          * (divergent output) or draining the flush before the twin is held
          * (stranding it in the hold queue forever: encoder deadlock). */
-        if (!no_hold) {
-            while (s->watermark_valid ? s->watermark < pcs->picture_number : pcs->picture_number != 0) {
-                svt_release_mutex(s->mutex);
-                mcd_wait_short();
-                svt_block_on_mutex(s->mutex);
-            }
+        while (s->watermark_valid ? s->watermark < pcs->picture_number : pcs->picture_number != 0) {
+            svt_release_mutex(s->mutex);
+            mcd_wait_short();
+            svt_block_on_mutex(s->mutex);
         }
         out_wrappers[n_out] = pcs_wrapper;
         out_pcs[n_out]      = pcs;
