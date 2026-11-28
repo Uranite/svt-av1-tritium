@@ -625,3 +625,283 @@ int mcd_avx2_mask_merge(const McdPlane* src_planes, const McdPlane* filt_planes,
     free(mrows);
     return MCD_SUCCESS;
 }
+
+/* ================================================================== */
+/* AVX2 DFT prefilter: each float lane is one independent horizontal    */
+/* block. Every butterfly follows the scalar FFT's operation order.    */
+/* ================================================================== */
+
+#define MCD_AVX2_DFT_EPS (1e-15f)
+#define MCD_AVX2_DFT_LANES 8
+
+static int32_t mcd_avx2_dft_mirror(int32_t i, uint32_t w) {
+    if (w == 1) {
+        return 0;
+    }
+    while (i < 0 || i >= (int32_t)w) {
+        if (i < 0) {
+            i = -i - 1;
+        } else {
+            i = 2 * (int32_t)w - 1 - i;
+        }
+    }
+    return i;
+}
+
+/* One length-16 FFT across coefficient slots, with eight blocks in each
+ * vector. `stride` is the number of floats between coefficient slots. */
+static inline void mcd_fft16_avx2(float* re, float* im, const struct McdDftCtx* ctx, int inverse, uint32_t stride) {
+    for (uint32_t i = 0; i < MCD_DFT_N; i++) {
+        const uint32_t j = ctx->brev[i];
+        if (j > i) {
+            const __m256 r = _mm256_loadu_ps(re + i * stride);
+            const __m256 s = _mm256_loadu_ps(re + j * stride);
+            _mm256_storeu_ps(re + i * stride, s);
+            _mm256_storeu_ps(re + j * stride, r);
+            const __m256 ri = _mm256_loadu_ps(im + i * stride);
+            const __m256 si = _mm256_loadu_ps(im + j * stride);
+            _mm256_storeu_ps(im + i * stride, si);
+            _mm256_storeu_ps(im + j * stride, ri);
+        }
+    }
+
+    for (uint32_t len = 2; len <= MCD_DFT_N; len <<= 1) {
+        const uint32_t half = len >> 1;
+        const uint32_t step = MCD_DFT_N / len;
+        for (uint32_t base = 0; base < MCD_DFT_N; base += len) {
+            for (uint32_t j = 0; j < half; j++) {
+                const __m256 wr   = _mm256_set1_ps(ctx->twr[j * step]);
+                const __m256 wi   = _mm256_set1_ps(inverse ? -ctx->twi[j * step] : ctx->twi[j * step]);
+                float*       p_re = re + (base + j) * stride;
+                float*       p_im = im + (base + j) * stride;
+                float*       q_re = re + (base + j + half) * stride;
+                float*       q_im = im + (base + j + half) * stride;
+                const __m256 ar   = _mm256_loadu_ps(p_re);
+                const __m256 ai   = _mm256_loadu_ps(p_im);
+                const __m256 br   = _mm256_loadu_ps(q_re);
+                const __m256 bi   = _mm256_loadu_ps(q_im);
+                const __m256 tr   = _mm256_sub_ps(_mm256_mul_ps(br, wr), _mm256_mul_ps(bi, wi));
+                const __m256 ti   = _mm256_add_ps(_mm256_mul_ps(br, wi), _mm256_mul_ps(bi, wr));
+                _mm256_storeu_ps(p_re, _mm256_add_ps(ar, tr));
+                _mm256_storeu_ps(p_im, _mm256_add_ps(ai, ti));
+                _mm256_storeu_ps(q_re, _mm256_sub_ps(ar, tr));
+                _mm256_storeu_ps(q_im, _mm256_sub_ps(ai, ti));
+            }
+        }
+    }
+}
+
+/* Rows are contiguous across x slots; columns use a fixed-x stride. */
+static inline void mcd_fft2d_avx2(float* re, float* im, const struct McdDftCtx* ctx, int inverse) {
+    for (uint32_t y = 0; y < MCD_DFT_N; y++) {
+        mcd_fft16_avx2(re + y * MCD_DFT_N * MCD_AVX2_DFT_LANES,
+                       im + y * MCD_DFT_N * MCD_AVX2_DFT_LANES,
+                       ctx,
+                       inverse,
+                       MCD_AVX2_DFT_LANES);
+    }
+    for (uint32_t x = 0; x < MCD_DFT_N; x++) {
+        mcd_fft16_avx2(
+            re + x * MCD_AVX2_DFT_LANES, im + x * MCD_AVX2_DFT_LANES, ctx, inverse, MCD_DFT_N * MCD_AVX2_DFT_LANES);
+    }
+}
+
+/* Transform eight adjacent blocks beginning at (bx, by). Padding has extra
+ * initialized columns for inactive lanes in the final group; only `active`
+ * blocks are accumulated. */
+static void mcd_dfttest_group_avx2(const struct McdDftCtx* ctx, const float* pad, uint32_t pdw, int32_t bx, int32_t by,
+                                   uint32_t active, uint32_t w, uint32_t h, float* acc, float* re, float* im) {
+    const __m256i lane_offsets = _mm256_setr_epi32(0, 4, 8, 12, 16, 20, 24, 28);
+    for (uint32_t y = 0; y < MCD_DFT_N; y++) {
+        const float* prow = pad + (size_t)(by + (int32_t)y + MCD_DFT_PAD) * pdw + (bx + MCD_DFT_PAD);
+        for (uint32_t x = 0; x < MCD_DFT_N; x++) {
+            const __m256i ix   = _mm256_add_epi32(lane_offsets, _mm256_set1_epi32((int)x));
+            const __m256  v    = _mm256_mul_ps(_mm256_i32gather_ps(prow, ix, 4),
+                                               _mm256_set1_ps(ctx->win[y * MCD_DFT_N + x]));
+            const size_t  slot = (size_t)(y * MCD_DFT_N + x) * MCD_AVX2_DFT_LANES;
+            _mm256_storeu_ps(re + slot, v);
+            _mm256_storeu_ps(im + slot, _mm256_setzero_ps());
+        }
+    }
+
+    mcd_fft2d_avx2(re, im, ctx, 0);
+
+    if (ctx->sigma_pct) {
+        const __m256 gf   = _mm256_div_ps(_mm256_loadu_ps(re), _mm256_set1_ps(ctx->wfre[0]));
+        const __m256 eps  = _mm256_set1_ps(MCD_AVX2_DFT_EPS);
+        const __m256 zero = _mm256_setzero_ps();
+        for (uint32_t k = 0; k < MCD_DFT_N2; k++) {
+            const size_t slot    = (size_t)k * MCD_AVX2_DFT_LANES;
+            const __m256 wr      = _mm256_mul_ps(gf, _mm256_set1_ps(ctx->wfre[k]));
+            const __m256 wi      = _mm256_mul_ps(gf, _mm256_set1_ps(ctx->wfim[k]));
+            const __m256 real    = _mm256_sub_ps(_mm256_loadu_ps(re + slot), wr);
+            const __m256 imag    = _mm256_sub_ps(_mm256_loadu_ps(im + slot), wi);
+            const __m256 psd     = _mm256_add_ps(_mm256_mul_ps(real, real), _mm256_mul_ps(imag, imag));
+            const __m256 num     = _mm256_sub_ps(psd, _mm256_set1_ps(ctx->sigma2[k]));
+            const __m256 den     = _mm256_add_ps(psd, eps);
+            const __m256 divided = _mm256_div_ps(num, den);
+            const __m256 mult    = _mm256_blendv_ps(zero, divided, _mm256_cmp_ps(num, zero, _CMP_GT_OQ));
+            _mm256_storeu_ps(re + slot, _mm256_add_ps(_mm256_mul_ps(real, mult), wr));
+            _mm256_storeu_ps(im + slot, _mm256_add_ps(_mm256_mul_ps(imag, mult), wi));
+        }
+    }
+
+    mcd_fft2d_avx2(re, im, ctx, 1);
+
+    /* Serialize the overlap-add by block lane. This keeps the scalar block
+     * accumulation order for every output pixel. */
+    for (uint32_t b = 0; b < active; b++) {
+        const int32_t obx = bx + (int32_t)(MCD_DFT_STEP * b);
+        for (uint32_t y = 0; y < MCD_DFT_N; y++) {
+            const int32_t oy = by + (int32_t)y;
+            if (oy < 0 || oy >= (int32_t)h) {
+                continue;
+            }
+            float* ar = acc + (size_t)oy * w;
+            for (uint32_t x = 0; x < MCD_DFT_N; x++) {
+                const int32_t ox = obx + (int32_t)x;
+                if (ox >= 0 && ox < (int32_t)w) {
+                    const size_t slot = (size_t)(y * MCD_DFT_N + x) * MCD_AVX2_DFT_LANES + b;
+                    ar[ox] += re[slot] * ctx->win[y * MCD_DFT_N + x];
+                }
+            }
+        }
+    }
+}
+
+int mcd_avx2_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
+                                    uint32_t bitdepth) {
+    if (!ctx || !src || !dst || !src->data || (bitdepth != 8 && bitdepth != 10 && bitdepth != 12) ||
+        src->highbd != (bitdepth > 8)) {
+        return MCD_ERR_PARAM;
+    }
+    const uint32_t w = src->w;
+    const uint32_t h = src->h;
+    if (w == 0 || h == 0 || src->stride < w || w > INT32_MAX || h > INT32_MAX) {
+        return MCD_ERR_PARAM;
+    }
+
+    const uint32_t pmax      = (1u << bitdepth) - 1;
+    const float    iscale    = 1.0f / (float)(1u << (bitdepth - 8));
+    const float    oscale    = (float)(1u << (bitdepth - 8));
+    const size_t   elem_size = src->highbd ? sizeof(uint16_t) : sizeof(uint8_t);
+    if ((size_t)w > SIZE_MAX / h / elem_size) {
+        return MCD_ERR_NOMEM;
+    }
+
+    if (!dst->data) {
+        dst->data = malloc((size_t)w * h * elem_size);
+        if (!dst->data) {
+            return MCD_ERR_NOMEM;
+        }
+        dst->w      = w;
+        dst->h      = h;
+        dst->stride = w;
+        dst->highbd = src->highbd;
+    } else if (dst->w != w || dst->h != h || dst->stride < w || dst->highbd != src->highbd) {
+        return MCD_ERR_PARAM;
+    }
+
+    const uint32_t pw  = w + 2 * MCD_DFT_PAD;
+    const uint32_t ph  = h + 2 * MCD_DFT_PAD;
+    const uint32_t pdw = pw + MCD_DFT_STEP * (MCD_AVX2_DFT_LANES - 1) + MCD_DFT_N;
+    if ((size_t)pdw > SIZE_MAX / ph / sizeof(float)) {
+        return MCD_ERR_NOMEM;
+    }
+
+    int32_t* xmap    = malloc(sizeof(*xmap) * pdw);
+    int32_t* ymap    = malloc(sizeof(*ymap) * ph);
+    float*   pad     = malloc(sizeof(*pad) * (size_t)pdw * ph);
+    float*   acc     = calloc((size_t)w * h, sizeof(*acc));
+    float*   scratch = malloc(2 * MCD_DFT_N2 * MCD_AVX2_DFT_LANES * sizeof(*scratch));
+    int      ret     = MCD_SUCCESS;
+    if (!xmap || !ymap || !pad || !acc || !scratch) {
+        ret = MCD_ERR_NOMEM;
+        goto cleanup;
+    }
+
+    for (uint32_t x = 0; x < pdw; x++) {
+        xmap[x] = mcd_avx2_dft_mirror((int32_t)x - MCD_DFT_PAD, w);
+    }
+    for (uint32_t y = 0; y < ph; y++) {
+        ymap[y] = mcd_avx2_dft_mirror((int32_t)y - MCD_DFT_PAD, h);
+    }
+
+    for (uint32_t y = 0; y < ph; y++) {
+        const size_t srow = (size_t)ymap[y] * src->stride;
+        float*       prow = pad + (size_t)y * pdw;
+        if (src->highbd) {
+            const uint16_t* s = src->data;
+            for (uint32_t x = 0; x < pdw; x++) {
+                prow[x] = (float)s[srow + xmap[x]] * iscale;
+            }
+        } else {
+            const uint8_t* s = src->data;
+            for (uint32_t x = 0; x < pdw; x++) {
+                prow[x] = (float)s[srow + xmap[x]] * iscale;
+            }
+        }
+    }
+
+    {
+        const int32_t xmax = (int32_t)w - 1;
+        const int32_t ymax = (int32_t)h - 1;
+        float*        re   = scratch;
+        float*        im   = scratch + (size_t)MCD_DFT_N2 * MCD_AVX2_DFT_LANES;
+        for (int32_t by = -(MCD_DFT_N - MCD_DFT_STEP); by <= ymax; by += MCD_DFT_STEP) {
+            for (int32_t bx = -(MCD_DFT_N - MCD_DFT_STEP); bx <= xmax;) {
+                uint32_t active = 0;
+                while (active < MCD_AVX2_DFT_LANES && bx + (int32_t)(MCD_DFT_STEP * active) <= xmax) {
+                    active++;
+                }
+                mcd_dfttest_group_avx2(ctx, pad, pdw, bx, by, active, w, h, acc, re, im);
+                bx += (int32_t)(MCD_DFT_STEP * active);
+            }
+        }
+    }
+
+    if (dst->highbd) {
+        uint16_t* d = dst->data;
+        for (uint32_t y = 0; y < h; y++) {
+            uint16_t*    dr = d + (size_t)y * dst->stride;
+            const float* ar = acc + (size_t)y * w;
+            for (uint32_t x = 0; x < w; x++) {
+                int32_t v = (int32_t)(ar[x] * oscale + 0.5f);
+                if (v < 0) {
+                    v = 0;
+                }
+                if (v > (int32_t)pmax) {
+                    v = (int32_t)pmax;
+                }
+                dr[x] = (uint16_t)v;
+            }
+        }
+    } else {
+        uint8_t* d = dst->data;
+        for (uint32_t y = 0; y < h; y++) {
+            uint8_t*     dr = d + (size_t)y * dst->stride;
+            const float* ar = acc + (size_t)y * w;
+            for (uint32_t x = 0; x < w; x++) {
+                int32_t v = (int32_t)(ar[x] * oscale + 0.5f);
+                if (v < 0) {
+                    v = 0;
+                }
+                if (v > (int32_t)pmax) {
+                    v = (int32_t)pmax;
+                }
+                dr[x] = (uint8_t)v;
+            }
+        }
+    }
+
+cleanup:
+    free(xmap);
+    free(ymap);
+    free(pad);
+    free(acc);
+    free(scratch);
+    return ret;
+}
+
+#undef MCD_AVX2_DFT_EPS
+#undef MCD_AVX2_DFT_LANES

@@ -235,6 +235,113 @@ TEST_F(McDenoiseSimdTest, TwelveBitOutputKeepsNativeRange) {
     EXPECT_LE(mx, maxval);
 }
 
+#if defined(ARCH_X86_64)
+template <typename Sample>
+void compare_dft_scalar_and_avx2(uint32_t w, uint32_t h, uint32_t bitdepth,
+                                 uint32_t sigma_pct, uint32_t seed) {
+    const uint32_t src_stride = w + 5;
+    const uint32_t dst_stride = w + 3;
+    const uint32_t pmax = (1u << bitdepth) - 1u;
+    std::vector<Sample> srcbuf((size_t)src_stride * h, (Sample)0);
+    std::vector<Sample> scalarbuf((size_t)dst_stride * h, (Sample)0xa5);
+    std::vector<Sample> simdbuf((size_t)dst_stride * h, (Sample)0xa5);
+    for (uint32_t y = 0; y < h; y++) {
+        for (uint32_t x = 0; x < w; x++) {
+            srcbuf[(size_t)y * src_stride + x] =
+                (Sample)((seed + 173u * x + 257u * y + 29u * x * y) %
+                         (pmax + 1u));
+        }
+    }
+
+    McdPlane src = {w, h, src_stride, bitdepth > 8, srcbuf.data()};
+    McdPlane scalar = {w, h, dst_stride, bitdepth > 8, scalarbuf.data()};
+    McdPlane simd = {w, h, dst_stride, bitdepth > 8, simdbuf.data()};
+    McdDftCtx* ctx = nullptr;
+    ASSERT_EQ(MCD_SUCCESS, svt_mcd_dfttest_ctx_create(sigma_pct, &ctx));
+    ASSERT_NE(nullptr, ctx);
+
+    EXPECT_EQ(
+        MCD_SUCCESS,
+        svt_mcd_simd_dfttest_plane_with_ctx_c(ctx, &src, &scalar, bitdepth));
+    EXPECT_EQ(MCD_SUCCESS,
+              svt_mcd_simd_dfttest_plane_with_ctx(ctx, &src, &simd, bitdepth));
+    EXPECT_EQ(scalarbuf, simdbuf)
+        << "size=" << w << "x" << h << " bd=" << bitdepth
+        << " sigma=" << sigma_pct;
+    svt_mcd_dfttest_ctx_destroy(&ctx);
+}
+
+TEST_F(McDenoiseSimdTest, Avx2DftMatchesScalarAcrossDepthsAndTails) {
+    if (svt_mcd_simd_disabled()) {
+        GTEST_SKIP() << "MCD_NO_SIMD is set";
+    }
+    const EbCpuFlags available = svt_aom_get_cpu_flags_to_use();
+    if (!(available & EB_CPU_FLAGS_AVX2)) {
+        GTEST_SKIP() << "AVX2 is unavailable on this host";
+    }
+
+    struct RestoreRtcd {
+        ~RestoreRtcd() {
+            svt_aom_setup_common_rtcd_internal(svt_aom_get_cpu_flags_to_use());
+        }
+    } restore;
+#if EN_AVX512_SUPPORT
+    if (available & EB_CPU_FLAGS_AVX512F) {
+        svt_aom_setup_common_rtcd_internal(available);
+        ASSERT_EQ(mcd_avx512_dfttest_plane_with_ctx,
+                  svt_mcd_simd_dfttest_plane_with_ctx);
+    }
+#endif
+    /* Omit AVX-512 from the requested flags so this selects the AVX2 DFT
+     * implementation even in an AVX-512 build. */
+#if !CONFIG_X86_AVX2_IS_GUARANTEED
+    svt_aom_setup_common_rtcd_internal(0);
+    ASSERT_EQ(svt_mcd_simd_dfttest_plane_with_ctx_c,
+              svt_mcd_simd_dfttest_plane_with_ctx);
+#endif
+    svt_aom_setup_common_rtcd_internal(EB_CPU_FLAGS_AVX2);
+    ASSERT_EQ(mcd_avx2_dfttest_plane_with_ctx,
+              svt_mcd_simd_dfttest_plane_with_ctx);
+
+    struct FrameSize {
+        uint32_t w;
+        uint32_t h;
+    };
+    const FrameSize sizes[] = {{1, 1},
+                               {3, 2},
+                               {19, 7},
+                               {20, 9},
+                               {21, 11},
+                               {51, 17},
+                               {52, 19},
+                               {53, 13}};
+    const uint32_t depths[] = {8, 10, 12};
+    const uint32_t sigmas[] = {0, 50};
+
+    for (uint32_t bd : depths) {
+        for (uint32_t sigma : sigmas) {
+            for (const FrameSize& frame : sizes) {
+                /* Plane 0 covers mono and luma. Planes 1 and 2 use the
+                 * ceil-divided 4:2:0 chroma geometry for the same frame. */
+                for (uint32_t plane = 0; plane < 3; plane++) {
+                    const uint32_t w = plane == 0 ? frame.w : (frame.w + 1) / 2;
+                    const uint32_t h = plane == 0 ? frame.h : (frame.h + 1) / 2;
+                    const uint32_t seed =
+                        0x51a7u + 29u * bd + 7u * sigma + plane;
+                    if (bd == 8) {
+                        compare_dft_scalar_and_avx2<uint8_t>(
+                            w, h, bd, sigma, seed);
+                    } else {
+                        compare_dft_scalar_and_avx2<uint16_t>(
+                            w, h, bd, sigma, seed);
+                    }
+                }
+            }
+        }
+    }
+}
+#endif
+
 /* In-place merging (out aliasing src or filt) must produce exactly the
  * same planes as the out-of-place merge. The chroma box masks read
  * neighbouring luma, so an out==src merge needs the luma snapshot. */

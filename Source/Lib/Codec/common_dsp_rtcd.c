@@ -57,9 +57,6 @@ void mcd_avx512_halfpel_v_u16(const uint16_t* src, uint32_t sstride, uint32_t w,
                                 uint16_t* dst, uint32_t dstride, uint32_t maxval);
 int mcd_avx512_dfttest_plane_with_ctx(const struct McdDftCtx* ctx, const McdPlane* src, McdPlane* dst,
                                         uint32_t bitdepth);
-
-
-
 #if defined ARCH_X86_64
 #define AOM_ARCH_X86_64 ARCH_X86_64
 #include "third_party/aom/aom_ports/x86.h"
@@ -697,7 +694,18 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     if (mcd_no_simd) {
         SET_ONLY_C(svt_mcd_simd_dfttest_plane_with_ctx, svt_mcd_simd_dfttest_plane_with_ctx_c);
     } else {
-        SET_AVX512(svt_mcd_simd_dfttest_plane_with_ctx, svt_mcd_simd_dfttest_plane_with_ctx_c, mcd_avx512_dfttest_plane_with_ctx);
+        SET_AVX2_AVX512(svt_mcd_simd_dfttest_plane_with_ctx,
+                        svt_mcd_simd_dfttest_plane_with_ctx_c,
+                        mcd_avx2_dfttest_plane_with_ctx,
+                        mcd_avx512_dfttest_plane_with_ctx);
+    }
+#elif defined(ARCH_X86_64)
+    if (mcd_no_simd) {
+        SET_ONLY_C(svt_mcd_simd_dfttest_plane_with_ctx, svt_mcd_simd_dfttest_plane_with_ctx_c);
+    } else {
+        SET_AVX2(svt_mcd_simd_dfttest_plane_with_ctx,
+                 svt_mcd_simd_dfttest_plane_with_ctx_c,
+                 mcd_avx2_dfttest_plane_with_ctx);
     }
 #else
     SET_ONLY_C(svt_mcd_simd_dfttest_plane_with_ctx, svt_mcd_simd_dfttest_plane_with_ctx_c);
