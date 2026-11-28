@@ -27,6 +27,7 @@
 
 #include "aom_dsp_rtcd.h"
 #include "mc_denoise.h"
+#include "mc_denoise_simd.h"
 #include "random.h"
 
 namespace {
@@ -271,6 +272,93 @@ TEST_F(McDenoiseSimdTest, InPlaceMatchesOutOfPlace) {
             }
         }
     }
+}
+
+/* The normal mask-merge dispatch (AVX-512, AVX2, or C) must match the scalar
+ * reference for the depths supported by each vector kernel and its fallback. */
+TEST_F(McDenoiseSimdTest, MaskMergeDispatchMatchesScalar) {
+#if defined(ARCH_X86_64) || defined(ARCH_AARCH64)
+    const EbCpuFlags cpu_flags = svt_aom_get_cpu_flags_to_use();
+#else
+    const EbCpuFlags cpu_flags = 0;
+#endif
+
+    for (uint32_t bd = 8; bd <= 12; bd += 2) {
+        PlaneSet src, filt, scalar_out, dispatch_out;
+        fill_planes(src, bd, 0x7711u + bd);
+        fill_planes(filt, bd, 0x8822u + bd);
+        fill_planes(scalar_out, bd, 0x9933u + bd);
+        fill_planes(dispatch_out, bd, 0x9933u + bd);
+
+        ASSERT_EQ(MCD_SUCCESS,
+                  svt_mcd_simd_mask_merge_c(
+                      src.p, filt.p, scalar_out.p, 3, 1, 1, bd));
+
+        svt_aom_setup_common_rtcd_internal(cpu_flags);
+        ASSERT_EQ(MCD_SUCCESS,
+                  svt_mcd_prefilter_mask_merge(
+                      src.p, filt.p, dispatch_out.p, 3, 1, 1, bd));
+        for (int p = 0; p < 3; p++) {
+            EXPECT_EQ(scalar_out.buf[p].size(), dispatch_out.buf[p].size());
+            EXPECT_EQ(0,
+                      memcmp(scalar_out.buf[p].data(),
+                             dispatch_out.buf[p].data(),
+                             scalar_out.buf[p].size()))
+                << "bitdepth=" << bd << " plane=" << p;
+        }
+    }
+}
+
+/* The mixed-depth RTCD C entries must be terminal scalar implementations.
+ * Previously they called back through the RTCD pointer, recursing forever
+ * when the C path was selected. Check both orientations with C-only and the
+ * host's normal dispatch, including non-vector tails and padded strides. */
+TEST_F(McDenoiseSimdTest, MixedDepthSadCDispatchDoesNotRecurse) {
+    const uint32_t w = 19;
+    const uint32_t h = 7;
+    const int32_t s8 = 23;
+    const int32_t s16 = 24;
+    std::vector<uint8_t> low((size_t)s8 * h);
+    std::vector<uint16_t> high((size_t)s16 * h);
+    uint64_t expected = 0;
+    for (uint32_t y = 0; y < h; y++) {
+        for (uint32_t x = 0; x < w; x++) {
+            const uint8_t a = (uint8_t)((17 * x + 31 * y + 3) & 255);
+            const uint16_t b = (uint16_t)((113 * x + 227 * y + 59) & 4095);
+            low[(size_t)y * s8 + x] = a;
+            high[(size_t)y * s16 + x] = b;
+            expected += a > b ? a - b : b - a;
+        }
+    }
+
+    EXPECT_EQ(
+        expected,
+        svt_mcd_simd_sad_u8u16_c(low.data(), s8, high.data(), s16, w, h, 0));
+    EXPECT_EQ(
+        expected,
+        svt_mcd_simd_sad_u16u8_c(high.data(), s16, low.data(), s8, w, h, 0));
+
+#if !CONFIG_X86_AVX2_IS_GUARANTEED
+    svt_aom_setup_common_rtcd_internal(0);
+    EXPECT_EQ(
+        expected,
+        svt_mcd_simd_sad_u8u16(low.data(), s8, high.data(), s16, w, h, 0));
+    EXPECT_EQ(
+        expected,
+        svt_mcd_simd_sad_u16u8(high.data(), s16, low.data(), s8, w, h, 0));
+#endif
+
+#if defined(ARCH_X86_64) || defined(ARCH_AARCH64)
+    svt_aom_setup_common_rtcd_internal(svt_aom_get_cpu_flags_to_use());
+#else
+    svt_aom_setup_common_rtcd_internal(0);
+#endif
+    EXPECT_EQ(
+        expected,
+        svt_mcd_simd_sad_u8u16(low.data(), s8, high.data(), s16, w, h, 0));
+    EXPECT_EQ(
+        expected,
+        svt_mcd_simd_sad_u16u8(high.data(), s16, low.data(), s8, w, h, 0));
 }
 
 }  // namespace

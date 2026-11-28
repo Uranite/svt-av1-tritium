@@ -687,7 +687,8 @@ void svt_aom_setup_common_rtcd_internal(EbCpuFlags flags) {
     if (mcd_no_simd) {
         SET_ONLY_C(svt_mcd_simd_mask_merge, svt_mcd_simd_mask_merge_c);
     } else {
-        SET_AVX2(svt_mcd_simd_mask_merge, svt_mcd_simd_mask_merge_c, mcd_avx2_mask_merge);
+        SET_AVX2_AVX512(svt_mcd_simd_mask_merge, svt_mcd_simd_mask_merge_c, mcd_avx2_mask_merge,
+                        mcd_avx512_mask_merge);
     }
 #else
     SET_ONLY_C(svt_mcd_simd_mask_merge, svt_mcd_simd_mask_merge_c);
